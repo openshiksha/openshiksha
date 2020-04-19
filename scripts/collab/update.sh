@@ -27,11 +27,6 @@ echo
 echo 'Continuing...'
 echo
 
-echo "Pulling from upstream (oasis's fork)"
-git pull upstream master
-echo "Pushing to origin (your fork)"
-git push origin master
-
 echo -n "VIRTUAL ENV = "
 echo $VIRTUAL_ENV
 

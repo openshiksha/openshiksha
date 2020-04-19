@@ -6,7 +6,7 @@ Django==1.8.2
 django-debug-toolbar==1.4
 django-extensions==1.6.1
 docutils==0.12
-ecdsa==0.13
+ecdsa==0.13.3
 Fabric==1.10.2
 funcsigs==0.4
 gunicorn==19.4.5

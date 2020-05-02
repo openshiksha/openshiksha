@@ -96,9 +96,9 @@ elif ENVIRON == HWCentralEnv.LOCAL:
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
     EMAIL_HOST_PASSWORD = MAILGUN_SANDBOX_PASSWORD
 
-    DB_NAME = 'hwcentral_dev'
-    DB_PASSWORD = 'hwcentral'
-    DB_USER = 'root'
+    DB_NAME = 'openshiksha_dev'
+    DB_PASSWORD = 'socialseva'
+    DB_USER = 'os_user'
     DB_HOST = ''
     DB_PORT = ''
 

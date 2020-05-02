@@ -6,3 +6,5 @@
 *.pid
 
 static_root/
+
+.vscode/

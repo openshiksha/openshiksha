@@ -98,7 +98,7 @@ elif ENVIRON == HWCentralEnv.LOCAL:
 
     DB_NAME = 'openshiksha_dev'
     DB_PASSWORD = 'socialseva'
-    DB_USER = 'os_user'
+    DB_USER = 'openshiksha_app'
     DB_HOST = ''
     DB_PORT = ''
 

@@ -21,4 +21,4 @@ requests==2.20.0
 sh==1.11
 simplejson==3.8.2
 six==1.10.0
-sqlparse==0.1.19
+sqlparse==0.2.4

@@ -3,7 +3,7 @@ coverage==4.0.3
 datadog==0.11.0
 decorator==4.0.9
 Django==1.11.28
-django-debug-toolbar==2.2
+django-debug-toolbar==1.11
 django-extensions==2.2.9
 docutils==0.12
 ecdsa==0.13.3

@@ -1,11 +1,11 @@
 import os
 
 from core.models import Submission
-from core.utils.constants import HWCentralEnv
-from hwcentral import settings
+from core.utils.constants import OpenShikshaEnv
+from openshiksha import settings
 from scripts.database.question_bank_reloader import HOME_DIR
 
-CABINET_SUBMISSIONS_DIR = os.path.join(HOME_DIR, 'hwcentral-cabinet', 'submissions')
+CABINET_SUBMISSIONS_DIR = os.path.join(HOME_DIR, 'openshiksha-cabinet', 'submissions')
 
 
 def handle_submissions_dir(dir, submissions_db):
@@ -21,7 +21,7 @@ def handle_submissions_dir(dir, submissions_db):
 
 
 def run():
-    assert settings.ENVIRON == HWCentralEnv.LOCAL
+    assert settings.ENVIRON == OpenShikshaEnv.LOCAL
 
     # first build a set of all submission pks in the database
     submissions_db = set()

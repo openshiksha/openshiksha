@@ -5,7 +5,7 @@ from django.db.models import Q, Max, Avg, Sum
 from core.models import Submission, School, ClassRoom, SubjectRoom, AssignmentQuestionsList, OpenStudentHighest
 from core.utils.assignment import is_corrected_open_assignment
 from core.utils.base import UserUtils
-from core.utils.references import HWCentralGroup, HWCentralOpen, HWCentralRepo
+from core.utils.references import OpenShikshaGroup, OpenShikshaOpen, OpenShikshaRepo
 
 
 # TODO: reduce query duplication
@@ -38,8 +38,8 @@ def get_adjacent_open_submissions(assignment):
 
 class OpenStudentUtils(UserUtils):
     def __init__(self, open_student):
-        assert open_student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT
-        self.UTILS_GROUP = HWCentralGroup.refs.OPEN_STUDENT
+        assert open_student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT
+        self.UTILS_GROUP = OpenShikshaGroup.refs.OPEN_STUDENT
         super(OpenStudentUtils, self).__init__(open_student)
         self.standard = (self.user.classes_enrolled_set.get()).standard
 
@@ -55,7 +55,7 @@ class OpenStudentUtils(UserUtils):
         student_subjectroom_ids = self.user.subjects_enrolled_set.values_list('pk', flat=True)
 
         target_condition = (
-            Q(content_type=school_type, object_id=HWCentralOpen.refs.SCHOOL.pk) |
+            Q(content_type=school_type, object_id=OpenShikshaOpen.refs.SCHOOL.pk) |
             Q(content_type=classroom_type, object_id=(self.user.classes_enrolled_set.get()).pk) |
             Q(content_type=subjectroom_type,
               object_id__in=student_subjectroom_ids) |
@@ -92,7 +92,7 @@ class OpenStudentUtils(UserUtils):
 
         Returns None if no data
         """
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
         assert subjectroom.classRoom == self.user.classes_enrolled_set.get()
         # find all question sets for this subjectroom which user has attempted
         aqls = self.get_subjectroom_scores(subjectroom).values_list('submission__assignment__assignmentQuestionsList',
@@ -116,7 +116,7 @@ class OpenStudentUtils(UserUtils):
         """
         Returns None if no data
         """
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
         assert subjectroom.classRoom == self.user.classes_enrolled_set.get()
 
         # find all question sets for this subjectroom which user has attempted
@@ -129,7 +129,7 @@ class OpenStudentUtils(UserUtils):
 
     def get_completion(self, subjectroom):
 
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
         assert subjectroom.classRoom == self.user.classes_enrolled_set.get()
 
         # find all question sets for this subjectroom
@@ -158,7 +158,7 @@ class OpenStudentUtils(UserUtils):
 
     def get_proficiency(self, subjectroom):
 
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
         assert subjectroom.classRoom == self.user.classes_enrolled_set.get()
 
         # find all question sets for this subjectroom
@@ -187,7 +187,7 @@ def give_starting_boost(metric):
 
 
 def get_aqls_for_open_subjectroom(subjectroom):
-    return AssignmentQuestionsList.objects.filter(school=HWCentralRepo.refs.SCHOOL,
+    return AssignmentQuestionsList.objects.filter(school=OpenShikshaRepo.refs.SCHOOL,
                                                   subject=subjectroom.subject,
                                                   standard=subjectroom.classRoom.standard)
 
@@ -196,7 +196,7 @@ class OpenStudentSubjectIdUtils(OpenStudentUtils):
         super(OpenStudentSubjectIdUtils, self).__init__(student)
         self.subjectroom = subjectroom
         self.standard = subjectroom.classRoom.standard
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
         assert subjectroom.classRoom == self.user.classes_enrolled_set.get()
 
     def get_corrected(self):

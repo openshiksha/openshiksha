@@ -12,9 +12,9 @@ from core.models import Assignment, SubjectRoom, ClassRoom, AssignmentQuestionsL
 from core.routing.urlnames import UrlNames
 from core.utils.assignment import get_assignment_type, is_assignment_corrected, get_student_assignment_submission_type, \
     is_practice_assignment, is_student_assignment, is_open_assignment, is_corrected_open_assignment
-from core.utils.constants import HWCentralAssignmentType, HWCentralStudentAssignmentSubmissionType
+from core.utils.constants import OpenShikshaAssignmentType, OpenShikshaStudentAssignmentSubmissionType
 from core.utils.json import Json404Response
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.user_checks import is_subjectroom_student_relationship, \
     is_subjectteacher
 from core.view_drivers.ajax import AnnouncementsAjaxGet, QuestionSetChoiceWidgetAjaxGet
@@ -39,9 +39,9 @@ from core.view_drivers.submission_id import SubmissionIdGetUncorrected, Submissi
     SubmissionIdPostStudent
 from core.view_models.index import IndexViewModel
 from focus.models import FocusRoom
-from hwcentral import settings
-from hwcentral.exceptions import InvalidHWCentralAssignmentTypeError, InvalidStateError
-from hwcentral.settings import LOGIN_REDIRECT_URL
+from openshiksha import settings
+from openshiksha.exceptions import InvalidOpenShikshaAssignmentTypeError, InvalidStateError
+from openshiksha.settings import LOGIN_REDIRECT_URL
 
 
 def logout_wrapper(logout_view):
@@ -216,17 +216,17 @@ def assignment_id_get(request, assignment_id):
 
     assignment_type = get_assignment_type(assignment)
 
-    if assignment_type == HWCentralAssignmentType.STUDENT:
+    if assignment_type == OpenShikshaAssignmentType.STUDENT:
         # Student assignments should not be accessible from assignment_id
         raise Http404
-    elif assignment_type == HWCentralAssignmentType.INACTIVE:
+    elif assignment_type == OpenShikshaAssignmentType.INACTIVE:
         return AssignmentIdGetInactive(request, assignment).handle()
-    elif assignment_type == HWCentralAssignmentType.UNCORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.UNCORRECTED:
         return AssignmentIdGetUncorrected(request, assignment).handle()
-    elif assignment_type == HWCentralAssignmentType.CORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.CORRECTED:
         raise Http404  # Only submissions are viewed after an assignment has been corrected
     else:
-        raise InvalidHWCentralAssignmentTypeError(assignment_type)
+        raise InvalidOpenShikshaAssignmentTypeError(assignment_type)
 
 
 @login_required
@@ -238,16 +238,16 @@ def submission_id_get(request, submission_id):
 
     assignment_type = get_assignment_type(submission.assignment)
 
-    if assignment_type == HWCentralAssignmentType.STUDENT:
+    if assignment_type == OpenShikshaAssignmentType.STUDENT:
         return SubmissionIdGetStudent(request, submission).handle()
-    elif assignment_type == HWCentralAssignmentType.INACTIVE:
+    elif assignment_type == OpenShikshaAssignmentType.INACTIVE:
         raise InvalidStateError("Submission %s for inactive assignment %s" % (submission, submission.assignment))
-    elif assignment_type == HWCentralAssignmentType.UNCORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.UNCORRECTED:
         return SubmissionIdGetUncorrected(request, submission).handle()
-    elif assignment_type == HWCentralAssignmentType.CORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.CORRECTED:
         return SubmissionIdGetCorrected(request, submission).handle()
     else:
-        raise InvalidHWCentralAssignmentTypeError(assignment_type)
+        raise InvalidOpenShikshaAssignmentTypeError(assignment_type)
 
 
 @login_required
@@ -260,22 +260,22 @@ def submission_id_post(request, submission_id):
     # submissions can only be submitted for active+uncorrected/practice+uncorrected assignments
     assignment_type = get_assignment_type(submission.assignment)
 
-    if assignment_type == HWCentralAssignmentType.STUDENT:
+    if assignment_type == OpenShikshaAssignmentType.STUDENT:
         submission_type = get_student_assignment_submission_type(submission)
-        if submission_type == HWCentralStudentAssignmentSubmissionType.CORRECTED:
+        if submission_type == OpenShikshaStudentAssignmentSubmissionType.CORRECTED:
             raise Http404
-        elif submission_type == HWCentralStudentAssignmentSubmissionType.UNCORRECTED:
+        elif submission_type == OpenShikshaStudentAssignmentSubmissionType.UNCORRECTED:
             return SubmissionIdPostStudent(request, submission).handle()
         else:
-            raise InvalidHWCentralAssignmentTypeError(submission_type)
-    elif assignment_type == HWCentralAssignmentType.INACTIVE:
+            raise InvalidOpenShikshaAssignmentTypeError(submission_type)
+    elif assignment_type == OpenShikshaAssignmentType.INACTIVE:
         raise InvalidStateError("Submission %s for inactive assignment %s" % (submission, submission.assignment))
-    elif assignment_type == HWCentralAssignmentType.UNCORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.UNCORRECTED:
         return SubmissionIdPostUncorrected(request, submission).handle()
-    elif assignment_type == HWCentralAssignmentType.CORRECTED:
+    elif assignment_type == OpenShikshaAssignmentType.CORRECTED:
         raise Http404
     else:
-        raise InvalidHWCentralAssignmentTypeError(assignment_type)
+        raise InvalidOpenShikshaAssignmentTypeError(assignment_type)
 
 @login_required
 @statsd.timed('core.chart.student')
@@ -286,7 +286,7 @@ def student_chart_get(request, student_id):
         student = get_object_or_404(User, pk=student_id)
     except Http404, e:
         return Json404Response(e)
-    if student.userinfo.group != HWCentralGroup.refs.STUDENT and student.userinfo.group != HWCentralGroup.refs.OPEN_STUDENT:
+    if student.userinfo.group != OpenShikshaGroup.refs.STUDENT and student.userinfo.group != OpenShikshaGroup.refs.OPEN_STUDENT:
         return Json404Response()
 
     return StudentChartGet(request, student).handle()

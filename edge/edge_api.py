@@ -3,9 +3,9 @@ from collections import namedtuple
 from django.db.models import Avg
 
 from core.models import SubjectRoom
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from edge.models import Tick, StudentProficiency, SubjectRoomProficiency, SubjectRoomQuestionMistake
-from scripts.database.question_bank_reset import hwcentral_truncate_tables
+from scripts.database.question_bank_reset import truncate_tables
 
 
 def register_tick(question, mark, submission):
@@ -39,8 +39,8 @@ def process_ticks():
     for tick in Tick.objects.filter(ack=False):
         # find its student
         student = tick.student
-        assert (student.userinfo.group == HWCentralGroup.refs.STUDENT or
-                student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT)
+        assert (student.userinfo.group == OpenShikshaGroup.refs.STUDENT or
+                student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT)
 
         # for every questiontag covered
         for questiontag in tick.question.tags.all():
@@ -160,7 +160,7 @@ def update_subjectroom_proficiencies(proficiency_groups_processed):
 
 
 def reset_edge_data():
-    hwcentral_truncate_tables([
+    truncate_tables([
         'edge_tick',
         'edge_studentproficiency',
         'edge_subjectroomproficiency',

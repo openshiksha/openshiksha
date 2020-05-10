@@ -4,7 +4,7 @@ from django.shortcuts import render
 from core.forms.open_classroom import OpenClassRoomForm
 from core.forms.practice import OpenAssignmentForm
 from core.routing.urlnames import UrlNames
-from core.utils.references import HWCentralGroup, HWCentralOpen
+from core.utils.references import OpenShikshaGroup, OpenShikshaOpen
 from core.utils.toast import redirect_with_success_toast
 from core.view_drivers.base import GroupDrivenViewGroupDrivenTemplate
 from core.view_models.base import AuthenticatedVM
@@ -44,8 +44,8 @@ class HomeGet(GroupDrivenViewGroupDrivenTemplate):
 
 
 def change_open_student_classroom(open_student, classroom):
-    assert open_student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT
-    assert classroom.school == HWCentralOpen.refs.SCHOOL
+    assert open_student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT
+    assert classroom.school == OpenShikshaOpen.refs.SCHOOL
 
     if open_student in classroom.students.all():
         return

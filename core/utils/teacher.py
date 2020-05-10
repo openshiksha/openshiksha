@@ -6,7 +6,7 @@ from django.db.models import Q, Sum, Avg
 from core.models import School, ClassRoom, SubjectRoom, Assignment, Submission
 from core.utils.assignment import is_assignment_active, is_assignment_corrected
 from core.utils.base import UserUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from focus.models import FocusRoom
 
 
@@ -157,7 +157,7 @@ class TeacherGroupUtils(object):
     """
 
     def __init__(self):
-        self.UTILS_GROUP = HWCentralGroup.refs.TEACHER
+        self.UTILS_GROUP = OpenShikshaGroup.refs.TEACHER
 
 class TeacherUtils(TeacherGroupUtils, TeacherAdminSharedUtils):
     def __init__(self, teacher):

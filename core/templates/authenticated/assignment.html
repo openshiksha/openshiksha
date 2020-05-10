@@ -52,11 +52,11 @@
 
                 <div id="actionrow">
                 <a title="Generate a read-only preview of the assignment in the format it will be provided to students"
-                   class="no-decoration hwcentral_action_button disabled_action_button" id="preview_link"
+                   class="no-decoration action_button disabled_action_button" id="preview_link"
                    target="_blank">
                     Preview HomeWork
                 </a>
-                <input id='submit_button' class='hwcentral_action_button no-decoration'
+                <input id='submit_button' class='action_button no-decoration'
                        type='submit' value='Set The Assignment'
                        title="Assign the selected question set to the selected subjectroom"/>
                 </div>
@@ -65,13 +65,13 @@
             <hr>
             {% if form.question_set_override %}
                 <div class="hidden" id="override-active"></div>
-                <p>Go back to assigning question sets for the same standard <a id="same-standard-button" class="override_button no-decoration hwcentral_action_button"
+                <p>Go back to assigning question sets for the same standard <a id="same-standard-button" class="override_button no-decoration action_button"
                         title="Click here to go back to select question sets for the chosen standard only"
                         href="{% url 'assignment' %}">Questions for same standard</a></p>
             {% else %}
                 <p>You can also assign homework using question sets for a different standard <a
                         title="Click here to assign question sets from lower standards to higher standards" id="all-standards-button"
-                        href="{% url 'assignment_override' %}" class='hwcentral_action_button no-decoration override_button'>Questions for all standards</a></p>
+                        href="{% url 'assignment_override' %}" class='action_button no-decoration override_button'>Questions for all standards</a></p>
             {% endif %}
         {% endwith %}
     </div>

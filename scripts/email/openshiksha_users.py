@@ -1,5 +1,5 @@
 # to use this script, run following command from the terminal
-# python manage.py runscript scripts.email.hwcentral_users --script-args="#s school_id #g parent #a
+# python manage.py runscript scripts.email.openshiksha_users --script-args="#s school_id #g parent #a
 
 # description
 #
@@ -24,9 +24,9 @@ from django.db.models import Q
 from django.template import Template, Context
 
 from core.models import ClassRoom, SubjectRoom, Home
-from hwcentral import settings
+from openshiksha import settings
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hwcentral_users_data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'openshiksha_users_data')
 EMAIL_SUBJECT_FILE = os.path.join(DATA_DIR, 'subject.html')
 EMAIL_BODY_FILE = os.path.join(DATA_DIR, 'body.html')
 

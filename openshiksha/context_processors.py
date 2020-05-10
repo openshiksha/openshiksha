@@ -1,8 +1,8 @@
 from django.contrib.sites.models import Site
 from django.core.urlresolvers import reverse
 
-from core.utils.constants import HWCentralEnv
-from hwcentral.settings import ENVIRON, CONTACT_PHONE, CONTACT_EMAIL, SALES_PHONE, OVERVIEW_VIDEO_PK
+from core.utils.constants import OpenShikshaEnv
+from openshiksha.settings import ENVIRON, CONTACT_PHONE, CONTACT_EMAIL, SALES_PHONE, OVERVIEW_VIDEO_PK
 from lodge.lodge_api import get_video_uri
 
 
@@ -11,7 +11,7 @@ def settings(request):
     Context Processor that provides access to the current settings for all templates
     """
     return {
-        'ENABLE_ANALYTICS': (ENVIRON == HWCentralEnv.PROD),
+        'ENABLE_ANALYTICS': (ENVIRON == OpenShikshaEnv.PROD),
         'CONTACT_PHONE': CONTACT_PHONE,
         'SALES_PHONE': SALES_PHONE,
         'CONTACT_EMAIL': CONTACT_EMAIL,

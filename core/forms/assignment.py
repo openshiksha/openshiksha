@@ -10,7 +10,7 @@ from core.forms.fields import CustomLabelModelChoiceField
 from core.forms.widgets import ChosenNoSearchSelect
 from core.models import AssignmentQuestionsList
 from core.utils.labels import get_subjectroom_label, get_aql_label
-from core.utils.references import HWCentralRepo
+from core.utils.references import OpenShikshaRepo
 
 
 class AssignmentForm(forms.Form):
@@ -24,7 +24,7 @@ class AssignmentForm(forms.Form):
 
         self.question_set_override = question_set_override
 
-        school_filter = Q(school=teacher.userinfo.school) | Q(school=HWCentralRepo.refs.SCHOOL)
+        school_filter = Q(school=teacher.userinfo.school) | Q(school=OpenShikshaRepo.refs.SCHOOL)
 
         subjectrooms = teacher.subjects_managed_set.all()
 

@@ -9,7 +9,7 @@ from core.utils.toast import redirect_with_success_toast
 from core.view_drivers.base import GroupDrivenViewCommonTemplate
 from core.view_models.announcement import AnnouncementBody
 from core.view_models.base import AuthenticatedVM
-from hwcentral.exceptions import InvalidStateError
+from openshiksha.exceptions import InvalidStateError
 
 
 class AnnouncementDriver(GroupDrivenViewCommonTemplate):

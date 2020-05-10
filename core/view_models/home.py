@@ -7,13 +7,13 @@ from core.utils.admin import AdminUtils
 from core.utils.labels import get_datetime_label, get_classroom_label, get_subjectroom_label, get_percentage_label, \
     get_user_label, get_average_label, get_focusroom_label, get_date_label
 from core.utils.open_student import OpenStudentUtils, calculate_open_aql_average
-from core.utils.references import HWCentralOpen
+from core.utils.references import OpenShikshaOpen
 from core.utils.student import StudentUtils
 from core.utils.teacher import TeacherUtils
 from core.view_models.base import AuthenticatedBody, FormBody
 from core.view_models.utils import Link
 from focus.models import Remedial
-from hwcentral.exceptions import InvalidContentTypeError
+from openshiksha.exceptions import InvalidContentTypeError
 
 
 class AssignmentRowBase(object):
@@ -190,7 +190,7 @@ class OpenStudentHomeBody(FormBody, HomeBody):
         self.username = user.username  # used as suffix on the id for the active assignments table
 
         self.grade = user.classes_enrolled_set.get().standard.number
-        self.grade_options = [(classroom.pk, classroom.standard.number) for classroom in HWCentralOpen.refs.CLASSROOMS]
+        self.grade_options = [(classroom.pk, classroom.standard.number) for classroom in OpenShikshaOpen.refs.CLASSROOMS]
         self.grade_change_form = OpenClassRoomForm()
         self.grade_change_form_url_name = UrlNames.HOME.name
 

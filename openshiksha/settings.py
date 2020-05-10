@@ -1,4 +1,4 @@
-# Django settings for hwcentral project.
+# Django settings for openshiksha project.
 
 import os
 import sys
@@ -6,37 +6,30 @@ import sys
 from django.core.urlresolvers import reverse
 
 from core.routing.urlnames import UrlNames
-from core.utils.constants import HWCentralEnv
-from hwcentral.exceptions import InvalidHWCentralEnvError
+from core.utils.constants import OpenShikshaEnv
+from openshiksha.exceptions import InvalidOpenShikshaEnvError
 
-HWCENTRAL_CONFIG_ROOT = '/etc/hwcentral'
-
-CONTACT_PHONE = '7057216343'
-SALES_PHONE = '9922498624'
+CONTACT_PHONE = '+1 6509249134'
+SALES_PHONE = '+1 6509249134'
 CONTACT_EMAIL = 'contact@openshiksha.org'
 
 OVERVIEW_VIDEO_PK = 1
 
 # set environ and debug values
-if os.path.isfile(os.path.join(HWCENTRAL_CONFIG_ROOT, 'prod')):
-    ENVIRON = HWCentralEnv.PROD
+if os.getenv('OPENSHIKSHA_ENV') == 'PROD':
+    ENVIRON = OpenShikshaEnv.PROD
     DEBUG = False
 
 # check if running on qa
-elif os.path.isfile(os.path.join(HWCENTRAL_CONFIG_ROOT, 'qa')):
-    ENVIRON = HWCentralEnv.QA
-    DEBUG = False
-
-# check if running on circleCI
-elif os.environ.get('CIRCLECI') == 'true':
-    ENVIRON = HWCentralEnv.CIRCLECI
+elif os.getenv('OPENSHIKSHA_ENV') == 'QA':
+    ENVIRON = OpenShikshaEnv.QA
     DEBUG = False
 
 else:
-    ENVIRON = HWCentralEnv.LOCAL
+    ENVIRON = OpenShikshaEnv.LOCAL
     DEBUG = True
 
-SLEEP_MODE = os.path.isfile(os.path.join(HWCENTRAL_CONFIG_ROOT, 'sleep'))
+SLEEP_MODE = bool(os.getenv('OPENSHIKSHA_SLEEP_MODE'))
 # uncomment the line below to test SLEEP mode locally
 # SLEEP_MODE = True
 
@@ -45,56 +38,40 @@ PASSWORD_RESET_TIMEOUT_DAYS = 7
 SETTINGS_ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SETTINGS_ROOT)
 
-VISIBLE_SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
-MAILGUN_HOST = 'smtp.mailgun.org'
+LOCAL_SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
 MAILGUN_SANDBOX_USER = 'postmaster@sandboxab360baee25e495dbb8dd423eab0e2fb.mailgun.org'
 MAILGUN_SANDBOX_FROM_EMAIL = 'OpenShiksha Sandbox <%s>' % MAILGUN_SANDBOX_USER
-MAILGUN_SANDBOX_PASSWORD = '6ad200251e795d5ed5bbb9d3ad717a6b'
+MAILGUN_HOST = 'smtp.mailgun.org'
 
-if ENVIRON == HWCentralEnv.PROD:
-    with open(os.path.join(HWCENTRAL_CONFIG_ROOT, 'secret_key.txt'), 'r') as f:
-        SECRET_KEY = f.read().strip()
+if ENVIRON == OpenShikshaEnv.PROD:
+    SECRET_KEY = os.getenv('OPENSHIKSHA_SECRET_KEY')
     EMAIL_HOST_USER = 'postmaster@openshiksha.org'
     DEFAULT_FROM_EMAIL = 'OpenShiksha <%s>' % EMAIL_HOST_USER
-    with open(os.path.join(HWCENTRAL_CONFIG_ROOT, 'mailgun_password.txt'), 'r') as f:
-        EMAIL_HOST_PASSWORD = f.read().strip()
+    EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_NAME = 'hwcentral_prod'
-    with open(os.path.join(HWCENTRAL_CONFIG_ROOT, 'db_password.txt'), 'r') as f:
-        DB_PASSWORD = f.read().strip()
-    DB_USER = 'hwcentral'
-    DB_HOST = '10.130.43.53'
-    DB_PORT = '3306'
+    DB_NAME = 'openshiksha_prod'
+    DB_PASSWORD = os.getenv('OPENSHIKSHA_DB_PASSWORD')
+    DB_USER = 'openshiksha_app'
+    DB_HOST = os.getenv('OPENSHIKSHA_DB_HOST')
+    DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
-elif ENVIRON == HWCentralEnv.QA:
-    SECRET_KEY = VISIBLE_SECRET_KEY
+elif ENVIRON == OpenShikshaEnv.QA:
+    SECRET_KEY = os.getenv('OPENSHIKSHA_SECRET_KEY')
     EMAIL_HOST_USER = MAILGUN_SANDBOX_USER
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
-    EMAIL_HOST_PASSWORD = MAILGUN_SANDBOX_PASSWORD
+    EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_NAME = 'hwcentral_qa'
-    DB_PASSWORD = 'Fvdqk2sx399jG7SSzCrUcZVDBO4'
-    DB_USER = 'hwcentral'
-    DB_HOST = '10.130.97.154'
-    DB_PORT = '3306'
+    DB_NAME = 'openshiksha_qa'
+    DB_PASSWORD = os.getenv('OPENSHIKSHA_DB_PASSWORD')
+    DB_USER = 'openshiksha_app'
+    DB_HOST = os.getenv('OPENSHIKSHA_DB_HOST')
+    DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
-elif ENVIRON == HWCentralEnv.CIRCLECI:
-    SECRET_KEY = VISIBLE_SECRET_KEY
+elif ENVIRON == OpenShikshaEnv.LOCAL:
+    SECRET_KEY = LOCAL_SECRET_KEY
     EMAIL_HOST_USER = MAILGUN_SANDBOX_USER
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
-    EMAIL_HOST_PASSWORD = MAILGUN_SANDBOX_PASSWORD
-
-    DB_NAME = 'hwcentral_qa'
-    DB_USER = 'hwcentral'
-    DB_PASSWORD = 'Fvdqk2sx399jG7SSzCrUcZVDBO4'
-    DB_HOST = '127.0.0.1'
-    DB_PORT = '8006'
-
-elif ENVIRON == HWCentralEnv.LOCAL:
-    SECRET_KEY = VISIBLE_SECRET_KEY
-    EMAIL_HOST_USER = MAILGUN_SANDBOX_USER
-    DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
-    EMAIL_HOST_PASSWORD = MAILGUN_SANDBOX_PASSWORD
+    EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
     DB_NAME = 'openshiksha_dev'
     DB_PASSWORD = 'socialseva'
@@ -103,7 +80,7 @@ elif ENVIRON == HWCentralEnv.LOCAL:
     DB_PORT = ''
 
 else:
-    raise InvalidHWCentralEnvError(ENVIRON)
+    raise InvalidOpenShikshaEnvError(ENVIRON)
 
 ADMINS = (
     ('OpenShiksha Exception', 'exception@openshiksha.org'),
@@ -201,7 +178,7 @@ TEMPLATES = [
         'OPTIONS': {
             'debug': DEBUG,
             'context_processors': [
-                'hwcentral.context_processors.settings',
+                'openshiksha.context_processors.settings',
                 'django.contrib.auth.context_processors.auth',
                 'django.template.context_processors.debug',
                 'django.template.context_processors.i18n',
@@ -234,7 +211,7 @@ MIDDLEWARE_CLASSES = (
 
 
 # Python dotted path to the WSGI application used by Django's runserver.
-WSGI_APPLICATION = 'hwcentral.wsgi.application'
+WSGI_APPLICATION = 'openshiksha.wsgi.application'
 
 INSTALLED_APPS = (
     'django.contrib.auth',
@@ -248,7 +225,7 @@ INSTALLED_APPS = (
     'debug_toolbar',
     'django_extensions',
 
-    # Now HWCentral-specific apps
+    # Now OpenShiksha-specific apps
     'core',
     'cabinet',
     'croupier',
@@ -319,38 +296,31 @@ LOGIN_REDIRECT_URL = UrlNames.HOME.name  # this is where user is redirected if l
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
-if ENVIRON == HWCentralEnv.PROD:
+if ENVIRON == OpenShikshaEnv.PROD:
     ALLOWED_HOSTS = [
         '.openshiksha.org',  # Allow FQDN, domain and subdomains
     ]
     SITE_ID = 1  # prod site
-elif ENVIRON == HWCentralEnv.QA:
+elif ENVIRON == OpenShikshaEnv.QA:
     ALLOWED_HOSTS = [
         '128.199.184.177'  # qa server ip address
     ]
     SITE_ID = 3  # qa site
-elif ENVIRON == HWCentralEnv.CIRCLECI:
-    ALLOWED_HOSTS = [
-        'localhost:8001'  # LiveServerTestCase ip address
-    ]
-    SITE_ID = 1  # prod site
-elif ENVIRON == HWCentralEnv.LOCAL:
+elif ENVIRON == OpenShikshaEnv.LOCAL:
     ALLOWED_HOSTS = []
     SITE_ID = 2  # localhost site
 else:
-    raise InvalidHWCentralEnvError(ENVIRON)
+    raise InvalidOpenShikshaEnvError(ENVIRON)
 
 
 if SLEEP_MODE:
-    ROOT_URLCONF = 'hwcentral.urls.sleep_mode'
+    ROOT_URLCONF = 'openshiksha.urls.sleep_mode'
 else:
-    if ENVIRON == HWCentralEnv.PROD:
-        ROOT_URLCONF = 'hwcentral.urls.prod'
-    elif ENVIRON == HWCentralEnv.QA:
-        ROOT_URLCONF = 'hwcentral.urls.local'  # qa just uses local urls for now
-    elif ENVIRON == HWCentralEnv.CIRCLECI:
-        ROOT_URLCONF = 'hwcentral.urls.local'  # circleci tests just use local urls for now
-    elif ENVIRON == HWCentralEnv.LOCAL:
-        ROOT_URLCONF = 'hwcentral.urls.local'
+    if ENVIRON == OpenShikshaEnv.PROD:
+        ROOT_URLCONF = 'openshiksha.urls.prod'
+    elif ENVIRON == OpenShikshaEnv.QA:
+        ROOT_URLCONF = 'openshiksha.urls.local'  # qa just uses local urls for now
+    elif ENVIRON == OpenShikshaEnv.LOCAL:
+        ROOT_URLCONF = 'openshiksha.urls.local'
     else:
-        raise InvalidHWCentralEnvError(ENVIRON)
+        raise InvalidOpenShikshaEnvError(ENVIRON)

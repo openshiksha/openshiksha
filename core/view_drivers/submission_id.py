@@ -9,9 +9,9 @@ from core.forms.submission import SubmissionForm
 from core.models import Announcement, OpenStudentHighest
 from core.routing.urlnames import UrlNames
 from core.utils.assignment import get_student_assignment_submission_type, is_student_assignment
-from core.utils.constants import HWCentralAssignmentType, HWCentralStudentAssignmentSubmissionType
+from core.utils.constants import OpenShikshaAssignmentType, OpenShikshaStudentAssignmentSubmissionType
 from core.utils.open_student import OpenStudentUtils
-from core.utils.references import HWCentralOpen
+from core.utils.references import OpenShikshaOpen
 from core.utils.toast import render_with_success_toast, render_with_error_toast, redirect_with_success_toast
 from core.utils.user_checks import is_parent_child_relationship
 from core.view_drivers.base import GroupDrivenViewTypeDrivenTemplate
@@ -23,7 +23,7 @@ from core.view_models.submission_id import UncorrectedSubmissionIdBody, Submissi
     AssignmentInfo, RevisionSubmissionIdBody
 from edge.edge_api import calculate_edge_data
 from grader.grader_api import grade
-from hwcentral.exceptions import InvalidHWCentralAssignmentTypeError, InvalidStateError
+from openshiksha.exceptions import InvalidOpenShikshaAssignmentTypeError, InvalidStateError
 
 
 class SubmissionIdDriver(GroupDrivenViewTypeDrivenTemplate):
@@ -91,17 +91,17 @@ class SubmissionIdGetStudent(SubmissionIdDriver):
         """
         Handles both practice (for student) and open (for open student) assignments
         """
-        if self.type == HWCentralStudentAssignmentSubmissionType.CORRECTED:
+        if self.type == OpenShikshaStudentAssignmentSubmissionType.CORRECTED:
             return self.render_corrected_submission(categorization)
 
-        elif self.type == HWCentralStudentAssignmentSubmissionType.UNCORRECTED:
+        elif self.type == OpenShikshaStudentAssignmentSubmissionType.UNCORRECTED:
             if not self.submission.revised:
                 return render(self.request, UrlNames.SUBMISSION_ID.get_template('revision'),
                               AuthenticatedVM(self.user, RevisionSubmissionIdBody(self.user, self.submission,
                                                                                   categorization)).as_context())
             return self.render_uncorrected_submission(categorization)
         else:
-            raise InvalidHWCentralAssignmentTypeError(self.type)
+            raise InvalidOpenShikshaAssignmentTypeError(self.type)
 
     def open_student_endpoint(self):
         if not self.student_valid():
@@ -119,11 +119,11 @@ class SubmissionIdGetStudent(SubmissionIdDriver):
 class SubmissionIdPostStudent(SubmissionIdDriver):
     def __init__(self, request, submission):
         super(SubmissionIdPostStudent, self).__init__(request, submission)
-        assert HWCentralStudentAssignmentSubmissionType.UNCORRECTED == get_student_assignment_submission_type(
+        assert OpenShikshaStudentAssignmentSubmissionType.UNCORRECTED == get_student_assignment_submission_type(
             submission)
 
         # For all endpoints, render method with template is only used for uncorreected student assignments
-        self.type = HWCentralStudentAssignmentSubmissionType.UNCORRECTED
+        self.type = OpenShikshaStudentAssignmentSubmissionType.UNCORRECTED
 
     def parent_endpoint(self):
         raise Http404
@@ -139,7 +139,7 @@ class SubmissionIdPostStudent(SubmissionIdDriver):
             object_id=self.user.pk,
             content_type=ContentType.objects.get_for_model(User),
             timestamp=django.utils.timezone.now(),
-            announcer=HWCentralOpen.refs.SCHOOL.admin,
+            announcer=OpenShikshaOpen.refs.SCHOOL.admin,
             message=ProficiencyClass.create_message(proficiency_class, subjectroom.classRoom.standard.number,
                                                     subjectroom.subject.name)
         )
@@ -299,7 +299,7 @@ class SubmissionIdGetCorrected(SubmissionIdDriver):
     def __init__(self, request, submission):
         super(SubmissionIdGetCorrected, self).__init__(request, submission)
         assert not is_student_assignment(submission.assignment)
-        self.type = HWCentralAssignmentType.CORRECTED
+        self.type = OpenShikshaAssignmentType.CORRECTED
         self.submission_vm = SubmissionVMUnprotected(cabinet_api.get_submission(submission))
         self.categorization = AssignmentInfo.CAT_DUE
 
@@ -344,7 +344,7 @@ class SubmissionIdUncorrected(SubmissionIdDriver):
     def __init__(self, request, submission):
         super(SubmissionIdUncorrected, self).__init__(request, submission)
         assert not is_student_assignment(submission.assignment)
-        self.type = HWCentralAssignmentType.UNCORRECTED
+        self.type = OpenShikshaAssignmentType.UNCORRECTED
 
     def parent_endpoint(self):
         raise Http404

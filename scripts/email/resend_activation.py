@@ -2,7 +2,7 @@ import argparse
 
 from django.contrib.auth.models import User
 
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 from scripts.setup.full_school import send_activation_email
 
 

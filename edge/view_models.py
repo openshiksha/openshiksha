@@ -5,7 +5,7 @@ from cabinet.cabinet_api import get_question_with_img_urls
 from core.models import SubjectRoom
 from core.utils.json import JSONModel
 from core.utils.labels import get_user_label, get_subjectroom_label, get_percentage_label
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.view_models.base import AuthenticatedBody
 from edge.models import StudentProficiency, SubjectRoomProficiency, SubjectRoomQuestionMistake
 
@@ -112,8 +112,8 @@ class EdgeDataBase(JSONModel):
 
 class StudentEdgeData(EdgeDataBase):
     def __init__(self, student, subjectroom):
-        assert (student.userinfo.group == HWCentralGroup.refs.STUDENT) or (
-        student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT)
+        assert (student.userinfo.group == OpenShikshaGroup.refs.STUDENT) or (
+        student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT)
         student_condition = Q(student=student)
 
         positive = [ProficiencyVM.from_proficiency(proficiency) for proficiency in

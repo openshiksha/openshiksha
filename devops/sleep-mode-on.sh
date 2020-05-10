@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# Usage: devops/sleep-mode-on.sh (from hwcentral root dir)
+# Usage: devops/sleep-mode-on.sh (from root dir)
 
 # stop the gunicorn server
 sudo supervisorctl stop gunicorn
 
-# touch the sleep mode marker file
-sudo touch /etc/hwcentral/sleep
+# set the sleep mode flag
+export OPENSHIKSHA_SLEEP_MODE=on
 
 # start the gunicorn server
 sudo supervisorctl start gunicorn

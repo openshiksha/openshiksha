@@ -6,11 +6,11 @@ import django
 from django.contrib.auth.models import User
 
 from core.models import UserInfo, ClassRoom, SubjectRoom
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.view_drivers.assignment_id import create_shell_submission
 from grader import grader_api
 from scripts.database.enforcer import enforcer_check
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 from scripts.fixtures.dump_data import snapshot_db
 from scripts.setup.full_school import build_username, SETUP_PASSWORD, send_activation_email
 
@@ -65,7 +65,7 @@ def run(*args):
             student.last_name = lname
             student.save()
             userinfo = UserInfo(user=student)
-            userinfo.group = HWCentralGroup.refs.STUDENT
+            userinfo.group = OpenShikshaGroup.refs.STUDENT
             userinfo.school = classroom.school
             userinfo.save()
             # TODO: Dossier setup

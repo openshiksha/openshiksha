@@ -2,7 +2,7 @@ import django
 from django.db.models import Avg
 
 from core.models import ClassRoom, SubjectRoom, Assignment
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.teacher import TeacherAdminSharedUtils, TeacherAdminSharedSubjectIdUtils, TeacherAdminSharedFocusIdUtils
 from focus.models import FocusRoom
 
@@ -13,7 +13,7 @@ class AdminGroupUtils(object):
     """
 
     def __init__(self):
-        self.UTILS_GROUP = HWCentralGroup.refs.ADMIN
+        self.UTILS_GROUP = OpenShikshaGroup.refs.ADMIN
 
 class AdminUtils(AdminGroupUtils, TeacherAdminSharedUtils):
     def __init__(self, admin):

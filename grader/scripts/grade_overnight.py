@@ -1,7 +1,7 @@
 # to use this script, run following command from the terminal
 # python manage.py runscript grade_overnight --script-args="#h"
 
-# NOTE: it is to be run the night after while hwcentral is down (since it grades submissions that were due on the previous day)
+# NOTE: it is to be run the night after while openshiksha is down (since it grades submissions that were due on the previous day)
 import argparse
 import traceback
 from datetime import timedelta
@@ -14,14 +14,14 @@ from django.db.models import Avg, Q
 
 from core.models import Assignment, Submission, SubjectRoom
 from core.utils.assignment import is_corrected_open_assignment
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.view_drivers.assignment_id import create_shell_submission
 from edge.edge_api import reset_edge_data, calculate_edge_data
 from focus.models import Remedial
 from grader import grader_api
 from pylon.scripts import notify_overnight
 from pylon.scripts.notify_overnight import check_homework_assignment
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 
 
 def run(*args):
@@ -85,7 +85,7 @@ def handle_assignments(reset):
     past_hw_filter = Q(due__lt=now) & (~Q(content_type=ContentType.objects.get_for_model(User)))
     if reset:
         # if reset is being done, then all practice assignments for open model should also be recorrected
-        open_student_set = User.objects.filter(userinfo__group=HWCentralGroup.refs.OPEN_STUDENT)
+        open_student_set = User.objects.filter(userinfo__group=OpenShikshaGroup.refs.OPEN_STUDENT)
 
         assignments_filter = past_hw_filter | (
             Q(content_type=ContentType.objects.get_for_model(User)) &

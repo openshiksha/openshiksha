@@ -3,11 +3,11 @@ from unittest import TestCase
 from mock import MagicMock
 
 from core.templatetags.core_extras import get_range, add_str, get_form_field, get_list_elem, answer_wrong, \
-    is_correct_option_index_sa, is_correct_option_index_ma, throw_InvalidHWCentralGroupError, \
-    throw_InvalidHWCentralQuestionTypeError
+    is_correct_option_index_sa, is_correct_option_index_ma, throw_InvalidOpenShikshaGroupError, \
+    throw_InvalidOpenShikshaQuestionTypeError
 from core.tests.base import TCData
-from core.utils.constants import HWCentralQuestionType
-from hwcentral.exceptions import InvalidHWCentralGroupError, InvalidHWCentralQuestionTypeError, \
+from core.utils.constants import OpenShikshaQuestionType
+from openshiksha.exceptions import InvalidOpenShikshaGroupError, InvalidOpenShikshaQuestionTypeError, \
     UncorrectedSubmissionError
 
 
@@ -55,19 +55,19 @@ class CoreExtrasTest(TestCase):
 
     def test_answer_wrong(self):
         test_cases = [
-            TCData( (False, HWCentralQuestionType.MCMA), True ),
-            TCData( (False, HWCentralQuestionType.MCSA), True ),
-            TCData( (False, HWCentralQuestionType.NUMERIC), True ),
-            TCData( (False, HWCentralQuestionType.TEXTUAL), True ),
-            TCData( (True, HWCentralQuestionType.MCMA), False ),
-            TCData( (True, HWCentralQuestionType.MCSA), False ),
-            TCData( (True, HWCentralQuestionType.NUMERIC), False ),
-            TCData( (True, HWCentralQuestionType.TEXTUAL), False ),
-            TCData( ([False], HWCentralQuestionType.CONDITIONAL), True ),
-            TCData( ([False, False], HWCentralQuestionType.CONDITIONAL), True ),
-            TCData( ([False, True, False], HWCentralQuestionType.CONDITIONAL), True ),
-            TCData( ([True, False, True, False], HWCentralQuestionType.CONDITIONAL), True ),
-            TCData( ([True, True, True], HWCentralQuestionType.CONDITIONAL), False ),
+            TCData( (False, OpenShikshaQuestionType.MCMA), True ),
+            TCData( (False, OpenShikshaQuestionType.MCSA), True ),
+            TCData( (False, OpenShikshaQuestionType.NUMERIC), True ),
+            TCData( (False, OpenShikshaQuestionType.TEXTUAL), True ),
+            TCData( (True, OpenShikshaQuestionType.MCMA), False ),
+            TCData( (True, OpenShikshaQuestionType.MCSA), False ),
+            TCData( (True, OpenShikshaQuestionType.NUMERIC), False ),
+            TCData( (True, OpenShikshaQuestionType.TEXTUAL), False ),
+            TCData( ([False], OpenShikshaQuestionType.CONDITIONAL), True ),
+            TCData( ([False, False], OpenShikshaQuestionType.CONDITIONAL), True ),
+            TCData( ([False, True, False], OpenShikshaQuestionType.CONDITIONAL), True ),
+            TCData( ([True, False, True, False], OpenShikshaQuestionType.CONDITIONAL), True ),
+            TCData( ([True, True, True], OpenShikshaQuestionType.CONDITIONAL), False ),
         ]
 
         for test_case in test_cases:
@@ -75,11 +75,11 @@ class CoreExtrasTest(TestCase):
 
     def test_answer_wrong_assertion(self):
         test_cases = [
-            TCData( (None, HWCentralQuestionType.MCMA) ),
-            TCData( (None, HWCentralQuestionType.MCSA) ),
-            TCData( (None, HWCentralQuestionType.NUMERIC) ),
-            TCData( (None, HWCentralQuestionType.TEXTUAL) ),
-            TCData( (None, HWCentralQuestionType.CONDITIONAL) ),
+            TCData( (None, OpenShikshaQuestionType.MCMA) ),
+            TCData( (None, OpenShikshaQuestionType.MCSA) ),
+            TCData( (None, OpenShikshaQuestionType.NUMERIC) ),
+            TCData( (None, OpenShikshaQuestionType.TEXTUAL) ),
+            TCData( (None, OpenShikshaQuestionType.CONDITIONAL) ),
         ]
         for test_case in test_cases:
             with self.assertRaises(UncorrectedSubmissionError):
@@ -142,10 +142,10 @@ class CoreExtrasTest(TestCase):
                 mock_options = self.build_mock_mcma_options(test_case.input[1])
                 is_correct_option_index_ma(test_case.input[0], mock_options)
 
-    def test_throw_InvalidHWCentralGroupError(self):
-        with self.assertRaises(InvalidHWCentralGroupError):
-            throw_InvalidHWCentralGroupError(MagicMock())
+    def test_throw_InvalidOpenShikshaGroupError(self):
+        with self.assertRaises(InvalidOpenShikshaGroupError):
+            throw_InvalidOpenShikshaGroupError(MagicMock())
 
-    def test_throw_InvalidHWCentralQuestionTypeError(self):
-        with self.assertRaises(InvalidHWCentralQuestionTypeError):
-            throw_InvalidHWCentralQuestionTypeError(MagicMock())
+    def test_throw_InvalidOpenShikshaQuestionTypeError(self):
+        with self.assertRaises(InvalidOpenShikshaQuestionTypeError):
+            throw_InvalidOpenShikshaQuestionTypeError(MagicMock())

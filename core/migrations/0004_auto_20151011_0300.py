@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
             model_name='question',
             name='school',
             field=models.ForeignKey(
-                help_text=b'The school question bank that this question belongs to. Use 1 if it belongs to the hwcentral question bank.',
+                help_text=b'The school question bank that this question belongs to. Use 1 if it belongs to the openshiksha question bank.',
                 to='core.School'),
         ),
     ]

@@ -12,7 +12,7 @@ from django.db.models import Q
 
 from core.models import Assignment
 from core.utils.assignment import check_homework_assignment
-from core.utils.references import HWCentralGroup, HWCentralOpen
+from core.utils.references import OpenShikshaGroup, OpenShikshaOpen
 from core.utils.student import StudentUtils
 from core.utils.teacher import TeacherUtils
 from pylon.pylon_api import notify_due_parent, PylonApiError, notify_due_teacher
@@ -50,7 +50,7 @@ def notify_due_parents():
     total_notifications = 0
     successful_notifications = 0
 
-    for parent in User.objects.filter(userinfo__group=HWCentralGroup.refs.PARENT):
+    for parent in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.PARENT):
         if not parent.userinfo.school.schoolprofile.pylon:
             continue
 
@@ -92,11 +92,11 @@ def notify_due_teachers():
     total_notifications = 0
     successful_notifications = 0
 
-    for teacher in User.objects.filter(userinfo__group=HWCentralGroup.refs.TEACHER):
+    for teacher in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.TEACHER):
         if not teacher.userinfo.school.schoolprofile.pylon:
             continue
 
-        if teacher.userinfo.school == HWCentralOpen.refs.SCHOOL:
+        if teacher.userinfo.school == OpenShikshaOpen.refs.SCHOOL:
             continue
 
         utils = TeacherUtils(teacher)

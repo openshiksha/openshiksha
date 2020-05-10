@@ -12,5 +12,5 @@
 {% elif sidebar.type == sidebar.TYPES.OPEN_STUDENT %}
     {% include 'authenticated/sidebar/open_student.html' with sidebar=sidebar only %}
 {% else %}
-    {{ sidebar.type|throw_InvalidHWCentralGroupError }}
+    {{ sidebar.type|throw_InvalidOpenShikshaGroupError }}
 {% endif %}

@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from core.utils.constants import HWCentralRegex, HttpMethod
+from core.utils.constants import OpenShikshaRegex, HttpMethod
 
 TEMPLATE_FILE_EXTENSION = '.html'
 ID_NAME_SUFFIX = '_id'
@@ -46,7 +46,7 @@ class ChartUrlName(object):
     def __init__(self, name, num_ids=1):
         self.name = name + ChartUrlName.NAME_SUFFIX
         self.url_matcher = ('^chart/%s' + '/(%s)' * num_ids + '/$') % (
-        (prettify_for_url_matcher(name),) + (HWCentralRegex.NUMERIC,) * num_ids)
+        (prettify_for_url_matcher(name),) + (OpenShikshaRegex.NUMERIC,) * num_ids)
 
 
 class BaseUrlName(object):
@@ -69,7 +69,7 @@ class UrlNameWithMultipleIdArg(BaseUrlName):
     """
     def __init__(self, name, num_ids):
         super(UrlNameWithMultipleIdArg, self).__init__(name + ID_NAME_SUFFIX, ('^%s' + '/(%s)' * num_ids + '/$') % (
-            (prettify_for_url_matcher(name),) + (HWCentralRegex.NUMERIC,) * num_ids))
+            (prettify_for_url_matcher(name),) + (OpenShikshaRegex.NUMERIC,) * num_ids))
 
 class UrlNameWithBase64Arg(UrlName):
     """
@@ -77,7 +77,7 @@ class UrlNameWithBase64Arg(UrlName):
     """
     def __init__(self, name):
         super(UrlNameWithBase64Arg, self).__init__(name)
-        self.url_matcher = '^%s/(%s)/$' % (prettify_for_url_matcher(self.name), HWCentralRegex.BASE64)
+        self.url_matcher = '^%s/(%s)/$' % (prettify_for_url_matcher(self.name), OpenShikshaRegex.BASE64)
 
 
 class SubUrlName(object):
@@ -100,7 +100,7 @@ class SubUrlNameWithIdArg(SubUrlName):
         super(SubUrlNameWithIdArg, self).__init__(name, sub_name)
         self.name += ID_NAME_SUFFIX
         self.url_matcher = '^%s/%s/(%s)/$' % (
-        prettify_for_url_matcher(name), prettify_for_url_matcher(sub_name), HWCentralRegex.NUMERIC)
+        prettify_for_url_matcher(name), prettify_for_url_matcher(sub_name), OpenShikshaRegex.NUMERIC)
 
 
 class TemplateUrlName(UrlName):
@@ -158,7 +158,7 @@ class AuthenticatedUrlNameWithIdArg(AuthenticatedUrlName):
 
     def __init__(self, name):
         super(AuthenticatedUrlNameWithIdArg, self).__init__(name)
-        self.url_matcher = '^%s/(%s)/$' % (prettify_for_url_matcher(self.name), HWCentralRegex.NUMERIC)
+        self.url_matcher = '^%s/(%s)/$' % (prettify_for_url_matcher(self.name), OpenShikshaRegex.NUMERIC)
         self.name += ID_NAME_SUFFIX
         self.template_stub += ID_NAME_SUFFIX
 

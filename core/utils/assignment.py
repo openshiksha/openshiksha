@@ -2,9 +2,9 @@ import django
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 
-from core.utils.constants import HWCentralAssignmentType, HWCentralStudentAssignmentSubmissionType
-from core.utils.references import HWCentralGroup
-from hwcentral.exceptions import InvalidStateError, InvalidContentTypeError
+from core.utils.constants import OpenShikshaAssignmentType, OpenShikshaStudentAssignmentSubmissionType
+from core.utils.references import OpenShikshaGroup
+from openshiksha.exceptions import InvalidStateError, InvalidContentTypeError
 
 
 def is_assignment_active(assignment):
@@ -16,15 +16,15 @@ def is_assignment_corrected(assignment):
 
 def get_assignment_type(assignment):
     if is_student_assignment(assignment):
-        return HWCentralAssignmentType.STUDENT
+        return OpenShikshaAssignmentType.STUDENT
 
     if not is_assignment_active(assignment):
-        return HWCentralAssignmentType.INACTIVE
+        return OpenShikshaAssignmentType.INACTIVE
 
     if not is_assignment_corrected(assignment):
-        return HWCentralAssignmentType.UNCORRECTED
+        return OpenShikshaAssignmentType.UNCORRECTED
 
-    return HWCentralAssignmentType.CORRECTED
+    return OpenShikshaAssignmentType.CORRECTED
 
 
 def is_student_assignment(assignment):
@@ -33,7 +33,7 @@ def is_student_assignment(assignment):
 
 def is_practice_assignment(assignment):
     return is_student_assignment(assignment) and (
-    assignment.content_object.userinfo.group == HWCentralGroup.refs.STUDENT)
+    assignment.content_object.userinfo.group == OpenShikshaGroup.refs.STUDENT)
 
 
 def is_corrected_practice_assignment(assignment):
@@ -42,7 +42,7 @@ def is_corrected_practice_assignment(assignment):
 
 def is_open_assignment(assignment):
     return is_student_assignment(assignment) and (
-    assignment.content_object.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT)
+    assignment.content_object.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT)
 
 
 def is_corrected_open_assignment(assignment):
@@ -53,9 +53,9 @@ def get_student_assignment_submission_type(submission):
     assert is_student_assignment(submission.assignment)
 
     if (submission.marks is not None) and (submission.assignment.average is not None):
-        return HWCentralStudentAssignmentSubmissionType.CORRECTED
+        return OpenShikshaStudentAssignmentSubmissionType.CORRECTED
     elif (submission.marks is None) and (submission.assignment.average is None):
-        return HWCentralStudentAssignmentSubmissionType.UNCORRECTED
+        return OpenShikshaStudentAssignmentSubmissionType.UNCORRECTED
     else:
         raise InvalidStateError(
             "Student Assignment Submission %s has only one of marks and assignment average non null" % submission)

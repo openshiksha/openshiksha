@@ -16,7 +16,7 @@ from core.view_models.assignment_id import AssignmentIdBody
 from core.view_models.base import AuthenticatedVM
 from core.view_models.submission_id import SubmissionVMProtected
 from croupier import croupier_api
-from hwcentral.exceptions import InvalidStateError
+from openshiksha.exceptions import InvalidStateError
 
 
 class AssignmentIdGet(GroupDrivenViewCommonTemplate):

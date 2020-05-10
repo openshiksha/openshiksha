@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.utils.safestring import mark_safe
 
-from hwcentral.settings import LOGIN_REDIRECT_URL
+from openshiksha.settings import LOGIN_REDIRECT_URL
 
 SUBMIT_SUCCESS_REDIRECT_URL = LOGIN_REDIRECT_URL
 

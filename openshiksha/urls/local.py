@@ -3,7 +3,7 @@ from django.contrib import admin
 
 from core.routing.routers import static_csrf_cookie_router, dynamic_router, static_router
 from core.utils.constants import HttpMethod
-from hwcentral.urls.common import get_all_env_urlpatterns
+from openshiksha.urls.common import get_all_env_urlpatterns
 from sphinx.urlnames import SphinxUrlNames
 from sphinx.views import deal_post, tags_get
 

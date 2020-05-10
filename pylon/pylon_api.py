@@ -10,16 +10,16 @@ from django.core.urlresolvers import reverse
 
 from core.models import SubjectRoom
 from core.routing.urlnames import UrlNames
-from core.utils.constants import HWCentralEnv
+from core.utils.constants import OpenShikshaEnv
 from core.utils.labels import get_user_label, get_percentage_label, get_subjectroom_label, get_focusroom_label
 from core.utils.student import get_active_assignment_completion
 from core.utils.teacher import get_uncorrected_assignment_completion_avg
 from core.utils.user_checks import is_student_assignment_relationship
 from focus.models import Remedial
-from hwcentral.exceptions import InvalidStateError, InvalidContentTypeError
-from hwcentral.settings import ENVIRON, HWCENTRAL_CONFIG_ROOT, CONTACT_PHONE
+from openshiksha.exceptions import InvalidStateError, InvalidContentTypeError
+from openshiksha.settings import ENVIRON, CONTACT_PHONE
 
-SRC_PHONE = '91' + CONTACT_PHONE
+SRC_PHONE = CONTACT_PHONE
 
 
 class InvalidPhoneError(InvalidStateError):
@@ -45,9 +45,9 @@ class DummyPylonApi(object):
         return (202, {'message': 'message(s) queued'})
 
 
-if ENVIRON == HWCentralEnv.PROD:
-    with open(os.path.join(HWCENTRAL_CONFIG_ROOT, 'plivo_auth.txt'), 'r') as f:
-        PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN = f.read().strip().split('\n')
+if ENVIRON == OpenShikshaEnv.PROD:
+    PLIVO_AUTH_ID = os.getenv('PLIVO_AUTH_ID')
+    PLIVO_AUTH_TOKEN = os.getenv('PLIVO_AUTH_TOKEN')
     PYLON_API = plivo.RestAPI(PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN)
 else:
     PYLON_API = DummyPylonApi()

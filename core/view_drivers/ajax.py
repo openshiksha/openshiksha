@@ -1,5 +1,5 @@
 from core.utils.admin import AdminUtils
-from core.utils.json import HWCentralJsonResponse, Json404Response
+from core.utils.json import OpenShikshaJsonResponse, Json404Response
 from core.utils.open_student import OpenStudentUtils
 from core.utils.parent import ParentUtils
 from core.utils.student import StudentUtils
@@ -19,7 +19,7 @@ class GroupDrivenAjax(GroupDriven):
 class AnnouncementsAjaxGet(GroupDrivenAjax):
     @classmethod
     def formatted_response(cls, utils):
-        return HWCentralJsonResponse([AnnouncementRow(announcement) for announcement in utils.get_announcements()])
+        return OpenShikshaJsonResponse([AnnouncementRow(announcement) for announcement in utils.get_announcements()])
 
     def student_endpoint(self):
         return AnnouncementsAjaxGet.formatted_response(StudentUtils(self.user))
@@ -42,7 +42,7 @@ class QuestionSetChoiceWidgetAjaxGet(GroupDrivenAjax):
         super(QuestionSetChoiceWidgetAjaxGet, self).__init__(request)
 
     def student_endpoint(self):
-        return HWCentralJsonResponse([StudentSubjectRoomSelectElem(self.user, subjectroom) for subjectroom in
+        return OpenShikshaJsonResponse([StudentSubjectRoomSelectElem(self.user, subjectroom) for subjectroom in
                                       self.user.subjects_enrolled_set.all()])
     def parent_endpoint(self):
         return Json404Response()
@@ -51,12 +51,12 @@ class QuestionSetChoiceWidgetAjaxGet(GroupDrivenAjax):
 
     def teacher_endpoint(self):
         if self.override:
-            return HWCentralJsonResponse([TeacherSubjectRoomSelectOverrideElem(subjectroom) for subjectroom in
+            return OpenShikshaJsonResponse([TeacherSubjectRoomSelectOverrideElem(subjectroom) for subjectroom in
                                           self.user.subjects_managed_set.all()])
         else:
-            return HWCentralJsonResponse([TeacherSubjectRoomSelectElem(subjectroom) for subjectroom in
+            return OpenShikshaJsonResponse([TeacherSubjectRoomSelectElem(subjectroom) for subjectroom in
                                       self.user.subjects_managed_set.all()])
 
     def open_student_endpoint(self):
-        return HWCentralJsonResponse([OpenSubjectRoomSelectElem(subjectroom) for subjectroom in
+        return OpenShikshaJsonResponse([OpenSubjectRoomSelectElem(subjectroom) for subjectroom in
                                       self.user.subjects_enrolled_set.all()])

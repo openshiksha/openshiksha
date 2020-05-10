@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 
-# Usage: devops/run-gunicorn.sh (from hwcentral root dir)
+# Usage: devops/run-gunicorn.sh (from root dir and within virtualenv)
 
-export WORKON_HOME=/home/oasis/.virtualenvs
-source /usr/local/bin/virtualenvwrapper.sh
-
-workon hwcentral
 # exec is needed otherwise supervisor just supervises this script and not the forked gunicorn processes
-exec gunicorn hwcentral.wsgi -c devops/gunicorn_conf.py
+exec gunicorn openshiksha.wsgi -c devops/gunicorn_conf.py
 
 
 

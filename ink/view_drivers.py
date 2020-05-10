@@ -7,7 +7,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 
 from core.models import UserInfo, Home
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.toast import render_with_success_toast, render_with_error_toast
 from core.view_models.base import AuthenticatedVM
 from ink.forms import ParentForm
@@ -21,7 +21,7 @@ from scripts.setup.full_school import build_username
 class ParentIdBase(object):
     def __init__(self, request, student_id):
         student = get_object_or_404(User, pk=student_id)
-        if student.userinfo.group != HWCentralGroup.refs.STUDENT:
+        if student.userinfo.group != OpenShikshaGroup.refs.STUDENT:
             raise Http404
         self.request = request
         self.user = request.user
@@ -47,7 +47,7 @@ class ParentIdPost(ParentIdBase):
             email = parent_form.cleaned_data['email']
 
             username = build_username(fname, lname)
-            group = HWCentralGroup.refs.PARENT
+            group = OpenShikshaGroup.refs.PARENT
             school = self.user.userinfo.school
 
             password = build_parent_password()

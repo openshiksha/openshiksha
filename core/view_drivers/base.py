@@ -1,5 +1,5 @@
-from core.utils.references import HWCentralGroup
-from hwcentral.exceptions import InvalidHWCentralGroupError
+from core.utils.references import OpenShikshaGroup
+from openshiksha.exceptions import InvalidOpenShikshaGroupError
 
 
 class GroupDriven(object):
@@ -53,23 +53,23 @@ class GroupDriven(object):
 
         self.common_endpoint_setup()
 
-        if self.user_group == HWCentralGroup.refs.STUDENT:
+        if self.user_group == OpenShikshaGroup.refs.STUDENT:
             self.student_endpoint_setup()
             return self.student_endpoint()
-        elif self.user_group == HWCentralGroup.refs.PARENT:
+        elif self.user_group == OpenShikshaGroup.refs.PARENT:
             self.parent_endpoint_setup()
             return self.parent_endpoint()
-        elif self.user_group == HWCentralGroup.refs.ADMIN:
+        elif self.user_group == OpenShikshaGroup.refs.ADMIN:
             self.admin_endpoint_setup()
             return self.admin_endpoint()
-        elif self.user_group == HWCentralGroup.refs.TEACHER:
+        elif self.user_group == OpenShikshaGroup.refs.TEACHER:
             self.teacher_endpoint_setup()
             return self.teacher_endpoint()
-        elif self.user_group == HWCentralGroup.refs.OPEN_STUDENT:
+        elif self.user_group == OpenShikshaGroup.refs.OPEN_STUDENT:
             self.open_student_endpoint_setup()
             return self.open_student_endpoint()
         else:
-            raise InvalidHWCentralGroupError(self.user_group.name)
+            raise InvalidOpenShikshaGroupError(self.user_group.name)
 
 class GroupDrivenView(GroupDriven):
     """

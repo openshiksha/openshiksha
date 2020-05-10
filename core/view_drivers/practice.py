@@ -5,14 +5,14 @@ from django.shortcuts import render, redirect
 from core.forms.practice import PracticeForm, OpenAssignmentForm
 from core.models import Assignment
 from core.routing.urlnames import UrlNames
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.toast import redirect_with_success_toast
 from core.view_drivers.assignment_id import create_shell_submission
 from core.view_drivers.base import GroupDrivenViewCommonTemplate
 from core.view_models.base import AuthenticatedVM
 from core.view_models.home import OpenStudentHomeBody
 from core.view_models.practice import PracticeBody
-from hwcentral.settings import LOGIN_REDIRECT_URL
+from openshiksha.settings import LOGIN_REDIRECT_URL
 
 
 class PracticeDriver(GroupDrivenViewCommonTemplate):
@@ -67,7 +67,7 @@ class PracticePost(PracticeDriver):
                                                [UrlNames.SUBMISSION_ID.name, submission.pk])
 
         else:
-            return render(self.request, UrlNames.HOME.get_template(HWCentralGroup.refs.OPEN_STUDENT),
+            return render(self.request, UrlNames.HOME.get_template(OpenShikshaGroup.refs.OPEN_STUDENT),
                           AuthenticatedVM(self.user, OpenStudentHomeBody(self.user, form)).as_context())
 
     def student_endpoint(self):

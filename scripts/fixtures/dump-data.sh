@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# run this script from hwcentral root directory to dump the current mysql data
+# run this script from root directory to dump the current mysql data
 # Usage: scripts/fixtures/dump-data.sh [<path to output file>]
 
 OUTFILE=${1:-"core/fixtures/db_dump.json"}

@@ -5,7 +5,7 @@ from datadog import statsd
 from django.core.signing import Signer
 
 from cabinet import cabinet_api
-from core.utils.constants import HWCentralQuestionType
+from core.utils.constants import OpenShikshaQuestionType
 
 SIGNER = Signer()
 
@@ -29,7 +29,7 @@ def shuffle(undealt_questions):
     for undealt_question in undealt_questions:
         for subpart in undealt_question.question_data.subparts:
             # check if the subpart has options whose order can be shuffled
-            if subpart.type == HWCentralQuestionType.MCMA or subpart.type == HWCentralQuestionType.MCSA:
+            if subpart.type == OpenShikshaQuestionType.MCMA or subpart.type == OpenShikshaQuestionType.MCSA:
                 # storing a separate option order rather than ordering a list of options so that we can still easily
                 # identify the correct and incorrect options based on the human-readable template format
                 options_order = range(subpart.options.get_option_count())

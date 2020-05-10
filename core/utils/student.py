@@ -5,13 +5,13 @@ from django.db.models import Q
 
 from core.models import Assignment, Submission, School, ClassRoom, SubjectRoom
 from core.utils.base import UserUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from focus.models import Remedial
 
 
 class StudentUtils(UserUtils):
     def __init__(self, student):
-        self.UTILS_GROUP = HWCentralGroup.refs.STUDENT
+        self.UTILS_GROUP = OpenShikshaGroup.refs.STUDENT
         super(StudentUtils, self).__init__(student)
 
     def get_num_unfinished_assignments(self):

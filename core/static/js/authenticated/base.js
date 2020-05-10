@@ -1,5 +1,5 @@
 // check if we are within app context
-if (typeof HWCentralAppContext !== 'undefined') {
+if (typeof OpenShikshaAppContext !== 'undefined') {
     // do app-specific setup
 }
 else {

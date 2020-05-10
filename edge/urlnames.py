@@ -1,7 +1,7 @@
 import os
 
 from core.routing.urlnames import truncate_index_url_matcher, ID_NAME_SUFFIX, prettify_for_url_matcher
-from core.utils.constants import HWCentralRegex
+from core.utils.constants import OpenShikshaRegex
 from sphinx.urlnames import AppUrlName
 
 
@@ -26,7 +26,7 @@ class EdgeUrlNameWithIdArg(EdgeUrlName):
         super(EdgeUrlNameWithIdArg, self).__init__(name + ID_NAME_SUFFIX)
         self.url_matcher = '^%s/%s/(%s)/$' % (
             prettify_for_url_matcher(EdgeUrlNameWithIdArg.APP_NAME), prettify_for_url_matcher(name),
-            HWCentralRegex.NUMERIC)
+            OpenShikshaRegex.NUMERIC)
 
 
 class EdgeUrlNameWith2IdArg(EdgeUrlNameWithIdArg):
@@ -34,7 +34,7 @@ class EdgeUrlNameWith2IdArg(EdgeUrlNameWithIdArg):
         super(EdgeUrlNameWith2IdArg, self).__init__(name)
         self.url_matcher = '^%s/%s/(%s)/(%s)/$' % (
             prettify_for_url_matcher(EdgeUrlNameWithIdArg.APP_NAME), prettify_for_url_matcher(name),
-            HWCentralRegex.NUMERIC, HWCentralRegex.NUMERIC)
+            OpenShikshaRegex.NUMERIC, OpenShikshaRegex.NUMERIC)
 
 class EdgeUrlNames(object):
     INDEX = EdgeIndexUrlName()

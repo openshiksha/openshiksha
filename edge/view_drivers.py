@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
-from core.utils.json import Json404Response, HWCentralJsonResponse
-from core.utils.references import HWCentralGroup
+from core.utils.json import Json404Response, OpenShikshaJsonResponse
+from core.utils.references import OpenShikshaGroup
 from core.utils.user_checks import is_student_classteacher_relationship, is_parent_child_relationship
 from core.view_drivers.base import GroupDrivenViewGroupDrivenTemplate, GroupDriven
 from core.view_models.base import AuthenticatedVM
@@ -19,7 +19,7 @@ class IndexGet(GroupDrivenViewGroupDrivenTemplate):
         return render(self.request, self.template, AuthenticatedVM(self.user, StudentIndexBody(self.user)).as_context())
 
     def open_student_endpoint(self):
-        self.template = EdgeUrlNames.INDEX.get_template(HWCentralGroup.refs.STUDENT)
+        self.template = EdgeUrlNames.INDEX.get_template(OpenShikshaGroup.refs.STUDENT)
         return self.student_endpoint()
 
     def parent_endpoint(self):
@@ -48,12 +48,12 @@ class SubjectIdGet(GroupDriven):
 
     def teacher_endpoint(self):
         if self.user == self.subjectroom.teacher or self.user == self.subjectroom.classRoom.classTeacher:
-            return HWCentralJsonResponse(SubjectRoomEdgeData(self.user, self.subjectroom))
+            return OpenShikshaJsonResponse(SubjectRoomEdgeData(self.user, self.subjectroom))
         return Json404Response()
 
     def admin_endpoint(self):
         if self.user.userinfo.school == self.subjectroom.classRoom.school:
-            return HWCentralJsonResponse(SubjectRoomEdgeData(self.user, self.subjectroom))
+            return OpenShikshaJsonResponse(SubjectRoomEdgeData(self.user, self.subjectroom))
         return Json404Response()
 
 
@@ -66,7 +66,7 @@ class StudentIdGet(GroupDriven):
     def student_endpoint(self):
         if self.user != self.student:
             return Json404Response()
-        return HWCentralJsonResponse(StudentEdgeData(self.student, self.subjectroom))
+        return OpenShikshaJsonResponse(StudentEdgeData(self.student, self.subjectroom))
 
     def open_student_endpoint(self):
         return self.student_endpoint()
@@ -74,14 +74,14 @@ class StudentIdGet(GroupDriven):
     def parent_endpoint(self):
         if not is_parent_child_relationship(self.user, self.student):
             return Json404Response()
-        return HWCentralJsonResponse(StudentEdgeData(self.student, self.subjectroom))
+        return OpenShikshaJsonResponse(StudentEdgeData(self.student, self.subjectroom))
 
     def teacher_endpoint(self):
         if (is_student_classteacher_relationship(self.student, self.user)) or (self.subjectroom.teacher == self.user):
-            return HWCentralJsonResponse(StudentEdgeData(self.student, self.subjectroom))
+            return OpenShikshaJsonResponse(StudentEdgeData(self.student, self.subjectroom))
         return Json404Response()
 
     def admin_endpoint(self):
         if self.user.userinfo.school == self.student.userinfo.school:
-            return HWCentralJsonResponse(StudentEdgeData(self.student, self.subjectroom))
+            return OpenShikshaJsonResponse(StudentEdgeData(self.student, self.subjectroom))
         return Json404Response()

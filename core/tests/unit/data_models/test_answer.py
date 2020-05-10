@@ -7,8 +7,8 @@ from core.data_models.answer import SubpartAnswer, MCSAQAnswer, MCMAQAnswer, Tex
     TextualAnswer, ConditionalAnswer
 from core.forms.fields import MCSAQFormField
 from core.tests.base import TCData
-from core.utils.constants import HWCentralConditionalAnswerFormat
-from hwcentral.exceptions import EvalSanitizationError
+from core.utils.constants import OpenShikshaConditionalAnswerFormat
+from openshiksha.exceptions import EvalSanitizationError
 
 
 class SubpartAnswerTest(TestCase):
@@ -323,20 +323,20 @@ class ConditionalAnswerTest(TestCase):
 
     def test_check_answer(self):
         test_cases = [
-            TCData((HWCentralConditionalAnswerFormat.NUMERIC, 1, '_value_ < 10', []), [False]),
-            TCData((HWCentralConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', []), [False, False, False]),
-            TCData((HWCentralConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', ['5.1', '3/10', '- 5 / 56']),
+            TCData((OpenShikshaConditionalAnswerFormat.NUMERIC, 1, '_value_ < 10', []), [False]),
+            TCData((OpenShikshaConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', []), [False, False, False]),
+            TCData((OpenShikshaConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', ['5.1', '3/10', '- 5 / 56']),
                    [True, True, True]),
-            TCData((HWCentralConditionalAnswerFormat.NUMERIC, 1, '_value_ < 10', ['11.1']), [False]),
-            TCData((HWCentralConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', [None, '9', None]),
+            TCData((OpenShikshaConditionalAnswerFormat.NUMERIC, 1, '_value_ < 10', ['11.1']), [False]),
+            TCData((OpenShikshaConditionalAnswerFormat.NUMERIC, 3, '_value_ < 10', [None, '9', None]),
                    [False, True, False]),
 
-            TCData((HWCentralConditionalAnswerFormat.TEXTUAL, 1, '_value_.isupper()', []), [False]),
-            TCData((HWCentralConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()', []), [False, False, False]),
-            TCData((HWCentralConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()',
+            TCData((OpenShikshaConditionalAnswerFormat.TEXTUAL, 1, '_value_.isupper()', []), [False]),
+            TCData((OpenShikshaConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()', []), [False, False, False]),
+            TCData((OpenShikshaConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()',
                     [' FOO  BAR\t ', 'BANANA', 'W A T\t\t E   RMELON']), [True, True, True]),
-            TCData((HWCentralConditionalAnswerFormat.TEXTUAL, 1, '_value_.isupper()', ['foobar']), [False]),
-            TCData((HWCentralConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()', [None, '  FU BAR', None]),
+            TCData((OpenShikshaConditionalAnswerFormat.TEXTUAL, 1, '_value_.isupper()', ['foobar']), [False]),
+            TCData((OpenShikshaConditionalAnswerFormat.TEXTUAL, 3, '_value_.isupper()', [None, '  FU BAR', None]),
                    [False, True, False])
         ]
 

@@ -1,5 +1,5 @@
 from core.routing.urlnames import prettify_for_url_matcher
-from core.utils.constants import HWCentralRegex
+from core.utils.constants import OpenShikshaRegex
 from sphinx.urlnames import AppUrlName
 
 
@@ -9,7 +9,7 @@ class ChallengeUrlName(AppUrlName):
     def __init__(self):
         super(ChallengeUrlName, self).__init__(ChallengeUrlName.APP_NAME, 'index')
         self.url_matcher = '^%s/(%s)/$' % (
-            prettify_for_url_matcher(ChallengeUrlName.APP_NAME), HWCentralRegex.NUMERIC)
+            prettify_for_url_matcher(ChallengeUrlName.APP_NAME), OpenShikshaRegex.NUMERIC)
 
 
 class ChallengeUrlNames(object):

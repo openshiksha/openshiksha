@@ -1,7 +1,7 @@
 # to use this script, run following command from the terminal
 # python manage.py runscript notify_overnight
 
-# NOTE: it is to be run the night after while hwcentral is down (since it notifies about assignments that were due on the previous day)
+# NOTE: it is to be run the night after while openshiksha is down (since it notifies about assignments that were due on the previous day)
 import traceback
 from datetime import timedelta
 
@@ -13,7 +13,7 @@ from django.db.models import Q
 
 from core.models import Assignment, Submission, SubjectRoom
 from core.utils.assignment import check_homework_assignment
-from core.utils.references import HWCentralGroup, HWCentralOpen
+from core.utils.references import OpenShikshaGroup, OpenShikshaOpen
 from core.utils.teacher import TeacherUtils
 from focus.models import Remedial
 from pylon.pylon_api import notify_results_parent, PylonApiError, notify_results_teacher
@@ -50,7 +50,7 @@ def notify_results_parents():
     total_notifications = 0
     successful_notifications = 0
 
-    for parent in User.objects.filter(userinfo__group=HWCentralGroup.refs.PARENT):
+    for parent in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.PARENT):
         if not parent.userinfo.school.schoolprofile.pylon:
             continue
 
@@ -89,11 +89,11 @@ def notify_results_teachers():
     total_notifications = 0
     successful_notifications = 0
 
-    for teacher in User.objects.filter(userinfo__group=HWCentralGroup.refs.TEACHER):
+    for teacher in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.TEACHER):
         if not teacher.userinfo.school.schoolprofile.pylon:
             continue
 
-        if teacher.userinfo.school == HWCentralOpen.refs.SCHOOL:
+        if teacher.userinfo.school == OpenShikshaOpen.refs.SCHOOL:
             continue
 
         utils = TeacherUtils(teacher)

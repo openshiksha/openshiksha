@@ -7,14 +7,14 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.http.request import HttpRequest
 
-import hwcentral.settings as settings
+import openshiksha.settings as settings
 from core.models import SchoolProfile
 from core.models import UserInfo, Home, SubjectRoom, ClassRoom, Standard, Group, School, Subject, Board
-from core.utils.constants import HWCentralEnv
-from core.utils.references import HWCentralGroup
-from hwcentral.context_processors import settings as settings_context_processor
+from core.utils.constants import OpenShikshaEnv
+from core.utils.references import OpenShikshaGroup
+from openshiksha.context_processors import settings as settings_context_processor
 from scripts.database.enforcer import enforcer_check
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 from scripts.fixtures.dump_data import snapshot_db
 
 # to use this script, run following command from the terminal
@@ -34,13 +34,7 @@ CLASSROOM_CSV_PATH = os.path.join(DATA_DIR, 'classroom.csv')
 SUBJECTROOM_CSV_PATH = os.path.join(DATA_DIR, 'subjectroom.csv')
 
 
-DEBUG_SETUP_PASSWORD = "gKBuiGurx9k2j7BDIq5JYkkamK4"
-
-if settings.ENVIRON == HWCentralEnv.PROD:
-    with open(os.path.join(settings.HWCENTRAL_CONFIG_ROOT, 'setup_password.txt'), 'r') as f:
-        SETUP_PASSWORD = f.read().strip()
-else:
-    SETUP_PASSWORD = DEBUG_SETUP_PASSWORD
+SETUP_PASSWORD = os.getenv('OPENSHIKSHA_SETUP_PASSWORD')
 
 def build_username(fname, lname):
     try_count = 0
@@ -62,7 +56,7 @@ def get_students(emails):
         if student_email == '':
             continue
         student = User.objects.get(email=student_email)
-        assert student.userinfo.group == HWCentralGroup.refs.STUDENT
+        assert student.userinfo.group == OpenShikshaGroup.refs.STUDENT
         students.append(student)
 
     print 'Processed students list: %s' % students
@@ -125,15 +119,15 @@ def run(*args):
     new_school.save()
 
     #create school's admin user entry
-    admin = User.objects.create_user(username='hwcadmin_school_' + str(new_school_id),
-                                     email='hwcadmin_school_' + str(new_school_id) + '@openshiksha.org',
+    admin = User.objects.create_user(username='openshiksha_admin_school_' + str(new_school_id),
+                                     email='openshiksha_admin_school_' + str(new_school_id) + '@openshiksha.org',
                                      password=SETUP_PASSWORD,
-                                     first_name='hwcadmin',
-                                     last_name='school_' + str(new_school_id))
+                                     first_name='Admin',
+                                     last_name='School_' + str(new_school_id))
 
     # set up admin userinfo
     admin_userinfo = UserInfo(user=admin)
-    admin_userinfo.group = HWCentralGroup.refs.ADMIN
+    admin_userinfo.group = OpenShikshaGroup.refs.ADMIN
     admin_userinfo.school = new_school
     admin_userinfo.save()
 
@@ -180,7 +174,7 @@ def run(*args):
         reader = csv.DictReader(csvfile)
         for row in reader:
             parent = User.objects.get(email=row['parent'])
-            assert parent.userinfo.group == HWCentralGroup.refs.PARENT
+            assert parent.userinfo.group == OpenShikshaGroup.refs.PARENT
             children = get_students(row['children'])
             home = Home(parent=parent)
             print "Adding home for parent : %s" % parent
@@ -195,7 +189,7 @@ def run(*args):
         reader = csv.DictReader(csvfile)
         for row in reader:
             classteacher = User.objects.get(email=row['classteacher'])
-            assert classteacher.userinfo.group == HWCentralGroup.refs.TEACHER
+            assert classteacher.userinfo.group == OpenShikshaGroup.refs.TEACHER
             school = School.objects.get(pk=row['school'])
             standard = Standard.objects.get(number=row['standard'])
 
@@ -219,7 +213,7 @@ def run(*args):
         reader = csv.DictReader(csvfile)
         for row in reader:
             teacher = User.objects.get(email=row['teacher'])
-            assert teacher.userinfo.group == HWCentralGroup.refs.TEACHER
+            assert teacher.userinfo.group == OpenShikshaGroup.refs.TEACHER
             subject = Subject.objects.get(pk=row['subject'])
             classroom = ClassRoom.objects.get(pk=row['classroom'])
             students = get_students(row['students'])

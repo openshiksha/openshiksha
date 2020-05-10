@@ -2,7 +2,7 @@ import argparse
 
 from django.core.management import call_command
 
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 
 STANDARD_OPTIONS = [  # append apps/models you want to dump
     '--natural-foreign',
@@ -13,7 +13,7 @@ STANDARD_OPTIONS = [  # append apps/models you want to dump
     '--output'  # append output file
 ]
 
-ALL_APPS = [  # list of all hwcentral apps that have db models
+ALL_APPS = [  # list of all openshiksha apps that have db models
     'core',
     'auth',
     'sites',

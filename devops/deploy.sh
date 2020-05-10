@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage: devops/deploy.sh (from hwcentral root dir)
+# Usage: devops/deploy.sh (from root dir)
 
 sudo nginx -s stop
 sudo supervisorctl stop gunicorn
@@ -11,6 +11,8 @@ if [ "$1" == "-x" ]
     then
     scripts/collab/virtualenv_cleanup.sh
 fi
+
+devops/compile-nginx.sh
 
 devops/prep-static.sh
 devops/truncate-logs.sh

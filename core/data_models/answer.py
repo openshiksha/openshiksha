@@ -2,10 +2,10 @@ import re
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 
-from core.utils.constants import HWCentralConditionalAnswerFormat
+from core.utils.constants import OpenShikshaConditionalAnswerFormat
 from core.utils.helpers import merge_dicts, make_string_lean
 from core.utils.json import JSONModel
-from hwcentral.exceptions import InvalidHWCentralConditionalAnswerFormatError, \
+from openshiksha.exceptions import InvalidOpenShikshaConditionalAnswerFormatError, \
     EvalSanitizationError
 
 
@@ -315,14 +315,14 @@ class ConditionalAnswer(SubpartAnswer):
     @classmethod
     def from_data(cls, data, conditional_answer_format):
         values = data['values']
-        if conditional_answer_format == HWCentralConditionalAnswerFormat.NUMERIC:
+        if conditional_answer_format == OpenShikshaConditionalAnswerFormat.NUMERIC:
             for value in values:
                 assert NumericAnswer.valid_numeric(value)
-        elif conditional_answer_format == HWCentralConditionalAnswerFormat.TEXTUAL:
+        elif conditional_answer_format == OpenShikshaConditionalAnswerFormat.TEXTUAL:
             for value in values:
                 assert TextualAnswer.valid_textual(value)
         else:
-            raise InvalidHWCentralConditionalAnswerFormatError(conditional_answer_format)
+            raise InvalidOpenShikshaConditionalAnswerFormatError(conditional_answer_format)
 
         return cls(values, super(ConditionalAnswer, cls).from_data(data))
 
@@ -379,9 +379,9 @@ class ConditionalAnswer(SubpartAnswer):
                 self.correct.append(False)
                 continue
 
-            if subpart_question.answer.answer_format == HWCentralConditionalAnswerFormat.NUMERIC:
+            if subpart_question.answer.answer_format == OpenShikshaConditionalAnswerFormat.NUMERIC:
                 value = NumericAnswer.evaluate(value)
-            elif subpart_question.answer.answer_format == HWCentralConditionalAnswerFormat.TEXTUAL:
+            elif subpart_question.answer.answer_format == OpenShikshaConditionalAnswerFormat.TEXTUAL:
                 try:
                     value = make_string_lean(value)
                     value = ConditionalAnswer.sanitize_for_eval(value)
@@ -389,6 +389,6 @@ class ConditionalAnswer(SubpartAnswer):
                     self.correct.append(False)
                     continue
             else:
-                raise InvalidHWCentralConditionalAnswerFormatError(subpart_question.answer.answer_format)
+                raise InvalidOpenShikshaConditionalAnswerFormatError(subpart_question.answer.answer_format)
 
             self.correct.append(ConditionalAnswer.safe_eval(value, subpart_question.answer.condition))

@@ -2,7 +2,7 @@ from django.conf.urls import url
 
 from core.routing.routers import static_router
 from core.routing.urlnames import UrlNames
-from hwcentral.urls.common import get_all_mode_urlpatterns
+from openshiksha.urls.common import get_all_mode_urlpatterns
 
 urlpatterns = get_all_mode_urlpatterns() + [
     # login url entry is required as the login urlname needs to be set for the index page to work

@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 from django.db import models, migrations
 from django.conf import settings
 
-
 class Migration(migrations.Migration):
     dependencies = [
         ('contenttypes', '0002_remove_content_type_name'),
@@ -35,7 +34,7 @@ class Migration(migrations.Migration):
                 ('assigned', models.DateTimeField(help_text=b'Timestamp of when this assignment was assigned.')),
                 ('due', models.DateTimeField(help_text=b'Timestamp of when this assignment is due.')),
                 ('meta', models.FilePathField(help_text=b"Path to this assignment's metadata file.",
-                                              path=b'/Users/oasis/hwcentral/core/assignments', max_length=255,
+                                              path=b'/', max_length=255,
                                               match=b'\\d+.json')),
             ],
         ),
@@ -84,7 +83,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('meta', models.FilePathField(help_text=b"Path to this question's metadata file.",
-                                              path=b'/Users/oasis/hwcentral/core/questions', max_length=255,
+                                              path=b'/', max_length=255,
                                               match=b'\\d+.json')),
                 ('chapter',
                  models.ForeignKey(help_text=b'The chapter that this question pertains to.', to='core.Chapter')),
@@ -140,7 +139,7 @@ class Migration(migrations.Migration):
                  models.DateTimeField(help_text=b'Timestamp of when this submission was submitted.', auto_now=True)),
                 ('completion', models.FloatField(help_text=b'Completion (percentage) of this submission.')),
                 ('meta', models.FilePathField(help_text=b"Path to this submission's metadata file.",
-                                              path=b'/Users/oasis/hwcentral/core/submissions', max_length=255,
+                                              path=b'/', max_length=255,
                                               match=b'\\d+.json')),
                 ('assignment',
                  models.ForeignKey(help_text=b'The assignment that this submission is for.', to='core.Assignment')),
@@ -194,7 +193,7 @@ class Migration(migrations.Migration):
             model_name='question',
             name='school',
             field=models.ForeignKey(
-                help_text=b"The school question bank that this question belongs to. Use 'hwcentral' if it belongs to the global question bank.",
+                help_text=b"The school question bank that this question belongs to. Use 'openshiksha' if it belongs to the global question bank.",
                 to='core.School'),
         ),
         migrations.AddField(

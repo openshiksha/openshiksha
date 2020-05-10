@@ -15,7 +15,7 @@
           action="{% url vm.authenticated_body.form.action_url_name vm.authenticated_body.submission_id %}">
         {% csrf_token %}
         {{ form.non_field_errors }}
-        <input type='submit' class="no-decoration hwcentral_action_button" name='revised' value='Begin Assignment'
+        <input type='submit' class="no-decoration action_button" name='revised' value='Begin Assignment'
                title="Begin the Assignment"/>
     </form>
 {% endblock assignment_content %}

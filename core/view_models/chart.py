@@ -1,4 +1,4 @@
-# contains all the viewodels that contain the data to render hwcentral charts
+# contains all the viewodels that contain the data to render openshiksha charts
 import django
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg, Q
@@ -8,9 +8,9 @@ from core.utils.json import JSONModel
 from core.utils.labels import get_user_label, get_date_label, get_fraction_label, get_subjectroom_label, \
     get_focusroom_label
 from core.utils.open_student import OpenStudentUtils, calculate_open_aql_average, OpenStudentSubjectIdUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from focus.models import Remedial
-from hwcentral.exceptions import InvalidStateError, InvalidContentTypeError
+from openshiksha.exceptions import InvalidStateError, InvalidContentTypeError
 
 CHART_CORRECTED_ASSIGNMENTS_LIMIT = 10
 
@@ -194,7 +194,7 @@ class PerformanceReport(JSONModel):
 
 class OpenStudentPerformance(JSONModel):
     def __init__(self, student):
-        assert student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT
+        assert student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT
 
         self.performance_report = OpenPerformanceReport(student)
         self.breakdown_listing = []

@@ -5,12 +5,12 @@ from core.models import ClassRoom
 from core.routing.urlnames import UrlNames
 from core.utils.labels import get_classroom_label, get_subjectroom_label, get_focusroom_label, get_fraction_label
 from core.utils.open_student import OpenStudentUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.student import StudentUtils
 # Note the templates only know about this Sidebar class and not its derived classes
 from core.view_models.userinfo import BaseUserInfo
 from core.view_models.utils import Link
-from hwcentral.exceptions import InvalidStateError
+from openshiksha.exceptions import InvalidStateError
 
 
 class ChildInfo(BaseUserInfo):
@@ -26,7 +26,7 @@ class ChildInfo(BaseUserInfo):
 class SidebarTypes(object):
     def __init__(self, user):
         self.type = user.userinfo.group
-        self.TYPES = HWCentralGroup.refs
+        self.TYPES = OpenShikshaGroup.refs
 
 
 class Sidebar(SidebarTypes):

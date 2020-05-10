@@ -5,12 +5,12 @@ from django.db.models import Q
 from django.utils.html import escape
 
 from core.models import AssignmentQuestionsList, Chapter, Submission, Standard
-from core.utils.constants import HWCentralEnv
+from core.utils.constants import OpenShikshaEnv
 from core.utils.json import JSONModel
 from core.utils.labels import get_date_label, get_subjectroom_label
-from core.utils.references import HWCentralRepo, HWCentralOpen
-from hwcentral.exceptions import InvalidHWCentralEnvError
-from hwcentral.settings import ENVIRON
+from core.utils.references import OpenShikshaRepo, OpenShikshaOpen
+from openshiksha.exceptions import InvalidOpenShikshaEnvError
+from openshiksha.settings import ENVIRON
 
 
 class AnnouncementRow(JSONModel):
@@ -38,7 +38,7 @@ class StudentSubjectRoomSelectElem(SelectElem):
     def __init__(self, student, subjectroom):
         chapters = []
 
-        if ENVIRON == HWCentralEnv.PROD or ENVIRON == HWCentralEnv.CIRCLECI:
+        if ENVIRON == OpenShikshaEnv.PROD:
             accessible_aqls = defaultdict(set)
             for submission in Submission.objects.filter(
                     assignment__subjectRoom=subjectroom,
@@ -55,9 +55,9 @@ class StudentSubjectRoomSelectElem(SelectElem):
                 aqls = [AqlSelectElem(aql) for aql in aqls]
                 chapters.append(SelectElem(chapter.name, chapter.pk, aqls))
 
-        elif ENVIRON == HWCentralEnv.QA or ENVIRON == HWCentralEnv.LOCAL:
+        elif ENVIRON == OpenShikshaEnv.QA or ENVIRON == OpenShikshaEnv.LOCAL:
             # allow student to practice all available assignments - hence similar aql selection logic as teacher
-            school_filter = Q(school=subjectroom.classRoom.school) | Q(school=HWCentralRepo.refs.SCHOOL)
+            school_filter = Q(school=subjectroom.classRoom.school) | Q(school=OpenShikshaRepo.refs.SCHOOL)
             standard_subject_filter = Q(subject=subjectroom.subject) & Q(standard=subjectroom.classRoom.standard)
 
             aql_query = school_filter & standard_subject_filter
@@ -70,19 +70,19 @@ class StudentSubjectRoomSelectElem(SelectElem):
                 chapters.append(SelectElem(chapter.name, chapter.pk, aqls))
 
         else:
-            raise InvalidHWCentralEnvError(ENVIRON)
+            raise InvalidOpenShikshaEnvError(ENVIRON)
 
         super(StudentSubjectRoomSelectElem, self).__init__(subjectroom.subject.name, subjectroom.pk, chapters)
 
 
 class OpenSubjectRoomSelectElem(SelectElem):
     def __init__(self, subjectroom):
-        assert subjectroom.classRoom.school == HWCentralOpen.refs.SCHOOL
+        assert subjectroom.classRoom.school == OpenShikshaOpen.refs.SCHOOL
 
         # check if there are aqls for current subjectroom
         query = AssignmentQuestionsList.objects.filter(subject=subjectroom.subject,
                                                        standard=subjectroom.classRoom.standard,
-                                                       school=HWCentralRepo.refs.SCHOOL)
+                                                       school=OpenShikshaRepo.refs.SCHOOL)
 
         chapters = []
         for chapter_id in query.values_list("chapter", flat=True).distinct():
@@ -98,7 +98,7 @@ class TeacherSubjectRoomSelectElem(SelectElem):
     def __init__(self, subjectroom):
         chapters = []
 
-        school_filter = Q(school=subjectroom.classRoom.school) | Q(school=HWCentralRepo.refs.SCHOOL)
+        school_filter = Q(school=subjectroom.classRoom.school) | Q(school=OpenShikshaRepo.refs.SCHOOL)
         standard_subject_filter = Q(subject=subjectroom.subject) & Q(standard=subjectroom.classRoom.standard)
 
         aql_query = school_filter & standard_subject_filter
@@ -119,7 +119,7 @@ class TeacherSubjectRoomSelectOverrideElem(SelectElem):
         for standard in Standard.objects.filter(number__lte=subjectroom.classRoom.standard.number).order_by('-number'):
             chapters = []
 
-            school_filter = Q(school=subjectroom.classRoom.school) | Q(school=HWCentralRepo.refs.SCHOOL)
+            school_filter = Q(school=subjectroom.classRoom.school) | Q(school=OpenShikshaRepo.refs.SCHOOL)
             standard_subject_filter = Q(subject=subjectroom.subject) & Q(standard=standard)
 
             aql_query = school_filter & standard_subject_filter

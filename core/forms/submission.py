@@ -5,8 +5,8 @@ from django.utils.safestring import mark_safe
 from core.data_models.answer import NumericAnswer, TextualAnswer, ConditionalAnswer, MCSAQAnswer, MCMAQAnswer
 from core.forms.base import ReadOnlyForm
 from core.forms.fields import TextualFormField, NumericFormField, MCSAQFormField, MCMAQFormField
-from core.utils.constants import HWCentralQuestionType, HWCentralConditionalAnswerFormat
-from hwcentral.exceptions import InvalidHWCentralConditionalAnswerFormatError, InvalidHWCentralQuestionTypeError, \
+from core.utils.constants import OpenShikshaQuestionType, OpenShikshaConditionalAnswerFormat
+from openshiksha.exceptions import InvalidOpenShikshaConditionalAnswerFormatError, InvalidOpenShikshaQuestionTypeError, \
     SubmissionFormError
 
 
@@ -75,18 +75,18 @@ class SubmissionForm(forms.Form):
         # create a form field for each subpart
         for i, question in enumerate(self.submission_vm.questions):
             for j, subpart in enumerate(question.subparts):
-                if subpart.type == HWCentralQuestionType.CONDITIONAL:
+                if subpart.type == OpenShikshaQuestionType.CONDITIONAL:
                     for k in xrange(subpart.answer.num_answers):
                         field_key = SubmissionForm.build_conditional_subfield_key(i, j, k)
 
                         conditional_format = subpart.answer.answer_format
 
-                        if conditional_format == HWCentralConditionalAnswerFormat.NUMERIC:
+                        if conditional_format == OpenShikshaConditionalAnswerFormat.NUMERIC:
                             field = NumericFormField()
-                        elif conditional_format == HWCentralConditionalAnswerFormat.TEXTUAL:
+                        elif conditional_format == OpenShikshaConditionalAnswerFormat.TEXTUAL:
                             field = TextualFormField()
                         else:
-                            raise InvalidHWCentralConditionalAnswerFormatError(conditional_format)
+                            raise InvalidOpenShikshaConditionalAnswerFormatError(conditional_format)
 
                         form_fields[field_key] = field
                         if use_vm_answers:
@@ -98,29 +98,29 @@ class SubmissionForm(forms.Form):
                 else:
                     field_key = SubmissionForm.build_subpart_field_key(i, j)
 
-                    if subpart.type == HWCentralQuestionType.MCSA:
+                    if subpart.type == OpenShikshaQuestionType.MCSA:
                         combined_options = self.get_combined_options(subpart)
                         choices = SubmissionForm.build_choices(combined_options, subpart.options.order)
                         field = MCSAQFormField(choices, subpart.options.use_dropdown_widget)
                         if use_vm_answers:
                             bound_data[field_key] = self.submission_vm.answers[i][j].choice
-                    elif subpart.type == HWCentralQuestionType.MCMA:
+                    elif subpart.type == OpenShikshaQuestionType.MCMA:
                         combined_options = self.get_combined_options(subpart)
                         choices = SubmissionForm.build_choices(combined_options, subpart.options.order)
                         field = MCMAQFormField(choices)
                         if use_vm_answers:
                             bound_data[field_key] = self.submission_vm.answers[i][j].choices
-                    elif subpart.type == HWCentralQuestionType.NUMERIC:
+                    elif subpart.type == OpenShikshaQuestionType.NUMERIC:
                         field = NumericFormField()
                         if use_vm_answers:
                             bound_data[field_key] = self.submission_vm.answers[i][j].value
-                    elif subpart.type == HWCentralQuestionType.TEXTUAL:
+                    elif subpart.type == OpenShikshaQuestionType.TEXTUAL:
                         field = TextualFormField()
                         if use_vm_answers:
                             bound_data[field_key] = self.submission_vm.answers[i][j].value
 
                     else:
-                        raise InvalidHWCentralQuestionTypeError(subpart.type)
+                        raise InvalidOpenShikshaQuestionTypeError(subpart.type)
 
                     form_fields[field_key] = field
 
@@ -143,7 +143,7 @@ class SubmissionForm(forms.Form):
 
         for question in self.submission_vm.questions:
             for subpart in question.subparts:
-                if subpart.type == HWCentralQuestionType.CONDITIONAL:
+                if subpart.type == OpenShikshaQuestionType.CONDITIONAL:
                     field_count += subpart.answer.num_answers
                 else:
                     field_count += 1
@@ -174,7 +174,7 @@ class SubmissionForm(forms.Form):
 
         for i, question in enumerate(self.submission_vm.questions):
             for j, subpart in enumerate(question.subparts):
-                if subpart.type == HWCentralQuestionType.CONDITIONAL:
+                if subpart.type == OpenShikshaQuestionType.CONDITIONAL:
 
                     for k in xrange(subpart.answer.num_answers):
                         field_key = SubmissionForm.build_conditional_subfield_key(i, j, k)
@@ -198,7 +198,7 @@ class SubmissionForm(forms.Form):
             subparts_answers = []
             for j, subpart in enumerate(question.subparts):
 
-                if subpart.type == HWCentralQuestionType.CONDITIONAL:
+                if subpart.type == OpenShikshaQuestionType.CONDITIONAL:
                     conditional_subpart_answers = []
                     for k in xrange(subpart.answer.num_answers):
                         field_key = SubmissionForm.build_conditional_subfield_key(i, j, k)
@@ -209,16 +209,16 @@ class SubmissionForm(forms.Form):
                     field_key = SubmissionForm.build_subpart_field_key(i, j)
                     subpart_answer_data = self.cleaned_data[field_key]
 
-                    if subpart.type == HWCentralQuestionType.MCSA:
+                    if subpart.type == OpenShikshaQuestionType.MCSA:
                         subpart_answer = MCSAQAnswer.from_form_field(subpart_answer_data)
-                    elif subpart.type == HWCentralQuestionType.MCMA:
+                    elif subpart.type == OpenShikshaQuestionType.MCMA:
                         subpart_answer = MCMAQAnswer.from_form_field(subpart_answer_data)
-                    elif subpart.type == HWCentralQuestionType.NUMERIC:
+                    elif subpart.type == OpenShikshaQuestionType.NUMERIC:
                         subpart_answer = NumericAnswer.from_form_field(subpart_answer_data)
-                    elif subpart.type == HWCentralQuestionType.TEXTUAL:
+                    elif subpart.type == OpenShikshaQuestionType.TEXTUAL:
                         subpart_answer = TextualAnswer.from_form_field(subpart_answer_data)
                     else:
-                        raise InvalidHWCentralQuestionTypeError(subpart.type)
+                        raise InvalidOpenShikshaQuestionTypeError(subpart.type)
 
                 subparts_answers.append(subpart_answer)
             answers.append(subparts_answers)
@@ -241,22 +241,22 @@ class ReadOnlySubmissionForm(ReadOnlyForm, SubmissionForm):
 
             field = self.fields[field_key]
 
-            if subpart.type == HWCentralQuestionType.MCSA:
+            if subpart.type == OpenShikshaQuestionType.MCSA:
                 if not subpart.options.use_dropdown_widget:
                     ReadOnlySubmissionForm.make_field_disabled(field)
                 else:
                     ReadOnlySubmissionForm.make_dropdown_disabled(field)
 
-            elif subpart.type == HWCentralQuestionType.MCMA:
+            elif subpart.type == OpenShikshaQuestionType.MCMA:
                 ReadOnlySubmissionForm.make_field_disabled(field)
-            elif subpart.type == HWCentralQuestionType.NUMERIC:
+            elif subpart.type == OpenShikshaQuestionType.NUMERIC:
                 ReadOnlySubmissionForm.make_field_readonly(field)
-            elif subpart.type == HWCentralQuestionType.TEXTUAL:
+            elif subpart.type == OpenShikshaQuestionType.TEXTUAL:
                 ReadOnlySubmissionForm.make_field_readonly(field)
-            elif subpart.type == HWCentralQuestionType.CONDITIONAL:
+            elif subpart.type == OpenShikshaQuestionType.CONDITIONAL:
                 ReadOnlySubmissionForm.make_field_readonly(field)
             else:
-                raise InvalidHWCentralQuestionTypeError(subpart.type)
+                raise InvalidOpenShikshaQuestionTypeError(subpart.type)
 
 
 class ReadOnlySubmissionFormUnprotected(ReadOnlySubmissionForm):

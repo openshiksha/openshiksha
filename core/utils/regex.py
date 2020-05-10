@@ -6,7 +6,7 @@ from fractions import Fraction
 import math
 from core.utils.helpers import merge_dicts
 from croupier.exceptions import InvalidSubstitutionTagContentError, InvalidImgSubstitutionTagContentError
-from hwcentral.exceptions import TagMismatchError
+from openshiksha.exceptions import TagMismatchError
 
 
 # TODO: some of this stuff (esp the evals) do not belong in this file

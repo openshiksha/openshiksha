@@ -4,10 +4,10 @@ import os
 from django.core.management import call_command
 
 from core.models import Chapter
-from core.utils.constants import HWCentralEnv
-from hwcentral import settings
-from hwcentral.exceptions import InvalidStateError
-from hwcentral.settings import PROJECT_ROOT
+from core.utils.constants import OpenShikshaEnv
+from openshiksha import settings
+from openshiksha.exceptions import InvalidStateError
+from openshiksha.settings import PROJECT_ROOT
 from scripts.database.enforcer import enforcer_check
 from scripts.fixtures.dump_data import snapshot_db, dump_db
 from scripts.setup.assignment import setup_assignment
@@ -16,8 +16,8 @@ with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'question_ban
     CONFIG = json.load(f)
 
 HOME_DIR = os.path.expanduser('~')
-VAULT_CONTENT_PATH = os.path.join(HOME_DIR, 'hwcentral-vault', 'content')
-OUTPUT_CABINET_PATH = os.path.join(HOME_DIR, 'hwcentral-cabinet')
+VAULT_CONTENT_PATH = os.path.join(HOME_DIR, 'openshiksha-vault', 'content')
+OUTPUT_CABINET_PATH = os.path.join(HOME_DIR, 'openshiksha-cabinet')
 
 DUMPFILE_DIR = os.path.join(PROJECT_ROOT, 'core', 'fixtures', 'qb')
 
@@ -162,7 +162,7 @@ def process_block(question_bank_block):
 
 
 def run():
-    assert settings.ENVIRON == HWCentralEnv.LOCAL
+    assert settings.ENVIRON == OpenShikshaEnv.LOCAL
 
     snapshot_db()
 

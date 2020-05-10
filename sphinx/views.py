@@ -3,7 +3,7 @@ import json
 from django.shortcuts import render
 
 from core.data_models.question import build_question_subpart_from_data
-from core.utils.json import HWCentralJsonResponse
+from core.utils.json import OpenShikshaJsonResponse
 from croupier.constraints import SubpartVariableConstraints
 from croupier.croupier_api import deal_subpart
 from sphinx.urlnames import SphinxUrlNames
@@ -11,14 +11,14 @@ from sphinx.view_models import Tags
 
 
 def sphinx_failure_response(message):
-    return HWCentralJsonResponse({
+    return OpenShikshaJsonResponse({
         'success': False,
         'message': message
     })
 
 
 def sphinx_success_response(data):
-    return HWCentralJsonResponse({
+    return OpenShikshaJsonResponse({
         'success': True,
         'payload': data
     })

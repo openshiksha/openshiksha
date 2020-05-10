@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 
 from core.models import SubjectRoom
 from core.utils.json import Json404Response
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.user_checks import is_subjectroom_student_relationship
 from edge.view_drivers import IndexGet, SubjectIdGet, StudentIdGet
 
@@ -35,7 +35,7 @@ def student_id_get(request, student_id, subjectroom_id):
     statsd.increment('edge.hits.get.student_id')
     try:
         student = get_object_or_404(User, pk=student_id)
-        if student.userinfo.group != HWCentralGroup.refs.STUDENT and student.userinfo.group != HWCentralGroup.refs.OPEN_STUDENT:
+        if student.userinfo.group != OpenShikshaGroup.refs.STUDENT and student.userinfo.group != OpenShikshaGroup.refs.OPEN_STUDENT:
             raise Http404
 
         subjectroom = get_object_or_404(SubjectRoom, pk=subjectroom_id)

@@ -6,10 +6,10 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from core.utils.labels import get_classroom_label, get_subjectroom_label, get_user_label
-from core.utils.references import HWCentralGroup, HWCentralOpen
-from core.utils.user_checks import is_hwcentral_team_admin
-from hwcentral.exceptions import InvalidContentTypeError
-from hwcentral.settings import MAX_CHARFIELD_LENGTH
+from core.utils.references import OpenShikshaGroup, OpenShikshaOpen
+from core.utils.user_checks import is_openshiksha_team_admin
+from openshiksha.exceptions import InvalidContentTypeError
+from openshiksha.settings import MAX_CHARFIELD_LENGTH
 
 CORE_APP_LABEL = 'core'
 FRACTION_VALIDATOR = [
@@ -131,9 +131,9 @@ class ClassRoom(models.Model):
 
 
 class Question(models.Model):
-    # Question can belong to single-school or a shared-school (HWCentralRepo)
+    # Question can belong to single-school or a shared-school (OpenShikshaRepo)
     school = models.ForeignKey(School,
-                               help_text='The school question bank that this question belongs to. Use 1 if it belongs to the hwcentral question bank.')
+                               help_text='The school question bank that this question belongs to. Use 1 if it belongs to the openshiksha question bank.')
     standard = models.ForeignKey(Standard, help_text='The standard that this question is for.')
     subject = models.ForeignKey(Subject, help_text='The subject that this question is for.')
     chapter = models.ForeignKey(Chapter, help_text='The chapter that this question pertains to.')
@@ -158,9 +158,9 @@ class QuestionSubpart(models.Model):
 
 class AssignmentQuestionsList(models.Model):
     questions = models.ManyToManyField(Question, help_text='The set of questions that make up an assignment.')
-    # AQL can belong to a single-school or a shared-school (HWCentralRepo)
+    # AQL can belong to a single-school or a shared-school (OpenShikshaRepo)
     school = models.ForeignKey(School,
-                               help_text='The school that this Assignment Questions List belongs to. Use 1 if it belongs to the hwcentral question bank')
+                               help_text='The school that this Assignment Questions List belongs to. Use 1 if it belongs to the openshiksha question bank')
     standard = models.ForeignKey(Standard, help_text='The standard that this Assignment Questions List is for.')
     subject = models.ForeignKey(Subject, help_text='The subject that this Assignment Questions List is for.')
     number = models.PositiveIntegerField(
@@ -212,8 +212,8 @@ class Assignment(models.Model):
         elif self.content_type == ContentType.objects.get_for_model(Remedial):
             return self.content_object.focusRoom.subjectRoom
         elif self.content_type == ContentType.objects.get_for_model(User):
-            if self.content_object.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT:
-                return HWCentralOpen.refs.SUBJECTROOMS.get(subject=self.assignmentQuestionsList.subject,
+            if self.content_object.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT:
+                return OpenShikshaOpen.refs.SUBJECTROOMS.get(subject=self.assignmentQuestionsList.subject,
                                                            classRoom__standard=self.assignmentQuestionsList.standard)
             else:
                 raise NotImplementedError('Cannot extract subjectroom for practice assignment.')
@@ -305,7 +305,7 @@ class Announcement(models.Model):
             raise InvalidContentTypeError(self.content_type)
 
     def get_source_label(self):
-        if is_hwcentral_team_admin(self.announcer):
+        if is_openshiksha_team_admin(self.announcer):
             return 'OpenShiksha Team'
         return get_user_label(self.announcer)
 

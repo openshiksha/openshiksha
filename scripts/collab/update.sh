@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# use this script to automate updating your dev setup with the upstream hwcentral repository
-# Usage: scripts/collab/update.sh (run from root hwcentral directory)
+# use this script to automate updating your dev setup with the master openshiksha branch
+# Usage: scripts/collab/update.sh (run from root directory)
 
-echo 'RUN THIS SCRIPT FROM HWCENTRAL ROOT ONLY'
+echo 'RUN THIS SCRIPT FROM ROOT DIRECTORY ONLY'
 echo
-echo 'If that is not the case, quit this script and cd ~/hwcentral'
+echo 'If that is not the case, quit this script and switch to the root directory'
 echo
 echo 'Press enter to continue or ctrl+C to quit...'
 read -p "$*"
@@ -32,9 +32,9 @@ echo $VIRTUAL_ENV
 
 echo 'Please check the above virtualenv output ^'
 echo
-echo 'YOU SHOULD BE IN VIRTUALENV HWCENTRAL'
+echo 'YOU SHOULD BE IN THE VIRTUALENV FOR THIS PROJECT'
 echo
-echo 'If that is not the case, quit this script and first workon hwcentral'
+echo 'If that is not the case, quit this script and switch to the correct virtualenv'
 echo
 echo 'Press enter to continue or ctrl+C to quit...'
 read -p "$*"

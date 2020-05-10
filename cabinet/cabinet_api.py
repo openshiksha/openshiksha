@@ -1,5 +1,5 @@
-# This file provides the utility methods to access files from the hwcentral-cabinet repository
-# The access urls are built differently depending on the hwcentral settings DEBUG flag
+# This file provides the utility methods to access files from the openshiksha-cabinet repository
+# The access urls are built differently depending on the openshiksha settings DEBUG flag
 import os
 
 import requests
@@ -14,25 +14,23 @@ from core.data_models.aql import AQLMetaDM
 from core.data_models.question import QuestionContainer, build_question_subpart_from_data
 from core.data_models.submission import SubmissionDM
 from core.routing.urlnames import UrlNames
-from core.utils.constants import HWCentralQuestionDataType, HttpMethod, HWCentralEnv
+from core.utils.constants import OpenShikshaQuestionDataType, HttpMethod, OpenShikshaEnv
 from core.utils.json import dump_json_string
 from croupier.constraints import SubpartVariableConstraints
 from croupier.data_models import UndealtQuestionDM
-from hwcentral import settings
-from hwcentral.exceptions import InvalidHWCentralEnvError
+from openshiksha import settings
+from openshiksha.exceptions import InvalidOpenShikshaEnvError
 
 CABINET_PORT = 9878
 
-if settings.ENVIRON == HWCentralEnv.LOCAL:
+if settings.ENVIRON == OpenShikshaEnv.LOCAL:
     CABINET_ENDPOINT = 'localhost'
-elif settings.ENVIRON == HWCentralEnv.QA:
+elif settings.ENVIRON == OpenShikshaEnv.QA:
     CABINET_ENDPOINT = '10.130.97.154'
-elif settings.ENVIRON == HWCentralEnv.CIRCLECI:
-    CABINET_ENDPOINT = 'localhost'
-elif settings.ENVIRON == HWCentralEnv.PROD:
+elif settings.ENVIRON == OpenShikshaEnv.PROD:
     CABINET_ENDPOINT = '10.130.32.37'
 else:
-    raise InvalidHWCentralEnvError(settings.ENVIRON)
+    raise InvalidOpenShikshaEnvError(settings.ENVIRON)
 
 CABINET_ENDPOINT = 'http://' + CABINET_ENDPOINT + ':' + str(CABINET_PORT) + '/'
 CONFIG_FILE_EXTENSION = '.json'
@@ -102,13 +100,13 @@ def get_resource_exists(url):
 def get_question(question):
     # NOTE: cannot just use the Question's from_data method as we dont have all the data available in one dictionary.
     # it must first be aggregated by looking at the container in cabinet
-    container_url = build_question_data_url(question, HWCentralQuestionDataType.CONTAINER, question.pk)
+    container_url = build_question_data_url(question, OpenShikshaQuestionDataType.CONTAINER, question.pk)
     container = QuestionContainer(get_resource_content(container_url))
 
     subparts = []
     variable_constraints_list = []
     for i, subpart in enumerate(container.subparts):
-        subpart_url = build_question_data_url(question, HWCentralQuestionDataType.SUBPART, subpart)
+        subpart_url = build_question_data_url(question, OpenShikshaQuestionDataType.SUBPART, subpart)
         subpart_data = get_resource_content(subpart_url)
 
         question_part = build_question_subpart_from_data(subpart_data)

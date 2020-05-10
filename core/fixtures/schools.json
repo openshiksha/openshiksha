@@ -1,9 +1,9 @@
 [
 {
     "fields": {
-        "username": "hwcadmin_school_1",
-        "first_name": "hwcadmin",
-        "last_name": "school_1",
+        "username": "openshiksha_admin_school_1",
+        "first_name": "Admin",
+        "last_name": "School_1",
         "is_active": true,
         "is_superuser": false,
         "is_staff": false,
@@ -11,7 +11,7 @@
         "groups": [],
         "user_permissions": [],
         "password": "pbkdf2_sha256$20000$zyuGv2GFwDjw$IhK40GHPFJ9Ge6aCqACvRvxr1SYyi6H85mGMHvP/UjY=",
-        "email": "hwcadmin_school_1@openshiksha.org",
+        "email": "openshiksha_admin_school_1@openshiksha.org",
         "date_joined": "2015-10-07T16:40:19Z"
     },
     "model": "auth.user",
@@ -19,9 +19,9 @@
 },
 {
     "fields": {
-        "username": "hwcadmin_school_2",
-        "first_name": "hwcadmin",
-        "last_name": "school_2",
+        "username": "openshiksha_admin_school_2",
+        "first_name": "Admin",
+        "last_name": "School_2",
         "is_active": true,
         "is_superuser": false,
         "is_staff": false,
@@ -29,7 +29,7 @@
         "groups": [],
         "user_permissions": [],
         "password": "pbkdf2_sha256$20000$AU4522WyOK3E$lVqwLrhf2ORI7LnkS+/3b3AXVfdXQtgBsDJFX0gRyJc=",
-        "email": "hwcadmin_school_2@openshiksha.org",
+        "email": "openshiksha_admin_school_2@openshiksha.org",
         "date_joined": "2016-06-16T13:36:18Z"
     },
     "model": "auth.user",
@@ -110,7 +110,7 @@
     {
         "fields": {
         "admin": [
-            "hwcadmin_school_1"
+            "openshiksha_admin_school_1"
         ],
         "name": "OpenShiksha QA School",
         "board": 1
@@ -121,7 +121,7 @@
     {
         "fields": {
             "admin": [
-                "hwcadmin_school_2"
+                "openshiksha_admin_school_2"
             ],
             "name": "OpenShiksha",
             "board": 1

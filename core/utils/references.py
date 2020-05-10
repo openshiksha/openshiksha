@@ -20,12 +20,12 @@ class LazyReference(object):
         raise NotImplementedError("Subclass of LazyReference must implement build_refs")
 
 
-class HWCentralGroup(LazyReference):
+class OpenShikshaGroup(LazyReference):
     @classmethod
     def build_refs(cls):
-        return HWCentralGroup.HWCentralGroupRefs()
+        return OpenShikshaGroup.OpenShikshaGroupRefs()
 
-    class HWCentralGroupRefs(object):
+    class OpenShikshaGroupRefs(object):
         def __init__(self):
             from core.models import Group
             self.STUDENT = Group.objects.get(name='student')
@@ -35,12 +35,12 @@ class HWCentralGroup(LazyReference):
             self.OPEN_STUDENT = Group.objects.get(name='open_student')
 
 
-class HWCentralOpen(LazyReference):
+class OpenShikshaOpen(LazyReference):
     @classmethod
     def build_refs(cls):
-        return HWCentralOpen.HWCentralOpenRefs()
+        return OpenShikshaOpen.OpenShikshaOpenRefs()
 
-    class HWCentralOpenRefs(object):
+    class OpenShikshaOpenRefs(object):
         def __init__(self):
             from core.models import School, SubjectRoom, ClassRoom
             self.SCHOOL = School.objects.get(pk=2)
@@ -67,12 +67,12 @@ class EdgeSpecialTags(LazyReference):
                 self.CRITICAL_THINKING.pk
             ]
 
-class HWCentralRepo(LazyReference):
+class OpenShikshaRepo(LazyReference):
     @classmethod
     def build_refs(cls):
-        return HWCentralRepo.HWCentralRepoRefs()
+        return OpenShikshaRepo.OpenShikshaRepoRefs()
 
-    class HWCentralRepoRefs(object):
+    class OpenShikshaRepoRefs(object):
         def __init__(self):
             from core.models import School
             self.SCHOOL = School.objects.get(pk=1)

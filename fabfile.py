@@ -19,7 +19,7 @@ logging.basicConfig()
 paramiko_logger = logging.getLogger("paramiko.transport")
 paramiko_logger.disabled = True
 
-DATA_DUMP_DIR = '../hwcentral-data/'
+DATA_DUMP_DIR = '../openshiksha-data/'
 
 @task
 @hosts(WEB_SERVERS + [DB_SERVER])
@@ -80,7 +80,7 @@ def grab_data_dump(filename):
     filename = filename + '.json'
 
     run("scripts/fixtures/dump-data.sh %s" % filename)
-    get(os.path.join("~/hwcentral", filename), os.path.join(DATA_DUMP_DIR, filename))
+    get(os.path.join("~/openshiksha", filename), os.path.join(DATA_DUMP_DIR, filename))
     run("rm " + filename)
 
 @task
@@ -89,5 +89,5 @@ def qa_grab_data_dump(filename):
     filename = filename + '.json'
 
     run("scripts/fixtures/dump-data.sh %s" % filename)
-    get(os.path.join("~/hwcentral", filename), os.path.join(DATA_DUMP_DIR, filename))
+    get(os.path.join("~/openshiksha", filename), os.path.join(DATA_DUMP_DIR, filename))
     run("rm " + filename)

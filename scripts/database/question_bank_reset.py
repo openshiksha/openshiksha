@@ -4,10 +4,10 @@ import os
 from django.core.management import call_command
 from django.db import connection
 
-from hwcentral.settings import PROJECT_ROOT
+from openshiksha.settings import PROJECT_ROOT
 
 
-def hwcentral_raw_sql_execute(sql_cmd):
+def raw_sql_execute(sql_cmd):
     with connection.cursor() as conn:
         conn.execute(sql_cmd)
 
@@ -33,12 +33,12 @@ def get_table_truncation_statements(tables):
     return '\n'.join(statements)
 
 
-def hwcentral_truncate_tables(tables):
-    hwcentral_raw_sql_execute(TRUNCATE_CMD_BEGIN + get_table_truncation_statements(tables) + TRUNCATE_CMD_END)
+def truncate_tables(tables):
+    raw_sql_execute(TRUNCATE_CMD_BEGIN + get_table_truncation_statements(tables) + TRUNCATE_CMD_END)
 
 def run():
     # first truncate all tables which form the question bank
-    hwcentral_truncate_tables([
+    truncate_tables([
         'core_question',
         'core_questionsubpart',
         'core_questiontag',

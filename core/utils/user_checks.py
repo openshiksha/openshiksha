@@ -4,22 +4,22 @@ from core.utils.assignment import is_assignment_corrected, is_corrected_open_ass
 #######
 # CONVENTION - is_* are boolean checks; check_* are hard checks i.e. 404 on fail
 #######
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 
 
 def is_subjectteacher(subjectteacher):
     """
     Checks if object passed in is a subjectteacher user, otherwise raises 404
     """
-    from core.utils.references import HWCentralGroup
-    return (subjectteacher.userinfo.group == HWCentralGroup.refs.TEACHER) and subjectteacher.subjects_managed_set.exists()
+    from core.utils.references import OpenShikshaGroup
+    return (subjectteacher.userinfo.group == OpenShikshaGroup.refs.TEACHER) and subjectteacher.subjects_managed_set.exists()
 
 def is_classteacher(classteacher):
     """
     Checks if object passed in is a classteacher user, otherwise raises 404
     """
-    from core.utils.references import HWCentralGroup
-    return classteacher.userinfo.group == HWCentralGroup.refs.TEACHER and classteacher.classes_managed_set.exists()
+    from core.utils.references import OpenShikshaGroup
+    return classteacher.userinfo.group == OpenShikshaGroup.refs.TEACHER and classteacher.classes_managed_set.exists()
 
 def is_student_classteacher_relationship(student, classteacher):
     return student.classes_enrolled_set.get().classTeacher == classteacher
@@ -57,7 +57,7 @@ def is_student_corrected_assignment_relationship(student, assignment):
 
 def is_open_student_corrected_assignment_relationship(student, assignment):
     return (is_corrected_open_assignment(assignment)) and (
-    student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT) and (assignment.content_object == student)
+    student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT) and (assignment.content_object == student)
 
 def is_student_assignment_relationship(student, assignment):
     """
@@ -65,9 +65,9 @@ def is_student_assignment_relationship(student, assignment):
     """
     return student in assignment.content_object.students.all()
 
-def is_hwcentral_team_admin(user):
+def is_openshiksha_team_admin(user):
     """
-    Checks if the given user is a super-admin set up for use by the hwcentral team
+    Checks if the given user is a super-admin set up for use by the openshiksha team
     """
-    from core.utils.references import HWCentralGroup
-    return (user.userinfo.group == HWCentralGroup.refs.ADMIN) and (user.username.startswith('hwcadmin_school_'))
+    from core.utils.references import OpenShikshaGroup
+    return (user.userinfo.group == OpenShikshaGroup.refs.ADMIN) and (user.username.startswith('openshiksha_admin_school_'))

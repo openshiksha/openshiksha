@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-# run this from hwcentral root directory scripts/testing/integration.sh
+# Usage: scripts/testing/integration.sh (from root directory)
 
 python -Wall manage.py test core.tests.integration

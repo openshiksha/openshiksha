@@ -3,12 +3,12 @@ from django.utils.safestring import mark_safe
 from core.data_models.answer import MCSAQAnswer, MCMAQAnswer, TextualAnswer, NumericAnswer, ConditionalAnswer
 from core.data_models.aql import add_img_reloader
 from core.models import Question
-from core.utils.constants import HWCentralQuestionDataType, HWCentralQuestionType, HWCentralConditionalAnswerFormat
+from core.utils.constants import OpenShikshaQuestionDataType, OpenShikshaQuestionType, OpenShikshaConditionalAnswerFormat
 from core.utils.json import JSONModel
 from core.utils.regex import evaluate_substitute, substitute_img
 from core.view_models.submission_id import MCSAQuestionPartProtected, MCMAQuestionPartProtected, \
     TextualQuestionPartProtected, NumericQuestionPartProtected, ConditionalQuestionPartProtected
-from hwcentral.exceptions import InvalidHWCentralQuestionTypeError
+from openshiksha.exceptions import InvalidOpenShikshaQuestionTypeError
 
 
 def no_tex(text):
@@ -65,18 +65,18 @@ def build_question_subpart_from_data(subpart_data):
     """
     subpart_type = subpart_data['type']
 
-    if subpart_type == HWCentralQuestionType.MCSA:
+    if subpart_type == OpenShikshaQuestionType.MCSA:
         question_part = MCSAQuestionPart(subpart_data)
-    elif subpart_type == HWCentralQuestionType.MCMA:
+    elif subpart_type == OpenShikshaQuestionType.MCMA:
         question_part = MCMAQuestionPart(subpart_data)
-    elif subpart_type == HWCentralQuestionType.NUMERIC:
+    elif subpart_type == OpenShikshaQuestionType.NUMERIC:
         question_part = NumericQuestionPart(subpart_data)
-    elif subpart_type == HWCentralQuestionType.TEXTUAL:
+    elif subpart_type == OpenShikshaQuestionType.TEXTUAL:
         question_part = TextualQuestionPart(subpart_data)
-    elif subpart_type == HWCentralQuestionType.CONDITIONAL:
+    elif subpart_type == OpenShikshaQuestionType.CONDITIONAL:
         question_part = ConditionalQuestionPart(subpart_data)
     else:
-        raise InvalidHWCentralQuestionTypeError(subpart_type)
+        raise InvalidOpenShikshaQuestionTypeError(subpart_type)
 
     return question_part
 
@@ -121,16 +121,16 @@ class QuestionContainer(JSONModel):
 
     def build_img_urls(self, user, question):
         if self.hint is not None:
-            self.hint.build_img_url(user, question, HWCentralQuestionDataType.CONTAINER)
+            self.hint.build_img_url(user, question, OpenShikshaQuestionDataType.CONTAINER)
         if self.content is not None:
-            self.content.build_img_url(user, question, HWCentralQuestionDataType.CONTAINER)
+            self.content.build_img_url(user, question, OpenShikshaQuestionDataType.CONTAINER)
 
 class QuestionPart(JSONModel):
     """
     Wrapper around the data that resides in a raw question file
     """
 
-    TYPES = HWCentralQuestionType  # associating enum with this dm so that it is available in templates
+    TYPES = OpenShikshaQuestionType  # associating enum with this dm so that it is available in templates
     ANSWER_MODEL = None  # to be set by child classes
 
     def __init__(self, data):
@@ -142,11 +142,11 @@ class QuestionPart(JSONModel):
         self.solution = QuestionElem.from_data(data.get("solution"))
 
     def build_img_urls(self, user, question):
-        self.content.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+        self.content.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
         if self.hint is not None:
-            self.hint.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            self.hint.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
         if self.solution is not None:
-            self.solution.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            self.solution.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
     def get_protected(self):
         raise NotImplementedError("subclass of QuestionPart must implement method get_protected")
@@ -173,7 +173,7 @@ class MCOptions(JSONModel):
 
     def build_img_urls(self, user, question):
         for option in self.incorrect:
-            option.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            option.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
     def evaluate_substitute(self, variable_values):
         for option in self.incorrect:
@@ -190,7 +190,7 @@ class MCSAOptions(MCOptions):
 
     def build_img_urls(self, user, question):
         super(MCSAOptions, self).build_img_urls(user, question)
-        self.correct.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+        self.correct.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
     def evaluate_substitute(self, variable_values):
         super(MCSAOptions, self).evaluate_substitute(variable_values)
@@ -230,7 +230,7 @@ class MCMAOptions(MCOptions):
     def build_img_urls(self, user, question):
         super(MCMAOptions, self).build_img_urls(user, question)
         for option in self.correct:
-            option.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            option.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
     def evaluate_substitute(self, variable_values):
         super(MCMAOptions, self).evaluate_substitute(variable_values)
@@ -313,7 +313,7 @@ class NumericQuestionPart(QuestionPart):
         self.answer.evaluate_substitute(variable_values)
 
 class ConditionalTarget(JSONModel):
-    FORMATS = HWCentralConditionalAnswerFormat  # associating enum with this dm so that it is available in templates
+    FORMATS = OpenShikshaConditionalAnswerFormat  # associating enum with this dm so that it is available in templates
 
     def __init__(self, data):
         self.num_answers = data['num_answers']

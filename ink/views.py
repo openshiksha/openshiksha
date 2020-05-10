@@ -5,9 +5,9 @@ from django.shortcuts import render
 
 from core.forms.password import NonSavingCustomSetPasswordForm
 from core.models import School, UserInfo
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.toast import render_with_error_toast, render_with_success_toast
-from core.utils.user_checks import is_hwcentral_team_admin
+from core.utils.user_checks import is_openshiksha_team_admin
 from core.view_models.base import AuthenticatedVM
 from ink.forms import InkForm
 from ink.models import Dossier
@@ -17,7 +17,7 @@ from ink.view_models import IndexBody
 from scripts.setup.full_school import build_username
 
 def is_allowed_ink(user):
-    if not is_hwcentral_team_admin(user):
+    if not is_openshiksha_team_admin(user):
         raise Http404
     return True
 
@@ -39,7 +39,7 @@ def index_post(request):
         classroom = ink_form.cleaned_data['section']
 
         username = build_username(fname, lname)
-        group = HWCentralGroup.refs.STUDENT
+        group = OpenShikshaGroup.refs.STUDENT
         school = request.user.userinfo.school
 
         password = password_form.cleaned_data['new_password2']

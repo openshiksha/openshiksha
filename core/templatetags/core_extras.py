@@ -1,8 +1,8 @@
 from django import template
 from django.template.defaultfilters import stringfilter
 
-from core.utils.constants import HWCentralQuestionType
-from hwcentral.exceptions import InvalidHWCentralGroupError, InvalidHWCentralQuestionTypeError, \
+from core.utils.constants import OpenShikshaQuestionType
+from openshiksha.exceptions import InvalidOpenShikshaGroupError, InvalidOpenShikshaQuestionTypeError, \
     UncorrectedSubmissionError
 
 register = template.Library()
@@ -76,7 +76,7 @@ def answer_wrong(value, arg):
     if value is None:
         raise UncorrectedSubmissionError
 
-    if arg == HWCentralQuestionType.CONDITIONAL:
+    if arg == OpenShikshaQuestionType.CONDITIONAL:
         return (False in value)
     else:
         return not value
@@ -111,18 +111,18 @@ def is_correct_option_index_ma(value, arg):
 
 
 @register.filter(is_safe=True)
-def throw_InvalidHWCentralGroupError(value):
+def throw_InvalidOpenShikshaGroupError(value):
     """
     Hacky way to throw an exception in template
     @param value: the invalid group object
     """
-    raise InvalidHWCentralGroupError(value.name)
+    raise InvalidOpenShikshaGroupError(value.name)
 
 
 @register.filter(is_safe=True)
-def throw_InvalidHWCentralQuestionTypeError(value):
+def throw_InvalidOpenShikshaQuestionTypeError(value):
     """
     Hacky way to throw an exception in template
     @param value: the invalid question type
     """
-    raise InvalidHWCentralQuestionTypeError(value)
+    raise InvalidOpenShikshaQuestionTypeError(value)

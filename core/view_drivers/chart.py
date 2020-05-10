@@ -1,6 +1,6 @@
 from core.models import SubjectRoom, Submission
 from core.utils.assignment import is_assignment_active, is_assignment_corrected
-from core.utils.json import HWCentralJsonResponse, Json404Response
+from core.utils.json import OpenShikshaJsonResponse, Json404Response
 from core.utils.open_student import get_adjacent_open_submissions
 from core.utils.user_checks import is_student_classteacher_relationship, is_subjectroom_classteacher_relationship, \
     is_student_corrected_assignment_relationship, is_assignment_teacher_relationship, is_parent_child_relationship, \
@@ -60,10 +60,10 @@ class StudentChartGetBase(GroupDrivenChart):
 
 class StudentChartGet(StudentChartGetBase):
     def student_chart_data(self):
-        return HWCentralJsonResponse(StudentPerformance(self.student))
+        return OpenShikshaJsonResponse(StudentPerformance(self.student))
 
     def open_student_chart_data(self):
-        return HWCentralJsonResponse(OpenStudentPerformance(self.student))
+        return OpenShikshaJsonResponse(OpenStudentPerformance(self.student))
 
     def teacher_endpoint(self):
         # validation - the logged in classteacher should only see the student chart if student belongs to his/her class
@@ -82,10 +82,10 @@ class SingleSubjectStudentChartGet(StudentChartGetBase):
         self.subjectroom = subjectroom
 
     def student_chart_data(self):
-        return HWCentralJsonResponse(PerformanceBreakdown.for_subjectroom(self.student, self.subjectroom))
+        return OpenShikshaJsonResponse(PerformanceBreakdown.for_subjectroom(self.student, self.subjectroom))
 
     def open_student_chart_data(self):
-        return HWCentralJsonResponse(OpenPerformanceBreakdown(self.student, self.subjectroom))
+        return OpenShikshaJsonResponse(OpenPerformanceBreakdown(self.student, self.subjectroom))
 
     def teacher_endpoint(self):
         # validation - the logged in subjectteacher should only see the student chart if student belongs to his/her subjectroom
@@ -107,7 +107,7 @@ class SingleFocusStudentChartGet(StudentChartGetBase):
         self.focusroom = focusroom
 
     def student_chart_data(self):
-        return HWCentralJsonResponse(PerformanceBreakdown.for_focusroom(self.student, self.focusroom))
+        return OpenShikshaJsonResponse(PerformanceBreakdown.for_focusroom(self.student, self.focusroom))
 
     def open_student_chart_data(self):
         return Json404Response()
@@ -132,7 +132,7 @@ class SubjectroomChartGet(GroupDrivenChart):
         self.subjectroom = subjectroom
 
     def single_subjectroom_data(self):
-        return HWCentralJsonResponse(RoomPerformanceBreakdown.for_subjectroom(self.subjectroom))
+        return OpenShikshaJsonResponse(RoomPerformanceBreakdown.for_subjectroom(self.subjectroom))
 
     def student_endpoint(self):
         return Json404Response()
@@ -171,7 +171,7 @@ class FocusroomChartGet(GroupDrivenChart):
         self.focusroom = focusroom
 
     def single_focusroom_data(self):
-        return HWCentralJsonResponse(RoomPerformanceBreakdown.for_focusroom(self.focusroom))
+        return OpenShikshaJsonResponse(RoomPerformanceBreakdown.for_focusroom(self.focusroom))
 
     def student_endpoint(self):
         return Json404Response()
@@ -217,7 +217,7 @@ class SubjectTeacherSubjectroomChartGet(GroupDrivenChart):
             if focus:
                 chart_data.append(RoomPerformanceBreakdown.for_focusroom(subjectroom.focusroom))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def student_endpoint(self):
         return Json404Response()
@@ -258,7 +258,7 @@ class ClassTeacherSubjectroomChartGet(GroupDrivenChart):
             if focus:
                 chart_data.append(RoomPerformanceBreakdown.for_focusroom(subjectroom.focusroom))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def student_endpoint(self):
         return Json404Response()
@@ -295,21 +295,21 @@ class AssignmentChartGet(GroupDrivenChart):
         for submission in Submission.objects.filter(assignment=self.assignment):
             chart_data.append(AssignmentPerformanceElement(submission))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def anon_assignment_chart_data(self):
         chart_data = []
         for submission in Submission.objects.filter(assignment=self.assignment):
             chart_data.append(AnonAssignmentPerformanceElement(submission))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def anon_open_assignment_chart_data(self):
         chart_data = []
         for submission in get_adjacent_open_submissions(self.assignment):
             chart_data.append(AnonAssignmentPerformanceElement(submission))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def student_endpoint(self):
         if is_student_corrected_assignment_relationship(self.user, self.assignment):
@@ -353,7 +353,7 @@ class CompletionChartGet(GroupDrivenChart):
 
     def completion_chart_data(self):
         if not is_assignment_active(self.assignment):
-            return HWCentralJsonResponse([AssignmentCompletionElement.build_shell(student) for student in
+            return OpenShikshaJsonResponse([AssignmentCompletionElement.build_shell(student) for student in
                                           self.assignment.content_object.students.all()])
 
         chart_data = []
@@ -370,7 +370,7 @@ class CompletionChartGet(GroupDrivenChart):
             for student in self.assignment.content_object.students.exclude(pk__in=submission_exists_student_pks):
                 chart_data.append(AssignmentCompletionElement.build_shell(student))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def student_endpoint(self):
         return Json404Response()
@@ -410,14 +410,14 @@ class StandardAssignmentChartGet(GroupDrivenChart):
         for submission in self.get_standard_submissions():
             chart_data.append(AssignmentPerformanceElement(submission))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def anon_assignment_chart_data(self):
         chart_data = []
         for submission in self.get_standard_submissions():
             chart_data.append(AnonAssignmentPerformanceElement(submission))
 
-        return HWCentralJsonResponse(chart_data)
+        return OpenShikshaJsonResponse(chart_data)
 
     def student_endpoint(self):
         return Json404Response()

@@ -1,5 +1,5 @@
 ## EXCEPTIONS
-from hwcentral.exceptions import InvalidStateError
+from openshiksha.exceptions import InvalidStateError
 
 
 class EnforcerError(InvalidStateError):
@@ -41,16 +41,16 @@ class MissingUserInfoError(EnforcerError):
         super(MissingUserInfoError, self).__init__("No userinfo found for user %s" % (user.username))
 
 
-class InvalidHWCAdminError(EnforcerError):
-    def __init__(self, hwc_admin, school, *args, **kwargs):
-        super(InvalidHWCAdminError, self).__init__("hwcadmin: %s is admin for school: %s but belongs to school: %s" % (
-        hwc_admin.username, school.pk, hwc_admin.userinfo.school.pk))
+class InvalidOpenShikshaAdminError(EnforcerError):
+    def __init__(self, admin, school, *args, **kwargs):
+        super(InvalidOpenShikshaAdminError, self).__init__("openshiksha admin: %s is admin for school: %s but belongs to school: %s" % (
+        admin.username, school.pk, admin.userinfo.school.pk))
 
 
-class InvalidHWCAdminUsernameError(EnforcerError):
-    def __init__(self, hwc_admin, *args, **kwargs):
-        super(InvalidHWCAdminUsernameError, self).__init__(
-            "Invalid username: %s for hwcadmin with school id: %s" % (hwc_admin.username, hwc_admin.userinfo.school.pk))
+class InvalidOpenShikshaAdminUsernameError(EnforcerError):
+    def __init__(self, admin, *args, **kwargs):
+        super(InvalidOpenShikshaAdminUsernameError, self).__init__(
+            "Invalid username: %s for openshiksha admin with school id: %s" % (admin.username, admin.userinfo.school.pk))
 
 
 class UnconfiguredTeacherError(EnforcerError):

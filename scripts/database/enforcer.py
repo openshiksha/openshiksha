@@ -14,11 +14,11 @@ from django.db.models import Avg
 from core.models import Group, Board, Subject, Chapter, QuestionTag, UserInfo, Home, Announcement, School, \
     SubjectRoom, Question, AssignmentQuestionsList, Submission, ClassRoom, Assignment
 from core.utils.assignment import is_assignment_corrected
-from core.utils.references import HWCentralGroup, HWCentralRepo
-from hwcentral.exceptions import InvalidContentTypeError
+from core.utils.references import OpenShikshaGroup, OpenShikshaRepo
+from openshiksha.exceptions import InvalidContentTypeError
 from scripts.database.enforcer_exceptions import EmptyNameError, InvalidRelationError, \
     UnsupportedQuestionConfigurationError, UnsupportedAqlConfigurationError, UserNameError, MissingUserInfoError, \
-    InvalidHWCAdminError, InvalidHWCAdminUsernameError, UnconfiguredTeacherError, \
+    InvalidOpenShikshaAdminError, InvalidOpenShikshaAdminUsernameError, UnconfiguredTeacherError, \
     InvalidClassTeacherSchoolError, InvalidSubjectTeacherSchoolError, UnconfiguredParentError, StudentClassroomError, \
     StudentSubjectroomError, InvalidClassStudentSchoolError, InvalidSubjectStudentClassroomError, \
     FutureAnnouncementError, \
@@ -128,9 +128,9 @@ def run():
     check_non_empty_name(User, 'email')
 
     # Admin - no classes managed, no subjects managed, no home, no homes enrolled, no classes enrolled, no subjects enrolled, no submission set
-    # And only 1 school relationship only for hwcadmin
+    # And only 1 school relationship only for openshiksha_admin
     print 'checking user Admin'
-    for admin in User.objects.filter(userinfo__group=HWCentralGroup.refs.ADMIN):
+    for admin in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.ADMIN):
         check_no_relation_set(admin, 'classes_managed_set')
         check_no_relation_set(admin, 'subjects_managed_set')
         check_no_relation_set(admin, 'classes_enrolled_set')
@@ -139,12 +139,12 @@ def run():
         check_no_relation_set(admin, 'submission_set')
 
         check_no_related_object(admin, 'home')
-        if admin.first_name == 'hwcadmin':
+        if admin.username.startswith('openshiksha_admin_school_'):
             if admin.school != admin.userinfo.school:
-                raise InvalidHWCAdminError(admin, admin.school)
+                raise InvalidOpenShikshaAdminError(admin, admin.school)
             # check format of non-shadow admin username
             if long(admin.username.split('_')[-1]) != admin.school.pk:
-                raise InvalidHWCAdminUsernameError(admin)
+                raise InvalidOpenShikshaAdminUsernameError(admin)
         else:
             check_no_related_object(admin, 'school')
 
@@ -152,7 +152,7 @@ def run():
     # either classteacher (classes_managed > 0) or subjectteacher (subjects_managed > 0)
     # school value must match
     print 'checking user Teacher'
-    for teacher in User.objects.filter(userinfo__group=HWCentralGroup.refs.TEACHER):
+    for teacher in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.TEACHER):
         check_no_relation_set(teacher, 'classes_enrolled_set')
         check_no_relation_set(teacher, 'subjects_enrolled_set')
         check_no_relation_set(teacher, 'homes_enrolled_set')
@@ -173,7 +173,7 @@ def run():
     # Parent - no school, no homes enrolled, no classes enrolled, no subjects enrolled, no submission set, no subjects managed, no classes managed
     # has home
     print 'checking user Parent'
-    for parent in User.objects.filter(userinfo__group=HWCentralGroup.refs.PARENT):
+    for parent in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.PARENT):
         check_no_relation_set(parent, 'classes_enrolled_set')
         check_no_relation_set(parent, 'subjects_enrolled_set')
         check_no_relation_set(parent, 'homes_enrolled_set')
@@ -193,7 +193,7 @@ def run():
     # part of at least one subjectroom, and exactly one classroom
     # school value must match
     print 'checking user Student'
-    for student in User.objects.filter(userinfo__group=HWCentralGroup.refs.STUDENT):
+    for student in User.objects.filter(userinfo__group=OpenShikshaGroup.refs.STUDENT):
         check_no_relation_set(student, 'classes_managed_set')
         check_no_relation_set(student, 'subjects_managed_set')
         check_no_relation_set(student, 'announcement_set')
@@ -225,24 +225,24 @@ def run():
             raise FutureAnnouncementError(announcement)
 
         if announcement.content_type == ContentType.objects.get_for_model(School):
-            if announcement.announcer.userinfo.group != HWCentralGroup.refs.ADMIN or announcement.announcer.userinfo.school != announcement.content_object:
+            if announcement.announcer.userinfo.group != OpenShikshaGroup.refs.ADMIN or announcement.announcer.userinfo.school != announcement.content_object:
                 raise InvalidSchoolAnnouncementError(announcement)
         elif announcement.content_type == ContentType.objects.get_for_model(ClassRoom):
             # admins and classteachers are both allowed to make classroom announcements
-            if announcement.announcer.userinfo.group == HWCentralGroup.refs.TEACHER:
+            if announcement.announcer.userinfo.group == OpenShikshaGroup.refs.TEACHER:
                 if not announcement.announcer.classes_managed_set.filter(pk=announcement.content_object.pk).exists():
                     raise InvalidClassroomAnnouncementError(announcement)
-            elif announcement.announcer.userinfo.group == HWCentralGroup.refs.ADMIN:
+            elif announcement.announcer.userinfo.group == OpenShikshaGroup.refs.ADMIN:
                 if announcement.announcer.userinfo.school != announcement.content_object.school:
                     raise InvalidClassroomAnnouncementError(announcement)
             else:
                 raise InvalidClassroomAnnouncementError(announcement)
         elif announcement.content_type == ContentType.objects.get_for_model(SubjectRoom):
             # admins, classteachers and subjectteachers are allowed to make subjectroom announcements
-            if announcement.announcer.userinfo.group == HWCentralGroup.refs.TEACHER:
+            if announcement.announcer.userinfo.group == OpenShikshaGroup.refs.TEACHER:
                 if not announcement.announcer.subjects_managed_set.filter(pk=announcement.content_object.pk).exists():
                     raise InvalidSubjectroomAnnouncementError(announcement)
-            elif announcement.announcer.userinfo.group == HWCentralGroup.refs.ADMIN:
+            elif announcement.announcer.userinfo.group == OpenShikshaGroup.refs.ADMIN:
                 if announcement.announcer.userinfo.school != announcement.content_object.classRoom.school:
                     raise InvalidSubjectroomAnnouncementError(announcement)
             else:
@@ -256,12 +256,12 @@ def run():
     # num children > 0
     print 'checking model Home'
     for home in Home.objects.all():
-        if home.parent.userinfo.group != HWCentralGroup.refs.PARENT:
+        if home.parent.userinfo.group != OpenShikshaGroup.refs.PARENT:
             raise InvalidHomeParentGroupError(home)
         if not home.children.exists():
             raise EmptyHomeError(home)
         for child in home.children.all():
-            if child.userinfo.group != HWCentralGroup.refs.STUDENT:
+            if child.userinfo.group != OpenShikshaGroup.refs.STUDENT:
                 raise InvalidHomeChildGroupError(home, child)
         # NOTE: for now we do have requirement that all children + parent belong to same school
         for child in home.children.all():
@@ -276,13 +276,13 @@ def run():
     print 'checking model School'
     for school in School.objects.all():
         # non-shadow admins must have a particular kind of username
-        if not school.admin.username.startswith('hwcadmin_school_'):
+        if not school.admin.username.startswith('openshiksha_admin_school_'):
             raise BadSchoolAdminError(school, school.admin)
-        if school.admin.userinfo.group != HWCentralGroup.refs.ADMIN:
+        if school.admin.userinfo.group != OpenShikshaGroup.refs.ADMIN:
             raise InvalidSchoolAdminGroupError(school, school.admin)
         if not school.classroom_set.exists():
             # QA school is allowed to be empty
-            if school != HWCentralRepo.refs.SCHOOL:
+            if school != OpenShikshaRepo.refs.SCHOOL:
                 raise EmptySchoolError(school)
 
     check_non_empty_name(School)
@@ -295,10 +295,10 @@ def run():
     # school has to match for classteacher and all students
     print 'checking model Classroom'
     for classroom in ClassRoom.objects.all():
-        if classroom.classTeacher.userinfo.group != HWCentralGroup.refs.TEACHER:
+        if classroom.classTeacher.userinfo.group != OpenShikshaGroup.refs.TEACHER:
             raise InvalidClassTeacherGroupError(classroom)
         for student in classroom.students.all():
-            if student.userinfo.group != HWCentralGroup.refs.STUDENT:
+            if student.userinfo.group != OpenShikshaGroup.refs.STUDENT:
                 raise InvalidClassStudentGroupError(classroom, student)
         if not classroom.students.exists():
             raise ClassroomNoStudentsError(classroom)
@@ -319,10 +319,10 @@ def run():
     # school has to match for subjectteacher and all students
     print 'checking model Subjectroom'
     for subjectroom in SubjectRoom.objects.all():
-        if subjectroom.teacher.userinfo.group != HWCentralGroup.refs.TEACHER:
+        if subjectroom.teacher.userinfo.group != OpenShikshaGroup.refs.TEACHER:
             raise InvalidSubjectTeacherGroupError(subjectroom)
         for student in subjectroom.students.all():
-            if student.userinfo.group != HWCentralGroup.refs.STUDENT:
+            if student.userinfo.group != OpenShikshaGroup.refs.STUDENT:
                 raise InvalidSubjectStudentGroupError(subjectroom, student)
             if subjectroom.classRoom != student.classes_enrolled_set.get():
                 raise InvalidSubjectStudentClassroomError(subjectroom, student)
@@ -368,7 +368,7 @@ def run():
     print 'checking model Assignment'
     for assignment in Assignment.objects.all():
         if (assignment.subjectRoom.classRoom.school != assignment.assignmentQuestionsList.school) and (
-            HWCentralRepo.refs.SCHOOL != assignment.assignmentQuestionsList.school):
+            OpenShikshaRepo.refs.SCHOOL != assignment.assignmentQuestionsList.school):
             raise InvalidAssignmentAqlSchoolError(assignment, assignment.assignmentQuestionsList)
         if assignment.subjectRoom.subject != assignment.assignmentQuestionsList.subject:
             raise InvalidAssignmentAqlSubjectError(assignment, assignment.assignmentQuestionsList)
@@ -416,7 +416,7 @@ def run():
     # completion must be lesser than marks if submissions is marked
     print 'checking model Submission'
     for submission in Submission.objects.all():
-        if submission.student.userinfo.group != HWCentralGroup.refs.STUDENT:
+        if submission.student.userinfo.group != OpenShikshaGroup.refs.STUDENT:
             raise InvalidSubmissionStudentGroupError(submission, submission.student)
         if not submission.assignment.subjectRoom.students.filter(pk=submission.student.pk).exists():
             raise InvalidSubmissionStudentSubjectroomError(submission, submission.student)

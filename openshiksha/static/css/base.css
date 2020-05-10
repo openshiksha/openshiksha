@@ -73,7 +73,7 @@ body {
 }
 
 /* reusable button class */
-.hwcentral_action_button {
+.action_button {
     padding: 15px 20px;
     border-radius: 0px;
     box-shadow: none;
@@ -82,16 +82,16 @@ body {
     border: none;
 }
 
-.hwcentral_action_button:hover, .hwcentral_action_button:focus {
+.action_button:hover, .action_button:focus {
     text-decoration: none;
 }
 
-a, .hwcentral_action_button {
+a, .action_button {
     cursor: pointer;
     cursor: hand;
 }
 
-.hwcentral_action_button, .hwcentral_action_button:hover {
+.action_button, .action_button:hover {
     color:#fff ;
 }
 

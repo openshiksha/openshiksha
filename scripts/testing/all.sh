@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-# run this from hwcentral root directory scripts/testing/all.sh
+# Usage: scripts/testing/all.sh (from root directory)
 
 python -Wall manage.py test

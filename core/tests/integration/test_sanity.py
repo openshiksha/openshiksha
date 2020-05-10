@@ -10,41 +10,13 @@ from django.test import TestCase
 from sh import git
 
 from cabinet.cabinet_maintenance import delete_submission
-from core.utils.constants import HWCentralEnv
-from hwcentral import settings
+from core.utils.constants import OpenShikshaEnv
+from openshiksha import settings
 from scripts.setup.full_school import DEBUG_SETUP_PASSWORD
 
 
 class BasicSanityTest(TestCase):
     fixtures = ['skeleton', 'schools', 'sanity_test']
-
-    @classmethod
-    def setUpClass(cls):
-        super(BasicSanityTest, cls).setUpClass()
-        # ONLY FOR LOCAL
-        if settings.ENVIRON == HWCentralEnv.LOCAL:
-            # switch the cabinet to the sanity test branch
-            user = getpass.getuser()
-            git_cabinet = git.bake(_cwd='/home/%s/hwcentral-cabinet' % user)
-            git_cabinet.stash('save', '-u')  # stash changes, including untracked files
-            git_cabinet.fetch()
-            git_cabinet.checkout('sanity_test')
-            # no need to restart nginx at this point, sanity_test branch should only differ in terms of data not conf
-
-    @classmethod
-    def tearDownClass(cls):
-        super(BasicSanityTest, cls).setUpClass()
-        # ONLY FOR LOCAL
-        if settings.ENVIRON == HWCentralEnv.LOCAL:
-            # switch the cabinet back to the master branch
-            user = getpass.getuser()
-            git_cabinet = git.bake(_cwd='/home/%s/hwcentral-cabinet' % user)
-            # cleaning up any changes made
-            git_cabinet.clean('-df')
-            git_cabinet.reset('--hard', 'HEAD')
-            git_cabinet.checkout('master')
-            git_cabinet.stash('apply')
-            # no need to restart nginx at this point, sanity_test branch should only differ in terms of data not conf
 
     def check_response_code(self, path, expected_response_code):
         response = self.client.get(path)
@@ -80,7 +52,7 @@ class BasicSanityTest(TestCase):
         self.assertRedirects(response, '/home/')
 
     def test_sleep(self):
-        with self.settings(ROOT_URLCONF = 'hwcentral.urls.sleep_mode'):
+        with self.settings(ROOT_URLCONF = 'openshiksha.urls.sleep_mode'):
             self.check_template_response_code('/', 'index.html', 200)  # index does not have a sleep mode
             self.check_template_response_code('/login/', '503.html', 503)
             self.check_template_response_code('/home/', '503.html', 503)
@@ -90,7 +62,7 @@ class BasicSanityTest(TestCase):
 
     def test_sphinx(self):
         self.check_template_response_code('/sphinx/', 'sphinx/index.html', 200)
-        with self.settings(ROOT_URLCONF='hwcentral.urls.prod'):
+        with self.settings(ROOT_URLCONF='openshiksha.urls.prod'):
             self.check_template_response_code('/sphinx/', '404.html', 404)
 
     def test_ink(self):
@@ -117,7 +89,7 @@ class BasicSanityTest(TestCase):
         self.check_template_response_code('/ink/parent/3/', '404.html', 404)
         self.client.logout()
 
-        self.assertTrue(self.client.login(username='hwcadmin_school_1', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='openshiksha_admin_school_1', password=DEBUG_SETUP_PASSWORD))
         self.check_template_response_code('/ink/', 'ink/index.html', 200)
         self.check_template_response_code('/ink/parent/3/', 'ink/parent_id.html', 200)
 
@@ -165,12 +137,12 @@ class BasicSanityTest(TestCase):
         self.check_admin_login_redirect('/admin/')
         self.check_admin_login_redirect('/admin/doc/')
 
-        with self.settings(ROOT_URLCONF='hwcentral.urls.prod'):
+        with self.settings(ROOT_URLCONF='openshiksha.urls.prod'):
             self.check_template_response_code('/admin/', '404.html', 404)
             self.check_template_response_code('/admin/doc/', '404.html',  404)
 
     def test_500(self):
-        with self.settings(ROOT_URLCONF='hwcentral.urls.prod'):
+        with self.settings(ROOT_URLCONF='openshiksha.urls.prod'):
             with self.assertRaises(Exception):
                 self.client.get('/tTrNJnEzCxJfqtDBtWO2cOo6dsA/')
             #TODO: some way of verifying the right template (500.html) and response code (500) were returned

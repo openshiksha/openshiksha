@@ -3,24 +3,24 @@ from decimal import Decimal
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse, HttpResponseNotFound
 
-from hwcentral import settings
+from openshiksha import settings
 
 
-class HWCentralJsonResponse(JsonResponse):
+class OpenShikshaJsonResponse(JsonResponse):
     def __init__(self, response_object):
-        super(HWCentralJsonResponse, self).__init__(response_object, encoder=HWCentralJSONEncoder, safe=False)
+        super(OpenShikshaJsonResponse, self).__init__(response_object, encoder=OpenShikshaJSONEncoder, safe=False)
 
 
-class HWCentralJSONEncoder(DjangoJSONEncoder):
+class OpenShikshaJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         if isinstance(o, JSONModel):
             return o.get_json()
         if isinstance(o, Decimal):
             return str(o)
-        return super(HWCentralJSONEncoder, self).default(o)
+        return super(OpenShikshaJSONEncoder, self).default(o)
 
 
-ENCODER = HWCentralJSONEncoder(indent=2)
+ENCODER = OpenShikshaJSONEncoder(indent=2)
 
 
 def dump_json_string(data):

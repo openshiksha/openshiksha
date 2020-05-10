@@ -106,7 +106,7 @@
         "groups": [],
         "user_permissions": [],
         "password": "pbkdf2_sha256$20000$xm6EmFPm1DHx$AMLNSiz6X11AB60Gd3HF77bqvMI5tPn2mT61P8PzdFo=",
-        "email": "oasis.vali@gmail.com",
+        "email": "oasis.vali@email.com",
         "date_joined": "2015-09-15T18:20:42Z"
     },
     "model": "auth.user",
@@ -355,10 +355,10 @@
 {
     "fields": {
         "announcer": [
-            "hwcadmin_school_1"
+            "openshiksha_admin_school_1"
         ],
         "timestamp": "2015-11-22T09:05:54Z",
-        "message": "HWC announcement",
+        "message": "OpenShiksha Admin announcement",
         "object_id": 1,
         "content_type": [
             "core",

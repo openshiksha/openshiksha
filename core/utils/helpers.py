@@ -22,12 +22,12 @@ def make_string_lean(string):
     return string.strip()
 
 
-class HWCentralFileResponse(HttpResponse):
+class OpenShikshaFileResponse(HttpResponse):
     """
     Use this to download data as a file served by the backend
     """
 
     def __init__(self, filename, bytestring, *args, **kwargs):
-        super(HWCentralFileResponse, self).__init__(bytestring, content_type='application/octet-stream', *args,
+        super(OpenShikshaFileResponse, self).__init__(bytestring, content_type='application/octet-stream', *args,
                                                     **kwargs)
         self['Content-Disposition'] = 'attachment; filename=\"%s\"' % filename

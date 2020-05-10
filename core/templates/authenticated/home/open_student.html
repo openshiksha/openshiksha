@@ -4,12 +4,12 @@
 
 {% block home_ribbon %}
     <div class="ribbon-button">
-        <a id="grade-label" class="no-decoration hwcentral_action_button">
+        <a id="grade-label" class="no-decoration action_button">
             <span>Grade</span>
         </a>
     </div>
     <div class="ribbon-button dropdown">
-        <a id="grade-change-button" class="dropdown-toggle no-decoration hwcentral_action_button"
+        <a id="grade-change-button" class="dropdown-toggle no-decoration action_button"
            title="Change your Grade" data-toggle="dropdown">
             <span id="current-grade">{{ vm.authenticated_body.grade }}</span><span
                 class="glyphicon glyphicon-menu-down"></span>
@@ -51,7 +51,7 @@
                 </div>
 
                 <div id="actionrow">
-                    <input id='submit_button' class='hwcentral_action_button no-decoration'
+                    <input id='submit_button' class='action_button no-decoration'
                            type='submit' value='Start Assignment'
                            title="Create a new assignment with the selected question set"/>
                 </div>

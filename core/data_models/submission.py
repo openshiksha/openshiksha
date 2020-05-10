@@ -1,15 +1,15 @@
 from core.data_models.answer import MCSAQAnswer, MCMAQAnswer, NumericAnswer, TextualAnswer, ConditionalAnswer
 from core.data_models.question import QuestionDM
 from core.models import Question
-from core.utils.constants import HWCentralQuestionType
+from core.utils.constants import OpenShikshaQuestionType
 from core.utils.json import JSONModel
 from edge.edge_api import register_tick
-from hwcentral.exceptions import InvalidHWCentralQuestionTypeError
+from openshiksha.exceptions import InvalidOpenShikshaQuestionTypeError
 
 
 ###
 #
-# This file contains all the submission-related datamodels used in the core hwcentral logic. for viewmodels which are
+# This file contains all the submission-related datamodels used in the core openshiksha logic. for viewmodels which are
 #   used by templates, look at submission_id
 #
 ###
@@ -47,19 +47,19 @@ class SubmissionDM(JSONModel):
                 subpart_answer = None
                 subpart_type = questions[i].subparts[j].type
 
-                if subpart_type == HWCentralQuestionType.MCSA:
+                if subpart_type == OpenShikshaQuestionType.MCSA:
                     subpart_answer = MCSAQAnswer.from_data(subpart_answer_data)
-                elif subpart_type == HWCentralQuestionType.MCMA:
+                elif subpart_type == OpenShikshaQuestionType.MCMA:
                     subpart_answer = MCMAQAnswer.from_data(subpart_answer_data)
-                elif subpart_type == HWCentralQuestionType.NUMERIC:
+                elif subpart_type == OpenShikshaQuestionType.NUMERIC:
                     subpart_answer = NumericAnswer.from_data(subpart_answer_data)
-                elif subpart_type == HWCentralQuestionType.TEXTUAL:
+                elif subpart_type == OpenShikshaQuestionType.TEXTUAL:
                     subpart_answer = TextualAnswer.from_data(subpart_answer_data)
-                elif subpart_type == HWCentralQuestionType.CONDITIONAL:
+                elif subpart_type == OpenShikshaQuestionType.CONDITIONAL:
                     subpart_answer = ConditionalAnswer.from_data(subpart_answer_data,
                                                                  questions[i].subparts[j].answer.answer_format)
                 else:
-                    raise InvalidHWCentralQuestionTypeError(subpart_type)
+                    raise InvalidOpenShikshaQuestionTypeError(subpart_type)
 
                 subparts_answers.append(subpart_answer)
             answers.append(subparts_answers)

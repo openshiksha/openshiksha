@@ -1,6 +1,6 @@
 ###
 #
-# This file contains all the submission-related viewmodels used in the core hwcentral templates. for datamodels which
+# This file contains all the submission-related viewmodels used in the core openshiksha templates. for datamodels which
 # are used by the logic, look at the data_models module
 #
 ###
@@ -9,10 +9,10 @@ from django.forms import Form
 from core.forms.submission import ReadOnlySubmissionFormUnprotected
 from core.routing.urlnames import UrlNames
 from core.utils.assignment import is_assignment_corrected
-from core.utils.constants import HWCentralQuestionDataType, HWCentralQuestionType, HWCentralConditionalAnswerFormat
+from core.utils.constants import OpenShikshaQuestionDataType, OpenShikshaQuestionType, OpenShikshaConditionalAnswerFormat
 from core.utils.labels import get_fraction_label, get_datetime_label, get_user_label
 from core.view_models.base import FormBody, ReadOnlyFormBody
-from hwcentral.exceptions import UncorrectedSubmissionError, InvalidStateError
+from openshiksha.exceptions import UncorrectedSubmissionError, InvalidStateError
 
 
 class RootSubmissionIdBody(object):
@@ -154,7 +154,7 @@ class SubmissionVMProtected(SubmissionVMBase):
 
 
 class QuestionPartProtected(object):
-    TYPES = HWCentralQuestionType  # associating enum with this dm so that it is available in templates
+    TYPES = OpenShikshaQuestionType  # associating enum with this dm so that it is available in templates
 
     def __init__(self, question_part_dm):
         self.type = question_part_dm.type
@@ -164,9 +164,9 @@ class QuestionPartProtected(object):
         self.hint = question_part_dm.hint
 
     def build_img_urls(self, user, question):
-        self.content.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+        self.content.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
         if self.hint is not None:
-            self.hint.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            self.hint.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
 
 class MCOptionsProtected(object):
@@ -177,7 +177,7 @@ class MCOptionsProtected(object):
 
     def build_img_urls(self, user, question):
         for option in self.combined:
-            option.build_img_url(user, question, HWCentralQuestionDataType.SUBPART)
+            option.build_img_url(user, question, OpenShikshaQuestionDataType.SUBPART)
 
 
 class MCSAOptionsProtected(MCOptionsProtected):
@@ -219,7 +219,7 @@ class TextualQuestionPartProtected(QuestionPartProtected):
 
 
 class ConditionalTargetProtected(object):
-    FORMATS = HWCentralConditionalAnswerFormat  # associating enum with this dm so that it is available in templates
+    FORMATS = OpenShikshaConditionalAnswerFormat  # associating enum with this dm so that it is available in templates
 
     def __init__(self, conditional_target_dm):
         self.num_answers = conditional_target_dm.num_answers

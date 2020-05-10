@@ -1,7 +1,7 @@
 from django.forms import forms, Select
 
 from core.forms.fields import CustomLabelModelChoiceField
-from core.utils.references import HWCentralOpen
+from core.utils.references import OpenShikshaOpen
 
 
 class OpenClassRoomForm(forms.Form):
@@ -10,5 +10,5 @@ class OpenClassRoomForm(forms.Form):
 
         self.fields['grade'] = CustomLabelModelChoiceField(lambda x: str(x.pk), widget=Select(
             attrs={'class': 'hidden', 'id': 'new-grade-select'}),
-                                                           queryset=HWCentralOpen.refs.CLASSROOMS,
+                                                           queryset=OpenShikshaOpen.refs.CLASSROOMS,
                                                            help_text="Select the classroom you want to shift to.")

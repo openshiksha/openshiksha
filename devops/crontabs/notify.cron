@@ -1,2 +1,2 @@
-0 17 * * * oasis /home/oasis/hwcentral/pylon/scripts/notify-due.sh >> /home/oasis/hwcentral/devops/cron.log 2>&1
+0 17 * * * openshiksha_app /home/openshiksha_app/openshiksha/pylon/scripts/notify-due.sh >> /home/openshiksha_app/openshiksha/devops/cron.log 2>&1
 

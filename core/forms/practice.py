@@ -6,21 +6,21 @@ from django.db.models import Q
 from core.forms.fields import CustomLabelModelChoiceField
 from core.forms.widgets import ChosenNoSearchSelect
 from core.models import AssignmentQuestionsList, Submission, SubjectRoom
-from core.utils.constants import HWCentralEnv
+from core.utils.constants import OpenShikshaEnv
 from core.utils.labels import get_aql_label, get_subject_label
-from core.utils.references import HWCentralRepo, HWCentralGroup
-from hwcentral.exceptions import InvalidHWCentralEnvError
-from hwcentral.settings import ENVIRON
+from core.utils.references import OpenShikshaRepo, OpenShikshaGroup
+from openshiksha.exceptions import InvalidOpenShikshaEnvError
+from openshiksha.settings import ENVIRON
 
 
 class PracticeForm(forms.Form):
     def __init__(self, student, *args, **kwargs):
         super(PracticeForm, self).__init__(*args, **kwargs)
-        assert student.userinfo.group == HWCentralGroup.refs.STUDENT
+        assert student.userinfo.group == OpenShikshaGroup.refs.STUDENT
 
         subjectrooms = student.subjects_enrolled_set.all()
 
-        if ENVIRON == HWCentralEnv.PROD or ENVIRON == HWCentralEnv.CIRCLECI:
+        if ENVIRON == OpenShikshaEnv.PROD:
             accessible_aql_pks = Submission.objects.filter(
                 student=student,
                 assignment__due__lte=django.utils.timezone.now(),
@@ -28,13 +28,13 @@ class PracticeForm(forms.Form):
             ).values_list("assignment__assignmentQuestionsList__pk", flat=True).distinct()
             accessible_aqls = AssignmentQuestionsList.objects.filter(
                 pk__in=accessible_aql_pks)
-        elif ENVIRON == HWCentralEnv.QA or ENVIRON == HWCentralEnv.LOCAL:
-            school_filter = Q(school=student.userinfo.school) | Q(school=HWCentralRepo.refs.SCHOOL)
+        elif ENVIRON == OpenShikshaEnv.QA or ENVIRON == OpenShikshaEnv.LOCAL:
+            school_filter = Q(school=student.userinfo.school) | Q(school=OpenShikshaRepo.refs.SCHOOL)
             standard_filter = Q(standard=student.classes_enrolled_set.get().standard)
 
             accessible_aqls = AssignmentQuestionsList.objects.filter(school_filter & standard_filter)
         else:
-            raise InvalidHWCentralEnvError(ENVIRON)
+            raise InvalidOpenShikshaEnvError(ENVIRON)
 
         self.fields['question_set'] = CustomLabelModelChoiceField(get_aql_label,
                                                                   widget=forms.Select(
@@ -70,9 +70,9 @@ class PracticeForm(forms.Form):
 class OpenAssignmentForm(forms.Form):
     def __init__(self, student, *args, **kwargs):
         super(OpenAssignmentForm, self).__init__(*args, **kwargs)
-        assert student.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT
+        assert student.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT
 
-        accessible_aqls = AssignmentQuestionsList.objects.filter(school=HWCentralRepo.refs.SCHOOL,
+        accessible_aqls = AssignmentQuestionsList.objects.filter(school=OpenShikshaRepo.refs.SCHOOL,
                                                                  standard=(student.classes_enrolled_set.get()).standard)
 
         self.fields['question_set'] = CustomLabelModelChoiceField(get_aql_label,

@@ -1,6 +1,6 @@
 from django.db import models
 
-from hwcentral.settings import MAX_CHARFIELD_LENGTH
+from openshiksha.settings import MAX_CHARFIELD_LENGTH
 
 
 class Video(models.Model):

@@ -21,7 +21,7 @@ from core.views import logout_wrapper
 from edge.urlnames import EdgeUrlNames
 from edge.views import index_get as edge_index_get, subject_id_get as edge_subject_id_get, \
     student_id_get as edge_student_id_get
-from hwcentral.settings import OVERVIEW_VIDEO_PK
+from openshiksha.settings import OVERVIEW_VIDEO_PK
 from ink.urlnames import InkUrlNames
 from ink.views import index_get as ink_index_get, index_post as ink_index_post, parent_id_get, parent_id_post
 from lodge.urlnames import LodgeUrlNames

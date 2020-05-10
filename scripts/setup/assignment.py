@@ -32,7 +32,7 @@ from core.utils.helpers import make_string_lean
 from core.utils.json import dump_json_string
 from scripts.database.enforcer import enforcer_check, check_duplicate_aql_identifiers
 from scripts.database.enforcer_exceptions import DuplicateAqlIdentifierError
-from scripts.email.hwcentral_users import runscript_args_workaround
+from scripts.email.openshiksha_users import runscript_args_workaround
 from scripts.fixtures.dump_data import snapshot_db
 
 DATA_FILE_EXT = '.json'
@@ -141,7 +141,7 @@ def run(*args):
                         required=True)
     parser.add_argument('--chapter', '-c', type=long, help="chapter id for the new aql", required=True)
     parser.add_argument('--output', '-o',
-                        help='full path to the hwcentral-cabinet repository where the processed data files are put in cabinet format',
+                        help='full path to the openshiksha-cabinet repository where the processed data files are put in cabinet format',
                         required=True)
 
     argv = runscript_args_workaround(args)

@@ -2,11 +2,11 @@ from core.utils.admin import AdminUtils
 from core.utils.constants import VIEWMODEL_KEY
 from core.utils.open_student import OpenStudentUtils
 from core.utils.parent import ParentUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.student import StudentUtils
 from core.utils.teacher import TeacherUtils
 from core.view_models.userinfo import HeaderUserInfo
-from hwcentral.exceptions import InvalidHWCentralGroupError
+from openshiksha.exceptions import InvalidOpenShikshaGroupError
 from lodge.lodge_api import get_video_uri
 
 
@@ -39,29 +39,29 @@ class AuthenticatedVM(VM):
         from core.view_models.sidebar import AdminSidebar, TeacherSidebar, ParentSidebar, StudentSidebar, \
             OpenStudentSidebar
 
-        if user.userinfo.group == HWCentralGroup.refs.STUDENT:
+        if user.userinfo.group == OpenShikshaGroup.refs.STUDENT:
             self.sidebar = StudentSidebar(user)
             utils = StudentUtils(user)
             help_uri = get_video_uri(2)
-        elif user.userinfo.group == HWCentralGroup.refs.PARENT:
+        elif user.userinfo.group == OpenShikshaGroup.refs.PARENT:
             self.sidebar = ParentSidebar(user)
             utils = ParentUtils(user)
             help_uri = get_video_uri(3)
-        elif user.userinfo.group == HWCentralGroup.refs.TEACHER:
+        elif user.userinfo.group == OpenShikshaGroup.refs.TEACHER:
             self.sidebar = TeacherSidebar(user)
             utils = TeacherUtils(user)
             help_uri = get_video_uri(4)
-        elif user.userinfo.group == HWCentralGroup.refs.ADMIN:
+        elif user.userinfo.group == OpenShikshaGroup.refs.ADMIN:
             self.sidebar = AdminSidebar(user)
             utils = AdminUtils(user)
             help_uri = get_video_uri(5)
-        elif user.userinfo.group == HWCentralGroup.refs.OPEN_STUDENT:
+        elif user.userinfo.group == OpenShikshaGroup.refs.OPEN_STUDENT:
             self.sidebar = OpenStudentSidebar(user)
             utils = OpenStudentUtils(user)
             help_uri = get_video_uri(6)
 
         else:
-            raise InvalidHWCentralGroupError(user.userinfo.group)
+            raise InvalidOpenShikshaGroupError(user.userinfo.group)
 
         self.userinfo = HeaderUserInfo(user, utils.get_announcements_count(), help_uri)
         self.authenticated_body = authenticated_body

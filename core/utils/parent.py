@@ -3,13 +3,13 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from core.utils.base import UserUtils
-from core.utils.references import HWCentralGroup
+from core.utils.references import OpenShikshaGroup
 from core.utils.student import StudentUtils
 
 
 class ParentUtils(UserUtils):
     def __init__(self, parent):
-        self.UTILS_GROUP = HWCentralGroup.refs.PARENT
+        self.UTILS_GROUP = OpenShikshaGroup.refs.PARENT
         super(ParentUtils, self).__init__(parent)
 
     def get_announcements_query(self):

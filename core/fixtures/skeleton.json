@@ -111,24 +111,24 @@
         "model": "core.subject",
         "pk": 5
     },
-{
-    "fields": {
-        "username": "root",
-        "first_name": "root",
-        "last_name": "superuser",
-        "is_active": true,
-        "is_superuser": true,
-        "is_staff": true,
-        "last_login": "2015-10-07T15:49:57Z",
-        "groups": [],
-        "user_permissions": [],
-        "password": "pbkdf2_sha256$20000$CHF9YWOQ0g2V$03n5ToyRbngjpVIY3Qrzn1AZIWjfi7IrKlP0Em2Utv4=",
-        "email": "root@openshiksha.org",
-        "date_joined": "2015-06-02T11:07:49Z"
+    {
+        "model": "auth.user",
+        "pk": 1,
+        "fields": {
+            "password": "pbkdf2_sha256$36000$h3ivjUhJIRfW$PjT0RJobEtK7OOS5l+dNmFaetfd+AaWM2SbWJBmFuvw=",
+            "last_login": "2020-05-11T05:15:13.060Z",
+            "is_superuser": true,
+            "username": "root",
+            "first_name": "root",
+            "last_name": "superuser",
+            "email": "root@openshiksha.org",
+            "is_staff": true,
+            "is_active": true,
+            "date_joined": "2015-06-02T11:07:49Z",
+            "groups": [],
+            "user_permissions": []
+        }
     },
-    "model": "auth.user",
-    "pk": 1
-},
 {
     "fields": {
         "domain": "openshiksha.org",

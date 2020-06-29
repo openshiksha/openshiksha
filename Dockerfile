@@ -18,10 +18,6 @@ RUN echo "include ${WORKDIR}/devops/nginx.compiled.conf;" > /etc/nginx/nginx.con
 
 RUN pip install --no-cache-dir -r pip-requirements.txt
 
-# Setup static files
-RUN devops/prep-static.sh
-
 EXPOSE 9878
 
-# Run gunicorn & nginx
 ENTRYPOINT [ "devops/run-production-server.sh" ]

@@ -1,0 +1,14 @@
+.idea
+*.pyc
+*.*~
+*.log
+*.sock
+*.pid
+
+.git/
+
+static_root/
+
+.vscode/
+
+devops/nginx.compiled.conf

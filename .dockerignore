@@ -5,10 +5,10 @@
 *.sock
 *.pid
 
-.git/
+.git
 
-static_root/
+static_root
 
-.vscode/
+.vscode
 
 devops/nginx.compiled.conf

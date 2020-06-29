@@ -5,8 +5,8 @@
 *.sock
 *.pid
 
-static_root/
+static_root
 
-.vscode/
+.vscode
 
 devops/nginx.compiled.conf

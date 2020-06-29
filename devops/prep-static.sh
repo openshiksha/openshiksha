@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-# Usage: devops/prep-static.sh (from root dir and within virtualenv)
-
-rm -rf ./static_root    # TODO: use the location specified in settings.py, this is duplication
+# Usage: devops/prep-static.sh (from Dockerfile WorkDir)
 
 ./manage.py collectstatic --noinput
 

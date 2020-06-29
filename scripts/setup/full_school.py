@@ -34,8 +34,6 @@ CLASSROOM_CSV_PATH = os.path.join(DATA_DIR, 'classroom.csv')
 SUBJECTROOM_CSV_PATH = os.path.join(DATA_DIR, 'subjectroom.csv')
 
 
-SETUP_PASSWORD = os.getenv('OPENSHIKSHA_SETUP_PASSWORD')
-
 def build_username(fname, lname):
     try_count = 0
     username = None
@@ -93,6 +91,8 @@ def run(*args):
     parser.add_argument('--school', '-s', type=long, required=True, help='id for new school')
     parser.add_argument('--board', '-b', type=long, required=True, help='board id for new school')
     parser.add_argument('--name', '-n', required=True, help='The name of the new school')
+    #TODO: figure out a better way to initialize user passwords (ideally set a random password and email the user a password reset link)
+    parser.add_argument('--password', '-p', required=True, help='password to use for new user accounts')
     parser.add_argument('--actual', '-a', action='store_true',help='actually send emails (otherwise only database changes are made)' )
 
     argv = runscript_args_workaround(args)
@@ -121,7 +121,7 @@ def run(*args):
     #create school's admin user entry
     admin = User.objects.create_user(username='openshiksha_admin_school_' + str(new_school_id),
                                      email='openshiksha_admin_school_' + str(new_school_id) + '@openshiksha.org',
-                                     password=SETUP_PASSWORD,
+                                     password=processed_args.password,
                                      first_name='Admin',
                                      last_name='School_' + str(new_school_id))
 
@@ -152,7 +152,7 @@ def run(*args):
             print "Creating user : %s ,email: %s" % (username, email)
             user = User.objects.create_user(username=username,
                                      email=email,
-                                     password=SETUP_PASSWORD)
+                                     password=processed_args.password)
             user.first_name = fname
             user.last_name = lname
             user.save()

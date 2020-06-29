@@ -1,24 +1,6 @@
 import logging
 import os
 
-from fabric.decorators import hosts, task
-from fabric.operations import run, get
-from fabric.state import env
-
-WEB_SERVERS = ['128.199.139.143']
-QA_WEB_SERVER = '128.199.184.177'
-DB_SERVER = '128.199.250.240'
-QA_DB_SERVER = '188.166.242.79'
-
-env.forward_agent = True
-env.port = 1463
-
-# Workaround for: No handlers could be found for logger "paramiko.transport"
-# (see https://github.com/fabric/fabric/issues/51#issuecomment-96341022)
-logging.basicConfig()
-paramiko_logger = logging.getLogger("paramiko.transport")
-paramiko_logger.disabled = True
-
 DATA_DUMP_DIR = '../openshiksha-data/'
 
 @task

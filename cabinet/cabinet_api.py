@@ -21,18 +21,19 @@ from croupier.data_models import UndealtQuestionDM
 from openshiksha import settings
 from openshiksha.exceptions import InvalidOpenShikshaEnvError
 
-CABINET_PORT = 9878
-
 if settings.ENVIRON == OpenShikshaEnv.LOCAL:
-    CABINET_ENDPOINT = 'localhost'
+    CABINET_HOST = 'localhost'
+    CABINET_PORT = '9878'
 elif settings.ENVIRON == OpenShikshaEnv.QA:
-    CABINET_ENDPOINT = '10.130.97.154'
+    CABINET_HOST = os.getenv('OPENSHIKSHA_CABINET_HOST')
+    CABINET_PORT = os.getenv('OPENSHIKSHA_CABINET_PORT')
 elif settings.ENVIRON == OpenShikshaEnv.PROD:
-    CABINET_ENDPOINT = '10.130.32.37'
+    CABINET_HOST = os.getenv('OPENSHIKSHA_CABINET_HOST')
+    CABINET_PORT = os.getenv('OPENSHIKSHA_CABINET_PORT')
 else:
     raise InvalidOpenShikshaEnvError(settings.ENVIRON)
 
-CABINET_ENDPOINT = 'http://' + CABINET_ENDPOINT + ':' + str(CABINET_PORT) + '/'
+CABINET_ENDPOINT = 'http://' + CABINET_HOST + ':' + CABINET_PORT + '/'
 CONFIG_FILE_EXTENSION = '.json'
 ENCODING_SEPERATOR = ':'
 

@@ -12,7 +12,7 @@ from grader import grader_api
 from scripts.database.enforcer import enforcer_check
 from scripts.email.openshiksha_users import runscript_args_workaround
 from scripts.fixtures.dump_data import snapshot_db
-from scripts.setup.full_school import build_username, SETUP_PASSWORD, send_activation_email
+from scripts.setup.full_school import build_username, send_activation_email
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'late_students_data')
 USER_CSV_PATH = os.path.join(DATA_DIR, 'student.csv')
@@ -40,6 +40,8 @@ def run(*args):
     parser = argparse.ArgumentParser(description="Add students to a school post-setup")
     parser.add_argument('--actual', '-a', action='store_true',
                         help='actually send emails (otherwise only database changes are made)')
+    #TODO: figure out a better way to initialize user passwords (ideally set a random password and email the user a password reset link)
+    parser.add_argument('--password', '-p', required=True, help='password to use for new user accounts')
 
     argv = runscript_args_workaround(args)
     processed_args = parser.parse_args(argv)
@@ -60,7 +62,7 @@ def run(*args):
             print "Creating user : %s ,email: %s" % (username, email)
             student = User.objects.create_user(username=username,
                                                email=email,
-                                               password=SETUP_PASSWORD)
+                                               password=processed_args.password)
             student.first_name = fname
             student.last_name = lname
             student.save()

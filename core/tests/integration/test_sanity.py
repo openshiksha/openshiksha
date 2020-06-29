@@ -12,7 +12,9 @@ from sh import git
 from cabinet.cabinet_maintenance import delete_submission
 from core.utils.constants import OpenShikshaEnv
 from openshiksha import settings
-from scripts.setup.full_school import DEBUG_SETUP_PASSWORD
+
+
+TEST_PASSWORD = '29ekKlM8zz'
 
 
 class BasicSanityTest(TestCase):
@@ -69,27 +71,27 @@ class BasicSanityTest(TestCase):
         self.check_login_redirect('/ink/')
         self.check_login_redirect('/ink/parent/3/')
 
-        self.assertTrue(self.client.login(username='oasis_vali', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='oasis_vali', password=TEST_PASSWORD))
         self.check_template_response_code('/ink/', '404.html', 404)
         self.check_template_response_code('/ink/parent/3/', '404.html', 404)
         self.client.logout()
 
-        self.assertTrue(self.client.login(username='seema_swami', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='seema_swami', password=TEST_PASSWORD))
         self.check_template_response_code('/ink/', '404.html', 404)
         self.check_template_response_code('/ink/parent/3/', '404.html', 404)
         self.client.logout()
 
-        self.assertTrue(self.client.login(username='neelam_chakraborty', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='neelam_chakraborty', password=TEST_PASSWORD))
         self.check_template_response_code('/ink/', '404.html', 404)
         self.check_template_response_code('/ink/parent/3/', '404.html', 404)
         self.client.logout()
 
-        self.assertTrue(self.client.login(username='sharmila_vali', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='sharmila_vali', password=TEST_PASSWORD))
         self.check_template_response_code('/ink/', '404.html', 404)
         self.check_template_response_code('/ink/parent/3/', '404.html', 404)
         self.client.logout()
 
-        self.assertTrue(self.client.login(username='openshiksha_admin_school_1', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='openshiksha_admin_school_1', password=TEST_PASSWORD))
         self.check_template_response_code('/ink/', 'ink/index.html', 200)
         self.check_template_response_code('/ink/parent/3/', 'ink/parent_id.html', 200)
 
@@ -152,7 +154,7 @@ class BasicSanityTest(TestCase):
         self.check_template_response_code('/some/invalid/url/', '404.html', 404)
 
     def test_authenticated_student(self):
-        self.assertTrue(self.client.login(username='oasis_vali', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='oasis_vali', password=TEST_PASSWORD))
         self.check_home_redirect('/')
         self.check_home_redirect('/login/')
 
@@ -203,7 +205,7 @@ class BasicSanityTest(TestCase):
         self.client.logout()
 
         # now login as another student to check some edge cases
-        self.assertTrue(self.client.login(username='sidhant_pai', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='sidhant_pai', password=TEST_PASSWORD))
         self.assertRedirects(self.client.get('/assignment/2/'), '/submission/3/')   #uncorrected - existing submission
 
         self.client.logout()
@@ -211,7 +213,7 @@ class BasicSanityTest(TestCase):
 
 
     def test_authenticated_parent(self):
-        self.assertTrue(self.client.login(username='sharmila_vali', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='sharmila_vali', password=TEST_PASSWORD))
         self.check_home_redirect('/')
         self.check_home_redirect('/login/')
 
@@ -261,7 +263,7 @@ class BasicSanityTest(TestCase):
         self.client.logout()
 
     def test_authenticated_subjectteacher(self):
-        self.assertTrue(self.client.login(username='seema_swami', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='seema_swami', password=TEST_PASSWORD))
         self.check_home_redirect('/')
         self.check_home_redirect('/login/')
 
@@ -311,7 +313,7 @@ class BasicSanityTest(TestCase):
         self.client.logout()
 
     def test_authenticated_classteacher(self):
-        self.assertTrue(self.client.login(username='amita_singh', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='amita_singh', password=TEST_PASSWORD))
         self.check_home_redirect('/')
         self.check_home_redirect('/login/')
 
@@ -361,7 +363,7 @@ class BasicSanityTest(TestCase):
         self.client.logout()
 
     def test_authenticated_admin(self):
-        self.assertTrue(self.client.login(username='neelam_chakraborty', password=DEBUG_SETUP_PASSWORD))
+        self.assertTrue(self.client.login(username='neelam_chakraborty', password=TEST_PASSWORD))
         self.check_home_redirect('/')
         self.check_home_redirect('/login/')
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-# Usage: scripts/collab/prep-static.sh (from root dir)
+# Usage: scripts/database/data-update.sh (from root dir)
 
-echo 'Removing existing data in dev database'
+echo 'Removing existing data in database'
 python manage.py reset_db --noinput
-echo 'Updating local dev database'
+echo 'Updating local database'
 python manage.py migrate

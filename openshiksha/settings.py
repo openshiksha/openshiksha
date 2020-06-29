@@ -9,8 +9,8 @@ from core.routing.urlnames import UrlNames
 from core.utils.constants import OpenShikshaEnv
 from openshiksha.exceptions import InvalidOpenShikshaEnvError
 
-CONTACT_PHONE = '+1 6509249134'
-SALES_PHONE = '+1 6509249134'
+CONTACT_PHONE = os.getenv('OPENSHIKSHA_CONTACT_PHONE')
+SALES_PHONE = os.getenv('OPENSHIKSHA_SALES_PHONE')
 CONTACT_EMAIL = 'contact@openshiksha.org'
 
 OVERVIEW_VIDEO_PK = 1
@@ -43,15 +43,17 @@ MAILGUN_SANDBOX_USER = 'postmaster@sandboxab360baee25e495dbb8dd423eab0e2fb.mailg
 MAILGUN_SANDBOX_FROM_EMAIL = 'OpenShiksha Sandbox <%s>' % MAILGUN_SANDBOX_USER
 MAILGUN_HOST = 'smtp.mailgun.org'
 
+DB_NAME = 'openshiksha'
+DB_USER = 'openshiksha_app'
+
 if ENVIRON == OpenShikshaEnv.PROD:
     SECRET_KEY = os.getenv('OPENSHIKSHA_SECRET_KEY')
     EMAIL_HOST_USER = 'postmaster@openshiksha.org'
     DEFAULT_FROM_EMAIL = 'OpenShiksha <%s>' % EMAIL_HOST_USER
     EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_NAME = 'openshiksha_prod'
+    
     DB_PASSWORD = os.getenv('OPENSHIKSHA_DB_PASSWORD')
-    DB_USER = 'openshiksha_app'
     DB_HOST = os.getenv('OPENSHIKSHA_DB_HOST')
     DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
@@ -61,9 +63,7 @@ elif ENVIRON == OpenShikshaEnv.QA:
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
     EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_NAME = 'openshiksha_qa'
     DB_PASSWORD = os.getenv('OPENSHIKSHA_DB_PASSWORD')
-    DB_USER = 'openshiksha_app'
     DB_HOST = os.getenv('OPENSHIKSHA_DB_HOST')
     DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
@@ -73,9 +73,7 @@ elif ENVIRON == OpenShikshaEnv.LOCAL:
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
     EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_NAME = 'openshiksha_dev'
-    DB_PASSWORD = 'socialseva'
-    DB_USER = 'openshiksha_app'
+    DB_PASSWORD = 'Soc1alsev@'
     DB_HOST = ''
     DB_PORT = ''
 
@@ -241,8 +239,6 @@ INSTALLED_APPS = (
     'challenge'
 )
 
-SYSLOG_ADDR = '/dev/log'
-
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
 # the site admins on every HTTP 500 error when DEBUG=False.
@@ -251,11 +247,6 @@ SYSLOG_ADDR = '/dev/log'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': {
-        'django': {
-            'format': 'django: %(message)s',
-        },
-    },
     'filters': {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse'
@@ -268,13 +259,11 @@ LOGGING = {
             'class': 'django.utils.log.AdminEmailHandler',
             'include_html': True,
         },
-        'logging.handlers.SysLogHandler': {
+        'log_file': {
             'level': 'DEBUG',
             'filters': ['require_debug_false'],
-            'class': 'logging.handlers.SysLogHandler',
-            'facility': 'local7',
-            'formatter': 'django',
-            'address': SYSLOG_ADDR,
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(PROJECT_ROOT, 'devops', 'django.log'),
         },
     },
     'loggers': {
@@ -283,10 +272,9 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
         },
-        'loggly_logs': {
-            'handlers': ['logging.handlers.SysLogHandler'],
+        'django': {
+            'handlers': ['log_file'],
             'propagate': True,
-            'format': 'django: %(message)s',
             'level': 'DEBUG',
         },
     }
@@ -304,7 +292,7 @@ if ENVIRON == OpenShikshaEnv.PROD:
     SITE_ID = 1  # prod site
 elif ENVIRON == OpenShikshaEnv.QA:
     ALLOWED_HOSTS = [
-        '128.199.184.177'  # qa server ip address
+        '.openshiksha-qa.org',  # Allow FQDN, domain and subdomains 
     ]
     SITE_ID = 3  # qa site
 elif ENVIRON == OpenShikshaEnv.LOCAL:

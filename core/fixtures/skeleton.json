@@ -147,7 +147,7 @@
 },
     {
         "fields": {
-            "domain": "128.199.184.177:9878",
+            "domain": "openshiksha-qa.org",
             "name": "OpenShiksha QA"
         },
         "model": "sites.site",

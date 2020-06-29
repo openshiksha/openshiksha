@@ -18,7 +18,7 @@ TEST_PASSWORD = '29ekKlM8zz'
 
 
 class BasicSanityTest(TestCase):
-    fixtures = ['skeleton', 'schools', 'sanity_test']
+    fixtures = ['skeleton', 'openshiksha_school', 'question_bank', 'sanity_test']
 
     def check_response_code(self, path, expected_response_code):
         response = self.client.get(path)

@@ -2,8 +2,7 @@
 
 # Usage: devops/run-production-server.sh (from Dockerfile WorkDir)
 
-# Setup static files
-devops/prep-static.sh
+devops/prep-production-server.sh
 
 # Run nginx and gunicorn
 nginx

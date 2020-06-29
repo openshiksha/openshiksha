@@ -32,8 +32,9 @@ echo 'Updating virtualenv'
 pip install -r pip-requirements.txt
 echo
 
-scripts/database/data-update.sh
+echo 'Updating local database'
+python manage.py migrate
 echo 'Loading initial data'
 python manage.py loaddata skeleton
-python manage.py loaddata schools
-
+python manage.py loaddata openshiksha_school
+python manage.py loaddata question_bank

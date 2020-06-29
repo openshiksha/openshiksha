@@ -37,6 +37,7 @@ PASSWORD_RESET_TIMEOUT_DAYS = 7
 
 SETTINGS_ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SETTINGS_ROOT)
+BASE_DIR = PROJECT_ROOT
 
 LOCAL_SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
 MAILGUN_SANDBOX_USER = 'postmaster@sandboxab360baee25e495dbb8dd423eab0e2fb.mailgun.org'

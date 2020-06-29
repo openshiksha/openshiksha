@@ -3,40 +3,6 @@ import os
 
 DATA_DUMP_DIR = '../openshiksha-data/'
 
-@task
-@hosts(WEB_SERVERS + [DB_SERVER])
-def deploy():
-    run("devops/deploy.sh")
-
-
-@task
-@hosts([QA_WEB_SERVER, QA_DB_SERVER])
-def qa_deploy():
-    run("devops/qa-deploy.sh")
-
-
-@task
-@hosts([DB_SERVER])
-def cabinet_deploy():
-    run("devops/deploy.sh")
-
-
-@task
-@hosts([QA_DB_SERVER])
-def qa_cabinet_deploy():
-    run("devops/qa-deploy.sh")
-
-
-@task
-@hosts(WEB_SERVERS + [DB_SERVER])
-def deploy_clean():
-    run("devops/deploy.sh -x")
-
-
-@task
-@hosts([QA_WEB_SERVER, QA_DB_SERVER])
-def qa_deploy_clean():
-    run("devops/qa-deploy.sh -x")
 
 @task
 @hosts(WEB_SERVERS + [DB_SERVER])

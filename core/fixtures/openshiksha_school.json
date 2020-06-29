@@ -1,0 +1,47 @@
+[
+  {
+    "fields": {
+      "username": "openshiksha_admin_school_1",
+        "first_name": "OpenShiksha",
+        "last_name": "Admin School 1",
+        "is_active": true,
+        "is_superuser": false,
+        "is_staff": false,
+        "last_login": null,
+        "groups": [],
+        "user_permissions": [],
+        "password": "pbkdf2_sha256$36000$8sYgq8GeaNb8$ZfUiKAde1oV7zK4Uh9Wku5cijWn2UGooTOyaxxAun4A=",
+        "email": "openshiksha_admin_school_1@openshiksha.org",
+        "date_joined": "2015-10-07T16:40:19Z"
+    },
+    "model": "auth.user",
+    "pk": 2
+},
+    {
+        "fields": {
+        "school": 1,
+        "group": 4
+    },
+    "model": "core.userinfo",
+    "pk": 2
+},
+    {
+        "fields": {
+        "admin": [
+            "openshiksha_admin_school_1"
+        ],
+        "name": "OpenShiksha School",
+        "board": 1
+    },
+    "model": "core.school",
+        "pk": 1
+    },
+    {
+        "fields": {
+            "focus": false,
+            "pylon": false
+        },
+        "model": "core.schoolprofile",
+        "pk": 1
+    }
+]

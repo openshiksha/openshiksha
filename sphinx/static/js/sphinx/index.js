@@ -68,8 +68,7 @@ function loadImageName(source) {
     }
     return source;
 }
-
-function generatePreview() {
+function generateSubpart () {
     var subpart_num = parseInt($("#subpart_index").val());
     // Temp Variables
     var contenttemp = {};
@@ -172,7 +171,7 @@ function generatePreview() {
                     vconsttemp[name].range.include[0] = include_val.split(SEPERATOR).map(Number);
 
                     var excludes = $("#varType" + i + " input[name='var_exclude']").val().split(SEPERATOR);
-                    if (!((excludes.length === 1) && (excludes[0] === '' ))) {
+                    if (!((excludes.length === 1) && (excludes[0] === ''))) {
                         vconsttemp[name].range.exclude = [];
                         vconsttemp[name].range.exclude[0] = excludes.map(Number);
                     }
@@ -207,8 +206,7 @@ function generatePreview() {
 
     switch (typenum) {
         case 1:
-            if ($("#radOrDrop").val() == "drop")
-                {optionstemp.use_dropdown_widget = true;}
+            if ($("#radOrDrop").val() == "drop") { optionstemp.use_dropdown_widget = true; }
             optionstemp.correct = {};
             optionstemp.correct.text = format_json_string($("#MCSAQcorrect #mcqoption").val());
             optionstemp.correct.img = buildImageName("#MCSAQcorrect #mcqoption_img");
@@ -260,8 +258,16 @@ function generatePreview() {
 
     console.log("Generated subpart:");
     console.log(subpart[subpart_num]);
+    return subpart[subpart_num];
+}
+function generatePreview() {
+    const generated_subpart = generateSubpart();
+    processJSON(generated_subpart);
+}
 
-    processJSON(subpart[subpart_num]);
+function submitJSON () {
+    const generated_subpart = generateSubpart();
+    submitSphinxQuestion(generated_subpart);
 }
 
 function coerce_numeric(val) {
@@ -409,6 +415,40 @@ function processJSON(x) {
         url: 'deal/',
         cache: false,
         data: JSON.stringify({"subpart": x}),
+        dataType: 'json',                   // what we expect in response
+        contentType: 'application/json',    //what we are sending
+        beforeSend: function (request) {
+            request.setRequestHeader("X-CSRFToken", csrftoken);
+        },
+        success: function (responseData, textStatus, jqXHR) {
+            if (responseData.success) {
+                var y = responseData.payload;
+                sanitize(y); // backend introduces some null keys which are cruft + cleanup of empty strings and empty obj
+                populateDiv(y);
+            }
+            else {
+                alert('Error: ' + responseData.message);
+            }
+        },
+        error: function (responseData, textStatus, errorThrown) {
+            alert('POST failed');
+        }
+    });
+
+}
+
+function submitSphinxQuestion(x) {
+    sanitize(x);
+    console.log('Dumping json');
+    $("#resultJSON").val(JSON.stringify(x, null, 2));
+
+    var csrftoken = getCookie('csrftoken');
+
+    $.ajax({
+        type: 'POST',
+        url: 'submit-sphinx-question/',
+        cache: false,
+        data: JSON.stringify({ "subpart": x }),
         dataType: 'json',                   // what we expect in response
         contentType: 'application/json',    //what we are sending
         beforeSend: function (request) {

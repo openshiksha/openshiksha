@@ -283,20 +283,14 @@ LOGGING = {
 LOGIN_URL = UrlNames.LOGIN.name
 LOGIN_REDIRECT_URL = UrlNames.HOME.name  # this is where user is redirected if login view gets no 'next' param
 
-# Hosts/domain names that are valid for this site; required if DEBUG is False
-# See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
+# allowing all hosts as host header validation is performed by kubernetes ingress
+ALLOWED_HOSTS = ['*']
+
 if ENVIRON == OpenShikshaEnv.PROD:
-    ALLOWED_HOSTS = [
-        '.openshiksha.org',  # Allow FQDN, domain and subdomains
-    ]
     SITE_ID = 1  # prod site
 elif ENVIRON == OpenShikshaEnv.QA:
-    ALLOWED_HOSTS = [
-        '.openshiksha-qa.org',  # Allow FQDN, domain and subdomains 
-    ]
     SITE_ID = 3  # qa site
 elif ENVIRON == OpenShikshaEnv.LOCAL:
-    ALLOWED_HOSTS = []
     SITE_ID = 2  # localhost site
 else:
     raise InvalidOpenShikshaEnvError(ENVIRON)

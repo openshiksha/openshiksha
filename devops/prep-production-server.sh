@@ -11,5 +11,8 @@
 # Initialize db with critical data
 ./manage.py loaddata skeleton openshiksha_school question_bank
 
+# Set secure passwords for superuser and OpenShiksha School Admin
+./manage.py runscript scripts.security.secure_admin_accounts
+
 
 

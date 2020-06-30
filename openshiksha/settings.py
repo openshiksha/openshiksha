@@ -39,7 +39,6 @@ SETTINGS_ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SETTINGS_ROOT)
 BASE_DIR = PROJECT_ROOT
 
-LOCAL_SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
 MAILGUN_SANDBOX_USER = 'postmaster@sandboxab360baee25e495dbb8dd423eab0e2fb.mailgun.org'
 MAILGUN_SANDBOX_FROM_EMAIL = 'OpenShiksha Sandbox <%s>' % MAILGUN_SANDBOX_USER
 MAILGUN_HOST = 'smtp.mailgun.org'
@@ -69,7 +68,7 @@ elif ENVIRON == OpenShikshaEnv.QA:
     DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
 elif ENVIRON == OpenShikshaEnv.LOCAL:
-    SECRET_KEY = LOCAL_SECRET_KEY
+    SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
     EMAIL_HOST_USER = MAILGUN_SANDBOX_USER
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
     EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')

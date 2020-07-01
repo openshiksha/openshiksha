@@ -7,12 +7,16 @@ jobs:
         name: Test
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
-            - uses: actions/setup-python@v2
+            - name: Check out the repo
+              uses: actions/checkout@v2
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v2
               with:
                 python-version: '2.7'
-            - run: pip install -r pip-requirements.txt
-            - run: scripts/testing/unit.sh
+            - name: Install Dependencies
+              run: pip install -r pip-requirements.txt
+            - name: Run Tests
+              run: scripts/testing/unit.sh
               env:
                 OPENSHIKSHA_ENV: PROD
                 OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
@@ -38,11 +42,16 @@ jobs:
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
-            - uses: actions/setup-python@v2
+            - name: Check out the repo
+              uses: actions/checkout@v2
+            - name: Push to GitHub Packages
+              uses: docker/build-push-action@v1
               with:
-                python-version: '2.7'
-            - run: which python && which pip
-
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+                registry: docker.pkg.github.com
+                repository: openshiksha/openshiksha/openshiksha
+                tag_with_ref: true
+                tag_with_sha: true
 
 

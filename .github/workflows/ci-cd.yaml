@@ -55,7 +55,7 @@ jobs:
     #             tag_with_sha: true
     deploy-qa:
         name: Deploy to QA Cluster
-        needs: build-publish
+        # needs: build-publish
         # only run this on qa branch
         if: github.ref == 'refs/heads/qa'
         runs-on: ubuntu-latest

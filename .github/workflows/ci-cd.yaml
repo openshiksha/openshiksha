@@ -11,11 +11,21 @@ jobs:
             - uses: actions/setup-python@v2
               with:
                 python-version: '2.7'
-            - run: which python && which pip
+            - run: scripts/testing/unit.sh
+              env:
+                OPENSHIKSHA_ENV: PROD
+        services:
+            db:
+                image: mysql
+                ports:
+                - 3306:3306
+                env:
+                    MYSQL_ROOT_PASSWORD: Soc1alsev@
 
     build-deploy:
         name: Build & Deploy
         needs: test
+        # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
         steps:

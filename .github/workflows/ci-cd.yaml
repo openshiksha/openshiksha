@@ -31,7 +31,6 @@ jobs:
                     MYSQL_USER: openshiksha_app
                     MYSQL_PASSWORD: "Soc1alsev@"
                     MYSQL_ROOT_PASSWORD: "Soc1alsev@"
-                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
     build-deploy:
         name: Build & Deploy
         needs: test

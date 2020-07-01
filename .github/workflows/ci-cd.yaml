@@ -53,3 +53,18 @@ jobs:
                 repository: openshiksha/openshiksha/openshiksha
                 tag_with_ref: true
                 tag_with_sha: true
+    deploy-qa:
+        name: Deploy to QA Cluster
+        needs: build-publish
+        # only run this on qa branch
+        if: github.ref == 'refs/heads/qa'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v2
+            - name: Trigger rolling restart of pods
+              uses: steebchen/kubectl@master
+              env:
+                KUBE_CONFIG_DATA: ${{ secrets.QA_CLUSTER_KUBE_CONFIG }}
+              with:
+                args: rollout restart deployment ${{ secrets.QA_CLUSTER_RELEASE }}-openshiksha

@@ -15,13 +15,16 @@ jobs:
             - run: scripts/testing/unit.sh
               env:
                 OPENSHIKSHA_ENV: PROD
+                OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
+                OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
         services:
             db:
                 image: mysql
                 ports:
                 - 3306:3306
                 env:
-                    MYSQL_ROOT_PASSWORD: Soc1alsev@
+                    MYSQL_USER: openshiksha_app
+                    MYSQL_PASSWORD: "Soc1alsev@"
 
     build-deploy:
         name: Build & Deploy

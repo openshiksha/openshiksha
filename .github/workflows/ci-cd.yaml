@@ -14,7 +14,7 @@ jobs:
             - run: pip install -r pip-requirements.txt
             - run: |
                 sudo apt-get install -y mysql-client
-                mysql --host 127.0.0.1 --port 33306 -uopenshiksha_app -pSoc1alsev@ -e "SHOW DATABASES"
+                mysql --host 127.0.0.1 --port ${{ job.services.db.ports['3306'] }} -uopenshiksha_app -pSoc1alsev@ -e "SHOW DATABASES"
             - run: scripts/testing/unit.sh
               env:
                 OPENSHIKSHA_ENV: PROD
@@ -26,7 +26,7 @@ jobs:
             db:
                 image: mysql:8
                 ports:
-                  - 33306:3306
+                  - 3306
                 env:
                     MYSQL_USER: openshiksha_app
                     MYSQL_PASSWORD: "Soc1alsev@"

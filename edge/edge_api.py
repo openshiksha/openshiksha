@@ -5,7 +5,6 @@ from django.db.models import Avg
 from core.models import SubjectRoom
 from core.utils.references import OpenShikshaGroup
 from edge.models import Tick, StudentProficiency, SubjectRoomProficiency, SubjectRoomQuestionMistake
-from scripts.database.question_bank_reset import truncate_tables
 
 
 def register_tick(question, mark, submission):
@@ -158,6 +157,31 @@ def update_subjectroom_proficiencies(proficiency_groups_processed):
 
     return "Updated %s Subjectroom Proficiencies\n" % subjectroom_proficiencies_updated
 
+def raw_sql_execute(sql_cmd):
+    with connection.cursor() as conn:
+        conn.execute(sql_cmd)
+
+
+TRUNCATE_CMD_BEGIN = """
+BEGIN;
+SET FOREIGN_KEY_CHECKS = 0;
+"""
+
+TRUNCATE_CMD_END = """
+SET FOREIGN_KEY_CHECKS = 1;
+COMMIT;
+"""
+
+
+def get_table_truncation_statements(tables):
+    statements = []
+    for table in tables:
+        statements.append("TRUNCATE `%s`;" % table)
+    return '\n'.join(statements)
+
+
+def truncate_tables(tables):
+    raw_sql_execute(TRUNCATE_CMD_BEGIN + get_table_truncation_statements(tables) + TRUNCATE_CMD_END)
 
 def reset_edge_data():
     truncate_tables([

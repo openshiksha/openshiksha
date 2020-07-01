@@ -1,0 +1,29 @@
+name: Run Test Suite
+# This workflow is triggered on pushes to the repository.
+on: push
+
+jobs:
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-python@v2
+              with:
+                python-version: '2.7'
+            - run: which python && which pip
+
+    build-deploy:
+        name: Build & Deploy
+        needs: test
+        if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-python@v2
+              with:
+                python-version: '2.7'
+            - run: which python && which pip
+
+
+

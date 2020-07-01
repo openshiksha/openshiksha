@@ -6,6 +6,7 @@
 *.pid
 
 .git
+.github
 
 static_root
 

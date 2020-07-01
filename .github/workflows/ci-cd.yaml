@@ -3,56 +3,56 @@ name: CI/CD Pipeline
 on: push
 
 jobs:
-    test:
-        name: Test
-        runs-on: ubuntu-latest
-        steps:
-            - name: Check out the repo
-              uses: actions/checkout@v2
-            - name: Setup Python Runtime
-              uses: actions/setup-python@v2
-              with:
-                python-version: '2.7'
-            - name: Install Dependencies
-              run: pip install -r pip-requirements.txt
-            - name: Run Tests
-              run: scripts/testing/unit.sh
-              env:
-                OPENSHIKSHA_ENV: PROD
-                OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
-                OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
-                OPENSHIKSHA_DB_HOST: "127.0.0.1"
-                OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
-                OPENSHIKSHA_CABINET_HOST: "127.0.0.1"
-                OPENSHIKSHA_CABINET_PORT: "38788"
-        services:
-            db:
-                image: mysql:8
-                ports:
-                  - 3306
-                env:
-                    MYSQL_USER: openshiksha_app
-                    MYSQL_DATABASE: test_openshiksha
-                    MYSQL_PASSWORD: "Soc1alsev@"
-                    MYSQL_ROOT_PASSWORD: "Soc1alsev@"
-    build-publish:
-        name: Build & Publish
-        needs: test
-        # only run this on qa & prod branches
-        if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Check out the repo
-              uses: actions/checkout@v2
-            - name: Build Docker Image & Push to GitHub Packages
-              uses: docker/build-push-action@v1
-              with:
-                username: ${{ github.actor }}
-                password: ${{ secrets.GITHUB_TOKEN }}
-                registry: docker.pkg.github.com
-                repository: openshiksha/openshiksha/openshiksha
-                tag_with_ref: true
-                tag_with_sha: true
+    # test:
+    #     name: Test
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - name: Check out the repo
+    #           uses: actions/checkout@v2
+    #         - name: Setup Python Runtime
+    #           uses: actions/setup-python@v2
+    #           with:
+    #             python-version: '2.7'
+    #         - name: Install Dependencies
+    #           run: pip install -r pip-requirements.txt
+    #         - name: Run Tests
+    #           run: scripts/testing/unit.sh
+    #           env:
+    #             OPENSHIKSHA_ENV: PROD
+    #             OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
+    #             OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
+    #             OPENSHIKSHA_DB_HOST: "127.0.0.1"
+    #             OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
+    #             OPENSHIKSHA_CABINET_HOST: "127.0.0.1"
+    #             OPENSHIKSHA_CABINET_PORT: "38788"
+    #     services:
+    #         db:
+    #             image: mysql:8
+    #             ports:
+    #               - 3306
+    #             env:
+    #                 MYSQL_USER: openshiksha_app
+    #                 MYSQL_DATABASE: test_openshiksha
+    #                 MYSQL_PASSWORD: "Soc1alsev@"
+    #                 MYSQL_ROOT_PASSWORD: "Soc1alsev@"
+    # build-publish:
+    #     name: Build & Publish
+    #     needs: test
+    #     # only run this on qa & prod branches
+    #     if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - name: Check out the repo
+    #           uses: actions/checkout@v2
+    #         - name: Build Docker Image & Push to GitHub Packages
+    #           uses: docker/build-push-action@v1
+    #           with:
+    #             username: ${{ github.actor }}
+    #             password: ${{ secrets.GITHUB_TOKEN }}
+    #             registry: docker.pkg.github.com
+    #             repository: openshiksha/openshiksha/openshiksha
+    #             tag_with_ref: true
+    #             tag_with_sha: true
     deploy-qa:
         name: Deploy to QA Cluster
         needs: build-publish

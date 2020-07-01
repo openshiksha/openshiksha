@@ -64,7 +64,7 @@ jobs:
               uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
               with:
                 version: '290.0.1'
-                service_account_key: ${{ secrets.GKE_SA_KEY }}
+                service_account_key: ${{ secrets.GKE_QA_SA_KEY }}
                 project_id: ${{ secrets.GKE_QA_PROJECT_ID }}
 
             - name: Fetch Cluster KubeConfig
@@ -83,7 +83,7 @@ jobs:
               uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
               with:
                 version: '290.0.1'
-                service_account_key: ${{ secrets.GKE_SA_KEY }}
+                service_account_key: ${{ secrets.GKE_PROD_SA_KEY }}
                 project_id: ${{ secrets.GKE_PROD_PROJECT_ID }}
 
             - name: Fetch Cluster KubeConfig

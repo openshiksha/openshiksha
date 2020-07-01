@@ -1,4 +1,6 @@
-|---|---|
+
+| ENV | Status |
+| --- | --- |
 | QA | ![](https://github.com/openshiksha/openshiksha/workflows/CI/CD%20Pipeline/badge.svg?branch=qa) |
 | PROD | ![](https://github.com/openshiksha/openshiksha/workflows/CI/CD%20Pipeline/badge.svg?branch=prod) |
 

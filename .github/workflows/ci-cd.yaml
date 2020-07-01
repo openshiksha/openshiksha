@@ -26,7 +26,7 @@ jobs:
             db:
                 image: mysql:8
                 ports:
-                  - 33306: 3306
+                  - 33306:3306
                 env:
                     MYSQL_USER: openshiksha_app
                     MYSQL_PASSWORD: "Soc1alsev@"

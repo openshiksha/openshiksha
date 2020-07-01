@@ -18,12 +18,12 @@ jobs:
                 OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
                 OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
                 OPENSHIKSHA_DB_HOST: "127.0.0.1"
-                OPENSHIKSHA_DB_PORT: "13306"
+                OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
         services:
             db:
                 image: mysql:8
                 ports:
-                  3306: 13306
+                  - 3306
                 env:
                     MYSQL_USER: openshiksha_app
                     MYSQL_PASSWORD: "Soc1alsev@"

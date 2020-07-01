@@ -17,7 +17,7 @@ jobs:
                 OPENSHIKSHA_ENV: PROD
                 OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
                 OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
-                OPENSHIKSHA_DB_HOST: localhost
+                OPENSHIKSHA_DB_HOST: "0.0.0.0"
                 OPENSHIKSHA_DB_PORT: "3306"
         services:
             db:

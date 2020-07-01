@@ -19,6 +19,8 @@ jobs:
                 OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
                 OPENSHIKSHA_DB_HOST: "127.0.0.1"
                 OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
+                OPENSHIKSHA_CABINET_HOST: "127.0.0.1"
+                OPENSHIKSHA_CABINET_PORT: "38788"
         services:
             db:
                 image: mysql:8

@@ -35,8 +35,8 @@ jobs:
                     MYSQL_DATABASE: test_openshiksha
                     MYSQL_PASSWORD: "Soc1alsev@"
                     MYSQL_ROOT_PASSWORD: "Soc1alsev@"
-    build-deploy:
-        name: Build & Deploy
+    build-publish:
+        name: Build & Publish
         needs: test
         # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
@@ -44,7 +44,7 @@ jobs:
         steps:
             - name: Check out the repo
               uses: actions/checkout@v2
-            - name: Push to GitHub Packages
+            - name: Build Docker Image & Push to GitHub Packages
               uses: docker/build-push-action@v1
               with:
                 username: ${{ github.actor }}
@@ -53,5 +53,3 @@ jobs:
                 repository: openshiksha/openshiksha/openshiksha
                 tag_with_ref: true
                 tag_with_sha: true
-
-

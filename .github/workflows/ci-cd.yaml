@@ -12,6 +12,9 @@ jobs:
               with:
                 python-version: '2.7'
             - run: pip install -r pip-requirements.txt
+            - run: |
+                sudo apt-get install -y mysql-client
+                mysql --host 127.0.0.1 --port ${{ job.services.db.ports['3306'] }} -u openshiksha_app -p Soc1alsev@ -e "SHOW DATABASES"
             - run: scripts/testing/unit.sh
               env:
                 OPENSHIKSHA_ENV: PROD

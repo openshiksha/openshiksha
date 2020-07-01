@@ -62,9 +62,15 @@ jobs:
         steps:
             - name: Check out the repo
               uses: actions/checkout@v2
-            - name: Trigger rolling restart of pods
-              uses: steebchen/kubectl@master
-              env:
-                KUBE_CONFIG_DATA: ${{ secrets.QA_CLUSTER_KUBE_CONFIG }}
+            - name: Setup Gcloud CLI
+              uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
               with:
-                args: rollout restart deployment ${{ secrets.QA_CLUSTER_RELEASE }}-openshiksha
+                version: '290.0.1'
+                service_account_key: ${{ secrets.GKE_SA_KEY }}
+                project_id: ${{ secrets.GKE_QA_PROJECT_ID }}
+
+            - name: Fetch Cluster KubeConfig
+              run: |-
+                gcloud container clusters get-credentials ${{ secrets.GKE_QA_CLUSTER_NAME }} --zone ${{ secrets.GKE_QA_ZONE_ID }}
+            - name: Restart pods
+              run: kubectl rollout restart deployment ${{ secrets.GKE_QA_CLUSTER_RELEASE }}-openshiksha

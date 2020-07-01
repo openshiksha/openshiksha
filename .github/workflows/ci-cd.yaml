@@ -1,4 +1,4 @@
-name: Run Test Suite
+name: CI/CD Pipeline
 # This workflow is triggered on pushes to the repository.
 on: push
 

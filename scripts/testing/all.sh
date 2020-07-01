@@ -2,4 +2,4 @@
 
 # Usage: scripts/testing/all.sh (from root directory)
 
-python -Wall manage.py test
+python -Wall manage.py test --noinput

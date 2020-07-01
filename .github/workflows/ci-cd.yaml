@@ -11,11 +11,10 @@ jobs:
             - uses: actions/setup-python@v2
               with:
                 python-version: '2.7'
-            - run: sudo service mysql stop # Shutdown the Default MySQL, "sudo" is necessary
             - run: pip install -r pip-requirements.txt
             - run: |
                 sudo apt-get install -y mysql-client
-                mysql --host db -uopenshiksha_app -pSoc1alsev@ -e "SHOW DATABASES"
+                mysql --host 127.0.0.1 --port 33306 -uopenshiksha_app -pSoc1alsev@ -e "SHOW DATABASES"
             - run: scripts/testing/unit.sh
               env:
                 OPENSHIKSHA_ENV: PROD
@@ -26,11 +25,13 @@ jobs:
         services:
             db:
                 image: mysql:8
+                ports:
+                  - 33306: 3306
                 env:
                     MYSQL_USER: openshiksha_app
                     MYSQL_PASSWORD: "Soc1alsev@"
                     MYSQL_ROOT_PASSWORD: "Soc1alsev@"
-                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=10s --health-retries=5
+                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
     build-deploy:
         name: Build & Deploy
         needs: test

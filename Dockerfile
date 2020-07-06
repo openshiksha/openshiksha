@@ -6,7 +6,6 @@ RUN apt-get update && apt-get -y install nginx=1.14*
 # Env vars
 ENV WORKDIR /usr/src/app
 ENV PYTHONUNBUFFERED 1
-ENV OPENSHIKSHA_ENV PROD
 
 WORKDIR ${WORKDIR}
 

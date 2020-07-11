@@ -1,6 +1,7 @@
 from collections import namedtuple
 
 from django.db.models import Avg
+from django.db import connection
 
 from core.models import SubjectRoom
 from core.utils.references import OpenShikshaGroup

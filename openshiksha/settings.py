@@ -223,6 +223,7 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
     'debug_toolbar',
     'django_extensions',
+    'corsheaders',
 
     # Now OpenShiksha-specific apps
     'core',
@@ -237,6 +238,11 @@ INSTALLED_APPS = (
     'pylon',
     'lodge',
     'challenge'
+)
+
+CORS_ORIGIN_WHITELIST = (
+    'http://0.0.0.0:3000',
+    'https://0.0.0.0:3000'
 )
 
 # A sample logging configuration. The only tangible logging

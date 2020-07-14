@@ -32,7 +32,6 @@ def deal_post(request):
         return sphinx_failure_response('No subpart data provided')
 
     subpart_data = request_data['subpart']
-    print(json.dumps(subpart_data))
 
     try:
         subpart = build_question_subpart_from_data(subpart_data)

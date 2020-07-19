@@ -5,7 +5,7 @@ from core.routing.routers import static_csrf_cookie_router, dynamic_router, stat
 from core.utils.constants import HttpMethod
 from openshiksha.urls.common import get_all_env_urlpatterns
 from sphinx.urlnames import SphinxUrlNames
-from sphinx.views import deal_post, tags_get, sphinx_submit_question_post
+from sphinx.views import deal_post, tags_get, sphinx_submit_question_post, subjects_from_standard_get, chapters_from_subject_get
 
 
 def get_debug_urlpatterns():
@@ -29,6 +29,10 @@ def get_sphinx_urlpatterns():
             name=SphinxUrlNames.SUBMIT_QUESTION.name),
         url(SphinxUrlNames.TAGS.url_matcher, dynamic_router, {HttpMethod.GET: tags_get},
             name=SphinxUrlNames.TAGS.name),
+        url(SphinxUrlNames.SUBJECTS_FROM_STANDARD.url_matcher, dynamic_router, {HttpMethod.GET: subjects_from_standard_get},
+            name=SphinxUrlNames.SUBJECTS_FROM_STANDARD.name),
+        url(SphinxUrlNames.CHAPTERS_FROM_SUBJECT.url_matcher, dynamic_router, {HttpMethod.GET: chapters_from_subject_get },
+            name=SphinxUrlNames.CHAPTERS_FROM_SUBJECT.name),
         url(SphinxUrlNames.REVISION.url_matcher, static_router, {'template': SphinxUrlNames.REVISION.template},
             name=SphinxUrlNames.REVISION.name)
     ]

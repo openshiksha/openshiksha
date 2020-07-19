@@ -25,3 +25,5 @@ class SphinxUrlNames(object):
     TAGS = SphinxUrlName('tags')
     REVISION = SphinxUrlName('revision')
     SUBMIT_QUESTION = SphinxUrlName('submit_question')
+    SUBJECTS_FROM_STANDARD = SphinxUrlName('subjects')
+    CHAPTERS_FROM_SUBJECT = SphinxUrlName('chapters')

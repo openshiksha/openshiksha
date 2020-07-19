@@ -1,13 +1,16 @@
 import json
 
 from django.shortcuts import render
+from django.utils.safestring import mark_safe
+
 
 from core.data_models.question import build_question_subpart_from_data
+from core.models import QuestionTag, Subject, Chapter
+from core.utils.references import EdgeSpecialTags
 from core.utils.json import OpenShikshaJsonResponse
 from croupier.constraints import SubpartVariableConstraints
 from croupier.croupier_api import deal_subpart
 from sphinx.urlnames import SphinxUrlNames
-from sphinx.view_models import Tags
 
 
 def sphinx_failure_response(message):
@@ -93,4 +96,25 @@ def sphinx_submit_question_post(request):
 
 
 def tags_get(request):
-    return render(request, SphinxUrlNames.TAGS.template, Tags().as_context())
+    tags_list = [{"name": t.name} for t in QuestionTag.objects.exclude(pk__in=EdgeSpecialTags.refs.PKS).order_by('name')]
+    serialized_tags = {
+        'tags': mark_safe(json.dumps(tags_list))
+    }
+    return sphinx_success_response(serialized_tags)
+
+
+def subjects_from_standard_get(request):
+    subjects_list = [{"name": t.name} for t in Subject.objects.all().order_by('name')]
+    serialized_subjects = {
+        'subjects': mark_safe(json.dumps(subjects_list))
+    }
+    return sphinx_success_response(serialized_subjects)
+
+
+def chapters_from_subject_get(request):
+   subjects_list = [{"name": t.name}
+                    for t in Chapter.objects.all().order_by('name')]
+   serialized_chapters = {
+       'chapters': mark_safe(json.dumps(subjects_list))
+   }
+   return sphinx_success_response(serialized_chapters)

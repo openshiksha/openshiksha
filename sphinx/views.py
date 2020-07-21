@@ -66,7 +66,8 @@ def sphinx_submit_question_post(request):
         return sphinx_failure_response('No question data provided')
 
     question_data = request_data['question']
-    for subpart_data in question_data.subparts:
+    subparts = question_data['subparts']
+    for subpart_data in subparts:
         try:
             subpart = build_question_subpart_from_data(subpart_data)
         except Exception, e:
@@ -112,9 +113,9 @@ def subjects_from_standard_get(request):
 
 
 def chapters_from_subject_get(request):
-   subjects_list = [{"name": t.name}
+    subjects_list = [{"name": t.name}
                     for t in Chapter.objects.all().order_by('name')]
-   serialized_chapters = {
-       'chapters': mark_safe(json.dumps(subjects_list))
-   }
-   return sphinx_success_response(serialized_chapters)
+    serialized_chapters = {
+        'chapters': mark_safe(json.dumps(subjects_list))
+    }
+    return sphinx_success_response(serialized_chapters)

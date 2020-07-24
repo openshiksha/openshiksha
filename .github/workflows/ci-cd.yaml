@@ -57,6 +57,8 @@ jobs:
               working-directory: ./frontend
             - name: Install Frontend Package
               run: yarn install
+              env:
+                NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               working-directory: ./frontend
             - name: Restructure Frontend Package
               run: |

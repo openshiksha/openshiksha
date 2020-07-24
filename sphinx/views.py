@@ -5,6 +5,7 @@ import re
 
 from django.shortcuts import render
 from django.utils.safestring import mark_safe
+from django.contrib.auth.decorators import login_required
 
 from core.models import Board, School, Standard, Subject, Question, Chapter, QuestionTag, \
     QuestionSubpart
@@ -43,6 +44,7 @@ def sphinx_success_response(data):
 
 
 # TODO: this should actually be a GET?
+@login_required
 def deal_post(request):
     request_data = json.loads(request.body)  # ajax post data has to be accessed here instead of request.POST
 
@@ -74,6 +76,7 @@ def deal_post(request):
 
     return sphinx_success_response(dealt_subpart)
 
+@login_required
 def sphinx_submit_question_post(request):
     request_data = json.loads(request.body)  # ajax post data has to be accessed here instead of request.POST
 
@@ -196,7 +199,7 @@ def sphinx_submit_question_post(request):
     }
     return sphinx_success_response(question_response)
 
-
+@login_required
 def tags_get(request):
     tags_list = [{"name": t.name} for t in QuestionTag.objects.exclude(pk__in=EdgeSpecialTags.refs.PKS).order_by('name')]
     serialized_tags = {
@@ -204,7 +207,7 @@ def tags_get(request):
     }
     return sphinx_success_response(serialized_tags)
 
-
+@login_required
 def subjects_from_standard_get(request):
     subjects_list = [{"name": t.name} for t in Subject.objects.all().order_by('name')]
     serialized_subjects = {
@@ -212,7 +215,7 @@ def subjects_from_standard_get(request):
     }
     return sphinx_success_response(serialized_subjects)
 
-
+@login_required
 def chapters_from_subject_get(request):
     subjects_list = [{"name": t.name}
                     for t in Chapter.objects.all().order_by('name')]

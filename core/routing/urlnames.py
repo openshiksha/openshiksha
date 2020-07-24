@@ -14,6 +14,9 @@ def prettify_for_url_matcher(name):
 def truncate_index_url_matcher(url_matcher):
     return url_matcher.replace('index/', '')
 
+def match_all_nested_index_url_matcher(url_matcher):
+    return url_matcher.replace('index/', '.*')
+
 # TODO: can probably share with suburlname
 class AjaxUrlName(object):
     """

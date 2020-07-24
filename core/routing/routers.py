@@ -2,6 +2,8 @@ from django.http import Http404
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_safe
+from django.contrib.auth.decorators import login_required
+
 
 from core.utils.constants import HttpMethod
 
@@ -27,6 +29,13 @@ def redirect_router(request, target_view_name, *args, **kwargs):
 
     return redirect(target_view_name, *args, **kwargs)
 
+@login_required
+def static_authenticated_router(request, template):
+    return static_router(request, template)
+
+@login_required
+def static_authenticated_csrf_cookie_router(request, template):
+    return static_csrf_cookie_router(request, template)
 
 @ensure_csrf_cookie
 def static_csrf_cookie_router(request, template):

@@ -44,34 +44,6 @@ from openshiksha.exceptions import InvalidOpenShikshaAssignmentTypeError, Invali
 from openshiksha.settings import LOGIN_REDIRECT_URL
 
 
-def logout_wrapper(logout_view):
-    """
-    Redirects to index if already logged out, otherwise proceeds to logout
-    """
-
-    def delegate_logout(request, *args, **kwargs):
-        if not request.user.is_authenticated():
-            return redirect(UrlNames.INDEX.name)
-        statsd.increment('core.hits.logout')
-        return logout_view(request, *args, **kwargs)
-
-    return delegate_logout
-
-
-def login_wrapper(login_view):
-    """
-    Redirects to settings.LOGIN_REDIRECT_URL if already logged in, otherwise proceeds to login
-    """
-
-    def delegate_login(request, *args, **kwargs):
-        if request.user.is_authenticated():
-            return redirect(LOGIN_REDIRECT_URL)
-        statsd.increment('core.hits.login')
-        return login_view(request, *args, **kwargs)
-
-    return delegate_login
-
-
 @statsd.timed('core.get.index')
 def index_get(request):
     """

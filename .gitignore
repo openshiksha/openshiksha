@@ -10,3 +10,6 @@ static_root
 .vscode
 
 devops/nginx.compiled.conf
+
+frontend/templates
+frontend/static

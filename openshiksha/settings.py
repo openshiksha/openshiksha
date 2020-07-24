@@ -236,7 +236,8 @@ INSTALLED_APPS = (
     'focus',
     'pylon',
     'lodge',
-    'challenge'
+    'challenge',
+    'frontend'
 )
 
 # A sample logging configuration. The only tangible logging
@@ -299,11 +300,4 @@ else:
 if SLEEP_MODE:
     ROOT_URLCONF = 'openshiksha.urls.sleep_mode'
 else:
-    if ENVIRON == OpenShikshaEnv.PROD:
-        ROOT_URLCONF = 'openshiksha.urls.prod'
-    elif ENVIRON == OpenShikshaEnv.QA:
-        ROOT_URLCONF = 'openshiksha.urls.local'  # qa just uses local urls for now
-    elif ENVIRON == OpenShikshaEnv.LOCAL:
-        ROOT_URLCONF = 'openshiksha.urls.local'
-    else:
-        raise InvalidOpenShikshaEnvError(ENVIRON)
+    ROOT_URLCONF = 'openshiksha.urls.regular_mode'

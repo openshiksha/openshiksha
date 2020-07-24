@@ -1,0 +1,7 @@
+{
+  "name": "@openshiksha/frontend-client",
+  "version": "0.0.1",
+  "dependencies": {
+    "@openshiksha/frontend-__BRANCH__": "latest"
+  }
+}

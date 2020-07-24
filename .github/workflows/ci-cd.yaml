@@ -53,7 +53,7 @@ jobs:
               run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
               id: extract_branch
             - name: Switch to Frontend App Directory
-              run: cd frontend
+              run: ls && ls frontend && cd frontend
             - name: Update Package Name tp reflect Branch
               run: sed -i "s|__BRANCH__|${{ steps.extract_branch.outputs.branch }}|g" package.json
             - name: Install Frontend Package
@@ -64,6 +64,7 @@ jobs:
                 mkdir templates
                 mkdir templates/app
                 cp node_modules/@openshiksha/frontend-${{ steps.extract_branch.outputs.branch }}/index.html templates/app/
+                rm -rf node_modules
             - name: Build Docker Image & Push to GitHub Packages
               uses: docker/build-push-action@v1
               with:

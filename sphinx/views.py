@@ -150,7 +150,6 @@ def sphinx_submit_question_post(request):
         number_of_files_existing = len([name for name in os.listdir(question_subpart_path) if os.path.isfile(os.path.join(question_subpart_path, name))])
         subpart_unique_name = str(
             number_of_files_existing + BASE_FILENAME_NUMBER)
-        subpart_json_name = subpart_unique_name + '.json'
         os.chdir(question_subpart_path)
         subpart_index = int(subpart_data['subpart_index'])
         subpart_object = QuestionSubpart.objects.create(question=created_question, index=subpart_index)
@@ -158,7 +157,7 @@ def sphinx_submit_question_post(request):
             tag_object = QuestionTag.objects.get(name=tag)
             subpart_object.tags.add(tag_object.pk)
         cabinet_api.build_subpart_or_container(os.path.join(
-            question_subpart_path, subpart_json_name), subpart_data)
+            question_subpart_path, subpart_unique_name), subpart_data)
         subparts_numbering.append(subpart_unique_name)
 
     question_dump = {
@@ -172,9 +171,8 @@ def sphinx_submit_question_post(request):
         question_container_path) if os.path.isfile(os.path.join(question_container_path, name))])
     container_unique_name = str(
         created_question)
-    json_container_name = container_unique_name + '.json'
     cabinet_api.build_subpart_or_container(os.path.join(
-        question_container_path, json_container_name), question_dump)
+        question_container_path, container_unique_name), question_dump)
     
 
 

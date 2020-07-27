@@ -136,6 +136,13 @@ def build_submission_data_url(submission):
                         build_config_filename(submission.pk))
 
 
+def build_container_or_subpart_data_url(data_url):
+    return os.path.join(CABINET_ENDPOINT, data_url)
+
+
+def build_image_data_url(image_url):
+    return os.path.join(CABINET_ENDPOINT, image_url)
+
 @statsd.timed('cabinet.get.submission')
 def get_submission(submission):
     submission_url = build_submission_data_url(submission)
@@ -169,10 +176,53 @@ def build_submission(submission, shell_submission_dm):
 
     nginx_cabinet_put(submission_url, dump_json_string(shell_submission_dm))
 
+@statsd.timed('cabinet.put.subpart-or-container')
+def build_subpart_or_container(data_url, data):
+    """
+    Used to build a subpart of container file in the cabinet
+    Throws CabinetSubmissionExistsError if trying to create subpart or container which already exists
+    """
+
+    cabinet_data_url = build_container_or_subpart_data_url(data_url)
+
+    if file_exists(cabinet_data_url):
+        raise CabinetSubmissionExistsError("file exists for resource at: %s" % cabinet_data_url)
+
+    # TODO: possible race condition here
+
+    nginx_cabinet_put(cabinet_data_url, dump_json_string(data))
+
+
+@statsd.timed('cabinet.put.subpart-or-container')
+def build_image(image_url, image_data, image_name):
+    """
+    Used to build a subpart of container file in the cabinet
+    Throws CabinetSubmissionExistsError if trying to create subpart or container which already exists
+    """
+
+    cabinet_image_url = build_image_data_url(image_url)
+
+    if file_exists(cabinet_image_url):
+        raise CabinetSubmissionExistsError(
+            "file exists for resource at: %s" % cabinet_image_url)
+
+    # TODO: possible race condition here
+
+    nginx_cabinet_put_img(cabinet_image_url, image_data, image_name)
+
 
 def nginx_cabinet_put(url, json_str):
     try:
         requests.put(url, data=json_str)
+    except Exception:
+        raise CabinetConnectionError(url, HttpMethod.PUT)
+
+
+def nginx_cabinet_put_img(url, image_data, image_name):
+    try:
+        files = {'file': image_data}
+        headers = {'Content-type': 'application/octet-stream', 'Slug': image_name}
+        requests.put(url, files=files, headers=headers)
     except Exception:
         raise CabinetConnectionError(url, HttpMethod.PUT)
 
@@ -190,6 +240,8 @@ def submission_exists(submission):
     submission_url = build_submission_data_url(submission)
     return get_resource_exists(submission_url)
 
+def file_exists(dataURL):
+    return get_resource_exists(dataURL)
 
 def get_img_url(stub_url, img_filename):
     return os.path.join(stub_url, 'img', img_filename)

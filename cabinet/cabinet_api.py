@@ -193,7 +193,7 @@ def build_subpart_or_container(data_url, data):
     nginx_cabinet_put(cabinet_data_url, dump_json_string(data))
 
 
-@statsd.timed('cabinet.put.subpart-or-container')
+@statsd.timed('cabinet.put.image')
 def build_image(image_url, image_data, image_name):
     """
     Used to build a subpart of container file in the cabinet

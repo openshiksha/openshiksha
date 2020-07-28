@@ -7,6 +7,7 @@ from django.shortcuts import render
 from django.utils.safestring import mark_safe
 from django.contrib.auth.decorators import login_required
 
+from cabinet import cabinet_api
 from core.models import Board, School, Standard, Subject, Question, Chapter, QuestionTag, \
     QuestionSubpart
 from core.data_models.question import build_question_subpart_from_data
@@ -16,8 +17,6 @@ from croupier.constraints import SubpartVariableConstraints
 from croupier.croupier_api import deal_subpart
 from sphinx.urlnames import SphinxUrlNames
 
-HOME_DIR = os.path.expanduser('~')
-OUTPUT_CABINET_PATH = os.path.join(HOME_DIR, 'openshiksha-cabinet')
 BASE_FILENAME_NUMBER = 1000000
 
 
@@ -101,7 +100,6 @@ def sphinx_submit_question_post(request):
     )
 
     question_path = os.path.join(
-        OUTPUT_CABINET_PATH,
         'questions'
     )
 
@@ -152,15 +150,14 @@ def sphinx_submit_question_post(request):
         number_of_files_existing = len([name for name in os.listdir(question_subpart_path) if os.path.isfile(os.path.join(question_subpart_path, name))])
         subpart_unique_name = str(
             number_of_files_existing + BASE_FILENAME_NUMBER)
-        subpart_json_name = subpart_unique_name + '.json'
         os.chdir(question_subpart_path)
         subpart_index = int(subpart_data['subpart_index'])
         subpart_object = QuestionSubpart.objects.create(question=created_question, index=subpart_index)
         for tag in subpart_data['tags']:
             tag_object = QuestionTag.objects.get(name=tag)
             subpart_object.tags.add(tag_object.pk)
-        with open(subpart_json_name, 'w+') as fp:
-            json.dump(subpart_data, fp, indent=4)
+        cabinet_api.build_subpart_or_container(os.path.join(
+            question_subpart_path, subpart_unique_name), subpart_data)
         subparts_numbering.append(subpart_unique_name)
 
     question_dump = {
@@ -174,10 +171,9 @@ def sphinx_submit_question_post(request):
         question_container_path) if os.path.isfile(os.path.join(question_container_path, name))])
     container_unique_name = str(
         created_question)
-    json_container_name = container_unique_name + '.json'
-    os.chdir(question_container_path)
-    with open(json_container_name, 'w+') as fp:
-        json.dump(question_dump, fp, indent=4)
+    cabinet_api.build_subpart_or_container(os.path.join(
+        question_container_path, container_unique_name), question_dump)
+    
 
 
     # Save images correctly
@@ -191,8 +187,7 @@ def sphinx_submit_question_post(request):
             os.makedirs(image_path)
         os.chdir(image_path)
         image_data = decode_base64(image_string.split(',')[1])
-        with open(image_name, 'w+') as f:
-            f.write(image_data)
+        cabinet_api.build_image(os.path.join(image_path, image_name), image_data, image_name)
 
     question_response = {
         'response': 'successfully submitted question'

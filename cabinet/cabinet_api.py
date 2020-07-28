@@ -208,8 +208,8 @@ def build_image(image_url, image_data, image_name):
 
     # TODO: possible race condition here
 
-    nginx_cabinet_put_img(cabinet_image_url, image_data,image_name)
 
+    nginx_cabinet_put_img(cabinet_image_url, image_data, image_name)
 
 def nginx_cabinet_put(url, json_str):
     try:

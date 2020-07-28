@@ -193,7 +193,7 @@ def build_subpart_or_container(data_url, data):
     nginx_cabinet_put(cabinet_data_url, dump_json_string(data))
 
 
-@statsd.timed('cabinet.put.subpart-or-container')
+@statsd.timed('cabinet.put.image')
 def build_image(image_url, image_data, image_name):
     """
     Used to build a subpart of container file in the cabinet
@@ -208,11 +208,12 @@ def build_image(image_url, image_data, image_name):
 
     # TODO: possible race condition here
 
-    nginx_cabinet_put_img(cabinet_image_url, image_data, image_name)
+    nginx_cabinet_put_img(cabinet_image_url, image_data,image_name)
 
 
 def nginx_cabinet_put(url, json_str):
     try:
+        print(json_str)
         requests.put(url, data=json_str)
     except Exception:
         raise CabinetConnectionError(url, HttpMethod.PUT)
@@ -220,9 +221,8 @@ def nginx_cabinet_put(url, json_str):
 
 def nginx_cabinet_put_img(url, image_data, image_name):
     try:
-        files = {'file': image_data}
         headers = {'Content-type': 'application/octet-stream', 'Slug': image_name}
-        requests.put(url, files=files, headers=headers)
+        requests.put(url, data=image_data, headers=headers)
     except Exception:
         raise CabinetConnectionError(url, HttpMethod.PUT)
 

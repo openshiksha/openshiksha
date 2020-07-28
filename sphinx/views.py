@@ -146,18 +146,16 @@ def sphinx_submit_question_post(request):
         created_question.tags.add(tag_object.pk)
     subparts_numbering = []
     # this is being done to create a unique filename to save the subpart JSON
-    for subpart_data in subparts:
-        number_of_files_existing = len([name for name in os.listdir(question_subpart_path) if os.path.isfile(os.path.join(question_subpart_path, name))])
-        subpart_unique_name = str(
-            number_of_files_existing + BASE_FILENAME_NUMBER)
-        os.chdir(question_subpart_path)
+    for subpart_data in subparts:        
         subpart_index = int(subpart_data['subpart_index'])
         subpart_object = QuestionSubpart.objects.create(question=created_question, index=subpart_index)
+        subpart_unique_name = str(subpart_object.pk)
+        subpart_json_name = subpart_unique_name + '.json'
         for tag in subpart_data['tags']:
             tag_object = QuestionTag.objects.get(name=tag)
             subpart_object.tags.add(tag_object.pk)
         cabinet_api.build_subpart_or_container(os.path.join(
-            question_subpart_path, subpart_unique_name), subpart_data)
+            question_subpart_path, subpart_json_name), subpart_data)
         subparts_numbering.append(subpart_unique_name)
 
     question_dump = {
@@ -167,10 +165,8 @@ def sphinx_submit_question_post(request):
     }
     # Save question JSON
 
-    number_of_files_existing = len([name for name in os.listdir(
-        question_container_path) if os.path.isfile(os.path.join(question_container_path, name))])
     container_unique_name = str(
-        created_question)
+        created_question.pk) + '.json'
     cabinet_api.build_subpart_or_container(os.path.join(
         question_container_path, container_unique_name), question_dump)
     
@@ -183,11 +179,9 @@ def sphinx_submit_question_post(request):
             question_subpart_path,
             'img',
         )
-        if not os.path.exists(image_path):
-            os.makedirs(image_path)
-        os.chdir(image_path)
         image_data = decode_base64(image_string.split(',')[1])
-        cabinet_api.build_image(os.path.join(image_path, image_name), image_data, image_name)
+        cabinet_api.build_image(os.path.join(
+            image_path, image_name), image_data, image_name)
 
     question_response = {
         'response': 'successfully submitted question'

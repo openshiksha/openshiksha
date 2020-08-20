@@ -223,6 +223,8 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
     'debug_toolbar',
     'django_extensions',
+    'django_celery_results',
+    'django_celery_beat',
 
     # Now OpenShiksha-specific apps
     'core',
@@ -301,3 +303,16 @@ if SLEEP_MODE:
     ROOT_URLCONF = 'openshiksha.urls.sleep_mode'
 else:
     ROOT_URLCONF = 'openshiksha.urls.regular_mode'
+
+
+# Celery Settings
+if ENVIRON == OpenShikshaEnv.LOCAL:
+    CELERY_BROKER_URL = 'redis://localhost:6379'
+elif ENVIRON == OpenShikshaEnv.QA:
+    CELERY_BROKER_URL = os.getenv('OPENSHIKSHA_CELERY_BROKER_URL')
+elif ENVIRON == OpenShikshaEnv.PROD:
+    CELERY_BROKER_URL = os.getenv('OPENSHIKSHA_CELERY_BROKER_URL')
+else:
+    raise InvalidOpenShikshaEnvError(ENVIRON)
+
+CELERY_RESULT_BACKEND = 'django-db'

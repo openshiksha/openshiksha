@@ -35,6 +35,4 @@ echo
 echo 'Updating local database'
 python manage.py migrate
 echo 'Loading initial data'
-python manage.py loaddata skeleton
-python manage.py loaddata openshiksha_school
-python manage.py loaddata question_bank
+python manage.py loaddata skeleton openshiksha_school question_bank celery_beat

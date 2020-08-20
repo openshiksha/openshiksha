@@ -5,6 +5,8 @@
 *.sock
 *.pid
 
+*.rdb
+
 static_root
 
 .vscode

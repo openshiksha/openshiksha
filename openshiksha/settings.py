@@ -309,9 +309,9 @@ else:
 if ENVIRON == OpenShikshaEnv.LOCAL:
     CELERY_BROKER_URL = 'redis://localhost:6379'
 elif ENVIRON == OpenShikshaEnv.QA:
-    CELERY_BROKER_URL = os.getenv('OPENSHIKSHA_CELERY_BROKER_URL')
+    CELERY_BROKER_URL = 'redis://:' + os.getenv('OPENSHIKSHA_REDIS_PASSWORD') + '@' + os.getenv('OPENSHIKSHA_REDIS_HOST') + ':' + os.getenv('OPENSHIKSHA_REDIS_PORT')
 elif ENVIRON == OpenShikshaEnv.PROD:
-    CELERY_BROKER_URL = os.getenv('OPENSHIKSHA_CELERY_BROKER_URL')
+    CELERY_BROKER_URL = 'redis://:' + os.getenv('OPENSHIKSHA_REDIS_PASSWORD') + '@' + os.getenv('OPENSHIKSHA_REDIS_HOST') + ':' + os.getenv('OPENSHIKSHA_REDIS_PORT')
 else:
     raise InvalidOpenShikshaEnvError(ENVIRON)
 

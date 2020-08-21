@@ -24,9 +24,12 @@ jobs:
                 OPENSHIKSHA_DB_HOST: "127.0.0.1"
                 OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
                 OPENSHIKSHA_CABINET_HOST: "127.0.0.1"
-                OPENSHIKSHA_CABINET_PORT: "38788"
+                OPENSHIKSHA_CABINET_PORT: "<>"
+                OPENSHIKSHA_REDIS_PASSWORD: "Soc1alsev@"
+                OPENSHIKSHA_REDIS_HOST: "127.0.0.1"
+                OPENSHIKSHA_REDIS_PORT: "<>"
         services:
-            # TODO: add redis
+            # TODO: add redis and cabinet so we can run proper integration tests
             db:
                 image: mysql:8
                 ports:

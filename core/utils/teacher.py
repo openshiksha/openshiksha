@@ -75,7 +75,7 @@ class TeacherAdminSharedUtils(UncorrectedAssignmentInfoMixin, UserUtils):
         if self.focus:
             filter |= Q(remedial__focusRoom__pk__in=self.get_managed_focusroom_ids())
 
-        return Assignment.objects.filter(filter & Q(due__lte=now)).order_by('-due')
+        return Assignment.objects.filter(filter & Q(due__lte=now) & Q(average__isnull=False)).order_by('-due')
 
     def get_managed_classroom_ids(self):
         raise NotImplementedError("subclass of TeacherAdminSharedUtils must implement method get_managed_classroom_ids")
@@ -102,7 +102,7 @@ class TeacherAdminSharedSubjectIdUtils(TeacherAdminSharedUtils):
 
     def get_corrected_assignments(self):
         now = django.utils.timezone.now()
-        return Assignment.objects.filter(subjectRoom=self.subjectroom, due__lte=now).order_by('-due')
+        return Assignment.objects.filter(subjectRoom=self.subjectroom, due__lte=now, average__isnull=False).order_by('-due')
 
     def get_subjectroom_reportcard_info(self):
         result = []
@@ -110,7 +110,7 @@ class TeacherAdminSharedSubjectIdUtils(TeacherAdminSharedUtils):
         now = django.utils.timezone.now()
         for student in students:
             average = Submission.objects.filter(student=student, assignment__subjectRoom=self.subjectroom,
-                                                assignment__due__lte=now).aggregate(Avg("marks"))['marks__avg']
+                                                assignment__due__lte=now, assignment__average__isnull=False).aggregate(Avg("marks"))['marks__avg']
             result.append((student, average))
         return result
 
@@ -134,7 +134,7 @@ class TeacherAdminSharedFocusIdUtils(TeacherAdminSharedUtils):
 
     def get_corrected_assignments(self):
         now = django.utils.timezone.now()
-        return Assignment.objects.filter(remedial__focusRoom=self.focusroom, due__lte=now).order_by('-due')
+        return Assignment.objects.filter(remedial__focusRoom=self.focusroom, due__lte=now, average__isnull=False).order_by('-due')
 
     def get_focusroom_reportcard_info(self):
         result = []
@@ -142,7 +142,7 @@ class TeacherAdminSharedFocusIdUtils(TeacherAdminSharedUtils):
         now = django.utils.timezone.now()
         for student in students:
             average = Submission.objects.filter(student=student, assignment__remedial__focusRoom=self.focusroom,
-                                                assignment__due__lte=now).aggregate(Avg("marks"))['marks__avg']
+                                                assignment__due__lte=now, assignment__average__isnull=False).aggregate(Avg("marks"))['marks__avg']
             result.append((student, average))
         return result
 

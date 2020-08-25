@@ -70,7 +70,7 @@ class StudentUtils(UserUtils):
         if self.focus:
             filter |= Q(assignment__content_type=ContentType.objects.get_for_model(Remedial))
 
-        return Submission.objects.filter(Q(student=self.user) & Q(assignment__due__lte=now) & filter).order_by(
+        return Submission.objects.filter(Q(student=self.user) & Q(assignment__due__lte=now) & Q(assignment__average__isnull=False) & filter).order_by(
             '-assignment__due')
 
     def get_practice_submissions(self):
@@ -100,7 +100,7 @@ class StudentSubjectIdUtils(StudentUtils):
     def get_corrected_submissions(self):
         now = django.utils.timezone.now()
         return Submission.objects.filter(student=self.user, assignment__subjectRoom=self.subjectroom,
-                                         assignment__due__lte=now).order_by('-assignment__due')
+                                         assignment__due__lte=now, assignment__average__isnull=False).order_by('-assignment__due')
 
 
 class StudentFocusIdUtils(StudentUtils):
@@ -123,4 +123,4 @@ class StudentFocusIdUtils(StudentUtils):
     def get_corrected_submissions(self):
         now = django.utils.timezone.now()
         return Submission.objects.filter(student=self.user, assignment__remedial__focusRoom=self.focusroom,
-                                         assignment__due__lte=now).order_by('-assignment__due')
+                                         assignment__due__lte=now, assignment__average__isnull=False).order_by('-assignment__due')

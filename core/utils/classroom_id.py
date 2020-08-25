@@ -51,7 +51,7 @@ class ClassroomIdUtils(UncorrectedAssignmentInfoMixin, BaseUtils):
         if self.focus:
             filter |= Q(remedial__focusRoom__pk__in=self.get_contained_focusroom_ids())
 
-        return Assignment.objects.filter(filter & Q(due__lte=now)).order_by('-due')
+        return Assignment.objects.filter(filter & Q(due__lte=now) & Q(average__isnull=False)).order_by('-due')
 
     def get_reportcard_row_info(self):
         results = []
@@ -60,12 +60,12 @@ class ClassroomIdUtils(UncorrectedAssignmentInfoMixin, BaseUtils):
             averages = []
             for subjectroom in self.get_contained_subjectrooms():
                 averages.append(Submission.objects.filter(student=student, assignment__subjectRoom=subjectroom,
-                                                          assignment__due__lte=now).aggregate(Avg('marks'))[
+                                                          assignment__due__lte=now, assignment__average__isnull=False).aggregate(Avg('marks'))[
                                     'marks__avg'])
                 if self.focus:
                     averages.append(Submission.objects.filter(student=student,
                                                               assignment__remedial__focusRoom=subjectroom.focusroom,
-                                                              assignment__due__lte=now).aggregate(Avg('marks'))[
+                                                              assignment__due__lte=now, assignment__average__isnull=False).aggregate(Avg('marks'))[
                                         'marks__avg'])
 
             filter = Q(assignment__subjectRoom__classRoom=self.classroom)
@@ -73,7 +73,7 @@ class ClassroomIdUtils(UncorrectedAssignmentInfoMixin, BaseUtils):
                 filter |= Q(assignment__remedial__focusRoom__subjectRoom__classRoom=self.classroom)
 
             aggregate = \
-            Submission.objects.filter(Q(student=student, assignment__due__lte=now) & filter).aggregate(Avg('marks'))[
+            Submission.objects.filter(Q(student=student, assignment__due__lte=now, assignment__average__isnull=False) & filter).aggregate(Avg('marks'))[
                 'marks__avg']
             results.append((student, averages, aggregate))
 
@@ -83,11 +83,11 @@ class ClassroomIdUtils(UncorrectedAssignmentInfoMixin, BaseUtils):
         results = []
         now = django.utils.timezone.now()
         for subjectroom in self.get_contained_subjectrooms():
-            results.append(Assignment.objects.filter(subjectRoom=subjectroom, due__lte=now).aggregate(Avg('average'))[
+            results.append(Assignment.objects.filter(subjectRoom=subjectroom, due__lte=now, average__isnull=False).aggregate(Avg('average'))[
                                'average__avg'])
             if self.focus:
                 results.append(
-                    Assignment.objects.filter(remedial__focusRoom=subjectroom.focusroom, due__lte=now).aggregate(
+                    Assignment.objects.filter(remedial__focusRoom=subjectroom.focusroom, due__lte=now, average__isnull=False).aggregate(
                         Avg('average'))[
                         'average__avg'])
 

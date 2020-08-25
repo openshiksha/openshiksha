@@ -1,3 +1,0 @@
-0 22 * * * root  /home/openshiksha_app/openshiksha/devops/sleep-mode-on.sh  >> /home/openshiksha_app/openshiksha/devops/cron.log
-30 22  * * * root  /home/openshiksha_app/openshiksha/devops/sleep-mode-off.sh >> /home/openshiksha_app/openshiksha/devops/cron.log
-

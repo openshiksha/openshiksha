@@ -46,11 +46,11 @@ class PerformanceBreakdownElement(BreakdownElement):
 
 
 def get_subjectroom_graded_assignments(subjectroom):
-    return Assignment.objects.filter(subjectRoom=subjectroom, due__lte=django.utils.timezone.now()).order_by('-due')
+    return Assignment.objects.filter(subjectRoom=subjectroom, due__lte=django.utils.timezone.now(), average__isnull=False).order_by('-due')
 
 
 def get_focusroom_graded_assignments(focusroom):
-    return Assignment.objects.filter(remedial__focusRoom=focusroom, due__lte=django.utils.timezone.now()).order_by(
+    return Assignment.objects.filter(remedial__focusRoom=focusroom, due__lte=django.utils.timezone.now(), average__isnull=False).order_by(
         '-due')
 
 

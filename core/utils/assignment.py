@@ -12,7 +12,7 @@ def is_assignment_active(assignment):
 
 
 def is_assignment_corrected(assignment):
-    return assignment.due < django.utils.timezone.now()
+    return (assignment.due < django.utils.timezone.now()) and (assignment.average is not None)
 
 def get_assignment_type(assignment):
     if is_student_assignment(assignment):

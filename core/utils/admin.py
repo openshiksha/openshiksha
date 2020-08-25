@@ -45,13 +45,15 @@ class AdminUtils(AdminGroupUtils, TeacherAdminSharedUtils):
                 subjectroom_rows.append(ClassroomsTableSubjectroomRow(subjectroom,
                                                                       Assignment.objects.filter(
                                                                               subjectRoom=subjectroom,
-                                                                              due__lte=now
+                                                                              due__lte=now,
+                                                                              average__isnull=False
                                                                       ).aggregate(Avg("average"))['average__avg']))
                 if self.focus:
                     subjectroom_rows.append(ClassroomsTableFocusroomRow(subjectroom.focusroom,
                                                                         Assignment.objects.filter(
                                                                             remedial__focusRoom=subjectroom.focusroom,
-                                                                            due__lte=now
+                                                                            due__lte=now,
+                                                                            average__isnull=False
                                                                         ).aggregate(Avg("average"))['average__avg']))
             results.append(ClassroomsTableClassroomRow(classroom, subjectroom_rows))
 

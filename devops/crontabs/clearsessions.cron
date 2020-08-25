@@ -1,2 +1,0 @@
-25 22 * * * openshiksha_app /home/openshiksha_app/openshiksha/devops/clearsessions.sh >> /home/openshiksha_app/openshiksha/devops/cron.log 2>&1
-

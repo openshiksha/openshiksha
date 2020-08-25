@@ -24,6 +24,7 @@ class PracticeForm(forms.Form):
             accessible_aql_pks = Submission.objects.filter(
                 student=student,
                 assignment__due__lte=django.utils.timezone.now(),
+                assignment__average__isnull=False,
                 assignment__content_type=ContentType.objects.get_for_model(SubjectRoom)
             ).values_list("assignment__assignmentQuestionsList__pk", flat=True).distinct()
             accessible_aqls = AssignmentQuestionsList.objects.filter(

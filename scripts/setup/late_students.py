@@ -89,7 +89,7 @@ def run(*args):
                 subjectroom.save()
 
                 # create shell submissions for this new student for all the corrected assignments in the subjectroom
-                for assignment in subjectroom.assignment_set.filter(due__lte=django.utils.timezone.now()):
+                for assignment in subjectroom.assignment_set.filter(due__lte=django.utils.timezone.now(), average__isnull=False):
                     print '\t Creating shell submission for assignment %s' % assignment.get_title()
                     submission = create_shell_submission(assignment, student, assignment.due)
                     grader_api.grade(submission,

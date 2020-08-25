@@ -2,7 +2,6 @@ import os
 from datetime import timedelta
 
 import django
-import plivo
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.mail import mail_admins
@@ -45,12 +44,7 @@ class DummyPylonApi(object):
         return (202, {'message': 'message(s) queued'})
 
 
-if ENVIRON == OpenShikshaEnv.PROD:
-    PLIVO_AUTH_ID = os.getenv('PLIVO_AUTH_ID')
-    PLIVO_AUTH_TOKEN = os.getenv('PLIVO_AUTH_TOKEN')
-    PYLON_API = plivo.RestAPI(PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN)
-else:
-    PYLON_API = DummyPylonApi()
+PYLON_API = DummyPylonApi()
 
 
 def send_sms(user, message):

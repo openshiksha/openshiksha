@@ -43,7 +43,8 @@ class StudentSubjectRoomSelectElem(SelectElem):
             for submission in Submission.objects.filter(
                     assignment__subjectRoom=subjectroom,
                     student=student,
-                    assignment__due__lte=django.utils.timezone.now()
+                    assignment__due__lte=django.utils.timezone.now(),
+                    assignment__average__isnull=False
             ):
                 # this aql has already been assigned to the student i.e. it is accessible
                 aql = submission.assignment.assignmentQuestionsList

@@ -1,1 +1,74 @@
-[]
+[
+    {
+        "model": "django_celery_beat.intervalschedule",
+        "pk": 1,
+        "fields": {
+            "every": 5,
+            "period": "minutes"
+        }
+    },
+    {
+        "model": "django_celery_beat.intervalschedule",
+        "pk": 2,
+        "fields": {
+            "every": 10,
+            "period": "days"
+        }
+    },
+    {
+        "model": "django_celery_beat.periodictask",
+        "pk": 2,
+        "fields": {
+            "name": "Grader Periodic Task",
+            "task": "grader.tasks.grade",
+            "interval": 1,
+            "crontab": null,
+            "solar": null,
+            "clocked": null,
+            "args": "[]",
+            "kwargs": "{}",
+            "queue": null,
+            "exchange": null,
+            "routing_key": null,
+            "headers": "{}",
+            "priority": null,
+            "expires": null,
+            "expire_seconds": null,
+            "one_off": false,
+            "start_time": "2010-08-23T21:13:58Z",
+            "enabled": true,
+            "last_run_at": "2010-08-25T16:25:03.365Z",
+            "total_run_count": 0,
+            "date_changed": "2010-08-25T16:25:43.534Z",
+            "description": ""
+        }
+    },
+    {
+        "model": "django_celery_beat.periodictask",
+        "pk": 3,
+        "fields": {
+            "name": "Clear Sessions",
+            "task": "openshiksha.celery_app.clearsessions",
+            "interval": 2,
+            "crontab": null,
+            "solar": null,
+            "clocked": null,
+            "args": "[]",
+            "kwargs": "{}",
+            "queue": null,
+            "exchange": null,
+            "routing_key": null,
+            "headers": "{}",
+            "priority": null,
+            "expires": null,
+            "expire_seconds": null,
+            "one_off": false,
+            "start_time": "2010-08-24T02:26:09Z",
+            "enabled": true,
+            "last_run_at": "2010-08-25T16:20:03.325Z",
+            "total_run_count": 0,
+            "date_changed": "2010-08-25T16:21:05.773Z",
+            "description": ""
+        }
+    }
+]    

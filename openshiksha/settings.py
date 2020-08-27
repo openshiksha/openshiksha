@@ -108,7 +108,9 @@ DATABASES = {
     },
 }
 
-INTERNAL_IPS = ()  # this should be automatically set by debug_toolbar to include localhost
+INTERNAL_IPS = [
+    '127.0.0.1'
+]
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name

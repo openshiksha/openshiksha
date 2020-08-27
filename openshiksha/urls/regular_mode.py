@@ -31,10 +31,10 @@ from sphinx.urlnames import SphinxUrlNames
 from sphinx.views import deal_post, tags_get, sphinx_submit_question_post, subjects_from_standard_get, chapters_from_subject_get
 from frontend.urlnames import FrontendUrlNames
 
-from openshiksha.settings import ENVIRON
+from openshiksha.settings import ENVIRON, DEBUG
 from core.utils.constants import OpenShikshaEnv
 if ENVIRON == OpenShikshaEnv.LOCAL:
-    SUCCESS_URL_ALLOWED_HOSTS = {'localhost:3000'}
+    SUCCESS_URL_ALLOWED_HOSTS = {'localhost:3000', '127.0.0.1:3000'}
 else:
     SUCCESS_URL_ALLOWED_HOSTS = {}
 
@@ -136,6 +136,12 @@ def get_regular_mode_urlpatterns():
             {'template_name': 'password_reset/complete.html'},
             name="password_reset_complete"),
     ]
+
+    if DEBUG:
+        import debug_toolbar
+        regular_mode_urlpatterns += [
+            url('^__debug__/', include(debug_toolbar.urls)),
+        ]
 
     # Adding the core-app urls
     regular_mode_urlpatterns += [

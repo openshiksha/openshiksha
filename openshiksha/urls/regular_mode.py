@@ -28,7 +28,7 @@ from lodge.views import index_get as lodge_index_get
 from openshiksha.urls.common import get_all_mode_urlpatterns
 from django.contrib import admin
 from sphinx.urlnames import SphinxUrlNames
-from sphinx.views import deal_post, tags_get, sphinx_submit_question_post, subjects_from_standard_get, chapters_from_subject_get
+from sphinx.views import deal_post, tags_get, sphinx_submit_question_post, subjects_from_standard_get, chapters_from_subject_get, fetch_questions
 from frontend.urlnames import FrontendUrlNames
 
 from openshiksha.settings import ENVIRON, DEBUG
@@ -79,6 +79,8 @@ def get_sphinx_urlpatterns():
             name=SphinxUrlNames.SUBJECTS_FROM_STANDARD.name),
         url(SphinxUrlNames.CHAPTERS_FROM_SUBJECT.url_matcher, dynamic_router, {HttpMethod.GET: chapters_from_subject_get },
             name=SphinxUrlNames.CHAPTERS_FROM_SUBJECT.name),
+        url(SphinxUrlNames.FETCH_QUESTIONS.url_matcher, dynamic_router, {HttpMethod.GET: fetch_questions},
+            name=SphinxUrlNames.FETCH_QUESTIONS.name),
         # url(SphinxUrlNames.REVISION.url_matcher, static_authenticated_router, {'template': SphinxUrlNames.REVISION.template},
             # name=SphinxUrlNames.REVISION.name)
     ]

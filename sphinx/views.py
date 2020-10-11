@@ -198,7 +198,7 @@ def tags_get(request):
 
 @login_required
 def subjects_from_standard_get(request):
-    subjects_list = [{"name": t.name} for t in Subject.objects.all().order_by('name')]
+    subjects_list = [{"name": t.name, 'id': t.pk} for t in Subject.objects.all().order_by('name')]
     serialized_subjects = {
         'subjects': mark_safe(json.dumps(subjects_list))
     }
@@ -206,9 +206,25 @@ def subjects_from_standard_get(request):
 
 @login_required
 def chapters_from_subject_get(request):
-    subjects_list = [{"name": t.name}
+    subjects_list = [{"name": t.name, 'id': t.pk}
                     for t in Chapter.objects.all().order_by('name')]
     serialized_chapters = {
         'chapters': mark_safe(json.dumps(subjects_list))
     }
     return sphinx_success_response(serialized_chapters)
+
+@login_required
+def fetch_questions(request):
+    query_params = request.GET
+
+    questions_list = [
+        {
+            "id": t.pk,
+            "name": unicode(t)
+        }
+        for t in Question.objects.filter(subject__pk=int(query_params['subject']), standard__number=int(query_params['standard']), school__pk=int(query_params['school']), chapter__pk=int(query_params['chapter']))
+    ]
+    serialized_questions = {
+        'questions': mark_safe(json.dumps(questions_list))
+    }
+    return sphinx_success_response(serialized_questions)

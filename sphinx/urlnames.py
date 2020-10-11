@@ -27,3 +27,4 @@ class SphinxUrlNames(object):
     SUBMIT_QUESTION = SphinxUrlName('question')
     SUBJECTS_FROM_STANDARD = SphinxUrlName('subjects')
     CHAPTERS_FROM_SUBJECT = SphinxUrlName('chapters')
+    FETCH_QUESTIONS = SphinxUrlName('questions')

@@ -21,7 +21,8 @@ ALL_APPS = [  # list of all openshiksha apps that have db models
     'ink',
     'edge',
     'focus',
-    'lodge'
+    'lodge',
+    'django_celery_beat'
 ]
 
 

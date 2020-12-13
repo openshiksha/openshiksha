@@ -2,6 +2,8 @@
 
 # Usage: scripts/collab/virtualenv_cleanup.sh
 
+set -e
+
 echo 'Uninstalling all packages from virtualenv'
 echo
 pip freeze | xargs pip uninstall -y

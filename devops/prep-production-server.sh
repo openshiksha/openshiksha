@@ -2,6 +2,8 @@
 
 # Usage: devops/prep-production-server.sh (from Dockerfile WorkDir)
 
+set -e
+
 # Setup static files
 ./manage.py collectstatic --noinput
 

@@ -3,6 +3,8 @@
 # use this script to automate updating your dev setup with the master openshiksha branch
 # Usage: scripts/collab/update.sh (run from root directory)
 
+set -e
+
 echo 'RUN THIS SCRIPT FROM ROOT DIRECTORY ONLY'
 echo
 echo 'If that is not the case, quit this script and switch to the root directory'

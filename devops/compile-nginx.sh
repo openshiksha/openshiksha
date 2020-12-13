@@ -2,6 +2,8 @@
 
 # Usage: devops/compile-nginx.sh (from Dockerfile WorkDir)
 
+set -e
+
 COMPILED_NGINX_CONF=devops/nginx.compiled.conf
 
 echo 'compiling nginx conf'

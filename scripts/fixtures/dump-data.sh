@@ -5,7 +5,7 @@
 
 set -e
 
-OUTFILE=${1:-"core/fixtures/db_dump.json"}
+OUTFILE=${1:-"db_dump.json"}
 
 # excluding session history and admin actions history and
 # permissions data - which is recreated automatically on migrate

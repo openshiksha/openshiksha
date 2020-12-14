@@ -95,7 +95,7 @@ jobs:
             - name: Save DigitalOcean kubeconfig
               run: doctl kubernetes cluster kubeconfig save ${{ secrets.QA_CLUSTER_NAME }}
             - name: Restart pods
-              run: kubectl rollout restart deployment ${{ secrets.QA_CLUSTER_RELEASE }}-openshiksha ${{ secrets.QA_CLUSTER_RELEASE }}-openshiksha-celery-worker ${{ secrets.QA_CLUSTER_RELEASE }}-openshiksha-celery-beat
+              run: kubectl rollout restart deployment qa-openshiksha qa-openshiksha-celery-worker qa-openshiksha-celery-beat -n qa
     deploy-prod:
         name: Deploy to PROD Cluster
         needs: build-publish
@@ -110,4 +110,4 @@ jobs:
             - name: Save DigitalOcean kubeconfig
               run: doctl kubernetes cluster kubeconfig save ${{ secrets.PROD_CLUSTER_NAME }}
             - name: Restart pods
-              run: kubectl rollout restart deployment ${{ secrets.PROD_CLUSTER_RELEASE }}-openshiksha ${{ secrets.PROD_CLUSTER_RELEASE }}-openshiksha-celery-worker ${{ secrets.PROD_CLUSTER_RELEASE }}-openshiksha-celery-beat
+              run: kubectl rollout restart deployment prod-openshiksha prod-openshiksha-celery-worker prod-openshiksha-celery-beat -n prod

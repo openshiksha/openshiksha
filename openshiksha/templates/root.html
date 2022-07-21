@@ -2,6 +2,9 @@
 
 <html lang="en">
 <head>
+    {% if ENABLE_ANALYTICS %}
+        {% include 'google_analytics_script.html' only %}
+    {% endif %}
 
     {% load staticfiles %}
 
@@ -34,9 +37,10 @@
 </head>
 
 <body>
-{% if ENABLE_ANALYTICS %}
-    {% include 'google_analytics_script.html' only %}
-{% endif %}
+
+    {% if ENABLE_ANALYTICS %}
+        {% include 'google_analytics_script_2.html' only %}
+    {% endif %}
 
 <div id="root_body">
 

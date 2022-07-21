@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-        <loc>http://www.openshiksha.org</loc>
+        <loc>https://openshiksha.org</loc>
     </url>
     <url>
-        <loc>http://www.openshiksha.org/login</loc>
+        <loc>https://openshiksha.org/login</loc>
     </url>
     <url>
-        <loc>http://www.openshiksha.org/register-student</loc>
+        <loc>https://openshiksha.org/register-student</loc>
     </url>
     <url>
-        <loc>http://www.openshiksha.org/register-school</loc>
+        <loc>https://openshiksha.org/register-school</loc>
     </url>
     <url>
-        <loc>http://www.openshiksha.org/about</loc>
+        <loc>https://openshiksha.org/about</loc>
     </url>
 </urlset>

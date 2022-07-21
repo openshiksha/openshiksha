@@ -81,33 +81,18 @@ jobs:
                 repository: openshiksha/openshiksha/openshiksha
                 tag_with_ref: true
                 tag_with_sha: true
-    deploy-qa:
-        name: Deploy to QA Cluster
-        needs: build-publish
-        # only run this on qa branch
-        if: github.ref == 'refs/heads/qa'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Install doctl
-              uses: digitalocean/action-doctl@v2
-              with:
-                token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-            - name: Save DigitalOcean kubeconfig
-              run: doctl kubernetes cluster kubeconfig save ${{ secrets.QA_CLUSTER_NAME }}
-            - name: Restart pods
-              run: kubectl rollout restart deployment qa-openshiksha qa-openshiksha-celery-worker qa-openshiksha-celery-beat -n qa
     deploy-prod:
-        name: Deploy to PROD Cluster
+        name: Deploy to Cluster
         needs: build-publish
         # only run this on prod branch
         if: github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
         steps:
-            - name: Install doctl
-              uses: digitalocean/action-doctl@v2
+            - name: Set Cluster Context
+              uses: azure/k8s-set-context@v1
               with:
-                token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-            - name: Save DigitalOcean kubeconfig
-              run: doctl kubernetes cluster kubeconfig save ${{ secrets.PROD_CLUSTER_NAME }}
+                method: kubeconfig
+                kubeconfig: '${{ secrets.KUBECONFIG }}'
+                context: k3s-personal-server
             - name: Restart pods
-              run: kubectl rollout restart deployment prod-openshiksha prod-openshiksha-celery-worker prod-openshiksha-celery-beat -n prod
+              run: kubectl rollout restart deployment openshiksha openshiksha-celery-worker openshiksha-celery-beat -n openshiksha

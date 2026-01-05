@@ -15,3 +15,7 @@ devops/nginx.compiled.conf
 
 frontend/templates
 frontend/static
+
+# Environment files (but keep .env.example)
+backend/.env
+frontend_modern/.env

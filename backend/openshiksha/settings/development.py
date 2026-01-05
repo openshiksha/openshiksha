@@ -51,4 +51,4 @@ SHELL_PLUS_PRINT_SQL = True
 CELERY_TASK_ALWAYS_EAGER = False  # Set to True for synchronous task execution
 CELERY_TASK_EAGER_PROPAGATES = True
 
-print("✅ Development settings loaded")
+print("[OK] Development settings loaded")

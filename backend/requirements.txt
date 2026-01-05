@@ -9,7 +9,7 @@ psycopg[binary]==3.2.3
 dj-database-url==2.3.0
 
 # Authentication
-djangorestframework-simplejwt==5.4.1
+djangorestframework-simplejwt==5.3.1
 
 # Task Queue
 celery==5.4.0
@@ -44,7 +44,7 @@ pytest==8.3.4
 pytest-django==4.9.0
 pytest-cov==6.0.0
 factory-boy==3.3.1
-faker==34.5.0
+faker==40.1.0
 
 # Code Quality
 black==25.1.0
@@ -54,4 +54,4 @@ mypy==1.14.1
 django-stubs==5.1.2
 
 # Documentation
-drf-spectacular==0.28.1
+drf-spectacular==0.27.0

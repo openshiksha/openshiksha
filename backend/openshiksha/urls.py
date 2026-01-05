@@ -19,7 +19,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # API v1 endpoints
-    path('api/v1/', include('apps.api.urls')),
+    path('api/v1/', include('openshiksha.apps.api.urls')),
 
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

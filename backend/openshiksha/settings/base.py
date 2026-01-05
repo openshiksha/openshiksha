@@ -45,10 +45,10 @@ INSTALLED_APPS = [
     'django_celery_results',
 
     # Our apps
-    'apps.core',
-    'apps.edge',
-    'apps.cabinet',
-    'apps.api',
+    'openshiksha.apps.core',
+    'openshiksha.apps.edge',
+    'openshiksha.apps.cabinet',
+    'openshiksha.apps.api',
 ]
 
 MIDDLEWARE = [
@@ -142,7 +142,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'EXCEPTION_HANDLER': 'apps.api.exceptions.custom_exception_handler',
+    'EXCEPTION_HANDLER': 'openshiksha.apps.api.exceptions.custom_exception_handler',
 }
 
 # JWT Configuration

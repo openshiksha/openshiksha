@@ -5,4 +5,4 @@ Modern implementation of Cabinet service client.
 Preserves integration with external question storage system.
 """
 
-default_app_config = 'apps.cabinet.apps.CabinetConfig'
+default_app_config = 'openshiksha.apps.cabinet.apps.CabinetConfig'

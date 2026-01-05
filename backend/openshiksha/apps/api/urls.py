@@ -23,7 +23,7 @@ urlpatterns = [
     path('auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     # Health check endpoint
-    path('health/', include('apps.api.views.health')),
+    path('health/', include('openshiksha.apps.api.views.health')),
 
     # Router URLs (will include all ViewSets)
     path('', include(router.urls)),

@@ -7,9 +7,10 @@ Will be populated based on legacy models with improvements.
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
 from django.core.validators import MinValueValidator, MaxValueValidator
+
+# Validator for fraction values (0.0 to 1.0)
+FRACTION_VALIDATOR = [MinValueValidator(0.0), MaxValueValidator(1.0)]
 
 
 # User Groups and Roles
@@ -344,9 +345,374 @@ class ClassRoom(models.Model):
         return f"{self.school.name} - Std {self.standard.number} - Div {self.division}"
 
 
-# TODO: Additional models to implement in next tasks:
-# - Question, QuestionTag, QuestionSubpart
-# - Assignment, Submission
-# - SubjectRoom (subject-specific grouping within classroom)
-# - Announcement
-# - Proficiency (analytics)
+# ─────────────────────────────────────────────────────────────
+# Question Bank Models
+# ─────────────────────────────────────────────────────────────
+
+class QuestionTag(models.Model):
+    """
+    Tag for classifying questions.
+
+    Improvement over legacy: legacy tags had no type categorization, making
+    it impossible to distinguish concept tags from difficulty markers programmatically.
+    """
+    name = models.CharField(max_length=255, unique=True)
+    tag_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('concept', 'Concept'),
+            ('skill', 'Skill'),
+            ('difficulty', 'Difficulty'),
+            ('special', 'Special'),
+        ],
+        default='concept',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'question_tags'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.tag_type})"
+
+
+class QuestionType(models.TextChoices):
+    MCQ = 'mcq', 'Multiple Choice'
+    FILL_BLANK = 'fill_blank', 'Fill in the Blank'
+    MATCHING = 'matching', 'Matching'
+    MULTI_SELECT = 'multi_select', 'Multi Select'
+    NUMERIC = 'numeric', 'Numeric Answer'
+
+
+class Question(models.Model):
+    """
+    A question in the question bank.
+
+    Improvement over legacy:
+    - question_type enum (legacy only had MCQ via Cabinet)
+    - explicit difficulty 1-5 (legacy derived this from tags)
+    - is_active for soft delete
+    - created_by for audit trail
+    - null school = shared OpenShiksha bank (preserved from legacy)
+    """
+    school = models.ForeignKey(
+        'School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='questions',
+        help_text='null = OpenShiksha shared question bank',
+    )
+    standard = models.ForeignKey(
+        'Standard',
+        on_delete=models.PROTECT,
+        related_name='questions',
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.PROTECT,
+        related_name='questions',
+    )
+    chapter = models.ForeignKey(
+        'Chapter',
+        on_delete=models.PROTECT,
+        related_name='questions',
+    )
+    tags = models.ManyToManyField(QuestionTag, blank=True, related_name='questions')
+    question_type = models.CharField(
+        max_length=20,
+        choices=QuestionType.choices,
+        default=QuestionType.MCQ,
+    )
+    difficulty = models.PositiveSmallIntegerField(
+        default=2,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text='Difficulty level: 1=easiest, 5=hardest',
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='questions_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'questions'
+        indexes = [
+            models.Index(fields=['chapter', 'is_active']),
+            models.Index(fields=['school', 'standard', 'subject']),
+        ]
+
+    def __str__(self):
+        return f"Q{self.pk} ({self.get_question_type_display()}, Std {self.standard.number}, {self.subject.name})"
+
+
+class QuestionSubpart(models.Model):
+    """
+    A subpart of a question (most questions have one; some have multiple).
+
+    Improvement over legacy: correct_answer stored as JSONField for fast grading
+    fallback. Legacy stored answers only in Cabinet (external service).
+    """
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name='subparts',
+    )
+    index = models.PositiveIntegerField(help_text='Order within question (0-indexed)')
+    tags = models.ManyToManyField(QuestionTag, blank=True, related_name='subparts')
+    correct_answer = models.JSONField(
+        default=dict,
+        help_text='Answer data: e.g. {"type": "mcq", "answer": 2} or {"type": "fill_blank", "answer": "42"}',
+    )
+
+    class Meta:
+        db_table = 'question_subparts'
+        ordering = ['index']
+        unique_together = [['question', 'index']]
+
+    def __str__(self):
+        return f"Q{self.question_id} subpart {self.index}"
+
+
+class SubjectRoom(models.Model):
+    """
+    A subject-specific grouping within a classroom — one per subject per class.
+
+    Improvement over legacy:
+    - is_active for year-end archiving without deletion
+    - unique_together enforces one SubjectRoom per subject per classroom
+    """
+    classroom = models.ForeignKey(
+        'ClassRoom',
+        on_delete=models.CASCADE,
+        related_name='subject_rooms',
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.PROTECT,
+        related_name='subject_rooms',
+    )
+    teacher = models.ForeignKey(
+        'User',
+        on_delete=models.PROTECT,
+        related_name='subject_rooms_taught',
+        limit_choices_to={'role': UserRole.TEACHER},
+    )
+    students = models.ManyToManyField(
+        'User',
+        related_name='subject_rooms_enrolled',
+        blank=True,
+        limit_choices_to={'role__in': [UserRole.STUDENT, UserRole.OPEN_STUDENT]},
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'subject_rooms'
+        unique_together = [['classroom', 'subject']]
+        indexes = [
+            models.Index(fields=['classroom', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.classroom} — {self.subject.name}"
+
+
+# ─────────────────────────────────────────────────────────────
+# Assignment Pipeline Models
+# ─────────────────────────────────────────────────────────────
+
+class ProblemSet(models.Model):
+    """
+    A curated list of questions that can be assigned to a SubjectRoom.
+
+    Replaces legacy AssignmentQuestionsList.
+
+    Improvement over legacy:
+    - title as explicit field (legacy computed it from chapter+number)
+    - estimated_minutes (new — teachers can set time expectations)
+    - is_active soft delete
+    - created_by audit trail
+    - null school = shared OpenShiksha problem set
+    """
+    school = models.ForeignKey(
+        'School',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='problem_sets',
+        help_text='null = shared OpenShiksha problem set',
+    )
+    standard = models.ForeignKey(
+        'Standard',
+        on_delete=models.PROTECT,
+        related_name='problem_sets',
+    )
+    subject = models.ForeignKey(
+        'Subject',
+        on_delete=models.PROTECT,
+        related_name='problem_sets',
+    )
+    chapter = models.ForeignKey(
+        'Chapter',
+        on_delete=models.PROTECT,
+        related_name='problem_sets',
+    )
+    questions = models.ManyToManyField(
+        Question,
+        related_name='problem_sets',
+        blank=True,
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    number = models.PositiveIntegerField(
+        default=1,
+        help_text='Series number within same chapter (disambiguates multiple problem sets per chapter)',
+    )
+    estimated_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Estimated completion time in minutes',
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        'User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='problem_sets_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'problem_sets'
+        unique_together = [['school', 'standard', 'subject', 'chapter', 'number']]
+        indexes = [
+            models.Index(fields=['chapter', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} (Std {self.standard.number}, {self.subject.name}, Ch {self.chapter.name} #{self.number})"
+
+
+class Assignment(models.Model):
+    """
+    An assignment of a ProblemSet to a SubjectRoom.
+
+    Improvement over legacy:
+    - Direct subject_room FK instead of GenericFK (legacy used GenericFK which
+      caused N+1 queries and made filtering impossible)
+    - assigned_by for accountability
+    - assigned_at auto_now_add instead of manual timestamp
+    - Cached aggregates (average_score, completion_rate) for fast dashboard queries
+    """
+    subject_room = models.ForeignKey(
+        SubjectRoom,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+    )
+    problem_set = models.ForeignKey(
+        ProblemSet,
+        on_delete=models.PROTECT,
+        related_name='assignments',
+    )
+    assigned_by = models.ForeignKey(
+        'User',
+        on_delete=models.PROTECT,
+        related_name='assignments_created',
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    due_at = models.DateTimeField()
+    number = models.PositiveIntegerField(
+        default=1,
+        help_text='Disambiguates if same problem set is assigned twice to same room',
+    )
+    # Cached aggregates — updated after grading runs
+    average_score = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text='Average submission score (0.0–1.0), cached after grading',
+    )
+    completion_rate = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text='Fraction of students who have submitted (0.0–1.0)',
+    )
+
+    class Meta:
+        db_table = 'assignments'
+        indexes = [
+            models.Index(fields=['subject_room', 'due_at']),
+            models.Index(fields=['assigned_at']),
+        ]
+
+    def __str__(self):
+        return f"Assignment: {self.problem_set.title} → {self.subject_room} (due {self.due_at.date()})"
+
+
+class Submission(models.Model):
+    """
+    A student's submission for an assignment.
+
+    Improvement over legacy:
+    - answers JSONField stores student answers locally (legacy stored only in Cabinet)
+      enables re-grading without Cabinet and offline review
+    - submitted_at nullable — student can save in-progress work before final submit
+    - created_at/updated_at tracks when student started and last edited
+    - score renamed from marks (clearer it's a fraction 0–1, not a point count)
+    """
+    assignment = models.ForeignKey(
+        Assignment,
+        on_delete=models.CASCADE,
+        related_name='submissions',
+    )
+    student = models.ForeignKey(
+        'User',
+        on_delete=models.PROTECT,
+        related_name='submissions',
+        limit_choices_to={'role__in': [UserRole.STUDENT, UserRole.OPEN_STUDENT]},
+    )
+    score = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text='Fraction of marks obtained (0.0–1.0). Null until graded.',
+    )
+    completion = models.FloatField(
+        default=0.0,
+        validators=FRACTION_VALIDATOR,
+        help_text='Fraction of questions attempted (0.0–1.0)',
+    )
+    answers = models.JSONField(
+        default=dict,
+        help_text='Student answers keyed by subpart ID: {"42": 3, "43": "photosynthesis"}',
+    )
+    submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When student clicked Submit. Null = still in progress.',
+    )
+    is_revised = models.BooleanField(
+        default=False,
+        help_text='Whether this is a revised attempt',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'submissions'
+        unique_together = [['assignment', 'student']]
+        indexes = [
+            models.Index(fields=['student', 'submitted_at']),
+        ]
+
+    def __str__(self):
+        return f"Submission: {self.student} → {self.assignment}"

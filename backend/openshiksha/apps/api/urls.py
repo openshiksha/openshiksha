@@ -9,12 +9,23 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
+from openshiksha.apps.api.views.core import (
+    QuestionTagViewSet,
+    QuestionViewSet,
+    SubjectRoomViewSet,
+    ProblemSetViewSet,
+    AssignmentViewSet,
+    SubmissionViewSet,
+)
 
 # Create router for ViewSets
 router = DefaultRouter()
-
-# ViewSets will be registered here as they're created
-# Example: router.register(r'assignments', AssignmentViewSet, basename='assignment')
+router.register(r'question-tags', QuestionTagViewSet, basename='questiontag')
+router.register(r'questions', QuestionViewSet, basename='question')
+router.register(r'subject-rooms', SubjectRoomViewSet, basename='subjectroom')
+router.register(r'problem-sets', ProblemSetViewSet, basename='problemset')
+router.register(r'assignments', AssignmentViewSet, basename='assignment')
+router.register(r'submissions', SubmissionViewSet, basename='submission')
 
 urlpatterns = [
     # Authentication endpoints
@@ -25,6 +36,6 @@ urlpatterns = [
     # Health check endpoint
     path('health/', include('openshiksha.apps.api.views.health')),
 
-    # Router URLs (will include all ViewSets)
+    # Router URLs (all ViewSets)
     path('', include(router.urls)),
 ]

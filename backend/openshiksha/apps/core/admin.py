@@ -5,7 +5,9 @@ Django admin configuration for Core app
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
-    User, Board, School, Standard, Subject, Chapter, ClassRoom
+    User, Board, School, Standard, Subject, Chapter, ClassRoom,
+    QuestionTag, Question, QuestionSubpart, SubjectRoom,
+    ProblemSet, Assignment, Submission,
 )
 
 
@@ -81,3 +83,96 @@ class ClassRoomAdmin(admin.ModelAdmin):
     list_filter = ['school', 'standard', 'academic_year', 'is_active']
     search_fields = ['school__name', 'division']
     filter_horizontal = ['students']
+
+
+# ─────────────────────────────────────────────────────────────
+# Question Bank Admin
+# ─────────────────────────────────────────────────────────────
+
+@admin.register(QuestionTag)
+class QuestionTagAdmin(admin.ModelAdmin):
+    list_display = ['name', 'tag_type', 'created_at']
+    list_filter = ['tag_type']
+    search_fields = ['name']
+
+
+class QuestionSubpartInline(admin.TabularInline):
+    model = QuestionSubpart
+    extra = 1
+    fields = ['index', 'correct_answer', 'tags']
+    filter_horizontal = ['tags']
+
+
+@admin.register(Question)
+class QuestionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'question_type', 'difficulty', 'standard', 'subject', 'chapter', 'school', 'is_active', 'created_at']
+    list_filter = ['question_type', 'difficulty', 'is_active', 'standard', 'subject', 'school']
+    search_fields = ['id', 'chapter__name', 'subject__name']
+    filter_horizontal = ['tags']
+    inlines = [QuestionSubpartInline]
+    raw_id_fields = ['created_by']
+    fieldsets = (
+        ('Classification', {
+            'fields': ('standard', 'subject', 'chapter', 'question_type', 'difficulty', 'tags')
+        }),
+        ('Ownership', {
+            'fields': ('school', 'created_by', 'is_active')
+        }),
+    )
+
+
+@admin.register(SubjectRoom)
+class SubjectRoomAdmin(admin.ModelAdmin):
+    list_display = ['classroom', 'subject', 'teacher', 'is_active', 'created_at']
+    list_filter = ['subject', 'is_active', 'classroom__school']
+    search_fields = ['classroom__school__name', 'subject__name', 'teacher__username']
+    filter_horizontal = ['students']
+    raw_id_fields = ['teacher']
+
+
+# ─────────────────────────────────────────────────────────────
+# Assignment Pipeline Admin
+# ─────────────────────────────────────────────────────────────
+
+@admin.register(ProblemSet)
+class ProblemSetAdmin(admin.ModelAdmin):
+    list_display = ['title', 'standard', 'subject', 'chapter', 'number', 'school', 'is_active', 'created_at']
+    list_filter = ['is_active', 'standard', 'subject', 'school']
+    search_fields = ['title', 'chapter__name', 'subject__name']
+    filter_horizontal = ['questions']
+    raw_id_fields = ['created_by']
+    fieldsets = (
+        ('Content', {
+            'fields': ('title', 'description', 'standard', 'subject', 'chapter', 'number', 'questions')
+        }),
+        ('Metadata', {
+            'fields': ('school', 'estimated_minutes', 'created_by', 'is_active')
+        }),
+    )
+
+
+class SubmissionInline(admin.TabularInline):
+    model = Submission
+    extra = 0
+    fields = ['student', 'score', 'completion', 'submitted_at', 'is_revised']
+    readonly_fields = ['score', 'completion', 'submitted_at', 'created_at']
+    raw_id_fields = ['student']
+
+
+@admin.register(Assignment)
+class AssignmentAdmin(admin.ModelAdmin):
+    list_display = ['id', 'problem_set', 'subject_room', 'assigned_by', 'assigned_at', 'due_at', 'average_score', 'completion_rate']
+    list_filter = ['subject_room__subject', 'subject_room__classroom__school']
+    search_fields = ['problem_set__title', 'subject_room__classroom__school__name']
+    raw_id_fields = ['assigned_by']
+    readonly_fields = ['assigned_at', 'average_score', 'completion_rate']
+    inlines = [SubmissionInline]
+
+
+@admin.register(Submission)
+class SubmissionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'student', 'assignment', 'score', 'completion', 'submitted_at', 'is_revised']
+    list_filter = ['is_revised', 'assignment__subject_room__subject']
+    search_fields = ['student__username', 'student__first_name', 'student__last_name']
+    raw_id_fields = ['student', 'assignment']
+    readonly_fields = ['created_at', 'updated_at']

@@ -6,39 +6,69 @@ jobs:
     test:
         name: Test
         runs-on: ubuntu-latest
+        services:
+            db:
+                image: postgres:15
+                env:
+                    POSTGRES_USER: openshiksha_app
+                    POSTGRES_DB: openshiksha_test
+                    POSTGRES_PASSWORD: testpass
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+            redis:
+                image: redis:7
+                ports:
+                    - 6379:6379
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
         steps:
             - name: Check out the repo
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v2
+              uses: actions/setup-python@v5
               with:
-                python-version: '2.7'
+                python-version: '3.11'
+                cache: 'pip'
+                cache-dependency-path: 'backend/requirements.txt'
             - name: Install Dependencies
-              run: pip install -r pip-requirements.txt
-            - name: Run Tests
-              run: scripts/testing/unit.sh
+              run: pip install -r requirements.txt
+              working-directory: backend
+            - name: Run Django system check
+              run: python manage.py check
+              working-directory: backend
               env:
-                OPENSHIKSHA_ENV: PROD
-                OPENSHIKSHA_SECRET_KEY: "!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n"
-                OPENSHIKSHA_DB_PASSWORD: "Soc1alsev@"
-                OPENSHIKSHA_DB_HOST: "127.0.0.1"
-                OPENSHIKSHA_DB_PORT: ${{ job.services.db.ports['3306'] }}
-                OPENSHIKSHA_CABINET_HOST: "127.0.0.1"
-                OPENSHIKSHA_CABINET_PORT: "<>"
-                OPENSHIKSHA_REDIS_PASSWORD: "Soc1alsev@"
-                OPENSHIKSHA_REDIS_HOST: "127.0.0.1"
-                OPENSHIKSHA_REDIS_PORT: "<>"
-        services:
-            # TODO: add redis and cabinet so we can run proper integration tests
-            db:
-                image: mysql:8
-                ports:
-                  - 3306
-                env:
-                    MYSQL_USER: openshiksha_app
-                    MYSQL_DATABASE: test_openshiksha
-                    MYSQL_PASSWORD: "Soc1alsev@"
-                    MYSQL_ROOT_PASSWORD: "Soc1alsev@"
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
+                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
+                REDIS_URL: redis://localhost:6379/0
+                SECRET_KEY: test-secret-key-not-for-production
+                DEBUG: "True"
+            - name: Run migrations
+              run: python manage.py migrate
+              working-directory: backend
+              env:
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
+                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
+                REDIS_URL: redis://localhost:6379/0
+                SECRET_KEY: test-secret-key-not-for-production
+                DEBUG: "True"
+            - name: Run Tests
+              run: python -m pytest --tb=short -q
+              working-directory: backend
+              env:
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
+                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
+                REDIS_URL: redis://localhost:6379/0
+                SECRET_KEY: test-secret-key-not-for-production
+                DEBUG: "True"
+
     build-publish:
         name: Build & Publish
         needs: test
@@ -47,40 +77,21 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
-              uses: actions/checkout@v2
-            - name: Setup Node Runtime
-              uses: actions/setup-node@v2-beta
-              with:
-                registry-url: 'https://npm.pkg.github.com'
-                node-version: '13'
+              uses: actions/checkout@v4
             - name: Extract Branch name for Tagging
-              run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+              run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
               id: extract_branch
-            - name: Update Package Name to reflect Branch
-              run: sed -i "s|__BRANCH__|${{ steps.extract_branch.outputs.branch }}|g" package.json
-              working-directory: ./frontend
-            - name: Install Frontend Package
-              run: yarn install
-              env:
-                NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              working-directory: ./frontend
-            - name: Restructure Frontend Package
-              run: |
-                cp -r node_modules/@openshiksha/frontend-${{ steps.extract_branch.outputs.branch }}/static ./
-                mkdir templates
-                mkdir templates/app
-                cp node_modules/@openshiksha/frontend-${{ steps.extract_branch.outputs.branch }}/index.html templates/app/
-                rm -rf node_modules
-              working-directory: ./frontend
-            - name: Build Docker Image & Push to GitHub Packages
-              uses: docker/build-push-action@v1
+            - name: Build Docker Image & Push to GitHub Container Registry
+              uses: docker/build-push-action@v6
               with:
-                username: ${{ github.actor }}
-                password: ${{ secrets.GITHUB_TOKEN }}
-                registry: docker.pkg.github.com
-                repository: openshiksha/openshiksha/openshiksha
-                tag_with_ref: true
-                tag_with_sha: true
+                context: .
+                push: true
+                tags: |
+                    ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
+                    ghcr.io/${{ github.repository }}:${{ github.sha }}
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     deploy-prod:
         name: Deploy to Cluster
         needs: build-publish
@@ -89,7 +100,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Set Cluster Context
-              uses: azure/k8s-set-context@v1
+              uses: azure/k8s-set-context@v3
               with:
                 method: kubeconfig
                 kubeconfig: '${{ secrets.KUBECONFIG }}'

@@ -6,7 +6,10 @@ _grade_subpart is unit-tested without DB.
 """
 
 import pytest
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
+
+from django.utils import timezone
 
 from openshiksha.apps.core.tasks import _grade_subpart
 
@@ -169,10 +172,11 @@ def subpart_b(db, question_mcq):
 
 
 @pytest.fixture
-def problem_set(db, school, standard, subject, question_mcq):
+def problem_set(db, school, standard, subject, chapter, question_mcq):
     from openshiksha.apps.core.models import ProblemSet
     ps = ProblemSet.objects.create(
-        school=school, standard=standard, subject=subject, name='Forces PS'
+        school=school, standard=standard, subject=subject, chapter=chapter,
+        title='Forces PS', number=1,
     )
     ps.questions.add(question_mcq)
     return ps
@@ -182,7 +186,8 @@ def problem_set(db, school, standard, subject, question_mcq):
 def assignment(db, problem_set, subject_room, teacher):
     from openshiksha.apps.core.models import Assignment
     return Assignment.objects.create(
-        problem_set=problem_set, subject_room=subject_room, created_by=teacher
+        problem_set=problem_set, subject_room=subject_room, assigned_by=teacher,
+        due_at=timezone.now() + timedelta(days=7),
     )
 
 

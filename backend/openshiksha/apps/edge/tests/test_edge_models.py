@@ -4,6 +4,7 @@ SubjectRoomQuestionMistake
 """
 
 import pytest
+from datetime import timedelta
 from django.utils import timezone
 
 from openshiksha.apps.core.models import (
@@ -94,10 +95,10 @@ def subpart(db, question):
 
 
 @pytest.fixture
-def problem_set(db, school, standard, subject, question):
+def problem_set(db, school, standard, subject, chapter, question):
     ps = ProblemSet.objects.create(
-        school=school, standard=standard, subject=subject,
-        name='Motion Test PS',
+        school=school, standard=standard, subject=subject, chapter=chapter,
+        title='Motion Test PS', number=1,
     )
     ps.questions.add(question)
     return ps
@@ -106,7 +107,8 @@ def problem_set(db, school, standard, subject, question):
 @pytest.fixture
 def assignment(db, problem_set, subject_room, teacher):
     return Assignment.objects.create(
-        problem_set=problem_set, subject_room=subject_room, created_by=teacher
+        problem_set=problem_set, subject_room=subject_room, assigned_by=teacher,
+        due_at=timezone.now() + timedelta(days=7),
     )
 
 

@@ -157,8 +157,11 @@ class TestTick:
         submission.delete()
         assert not Tick.objects.filter(pk=tick_pk).exists()
 
-    def test_cascade_delete_with_student(self, tick, student):
+    def test_cascade_delete_with_student(self, tick, student, submission):
+        # Submission.student is PROTECT (preserve academic records), so the
+        # submission must be deleted before the student can be deleted.
         tick_pk = tick.pk
+        submission.delete()
         student.delete()
         assert not Tick.objects.filter(pk=tick_pk).exists()
 

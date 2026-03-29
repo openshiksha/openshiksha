@@ -7,6 +7,7 @@ Covers Question Bank, SubjectRoom, Assignment Pipeline, and Submission.
 from rest_framework import serializers
 
 from openshiksha.apps.core.models import (
+    User,
     QuestionTag,
     QuestionSubpart,
     Question,
@@ -16,6 +17,15 @@ from openshiksha.apps.core.models import (
     Submission,
     UserRole,
 )
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """Read-only serializer for the current user profile."""
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "first_name", "last_name", "role"]
+        read_only_fields = ["id", "username", "email", "first_name", "last_name", "role"]
 
 
 class QuestionTagSerializer(serializers.ModelSerializer):

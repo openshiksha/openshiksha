@@ -1,4 +1,5 @@
 from .core import (
+    UserSerializer,
     QuestionTagSerializer,
     QuestionSubpartSerializer,
     QuestionSerializer,
@@ -10,6 +11,7 @@ from .core import (
 )
 
 __all__ = [
+    'UserSerializer',
     'QuestionTagSerializer',
     'QuestionSubpartSerializer',
     'QuestionSerializer',

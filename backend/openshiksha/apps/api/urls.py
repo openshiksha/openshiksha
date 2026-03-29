@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 from openshiksha.apps.api.views.core import (
+    UserViewSet,
     QuestionTagViewSet,
     QuestionViewSet,
     SubjectRoomViewSet,
@@ -20,6 +21,7 @@ from openshiksha.apps.api.views.core import (
 
 # Create router for ViewSets
 router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='user')
 router.register(r'question-tags', QuestionTagViewSet, basename='questiontag')
 router.register(r'questions', QuestionViewSet, basename='question')
 router.register(r'subject-rooms', SubjectRoomViewSet, basename='subjectroom')

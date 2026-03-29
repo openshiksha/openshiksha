@@ -205,6 +205,9 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@openshiksha.org')
 
 # Logging Configuration
+# Ensure the logs directory exists (CI environments and fresh checkouts won't have it)
+(BASE_DIR / 'logs').mkdir(exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

@@ -14,6 +14,4 @@ class CoreConfig(AppConfig):
         """
         Import signals when app is ready
         """
-        # Import signals here to avoid circular imports
-        # import apps.core.signals
-        pass
+        import openshiksha.apps.core.signals  # noqa: F401

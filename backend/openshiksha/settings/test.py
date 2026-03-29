@@ -1,0 +1,56 @@
+"""
+Test-specific Django settings for OpenShiksha.
+
+Uses SQLite so tests can run without a running PostgreSQL instance.
+Intended for local test runs and CI environments without Docker.
+
+Usage:
+  pytest --ds=openshiksha.settings.test
+  or set DJANGO_SETTINGS_MODULE=openshiksha.settings.test
+"""
+
+from .base import *
+
+DEBUG = True
+ALLOWED_HOSTS = ['*']
+
+# Override DB to SQLite — no PostgreSQL required for unit/integration tests
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+}
+
+# Silence password hashing — much faster for tests
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.MD5PasswordHasher',
+]
+
+# Skip debug toolbar and extensions — not needed for tests
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app not in (
+    'django_extensions',
+    'debug_toolbar',
+)]
+MIDDLEWARE = [m for m in MIDDLEWARE if 'debug_toolbar' not in m]
+
+# Celery: run tasks synchronously in tests
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# Silence Redis cache errors in tests — use local memory cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
+# Suppress migration output during tests
+class DisableMigrations:
+    def __contains__(self, item):
+        return True
+    def __getitem__(self, item):
+        return None
+
+# Don't disable migrations — we need them for the test DB schema
+# MIGRATION_MODULES = DisableMigrations()

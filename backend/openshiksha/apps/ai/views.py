@@ -5,6 +5,8 @@ Permission rules:
 - LearningGaps: student sees their own; teacher sees gaps for students in their rooms.
 - ClassInsights: teacher sees insights for their subject_rooms.
 - PerformancePredictions: student sees their own; teacher sees their students'.
+- ContentRecommendations: student sees their own active recommendations.
+- PracticePlans: student sees their own plans; today's plan auto-generated on demand.
 - TriggerAnalysis: any authenticated user can trigger for a room they're associated with.
 """
 
@@ -17,14 +19,22 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, ViewSet
 
 from openshiksha.apps.core.models import SubjectRoom, UserRole
 
-from .models import ClassInsight, LearningGap, PerformancePrediction
+from .models import ClassInsight, ContentRecommendation, LearningGap, PerformancePrediction, PracticePlan
 from .serializers import (
     ClassInsightSerializer,
+    ContentRecommendationSerializer,
     LearningGapSerializer,
     PerformancePredictionSerializer,
+    PracticePlanSerializer,
     TriggerAnalysisSerializer,
+    TriggerRecommendationsSerializer,  # noqa: F401 – used in trigger_recommendations
 )
-from .tasks import analyze_student_subject_room, generate_class_insights_for_subject_room
+from .tasks import (
+    analyze_student_subject_room,
+    generate_class_insights_for_subject_room,
+    generate_daily_practice_plan,
+    refresh_recommendations_for_student,
+)
 
 
 class LearningGapViewSet(ReadOnlyModelViewSet):
@@ -180,3 +190,140 @@ class AnalysisTriggerViewSet(ViewSet):
 
         generate_class_insights_for_subject_room.delay(subject_room.pk)
         return Response({'detail': 'Class analysis queued.'}, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=False, methods=['post'], url_path='recommendations')
+    def trigger_recommendations(self, request):
+        """
+        POST /api/v1/ai/trigger/recommendations/
+        Refresh content recommendations and queue daily practice plan generation.
+        """
+        serializer = TriggerRecommendationsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room_id = serializer.validated_data['subject_room_id']
+        user = request.user
+
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return Response(
+                {'detail': 'Only students can trigger recommendations.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        subject_room = get_object_or_404(SubjectRoom, pk=subject_room_id)
+
+        enrolled = (
+            subject_room.students.filter(pk=user.pk).exists()
+            or subject_room.classroom.students.filter(pk=user.pk).exists()
+        )
+        if not enrolled:
+            return Response(
+                {'detail': 'You are not enrolled in this subject room.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        refresh_recommendations_for_student.delay(user.pk, subject_room.pk)
+        generate_daily_practice_plan.delay(user.pk, subject_room.pk)
+        return Response(
+            {'detail': 'Recommendations and practice plan generation queued.'},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class ContentRecommendationViewSet(ReadOnlyModelViewSet):
+    """
+    list:     GET /api/v1/ai/recommendations/        — student's active recommendations
+    retrieve: GET /api/v1/ai/recommendations/{id}/   — single recommendation
+
+    Query params:
+      ?include_inactive=true  — include superseded recommendations (default: active only)
+
+    Custom action:
+      POST /api/v1/ai/recommendations/{id}/action/   — mark a recommendation as actioned
+    """
+    serializer_class = ContentRecommendationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        include_inactive = (
+            self.request.query_params.get('include_inactive', '').lower() == 'true'
+        )
+
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return ContentRecommendation.objects.none()
+
+        qs = (
+            ContentRecommendation.objects
+            .select_related('chapter__subject', 'problem_set')
+            .filter(student=user)
+            .order_by('priority', 'score_snapshot')
+        )
+
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+
+        return qs
+
+    @action(detail=True, methods=['post'])
+    def action(self, request, pk=None):
+        """Mark this recommendation as actioned (student opened / started the problem set)."""
+        from django.utils import timezone
+
+        rec = self.get_object()
+        if not rec.is_actioned:
+            rec.is_actioned = True
+            rec.actioned_at = timezone.now()
+            rec.save(update_fields=['is_actioned', 'actioned_at'])
+        return Response(self.get_serializer(rec).data)
+
+
+class PracticePlanViewSet(ReadOnlyModelViewSet):
+    """
+    list:     GET /api/v1/ai/practice-plans/         — student's practice plans
+    retrieve: GET /api/v1/ai/practice-plans/{id}/    — single plan
+
+    Custom action:
+      GET  /api/v1/ai/practice-plans/today/           — today's plan (auto-triggers generation)
+      POST /api/v1/ai/practice-plans/today/complete/  — mark today's plan as completed
+    """
+    serializer_class = PracticePlanSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return PracticePlan.objects.none()
+        return (
+            PracticePlan.objects
+            .prefetch_related('recommendations__chapter__subject')
+            .filter(student=user)
+            .order_by('-plan_date')
+        )
+
+    @action(detail=False, methods=['get'], url_path='today')
+    def today(self, request):
+        """Return today's practice plan; if none exists, return 204 with a generation hint."""
+        from django.utils import timezone
+
+        user = request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return Response(
+                {'detail': 'Only students have practice plans.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        today = timezone.localdate()
+        try:
+            plan = (
+                PracticePlan.objects
+                .prefetch_related('recommendations__chapter__subject')
+                .get(student=user, plan_date=today)
+            )
+            return Response(self.get_serializer(plan).data)
+        except PracticePlan.DoesNotExist:
+            return Response(
+                {'detail': 'No practice plan for today yet. Trigger generation via POST /ai/trigger/recommendations/.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ClassInsight, LearningGap, PerformancePrediction
+from .models import ClassInsight, ContentRecommendation, LearningGap, PerformancePrediction, PracticePlan
 
 
 class LearningGapSerializer(serializers.ModelSerializer):
@@ -64,4 +64,53 @@ class PerformancePredictionSerializer(serializers.ModelSerializer):
 
 
 class TriggerAnalysisSerializer(serializers.Serializer):
+    subject_room_id = serializers.IntegerField()
+
+
+class ContentRecommendationSerializer(serializers.ModelSerializer):
+    chapter_name = serializers.CharField(source='chapter.name', read_only=True)
+    subject_name = serializers.CharField(source='chapter.subject.name', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
+
+    class Meta:
+        model = ContentRecommendation
+        fields = [
+            'id',
+            'chapter',
+            'chapter_name',
+            'subject_name',
+            'subject_room',
+            'problem_set',
+            'reason',
+            'reason_display',
+            'priority',
+            'priority_display',
+            'score_snapshot',
+            'is_actioned',
+            'is_active',
+            'generated_at',
+            'actioned_at',
+        ]
+        read_only_fields = fields
+
+
+class PracticePlanSerializer(serializers.ModelSerializer):
+    recommendations = ContentRecommendationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PracticePlan
+        fields = [
+            'id',
+            'subject_room',
+            'plan_date',
+            'estimated_minutes',
+            'is_completed',
+            'recommendations',
+            'generated_at',
+        ]
+        read_only_fields = fields
+
+
+class TriggerRecommendationsSerializer(serializers.Serializer):
     subject_room_id = serializers.IntegerField()

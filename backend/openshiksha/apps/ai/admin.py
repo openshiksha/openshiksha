@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ClassInsight, LearningGap, PerformancePrediction
+from .models import ClassInsight, ContentRecommendation, LearningGap, PerformancePrediction, PracticePlan
 
 
 @admin.register(LearningGap)
@@ -37,4 +37,29 @@ class PerformancePredictionAdmin(admin.ModelAdmin):
     list_filter = ['readiness_level', 'subject_room__subject']
     search_fields = ['student__username', 'student__email']
     readonly_fields = ['generated_at']
+    list_select_related = ['student', 'subject_room__subject']
+
+
+@admin.register(ContentRecommendation)
+class ContentRecommendationAdmin(admin.ModelAdmin):
+    list_display = [
+        'student', 'chapter', 'subject_room', 'reason',
+        'priority', 'score_snapshot', 'is_active', 'is_actioned', 'generated_at',
+    ]
+    list_filter = ['reason', 'priority', 'is_active', 'is_actioned', 'subject_room__subject']
+    search_fields = ['student__username', 'student__email', 'chapter__name']
+    readonly_fields = ['generated_at', 'actioned_at']
+    list_select_related = ['student', 'chapter__subject', 'subject_room__subject']
+
+
+@admin.register(PracticePlan)
+class PracticePlanAdmin(admin.ModelAdmin):
+    list_display = [
+        'student', 'subject_room', 'plan_date',
+        'estimated_minutes', 'is_completed', 'generated_at',
+    ]
+    list_filter = ['is_completed', 'plan_date', 'subject_room__subject']
+    search_fields = ['student__username', 'student__email']
+    readonly_fields = ['generated_at']
+    filter_horizontal = ['recommendations']
     list_select_related = ['student', 'subject_room__subject']

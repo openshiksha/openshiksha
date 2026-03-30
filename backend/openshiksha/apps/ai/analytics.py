@@ -26,6 +26,15 @@ if TYPE_CHECKING:
 MIN_TICKS_FOR_GAP = 3
 MIN_TICKS_FOR_PREDICTION = 5
 
+# How many days after a gap is resolved before we suggest spaced review
+SPACED_REVIEW_DAYS = 7
+
+# Max recommendations to include in a single daily practice plan
+MAX_PLAN_RECOMMENDATIONS = 5
+
+# Default minutes per recommendation when problem set has no estimate
+DEFAULT_MINUTES_PER_REC = 10
+
 # Score threshold below which a student is "struggling"
 STRUGGLE_THRESHOLD = 0.50
 
@@ -278,3 +287,233 @@ def predict_performance_for_student(student: 'User', subject_room: 'SubjectRoom'
             'recent_trend': trend,
         },
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Content Recommendations
+# ─────────────────────────────────────────────────────────────────────────────
+
+def generate_recommendations_for_student(
+    student: 'User',
+    subject_room: 'SubjectRoom',
+) -> list[dict]:
+    """
+    Generate content recommendation dicts for a student in a SubjectRoom.
+
+    Algorithm (priority order):
+    1. Active severe gaps → URGENT
+    2. Recently resolved gaps (resolved ≤ SPACED_REVIEW_DAYS ago) → HIGH (spaced review)
+    3. Active moderate gaps → HIGH
+    4. Active mild gaps → MEDIUM
+    5. Next unvisited chapters (by order) where student has no ticks yet → LOW
+
+    Each dict specifies what chapter to recommend, why, and which problem set
+    to attempt (the next unsubmitted problem set in the chapter, if any).
+
+    Return format:
+    [
+        {
+            "chapter_id": int,
+            "reason": str,       # RecommendationReason value
+            "priority": int,     # RecommendationPriority value
+            "score_snapshot": float | None,
+            "problem_set_id": int | None,
+        },
+        ...
+    ]
+    """
+    from openshiksha.apps.ai.models import (
+        ContentRecommendation,
+        LearningGap,
+        RecommendationReason,
+    )
+    from openshiksha.apps.core.models import Assignment, ProblemSet
+
+    now = timezone.now()
+    spaced_cutoff = now - timedelta(days=SPACED_REVIEW_DAYS)
+
+    results: list[dict] = []
+    seen_chapters: set[int] = set()
+
+    # ── 1. Active gaps (severe + moderate + mild) ──────────────────────────
+    active_gaps = (
+        LearningGap.objects
+        .filter(student=student, subject_room=subject_room, is_resolved=False)
+        .select_related('chapter')
+        .order_by('avg_score')  # lowest score first = most urgent
+    )
+
+    for gap in active_gaps:
+        if gap.chapter_id in seen_chapters:
+            continue
+        seen_chapters.add(gap.chapter_id)
+
+        reason = _reason_for_severity(gap.severity)
+        results.append({
+            'chapter_id': gap.chapter_id,
+            'reason': reason,
+            'priority': ContentRecommendation.priority_for_reason(reason),
+            'score_snapshot': round(gap.avg_score, 4),
+            'problem_set_id': _best_problem_set_for_chapter(
+                student, subject_room, gap.chapter_id
+            ),
+        })
+
+    # ── 2. Recently resolved gaps → spaced review ─────────────────────────
+    resolved_gaps = (
+        LearningGap.objects
+        .filter(
+            student=student,
+            subject_room=subject_room,
+            is_resolved=True,
+            refreshed_at__gte=spaced_cutoff,
+        )
+        .select_related('chapter')
+        .order_by('refreshed_at')
+    )
+
+    for gap in resolved_gaps:
+        if gap.chapter_id in seen_chapters:
+            continue
+        seen_chapters.add(gap.chapter_id)
+        results.append({
+            'chapter_id': gap.chapter_id,
+            'reason': RecommendationReason.SPACED_REVIEW,
+            'priority': ContentRecommendation.priority_for_reason(
+                RecommendationReason.SPACED_REVIEW
+            ),
+            'score_snapshot': round(gap.avg_score, 4),
+            'problem_set_id': _best_problem_set_for_chapter(
+                student, subject_room, gap.chapter_id
+            ),
+        })
+
+    # ── 3. Next unvisited chapters (progression) ──────────────────────────
+    from openshiksha.apps.edge.models import Tick
+
+    visited_chapter_ids = set(
+        Tick.objects
+        .filter(student=student, subject_room=subject_room)
+        .values_list('question_subpart__question__chapter_id', flat=True)
+        .distinct()
+    )
+
+    # Chapters that belong to this subject + standard, ordered by curriculum order
+    subject = subject_room.subject
+    standard = subject_room.classroom.standard
+    next_chapters = (
+        subject.chapters
+        .filter(standard=standard)
+        .exclude(id__in=visited_chapter_ids)
+        .order_by('order')[:3]  # suggest up to 3 next topics
+    )
+
+    for chapter in next_chapters:
+        if chapter.id in seen_chapters:
+            continue
+        seen_chapters.add(chapter.id)
+        results.append({
+            'chapter_id': chapter.id,
+            'reason': RecommendationReason.NEXT_TOPIC,
+            'priority': ContentRecommendation.priority_for_reason(
+                RecommendationReason.NEXT_TOPIC
+            ),
+            'score_snapshot': None,
+            'problem_set_id': _best_problem_set_for_chapter(
+                student, subject_room, chapter.id
+            ),
+        })
+
+    # Sort by priority ascending (1=urgent first), then by score_snapshot ascending
+    results.sort(key=lambda r: (r['priority'], r['score_snapshot'] or 1.0))
+    return results
+
+
+def build_practice_plan(
+    student: 'User',
+    subject_room: 'SubjectRoom',
+    recommendations: list[dict],
+) -> dict:
+    """
+    Given a sorted list of recommendation dicts (from generate_recommendations_for_student),
+    build a daily practice plan dict.
+
+    Selects the top MAX_PLAN_RECOMMENDATIONS items by priority and computes
+    estimated minutes based on linked problem sets.
+
+    Return format:
+    {
+        "chapter_ids": [int, ...],       # ordered list of recommended chapter IDs
+        "estimated_minutes": int,
+    }
+    """
+    from openshiksha.apps.core.models import ProblemSet
+
+    top = recommendations[:MAX_PLAN_RECOMMENDATIONS]
+
+    total_minutes = 0
+    for rec in top:
+        ps_id = rec.get('problem_set_id')
+        if ps_id:
+            try:
+                ps = ProblemSet.objects.only('estimated_minutes').get(pk=ps_id)
+                total_minutes += ps.estimated_minutes or DEFAULT_MINUTES_PER_REC
+            except ProblemSet.DoesNotExist:
+                total_minutes += DEFAULT_MINUTES_PER_REC
+        else:
+            total_minutes += DEFAULT_MINUTES_PER_REC
+
+    return {
+        'chapter_ids': [r['chapter_id'] for r in top],
+        'estimated_minutes': total_minutes,
+    }
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _reason_for_severity(severity: str) -> str:
+    from openshiksha.apps.ai.models import GapSeverity, RecommendationReason
+    mapping = {
+        GapSeverity.SEVERE: RecommendationReason.SEVERE_GAP,
+        GapSeverity.MODERATE: RecommendationReason.MODERATE_GAP,
+        GapSeverity.MILD: RecommendationReason.MILD_GAP,
+    }
+    return mapping.get(severity, RecommendationReason.MILD_GAP)
+
+
+def _best_problem_set_for_chapter(
+    student: 'User',
+    subject_room: 'SubjectRoom',
+    chapter_id: int,
+) -> int | None:
+    """
+    Return the ID of the best problem set to recommend for this chapter.
+
+    Strategy:
+    1. Look for problem sets in the chapter that are already assigned in this
+       subject_room and the student hasn't submitted yet — return the lowest-numbered one.
+    2. Fall back to the lowest-numbered active problem set in the chapter.
+    3. Return None if no problem sets exist.
+    """
+    from openshiksha.apps.core.models import Assignment, ProblemSet, Submission
+
+    # Assigned and not yet submitted
+    assigned_ps_ids = (
+        Assignment.objects
+        .filter(subject_room=subject_room, problem_set__chapter_id=chapter_id)
+        .exclude(submissions__student=student)
+        .values_list('problem_set_id', flat=True)
+        .order_by('problem_set__number')
+    )
+    if assigned_ps_ids:
+        return assigned_ps_ids[0]
+
+    # Any active problem set for this chapter
+    ps = (
+        ProblemSet.objects
+        .filter(chapter_id=chapter_id, is_active=True)
+        .order_by('number')
+        .values_list('id', flat=True)
+        .first()
+    )
+    return ps

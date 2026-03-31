@@ -17,7 +17,6 @@ from django.utils import timezone
 
 from openshiksha.apps.ai.adaptive_analytics import (
     MASTERY_ALPHA,
-    MASTERY_SKIP_THRESHOLD,
     SRS_SUCCESS_THRESHOLD,
     _topological_sort_nodes,
     compute_srs_update,

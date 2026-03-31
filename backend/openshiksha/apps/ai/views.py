@@ -39,13 +39,13 @@ from .serializers import (
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
-    LearningPathStepSerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
+    TriggerRecommendationsSerializer,
 )
 from .tasks import (
     analyze_student_subject_room,
@@ -54,7 +54,6 @@ from .tasks import (
     generate_daily_practice_plan,
     rebuild_learning_path,
     refresh_recommendations_for_student,
-    update_student_mastery,
 )
 
 
@@ -536,4 +535,3 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
             {'detail': f'Step {step.pk} completion queued with score {score}.'},
             status=status.HTTP_202_ACCEPTED,
         )
-

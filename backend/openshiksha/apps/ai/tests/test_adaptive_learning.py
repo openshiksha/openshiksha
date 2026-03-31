@@ -67,21 +67,36 @@ def make_subject(name="Maths"):
     return obj
 
 
-def make_chapter(name, order=1):
+def make_chapter(name, order=1, subject=None, standard=None):
     from openshiksha.apps.core.models import Chapter
-    obj, _ = Chapter.objects.get_or_create(name=name, defaults={"order": order})
+    if subject is None:
+        subject = make_subject()
+    if standard is None:
+        standard = make_standard()
+    obj, _ = Chapter.objects.get_or_create(
+        name=name, subject=subject, standard=standard,
+        defaults={"order": order},
+    )
     return obj
 
 
-def make_subject_room(classroom, subject):
+def make_subject_room(classroom, subject, teacher=None):
     from openshiksha.apps.core.models import SubjectRoom
-    obj, _ = SubjectRoom.objects.get_or_create(classroom=classroom, subject=subject)
+    if teacher is None:
+        teacher = make_user(role="teacher", username=f"teacher_{subject.name}")
+    obj, _ = SubjectRoom.objects.get_or_create(
+        classroom=classroom, subject=subject,
+        defaults={"teacher": teacher},
+    )
     return obj
 
 
-def make_classroom(school, standard, name="6A"):
+def make_classroom(school, standard, division="A"):
     from openshiksha.apps.core.models import ClassRoom
-    obj, _ = ClassRoom.objects.get_or_create(school=school, standard=standard, name=name)
+    obj, _ = ClassRoom.objects.get_or_create(
+        school=school, standard=standard, division=division,
+        defaults={"academic_year": "2025-26"},
+    )
     return obj
 
 

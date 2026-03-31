@@ -10,6 +10,9 @@ Task hierarchy:
     → detect_learning_gaps_for_student(student_id, subject_room_id)
     → predict_performance_for_student(student_id, subject_room_id)
     → refresh_recommendations_for_student(student_id, subject_room_id)
+    → update_student_mastery(student_id, subject_room_id)         [adaptive]
+    → update_spaced_repetition_for_student(student_id, subject_room_id, score)  [adaptive]
+    → rebuild_learning_path(student_id, subject_room_id)          [adaptive]
 
   analyze_class_insights(subject_room_id)
     → generate_class_insights_for_subject_room(subject_room_id)
@@ -18,6 +21,9 @@ Downstream trigger (intended usage):
   After grading completes for a Submission, enqueue:
     analyze_student_subject_room.delay(submission.student_id, submission.assignment.subject_room_id)
     analyze_class_insights.delay(submission.assignment.subject_room_id)
+  After a student completes a LearningPathStep:
+    update_spaced_repetition_for_student.delay(student_id, subject_room_id, node_id, score)
+    rebuild_learning_path.delay(student_id, subject_room_id)
 """
 
 import logging
@@ -321,10 +327,278 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
 @shared_task
 def analyze_student_subject_room(student_id: int, subject_room_id: int) -> None:
     """
-    Convenience task: runs gap detection, performance prediction, and
-    recommendation refresh for a student.
+    Convenience task: runs gap detection, performance prediction,
+    recommendation refresh, and mastery/path updates for a student.
     Called after grading completes for a submission.
     """
     detect_learning_gaps_for_student.delay(student_id, subject_room_id)
     update_performance_prediction_for_student.delay(student_id, subject_room_id)
     refresh_recommendations_for_student.delay(student_id, subject_room_id)
+    update_student_mastery.delay(student_id, subject_room_id)
+    rebuild_learning_path.delay(student_id, subject_room_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Adaptive Learning Engine Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def update_student_mastery(self, student_id: int, subject_room_id: int) -> dict:
+    """
+    Recompute and persist StudentMastery records for a student in a SubjectRoom.
+
+    Uses EWMA over all graded submissions (see adaptive_analytics.compute_mastery_for_student).
+    Safe to call multiple times — uses update_or_create.
+
+    Returns {"upserted": int}
+    """
+    try:
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.adaptive_analytics import compute_mastery_for_student
+        from openshiksha.apps.ai.models import StudentMastery
+        from openshiksha.apps.core.models import SubjectRoom, User
+
+        student = User.objects.get(pk=student_id)
+        subject_room = SubjectRoom.objects.get(pk=subject_room_id)
+
+        mastery_data = compute_mastery_for_student(student, subject_room)
+
+        upserted = 0
+        now = timezone.now()
+        for data in mastery_data:
+            obj, created = StudentMastery.objects.update_or_create(
+                student=student,
+                knowledge_node_id=data['knowledge_node_id'],
+                defaults={
+                    'mastery_score': data['new_mastery_score'],
+                    'mastery_level': data['mastery_level'],
+                    'attempt_count': data['attempt_count'],
+                    'last_attempted_at': data['last_attempted_at'],
+                },
+            )
+            if created:
+                obj.first_attempted_at = now
+                obj.save(update_fields=['first_attempted_at'])
+            upserted += 1
+
+        logger.info(
+            'update_student_mastery: student=%d room=%d upserted=%d',
+            student_id, subject_room_id, upserted,
+        )
+        return {'upserted': upserted}
+
+    except Exception as exc:
+        logger.exception(
+            'update_student_mastery failed: student=%d room=%d', student_id, subject_room_id
+        )
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def update_spaced_repetition_for_student(
+    self,
+    student_id: int,
+    knowledge_node_id: int,
+    score: float,
+) -> dict:
+    """
+    Update (or create) the SpacedRepetitionEntry for a student × KnowledgeNode
+    after a practice session using the SM-2 algorithm.
+
+    Call this after a student completes a LearningPathStep or any graded session
+    for this chapter.
+
+    Returns {"knowledge_node_id": int, "next_review_date": str, "interval_days": int}
+    """
+    try:
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.adaptive_analytics import compute_srs_update, SRS_INITIAL_EF
+        from openshiksha.apps.ai.models import SpacedRepetitionEntry
+        from openshiksha.apps.core.models import User
+
+        student = User.objects.get(pk=student_id)
+        now = timezone.now()
+
+        try:
+            entry = SpacedRepetitionEntry.objects.get(
+                student=student, knowledge_node_id=knowledge_node_id
+            )
+            current_interval = entry.interval_days
+            current_ef = entry.easiness_factor
+            current_reps = entry.repetitions
+        except SpacedRepetitionEntry.DoesNotExist:
+            current_interval = 1
+            current_ef = SRS_INITIAL_EF
+            current_reps = 0
+
+        updated = compute_srs_update(score, current_interval, current_ef, current_reps)
+        next_review = timezone.localdate() + __import__('datetime').timedelta(
+            days=updated['interval_days']
+        )
+
+        SpacedRepetitionEntry.objects.update_or_create(
+            student=student,
+            knowledge_node_id=knowledge_node_id,
+            defaults={
+                'interval_days': updated['interval_days'],
+                'easiness_factor': updated['easiness_factor'],
+                'repetitions': updated['repetitions'],
+                'next_review_date': next_review,
+                'last_reviewed_at': now,
+            },
+        )
+
+        logger.info(
+            'update_srs: student=%d node=%d score=%.2f interval=%dd next=%s',
+            student_id, knowledge_node_id, score, updated['interval_days'], next_review,
+        )
+        return {
+            'knowledge_node_id': knowledge_node_id,
+            'next_review_date': next_review.isoformat(),
+            'interval_days': updated['interval_days'],
+        }
+
+    except Exception as exc:
+        logger.exception(
+            'update_srs failed: student=%d node=%d', student_id, knowledge_node_id
+        )
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def rebuild_learning_path(self, student_id: int, subject_room_id: int) -> dict:
+    """
+    Regenerate the student's LearningPath for a SubjectRoom.
+
+    Marks any existing ACTIVE path as STALE, then creates a fresh LearningPath
+    with LearningPathSteps ordered by the adaptive engine.
+
+    Idempotent — safe to call after every grading event.
+
+    Returns {"path_id": int, "total_steps": int}
+    """
+    try:
+        from openshiksha.apps.ai.adaptive_analytics import generate_learning_path_steps
+        from openshiksha.apps.ai.models import (
+            LearningPath,
+            LearningPathStatus,
+            LearningPathStep,
+        )
+        from openshiksha.apps.core.models import SubjectRoom, User
+
+        student = User.objects.get(pk=student_id)
+        subject_room = SubjectRoom.objects.get(pk=subject_room_id)
+
+        step_data = generate_learning_path_steps(student, subject_room)
+
+        # Mark existing active paths as stale
+        LearningPath.objects.filter(
+            student=student,
+            subject_room=subject_room,
+            status=LearningPathStatus.ACTIVE,
+        ).update(status=LearningPathStatus.STALE)
+
+        # Create new path
+        path = LearningPath.objects.create(
+            student=student,
+            subject_room=subject_room,
+            status=LearningPathStatus.ACTIVE,
+            total_steps=len(step_data),
+            completed_steps=0,
+        )
+
+        # Bulk-create steps
+        steps = [
+            LearningPathStep(
+                learning_path=path,
+                knowledge_node_id=s['knowledge_node_id'],
+                problem_set_id=s['problem_set_id'],
+                position=s['position'],
+                is_review=s['is_review'],
+            )
+            for s in step_data
+        ]
+        LearningPathStep.objects.bulk_create(steps)
+
+        logger.info(
+            'rebuild_learning_path: student=%d room=%d path=%d steps=%d',
+            student_id, subject_room_id, path.pk, len(steps),
+        )
+        return {'path_id': path.pk, 'total_steps': len(steps)}
+
+    except Exception as exc:
+        logger.exception(
+            'rebuild_learning_path failed: student=%d room=%d', student_id, subject_room_id
+        )
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def complete_learning_path_step(
+    self,
+    step_id: int,
+    score: float,
+) -> dict:
+    """
+    Mark a LearningPathStep as COMPLETED and trigger downstream updates.
+
+    After completion:
+    - Step status → COMPLETED, score_when_completed saved
+    - LearningPath.completed_steps incremented
+    - SpacedRepetitionEntry updated for the chapter
+    - StudentMastery refreshed
+    - LearningPath rebuilt if all steps are done
+
+    Returns {"step_id": int, "path_completed": bool}
+    """
+    try:
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.models import LearningPath, LearningPathStep, StepStatus
+
+        step = LearningPathStep.objects.select_related('learning_path').get(pk=step_id)
+        path = step.learning_path
+
+        step.status = StepStatus.COMPLETED
+        step.score_when_completed = score
+        step.completed_at = timezone.now()
+        step.save(update_fields=['status', 'score_when_completed', 'completed_at'])
+
+        LearningPath.objects.filter(pk=path.pk).update(
+            completed_steps=LearningPath.objects.filter(pk=path.pk).values_list(
+                'completed_steps', flat=True
+            ).first() + 1
+        )
+
+        # Refresh SRS for the chapter
+        update_spaced_repetition_for_student.delay(
+            path.student_id,
+            step.knowledge_node_id,
+            score,
+        )
+
+        # Refresh mastery
+        update_student_mastery.delay(path.student_id, path.subject_room_id)
+
+        # Check if path is fully complete
+        path.refresh_from_db()
+        path_completed = path.completed_steps >= path.total_steps
+
+        if path_completed:
+            from openshiksha.apps.ai.models import LearningPathStatus
+            path.status = LearningPathStatus.COMPLETED
+            path.save(update_fields=['status'])
+        else:
+            rebuild_learning_path.delay(path.student_id, path.subject_room_id)
+
+        logger.info(
+            'complete_step: step=%d score=%.2f path_completed=%s',
+            step_id, score, path_completed,
+        )
+        return {'step_id': step_id, 'path_completed': path_completed}
+
+    except Exception as exc:
+        logger.exception('complete_step failed: step=%d', step_id)
+        raise self.retry(exc=exc)

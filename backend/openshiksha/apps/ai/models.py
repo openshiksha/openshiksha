@@ -10,6 +10,13 @@ AI-Powered Content Recommendations:
 - ContentRecommendation: What a student should practice next (and why)
 - PracticePlan: A daily bundle of recommendations for a student
 
+Adaptive Learning Engine:
+- KnowledgeNode: Chapter in the curriculum with prerequisite relationships
+- StudentMastery: Per-student mastery level for a KnowledgeNode
+- LearningPath: Personalised chapter sequence generated for a student
+- LearningPathStep: Individual step within a LearningPath with status
+- SpacedRepetitionEntry: SM-2-style review scheduling per student × chapter
+
 All analytics are computed asynchronously via Celery tasks and cached here
 for fast API reads. The source of truth is always the Tick + StudentProficiency
 data in edge/; these models are derived views.
@@ -412,4 +419,364 @@ class PracticePlan(models.Model):
         ]
 
     def __str__(self):
-        return f"Plan: {self.student} | {self.subject_room} | " f"{self.plan_date} (~{self.estimated_minutes}min)"
+        return (
+            f'Plan: {self.student} | {self.subject_room} | '
+            f'{self.plan_date} (~{self.estimated_minutes}min)'
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# Adaptive Learning Engine Models
+# ─────────────────────────────────────────────────────────────
+
+
+class MasteryLevel(models.TextChoices):
+    UNKNOWN = 'unknown', 'Unknown (not attempted)'
+    NOVICE = 'novice', 'Novice (0–39%)'
+    DEVELOPING = 'developing', 'Developing (40–59%)'
+    PROFICIENT = 'proficient', 'Proficient (60–79%)'
+    MASTERED = 'mastered', 'Mastered (80%+)'
+
+
+class LearningPathStatus(models.TextChoices):
+    ACTIVE = 'active', 'Active'
+    COMPLETED = 'completed', 'Completed'
+    STALE = 'stale', 'Stale (regenerated)'
+
+
+class StepStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    IN_PROGRESS = 'in_progress', 'In Progress'
+    COMPLETED = 'completed', 'Completed'
+    SKIPPED = 'skipped', 'Skipped'
+
+
+class KnowledgeNode(models.Model):
+    """
+    Represents a chapter as a node in the prerequisite knowledge graph.
+
+    Prerequisites define the directed edges: a student should ideally master
+    all prerequisites before tackling this chapter. The adaptive engine uses
+    this graph to order chapters in a LearningPath.
+
+    One KnowledgeNode per (subject, chapter) pair — shared across all students.
+    Teachers and admins can curate the prerequisite relationships through admin.
+
+    Examples:
+      - "Quadratic Equations" depends on "Linear Equations"
+      - "Fractions" depends on "Division"
+      - "Photosynthesis" depends on "Cell Structure"
+    """
+    subject = models.ForeignKey(
+        'core.Subject',
+        on_delete=models.CASCADE,
+        related_name='knowledge_nodes',
+    )
+    chapter = models.ForeignKey(
+        'core.Chapter',
+        on_delete=models.CASCADE,
+        related_name='knowledge_nodes',
+    )
+    prerequisites = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='unlocks',
+        help_text='Chapters that should be mastered before this one',
+    )
+    difficulty_weight = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0.1), MaxValueValidator(5.0)],
+        help_text='Relative difficulty 0.1–5.0; affects spaced repetition interval scaling',
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_knowledge_nodes'
+        unique_together = [['subject', 'chapter']]
+        indexes = [
+            models.Index(fields=['subject', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'KNode: {self.subject.name} — {self.chapter.name}'
+
+
+class StudentMastery(models.Model):
+    """
+    Tracks a student's current mastery level for a specific KnowledgeNode.
+
+    mastery_score is an exponentially weighted moving average (EWMA) of the
+    student's scores across all attempts at questions in this chapter:
+
+        new_score = alpha * latest_score + (1 - alpha) * old_score
+        (alpha = 0.3, so recent performance matters more)
+
+    mastery_level is derived from mastery_score:
+        unknown:    no attempts yet
+        novice:     0.00–0.39
+        developing: 0.40–0.59
+        proficient: 0.60–0.79
+        mastered:   0.80–1.00
+
+    Used by the adaptive engine to:
+    - Skip chapters the student has mastered
+    - Prioritise chapters where the student is novice/developing
+    - Decide whether prerequisites are met before advancing
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='masteries',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='masteries',
+    )
+    mastery_score = models.FloatField(
+        default=0.0,
+        validators=FRACTION_VALIDATOR,
+        help_text='EWMA of scores across all attempts (0.0–1.0)',
+    )
+    mastery_level = models.CharField(
+        max_length=12,
+        choices=MasteryLevel.choices,
+        default=MasteryLevel.UNKNOWN,
+    )
+    attempt_count = models.PositiveIntegerField(
+        default=0,
+        help_text='Total number of practice attempts contributing to this score',
+    )
+    last_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the student last practiced this chapter',
+    )
+    first_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the student first attempted this chapter',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_student_mastery'
+        unique_together = [['student', 'knowledge_node']]
+        indexes = [
+            models.Index(fields=['student', 'mastery_level']),
+            models.Index(fields=['knowledge_node', 'mastery_level']),
+        ]
+
+    def __str__(self):
+        return (
+            f'Mastery: {self.student} | {self.knowledge_node.chapter.name} | '
+            f'{self.mastery_level} ({self.mastery_score:.0%})'
+        )
+
+    @staticmethod
+    def level_from_score(score: float) -> str:
+        if score >= 0.80:
+            return MasteryLevel.MASTERED
+        if score >= 0.60:
+            return MasteryLevel.PROFICIENT
+        if score >= 0.40:
+            return MasteryLevel.DEVELOPING
+        return MasteryLevel.NOVICE
+
+
+class LearningPath(models.Model):
+    """
+    A personalised, ordered sequence of KnowledgeNodes for a student.
+
+    Generated by the adaptive engine by:
+    1. Collecting all KnowledgeNodes for the student's enrolled subjects
+    2. Filtering out already-mastered nodes (score >= 0.80)
+    3. Topologically ordering remaining nodes respecting prerequisite edges
+    4. Interleaving spaced-repetition review nodes (recently mastered chapters
+       that are due for review)
+
+    Only one ACTIVE path exists per (student, subject_room) at a time.
+    When regenerated, the old path is marked STALE.
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    subject_room = models.ForeignKey(
+        'core.SubjectRoom',
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=LearningPathStatus.choices,
+        default=LearningPathStatus.ACTIVE,
+    )
+    total_steps = models.PositiveIntegerField(default=0)
+    completed_steps = models.PositiveIntegerField(default=0)
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_learning_paths'
+        indexes = [
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['subject_room', 'status']),
+        ]
+
+    def __str__(self):
+        return (
+            f'Path: {self.student} | {self.subject_room} | '
+            f'{self.status} ({self.completed_steps}/{self.total_steps})'
+        )
+
+    @property
+    def progress_pct(self) -> float:
+        if self.total_steps == 0:
+            return 0.0
+        return self.completed_steps / self.total_steps
+
+
+class LearningPathStep(models.Model):
+    """
+    A single step in a LearningPath — one chapter to study or review.
+
+    Steps are ordered by `position` (1-indexed). The adaptive engine sets
+    `is_review=True` for steps inserted by the spaced-repetition scheduler
+    (chapters due for review rather than first-time learning).
+
+    When a student completes the assigned problem_set for this step, the
+    step status is updated to COMPLETED and StudentMastery is refreshed.
+    """
+    learning_path = models.ForeignKey(
+        LearningPath,
+        on_delete=models.CASCADE,
+        related_name='steps',
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='path_steps',
+    )
+    problem_set = models.ForeignKey(
+        'core.ProblemSet',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='path_steps',
+        help_text='Suggested problem set for this step; null = student chooses freely',
+    )
+    position = models.PositiveIntegerField(
+        help_text='1-indexed order in the learning path',
+    )
+    status = models.CharField(
+        max_length=12,
+        choices=StepStatus.choices,
+        default=StepStatus.PENDING,
+    )
+    is_review = models.BooleanField(
+        default=False,
+        help_text='True when inserted by spaced-repetition scheduler for review',
+    )
+    score_when_completed = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text='Score the student achieved when they completed this step',
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'ai_learning_path_steps'
+        unique_together = [['learning_path', 'position']]
+        indexes = [
+            models.Index(fields=['learning_path', 'status']),
+            models.Index(fields=['knowledge_node', 'status']),
+        ]
+
+    def __str__(self):
+        review_tag = ' [review]' if self.is_review else ''
+        return (
+            f'Step {self.position}{review_tag}: '
+            f'{self.knowledge_node.chapter.name} [{self.status}]'
+        )
+
+
+class SpacedRepetitionEntry(models.Model):
+    """
+    SM-2-inspired spaced repetition schedule for a student × KnowledgeNode.
+
+    After each practice session the scheduler updates:
+    - interval_days: days until next review (starts at 1, grows exponentially)
+    - easiness_factor: governs how fast the interval grows (starts at 2.5)
+    - repetitions: count of consecutive successful reviews
+    - next_review_date: today + interval_days
+
+    SM-2 update rules (simplified):
+      If score >= 0.60 (successful recall):
+        if repetitions == 0: interval = 1
+        elif repetitions == 1: interval = 6
+        else: interval = round(prev_interval * easiness_factor)
+        easiness_factor = max(1.3, ef + 0.1 - (1-score)*0.8)
+        repetitions += 1
+      If score < 0.60 (failed recall):
+        repetitions = 0
+        interval = 1
+        easiness_factor unchanged
+
+    Entries with next_review_date <= today are surfaced by the adaptive engine
+    as review steps in the student's LearningPath.
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='srs_entries',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='srs_entries',
+    )
+    interval_days = models.PositiveIntegerField(
+        default=1,
+        help_text='Days until next review',
+    )
+    easiness_factor = models.FloatField(
+        default=2.5,
+        validators=[MinValueValidator(1.3), MaxValueValidator(5.0)],
+        help_text='SM-2 easiness factor — controls interval growth rate',
+    )
+    repetitions = models.PositiveIntegerField(
+        default=0,
+        help_text='Consecutive successful review count',
+    )
+    next_review_date = models.DateField(
+        help_text='Date on which this chapter is scheduled for review',
+    )
+    last_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_spaced_repetition_entries'
+        unique_together = [['student', 'knowledge_node']]
+        indexes = [
+            models.Index(fields=['student', 'next_review_date']),
+            models.Index(fields=['knowledge_node', 'next_review_date']),
+        ]
+
+    def __str__(self):
+        return (
+            f'SRS: {self.student} | {self.knowledge_node.chapter.name} | '
+            f'next={self.next_review_date} interval={self.interval_days}d'
+        )

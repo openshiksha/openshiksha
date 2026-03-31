@@ -1,0 +1,36 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_django = ["django", "rest_framework"]
+known_first_party = ["openshiksha"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DJANGO", "FIRSTPARTY", "LOCALFOLDER"]
+skip = ["migrations", "venv", ".venv"]
+
+[tool.flake8]
+# NOTE: flake8 doesn't natively read pyproject.toml; config is in .flake8 at project root.
+# This section is kept here for documentation purposes only.
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["mypy_django_plugin.main"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Start permissive; tighten over time
+disallow_untyped_defs = false
+check_untyped_defs = false
+
+[tool.django-stubs]
+django_settings_module = "openshiksha.settings.development"

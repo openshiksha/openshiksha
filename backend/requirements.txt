@@ -52,6 +52,7 @@ flake8==7.1.1
 isort==5.13.2
 mypy==1.14.1
 django-stubs==5.1.2
+pip-audit==2.8.0
 
 # Documentation
 drf-spectacular==0.27.0

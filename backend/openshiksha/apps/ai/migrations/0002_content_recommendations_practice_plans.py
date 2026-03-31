@@ -134,9 +134,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "estimated_minutes",
-                    models.PositiveIntegerField(
-                        default=0, help_text="Total estimated practice time in minutes"
-                    ),
+                    models.PositiveIntegerField(default=0, help_text="Total estimated practice time in minutes"),
                 ),
                 (
                     "is_completed",

@@ -4,48 +4,49 @@ Core ViewSets for OpenShiksha API
 Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
-from rest_framework import viewsets, permissions, filters
+from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from openshiksha.apps.core.models import (
-    User,
-    QuestionTag,
-    Question,
-    SubjectRoom,
-    ProblemSet,
-    Assignment,
-    Submission,
-    UserRole,
-)
 from openshiksha.apps.api.serializers import (
-    UserSerializer,
-    QuestionTagSerializer,
-    QuestionSerializer,
-    SubjectRoomSerializer,
-    ProblemSetSerializer,
-    AssignmentSerializer,
     AssignmentDetailSerializer,
+    AssignmentSerializer,
+    ProblemSetSerializer,
+    QuestionSerializer,
+    QuestionTagSerializer,
+    SubjectRoomSerializer,
     SubmissionSerializer,
+    UserSerializer,
+)
+from openshiksha.apps.core.models import (
+    Assignment,
+    ProblemSet,
+    Question,
+    QuestionTag,
+    SubjectRoom,
+    Submission,
+    User,
+    UserRole,
 )
 
 
 class IsTeacher(permissions.BasePermission):
     """Only teachers may proceed."""
+
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == UserRole.TEACHER
 
 
 class IsStudent(permissions.BasePermission):
     """Only students (including open students) may proceed."""
+
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in [
-            UserRole.STUDENT, UserRole.OPEN_STUDENT
-        ]
+        return request.user.is_authenticated and request.user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]
 
 
 class IsTeacherOrReadOnly(permissions.BasePermission):
     """Teachers have full access; authenticated users have read access."""
+
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
@@ -76,6 +77,7 @@ class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
     List and retrieve question tags.
     Read-only -- tags are managed via admin.
     """
+
     queryset = QuestionTag.objects.all().order_by("name")
     serializer_class = QuestionTagSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -94,6 +96,7 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     - ?difficulty=<1-5>
     - ?question_type=<mcq|fill_blank|matching|multi_select|numeric>
     """
+
     serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -105,9 +108,11 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
         from django.db.models import Q
 
         user = self.request.user
-        base_qs = Question.objects.filter(is_active=True).select_related(
-            "standard", "subject", "chapter"
-        ).prefetch_related("tags", "subparts__tags")
+        base_qs = (
+            Question.objects.filter(is_active=True)
+            .select_related("standard", "subject", "chapter")
+            .prefetch_related("tags", "subparts__tags")
+        )
 
         if hasattr(user, "school") and user.school:
             qs = base_qs.filter(Q(school__isnull=True) | Q(school=user.school))
@@ -137,6 +142,7 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
     - Students see rooms they are enrolled in.
     - Admins see all rooms for their school.
     """
+
     serializer_class = SubjectRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = SubjectRoom.objects.none()
@@ -145,9 +151,7 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return SubjectRoom.objects.none()
         user = self.request.user
-        qs = SubjectRoom.objects.select_related(
-            "classroom__school", "subject", "teacher"
-        ).prefetch_related("students")
+        qs = SubjectRoom.objects.select_related("classroom__school", "subject", "teacher").prefetch_related("students")
 
         if user.role == UserRole.TEACHER:
             return qs.filter(teacher=user)
@@ -167,6 +171,7 @@ class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
     """
     List and retrieve problem sets.
     """
+
     serializer_class = ProblemSetSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -174,9 +179,7 @@ class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         from django.db.models import Q
 
-        qs = ProblemSet.objects.filter(is_active=True).select_related(
-            "standard", "subject", "chapter"
-        )
+        qs = ProblemSet.objects.filter(is_active=True).select_related("standard", "subject", "chapter")
 
         if hasattr(user, "school") and user.school:
             qs = qs.filter(Q(school__isnull=True) | Q(school=user.school))
@@ -203,6 +206,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
     - POST /api/assignments/ -- teachers only.
     - GET /api/assignments/{id}/ -- detail view with questions + submission status.
     """
+
     permission_classes = [permissions.IsAuthenticated]
     queryset = Assignment.objects.none()
 
@@ -216,8 +220,10 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return Assignment.objects.none()
         user = self.request.user
         qs = Assignment.objects.select_related(
-            "problem_set__subject", "problem_set__chapter",
-            "subject_room__classroom", "subject_room__subject",
+            "problem_set__subject",
+            "problem_set__chapter",
+            "subject_room__classroom",
+            "subject_room__subject",
             "assigned_by",
         )
 
@@ -253,6 +259,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     - PATCH /api/submissions/{id}/ -- student updates answers or sets submitted_at
     - GET /api/submissions/{id}/ -- student views their own submission
     """
+
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Submission.objects.none()

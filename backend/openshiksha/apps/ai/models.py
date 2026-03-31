@@ -15,22 +15,22 @@ for fast API reads. The source of truth is always the Tick + StudentProficiency
 data in edge/; these models are derived views.
 """
 
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 FRACTION_VALIDATOR = [MinValueValidator(0.0), MaxValueValidator(1.0)]
 
 
 class GapSeverity(models.TextChoices):
-    MILD = 'mild', 'Mild (score 40–50%)'
-    MODERATE = 'moderate', 'Moderate (score 25–40%)'
-    SEVERE = 'severe', 'Severe (score < 25%)'
+    MILD = "mild", "Mild (score 40–50%)"
+    MODERATE = "moderate", "Moderate (score 25–40%)"
+    SEVERE = "severe", "Severe (score < 25%)"
 
 
 class InsightType(models.TextChoices):
-    STRUGGLING = 'struggling', 'Class Struggling (>40% below threshold)'
-    AT_RISK = 'at_risk', 'At Risk (20–40% below threshold)'
-    PROFICIENT = 'proficient', 'Class Proficient (<20% below threshold)'
+    STRUGGLING = "struggling", "Class Struggling (>40% below threshold)"
+    AT_RISK = "at_risk", "At Risk (20–40% below threshold)"
+    PROFICIENT = "proficient", "Class Proficient (<20% below threshold)"
 
 
 class LearningGap(models.Model):
@@ -45,57 +45,55 @@ class LearningGap(models.Model):
       moderate: 0.25 <= avg_score < 0.40
       mild:     0.40 <= avg_score < 0.50
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="learning_gaps",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
+        related_name="learning_gaps",
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
-        help_text='Context in which the gap was observed',
+        related_name="learning_gaps",
+        help_text="Context in which the gap was observed",
     )
 
     avg_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Student average mark across all ticks in this chapter (0.0–1.0)',
+        help_text="Student average mark across all ticks in this chapter (0.0–1.0)",
     )
     severity = models.CharField(
         max_length=10,
         choices=GapSeverity.choices,
     )
     tick_count = models.PositiveIntegerField(
-        help_text='Number of question-subpart ticks that contributed to this score',
+        help_text="Number of question-subpart ticks that contributed to this score",
     )
 
     is_resolved = models.BooleanField(
         default=False,
-        help_text='Set True when avg_score rises >= 0.60 on a re-analysis',
+        help_text="Set True when avg_score rises >= 0.60 on a re-analysis",
     )
     detected_at = models.DateTimeField(auto_now_add=True)
     refreshed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_learning_gaps'
-        unique_together = [['student', 'chapter', 'subject_room']]
+        db_table = "ai_learning_gaps"
+        unique_together = [["student", "chapter", "subject_room"]]
         indexes = [
-            models.Index(fields=['student', 'is_resolved']),
-            models.Index(fields=['chapter', 'is_resolved']),
-            models.Index(fields=['subject_room', 'severity']),
+            models.Index(fields=["student", "is_resolved"]),
+            models.Index(fields=["chapter", "is_resolved"]),
+            models.Index(fields=["subject_room", "severity"]),
         ]
 
     def __str__(self):
-        return (
-            f'Gap: {self.student} | {self.chapter} | '
-            f'{self.severity} ({self.avg_score:.0%})'
-        )
+        return f"Gap: {self.student} | {self.chapter} | " f"{self.severity} ({self.avg_score:.0%})"
 
     @staticmethod
     def severity_for_score(score: float) -> str:
@@ -118,46 +116,46 @@ class ClassInsight(models.Model):
       at_risk:    20–40% below threshold
       proficient: <20% below threshold
     """
+
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='class_insights',
+        related_name="class_insights",
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='class_insights',
+        related_name="class_insights",
     )
 
     insight_type = models.CharField(max_length=15, choices=InsightType.choices)
     class_avg_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Class average mark for this chapter (0.0–1.0)',
+        help_text="Class average mark for this chapter (0.0–1.0)",
     )
     students_assessed = models.PositiveIntegerField(
-        help_text='Number of students with at least 1 tick in this chapter',
+        help_text="Number of students with at least 1 tick in this chapter",
     )
     students_struggling = models.PositiveIntegerField(
-        help_text='Students with avg_score < 0.50 in this chapter',
+        help_text="Students with avg_score < 0.50 in this chapter",
     )
     pct_struggling = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Fraction of assessed students who are struggling (0.0–1.0)',
+        help_text="Fraction of assessed students who are struggling (0.0–1.0)",
     )
 
     generated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_class_insights'
-        unique_together = [['subject_room', 'chapter']]
+        db_table = "ai_class_insights"
+        unique_together = [["subject_room", "chapter"]]
         indexes = [
-            models.Index(fields=['subject_room', 'insight_type']),
+            models.Index(fields=["subject_room", "insight_type"]),
         ]
 
     def __str__(self):
         return (
-            f'Insight: {self.subject_room} | {self.chapter} | '
-            f'{self.insight_type} (avg {self.class_avg_score:.0%})'
+            f"Insight: {self.subject_room} | {self.chapter} | " f"{self.insight_type} (avg {self.class_avg_score:.0%})"
         )
 
     @staticmethod
@@ -187,42 +185,42 @@ class PerformancePrediction(models.Model):
     """
 
     class ReadinessLevel(models.TextChoices):
-        NEEDS_ATTENTION = 'needs_attention', 'Needs Attention'
-        DEVELOPING = 'developing', 'Developing'
-        ON_TRACK = 'on_track', 'On Track'
-        EXAM_READY = 'exam_ready', 'Exam Ready'
+        NEEDS_ATTENTION = "needs_attention", "Needs Attention"
+        DEVELOPING = "developing", "Developing"
+        ON_TRACK = "on_track", "On Track"
+        EXAM_READY = "exam_ready", "Exam Ready"
 
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='performance_predictions',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="performance_predictions",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='performance_predictions',
+        related_name="performance_predictions",
     )
 
     predicted_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Predicted performance score (0.0–1.0)',
+        help_text="Predicted performance score (0.0–1.0)",
     )
     confidence = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Confidence in the prediction — low when tick data is sparse',
+        help_text="Confidence in the prediction — low when tick data is sparse",
     )
     readiness_level = models.CharField(
         max_length=20,
         choices=ReadinessLevel.choices,
     )
     tick_count = models.PositiveIntegerField(
-        help_text='Total ticks used to compute this prediction',
+        help_text="Total ticks used to compute this prediction",
     )
     factors = models.JSONField(
         default=dict,
         help_text=(
-            'Top contributing factors: '
+            "Top contributing factors: "
             '{"strong_chapters": [...], "weak_chapters": [...], '
             '"recent_trend": "improving|declining|stable"}'
         ),
@@ -231,18 +229,18 @@ class PerformancePrediction(models.Model):
     generated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_performance_predictions'
-        unique_together = [['student', 'subject_room']]
+        db_table = "ai_performance_predictions"
+        unique_together = [["student", "subject_room"]]
         indexes = [
-            models.Index(fields=['student', 'readiness_level']),
-            models.Index(fields=['subject_room', 'readiness_level']),
+            models.Index(fields=["student", "readiness_level"]),
+            models.Index(fields=["subject_room", "readiness_level"]),
         ]
 
     def __str__(self):
         return (
-            f'Prediction: {self.student} | {self.subject_room} | '
-            f'{self.readiness_level} ({self.predicted_score:.0%}, '
-            f'confidence {self.confidence:.0%})'
+            f"Prediction: {self.student} | {self.subject_room} | "
+            f"{self.readiness_level} ({self.predicted_score:.0%}, "
+            f"confidence {self.confidence:.0%})"
         )
 
     @staticmethod
@@ -260,19 +258,20 @@ class PerformancePrediction(models.Model):
 # Content Recommendations
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class RecommendationReason(models.TextChoices):
-    SEVERE_GAP = 'severe_gap', 'Severe Gap — urgent remediation needed'
-    MODERATE_GAP = 'moderate_gap', 'Moderate Gap — needs more practice'
-    MILD_GAP = 'mild_gap', 'Mild Gap — a few more attempts recommended'
-    SPACED_REVIEW = 'spaced_review', 'Spaced Review — reinforce resolved gap'
-    NEXT_TOPIC = 'next_topic', 'Next Topic — ready to progress'
+    SEVERE_GAP = "severe_gap", "Severe Gap — urgent remediation needed"
+    MODERATE_GAP = "moderate_gap", "Moderate Gap — needs more practice"
+    MILD_GAP = "mild_gap", "Mild Gap — a few more attempts recommended"
+    SPACED_REVIEW = "spaced_review", "Spaced Review — reinforce resolved gap"
+    NEXT_TOPIC = "next_topic", "Next Topic — ready to progress"
 
 
 class RecommendationPriority(models.IntegerChoices):
-    URGENT = 1, 'Urgent'
-    HIGH = 2, 'High'
-    MEDIUM = 3, 'Medium'
-    LOW = 4, 'Low'
+    URGENT = 1, "Urgent"
+    HIGH = 2, "High"
+    MEDIUM = 3, "Medium"
+    LOW = 4, "Low"
 
 
 class ContentRecommendation(models.Model):
@@ -290,35 +289,36 @@ class ContentRecommendation(models.Model):
     is_actioned becomes True when the student opens or submits the problem set.
     Stale recommendations (superseded by re-analysis) are soft-deleted via is_active=False.
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='content_recommendations',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="content_recommendations",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='content_recommendations',
+        related_name="content_recommendations",
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='content_recommendations',
+        related_name="content_recommendations",
     )
     problem_set = models.ForeignKey(
-        'core.ProblemSet',
+        "core.ProblemSet",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='content_recommendations',
-        help_text='Specific problem set to attempt (null = any set in the chapter)',
+        related_name="content_recommendations",
+        help_text="Specific problem set to attempt (null = any set in the chapter)",
     )
 
     reason = models.CharField(max_length=20, choices=RecommendationReason.choices)
     priority = models.PositiveSmallIntegerField(
         choices=RecommendationPriority.choices,
-        help_text='Lower = more urgent',
+        help_text="Lower = more urgent",
     )
 
     # Snapshot of the score that triggered this recommendation (for audit / display)
@@ -326,35 +326,32 @@ class ContentRecommendation(models.Model):
         null=True,
         blank=True,
         validators=FRACTION_VALIDATOR,
-        help_text='Student avg score in this chapter when the recommendation was generated',
+        help_text="Student avg score in this chapter when the recommendation was generated",
     )
 
     is_actioned = models.BooleanField(
         default=False,
-        help_text='True once the student has opened or submitted the recommended problem set',
+        help_text="True once the student has opened or submitted the recommended problem set",
     )
     is_active = models.BooleanField(
         default=True,
-        help_text='False when superseded by a newer analysis run',
+        help_text="False when superseded by a newer analysis run",
     )
 
     generated_at = models.DateTimeField(auto_now_add=True)
     actioned_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'ai_content_recommendations'
+        db_table = "ai_content_recommendations"
         # Only one active recommendation per student × chapter × subject_room
-        unique_together = [['student', 'chapter', 'subject_room']]
+        unique_together = [["student", "chapter", "subject_room"]]
         indexes = [
-            models.Index(fields=['student', 'is_active', 'priority']),
-            models.Index(fields=['subject_room', 'is_active']),
+            models.Index(fields=["student", "is_active", "priority"]),
+            models.Index(fields=["subject_room", "is_active"]),
         ]
 
     def __str__(self):
-        return (
-            f'Rec: {self.student} | {self.chapter} | '
-            f'{self.get_reason_display()} (p{self.priority})'
-        )
+        return f"Rec: {self.student} | {self.chapter} | " f"{self.get_reason_display()} (p{self.priority})"
 
     @staticmethod
     def priority_for_reason(reason: str) -> int:
@@ -378,43 +375,41 @@ class PracticePlan(models.Model):
     estimated_minutes = sum of estimated_minutes for linked problem sets
     (defaults to 10 min per recommendation if problem set has no estimate).
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='practice_plans',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="practice_plans",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='practice_plans',
+        related_name="practice_plans",
     )
     recommendations = models.ManyToManyField(
         ContentRecommendation,
-        related_name='practice_plans',
+        related_name="practice_plans",
         blank=True,
     )
-    plan_date = models.DateField(help_text='The day this plan is intended for')
+    plan_date = models.DateField(help_text="The day this plan is intended for")
     estimated_minutes = models.PositiveIntegerField(
         default=0,
-        help_text='Total estimated practice time in minutes',
+        help_text="Total estimated practice time in minutes",
     )
     is_completed = models.BooleanField(
         default=False,
-        help_text='True when the student has actioned all recommendations in the plan',
+        help_text="True when the student has actioned all recommendations in the plan",
     )
     generated_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'ai_practice_plans'
-        unique_together = [['student', 'subject_room', 'plan_date']]
+        db_table = "ai_practice_plans"
+        unique_together = [["student", "subject_room", "plan_date"]]
         indexes = [
-            models.Index(fields=['student', 'plan_date']),
-            models.Index(fields=['subject_room', 'plan_date']),
+            models.Index(fields=["student", "plan_date"]),
+            models.Index(fields=["subject_room", "plan_date"]),
         ]
 
     def __str__(self):
-        return (
-            f'Plan: {self.student} | {self.subject_room} | '
-            f'{self.plan_date} (~{self.estimated_minutes}min)'
-        )
+        return f"Plan: {self.student} | {self.subject_room} | " f"{self.plan_date} (~{self.estimated_minutes}min)"

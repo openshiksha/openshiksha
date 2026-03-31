@@ -48,43 +48,44 @@ def detect_learning_gaps_for_student(self, student_id: int, subject_room_id: int
         resolved = 0
 
         for data in gap_data:
-            if data['is_resolved']:
+            if data["is_resolved"]:
                 # Only update if there's an existing gap row to resolve
                 updated = LearningGap.objects.filter(
                     student=student,
-                    chapter_id=data['chapter_id'],
+                    chapter_id=data["chapter_id"],
                     subject_room=subject_room,
                     is_resolved=False,
                 ).update(
-                    avg_score=data['avg_score'],
-                    tick_count=data['tick_count'],
+                    avg_score=data["avg_score"],
+                    tick_count=data["tick_count"],
                     is_resolved=True,
                 )
                 resolved += updated
             else:
                 LearningGap.objects.update_or_create(
                     student=student,
-                    chapter_id=data['chapter_id'],
+                    chapter_id=data["chapter_id"],
                     subject_room=subject_room,
                     defaults={
-                        'avg_score': data['avg_score'],
-                        'severity': data['severity'],
-                        'tick_count': data['tick_count'],
-                        'is_resolved': False,
+                        "avg_score": data["avg_score"],
+                        "severity": data["severity"],
+                        "tick_count": data["tick_count"],
+                        "is_resolved": False,
                     },
                 )
                 upserted += 1
 
         logger.info(
-            'detect_learning_gaps: student=%d room=%d upserted=%d resolved=%d',
-            student_id, subject_room_id, upserted, resolved,
+            "detect_learning_gaps: student=%d room=%d upserted=%d resolved=%d",
+            student_id,
+            subject_room_id,
+            upserted,
+            resolved,
         )
-        return {'upserted': upserted, 'resolved': resolved}
+        return {"upserted": upserted, "resolved": resolved}
 
     except Exception as exc:
-        logger.exception(
-            'detect_learning_gaps failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("detect_learning_gaps failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -107,33 +108,35 @@ def update_performance_prediction_for_student(self, student_id: int, subject_roo
 
         if result is None:
             logger.info(
-                'predict_performance: not enough data for student=%d room=%d',
-                student_id, subject_room_id,
+                "predict_performance: not enough data for student=%d room=%d",
+                student_id,
+                subject_room_id,
             )
-            return {'updated': False}
+            return {"updated": False}
 
         PerformancePrediction.objects.update_or_create(
             student=student,
             subject_room=subject_room,
             defaults={
-                'predicted_score': result['predicted_score'],
-                'confidence': result['confidence'],
-                'readiness_level': result['readiness_level'],
-                'tick_count': result['tick_count'],
-                'factors': result['factors'],
+                "predicted_score": result["predicted_score"],
+                "confidence": result["confidence"],
+                "readiness_level": result["readiness_level"],
+                "tick_count": result["tick_count"],
+                "factors": result["factors"],
             },
         )
 
         logger.info(
-            'predict_performance: student=%d room=%d score=%.2f readiness=%s',
-            student_id, subject_room_id, result['predicted_score'], result['readiness_level'],
+            "predict_performance: student=%d room=%d score=%.2f readiness=%s",
+            student_id,
+            subject_room_id,
+            result["predicted_score"],
+            result["readiness_level"],
         )
-        return {'updated': True}
+        return {"updated": True}
 
     except Exception as exc:
-        logger.exception(
-            'predict_performance failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("predict_performance failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -157,24 +160,22 @@ def generate_class_insights_for_subject_room(self, subject_room_id: int) -> dict
         for data in insight_data:
             ClassInsight.objects.update_or_create(
                 subject_room=subject_room,
-                chapter_id=data['chapter_id'],
+                chapter_id=data["chapter_id"],
                 defaults={
-                    'insight_type': data['insight_type'],
-                    'class_avg_score': data['class_avg_score'],
-                    'students_assessed': data['students_assessed'],
-                    'students_struggling': data['students_struggling'],
-                    'pct_struggling': data['pct_struggling'],
+                    "insight_type": data["insight_type"],
+                    "class_avg_score": data["class_avg_score"],
+                    "students_assessed": data["students_assessed"],
+                    "students_struggling": data["students_struggling"],
+                    "pct_struggling": data["pct_struggling"],
                 },
             )
             upserted += 1
 
-        logger.info(
-            'generate_class_insights: room=%d upserted=%d', subject_room_id, upserted
-        )
-        return {'upserted': upserted}
+        logger.info("generate_class_insights: room=%d upserted=%d", subject_room_id, upserted)
+        return {"upserted": upserted}
 
     except Exception as exc:
-        logger.exception('generate_class_insights failed: room=%d', subject_room_id)
+        logger.exception("generate_class_insights failed: room=%d", subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -196,7 +197,6 @@ def refresh_recommendations_for_student(self, student_id: int, subject_room_id: 
     Returns {"created": int, "deactivated": int}
     """
     try:
-        from django.utils import timezone
 
         from openshiksha.apps.ai.analytics import generate_recommendations_for_student
         from openshiksha.apps.ai.models import ContentRecommendation
@@ -218,29 +218,30 @@ def refresh_recommendations_for_student(self, student_id: int, subject_room_id: 
         for data in rec_data:
             ContentRecommendation.objects.update_or_create(
                 student=student,
-                chapter_id=data['chapter_id'],
+                chapter_id=data["chapter_id"],
                 subject_room=subject_room,
                 defaults={
-                    'reason': data['reason'],
-                    'priority': data['priority'],
-                    'score_snapshot': data['score_snapshot'],
-                    'problem_set_id': data['problem_set_id'],
-                    'is_active': True,
-                    'is_actioned': False,
+                    "reason": data["reason"],
+                    "priority": data["priority"],
+                    "score_snapshot": data["score_snapshot"],
+                    "problem_set_id": data["problem_set_id"],
+                    "is_active": True,
+                    "is_actioned": False,
                 },
             )
             created += 1
 
         logger.info(
-            'refresh_recommendations: student=%d room=%d created=%d deactivated=%d',
-            student_id, subject_room_id, created, deactivated,
+            "refresh_recommendations: student=%d room=%d created=%d deactivated=%d",
+            student_id,
+            subject_room_id,
+            created,
+            deactivated,
         )
-        return {'created': created, 'deactivated': deactivated}
+        return {"created": created, "deactivated": deactivated}
 
     except Exception as exc:
-        logger.exception(
-            'refresh_recommendations failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("refresh_recommendations failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -258,9 +259,10 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
     Returns {"plan_id": int, "recommendation_count": int, "estimated_minutes": int}
     """
     try:
+
         from django.utils import timezone
 
-        from openshiksha.apps.ai.analytics import MAX_PLAN_RECOMMENDATIONS, DEFAULT_MINUTES_PER_REC
+        from openshiksha.apps.ai.analytics import DEFAULT_MINUTES_PER_REC, MAX_PLAN_RECOMMENDATIONS
         from openshiksha.apps.ai.models import ContentRecommendation, PracticePlan
         from openshiksha.apps.core.models import ProblemSet, SubjectRoom, User
 
@@ -269,10 +271,9 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
         today = timezone.localdate()
 
         active_recs = list(
-            ContentRecommendation.objects
-            .filter(student=student, subject_room=subject_room, is_active=True)
-            .order_by('priority', 'score_snapshot')
-            [:MAX_PLAN_RECOMMENDATIONS]
+            ContentRecommendation.objects.filter(student=student, subject_room=subject_room, is_active=True).order_by(
+                "priority", "score_snapshot"
+            )[:MAX_PLAN_RECOMMENDATIONS]
         )
 
         # Compute estimated minutes
@@ -280,7 +281,7 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
         for rec in active_recs:
             if rec.problem_set_id:
                 try:
-                    ps = ProblemSet.objects.only('estimated_minutes').get(pk=rec.problem_set_id)
+                    ps = ProblemSet.objects.only("estimated_minutes").get(pk=rec.problem_set_id)
                     total_minutes += ps.estimated_minutes or DEFAULT_MINUTES_PER_REC
                 except ProblemSet.DoesNotExist:
                     total_minutes += DEFAULT_MINUTES_PER_REC
@@ -292,26 +293,28 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
             subject_room=subject_room,
             plan_date=today,
             defaults={
-                'estimated_minutes': total_minutes,
-                'is_completed': False,
+                "estimated_minutes": total_minutes,
+                "is_completed": False,
             },
         )
         plan.recommendations.set(active_recs)
 
         logger.info(
-            'generate_daily_practice_plan: student=%d room=%d plan=%d recs=%d mins=%d',
-            student_id, subject_room_id, plan.pk, len(active_recs), total_minutes,
+            "generate_daily_practice_plan: student=%d room=%d plan=%d recs=%d mins=%d",
+            student_id,
+            subject_room_id,
+            plan.pk,
+            len(active_recs),
+            total_minutes,
         )
         return {
-            'plan_id': plan.pk,
-            'recommendation_count': len(active_recs),
-            'estimated_minutes': total_minutes,
+            "plan_id": plan.pk,
+            "recommendation_count": len(active_recs),
+            "estimated_minutes": total_minutes,
         }
 
     except Exception as exc:
-        logger.exception(
-            'generate_daily_practice_plan failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("generate_daily_practice_plan failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 

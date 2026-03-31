@@ -1,5 +1,5 @@
 # Django Core (LTS 4.2.x)
-Django==4.2.22
+Django==4.2.29
 djangorestframework==3.15.2
 django-cors-headers==4.6.0
 django-filter==24.3
@@ -9,7 +9,7 @@ psycopg[binary]==3.2.3
 dj-database-url==2.3.0
 
 # Authentication
-djangorestframework-simplejwt==5.3.1
+djangorestframework-simplejwt==5.5.1
 
 # Task Queue
 celery==5.4.0
@@ -28,11 +28,11 @@ pydantic-settings==2.7.1
 
 # HTTP Client (for Cabinet API)
 httpx==0.28.1
-requests==2.32.3
+requests==2.33.0
 
 # Utilities
 python-dotenv==1.0.1
-Pillow==11.1.0
+Pillow==12.1.1
 
 # Development
 django-debug-toolbar==4.4.6
@@ -47,7 +47,7 @@ factory-boy==3.3.1
 faker==40.1.0
 
 # Code Quality
-black==25.1.0
+black==26.3.1
 flake8==7.1.1
 isort==5.13.2
 mypy==1.14.1

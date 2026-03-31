@@ -16,7 +16,7 @@ jobs:
                 cache: 'pip'
                 cache-dependency-path: 'backend/requirements.txt'
             - name: Install Code Quality Tools
-              run: pip install black==25.1.0 flake8==7.1.1 isort==5.13.2
+              run: pip install black==26.3.1 flake8==7.1.1 isort==5.13.2
               working-directory: backend
             - name: Check formatting (black)
               # TODO: Remove continue-on-error once the codebase has been reformatted

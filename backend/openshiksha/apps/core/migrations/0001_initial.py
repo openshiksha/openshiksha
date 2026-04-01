@@ -33,9 +33,7 @@ class Migration(migrations.Migration):
                 ("password", models.CharField(max_length=128, verbose_name="password")),
                 (
                     "last_login",
-                    models.DateTimeField(
-                        blank=True, null=True, verbose_name="last login"
-                    ),
+                    models.DateTimeField(blank=True, null=True, verbose_name="last login"),
                 ),
                 (
                     "is_superuser",
@@ -48,35 +46,25 @@ class Migration(migrations.Migration):
                 (
                     "username",
                     models.CharField(
-                        error_messages={
-                            "unique": "A user with that username already exists."
-                        },
+                        error_messages={"unique": "A user with that username already exists."},
                         help_text="Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.",
                         max_length=150,
                         unique=True,
-                        validators=[
-                            django.contrib.auth.validators.UnicodeUsernameValidator()
-                        ],
+                        validators=[django.contrib.auth.validators.UnicodeUsernameValidator()],
                         verbose_name="username",
                     ),
                 ),
                 (
                     "first_name",
-                    models.CharField(
-                        blank=True, max_length=150, verbose_name="first name"
-                    ),
+                    models.CharField(blank=True, max_length=150, verbose_name="first name"),
                 ),
                 (
                     "last_name",
-                    models.CharField(
-                        blank=True, max_length=150, verbose_name="last name"
-                    ),
+                    models.CharField(blank=True, max_length=150, verbose_name="last name"),
                 ),
                 (
                     "email",
-                    models.EmailField(
-                        blank=True, max_length=254, verbose_name="email address"
-                    ),
+                    models.EmailField(blank=True, max_length=254, verbose_name="email address"),
                 ),
                 (
                     "is_staff",
@@ -96,9 +84,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "date_joined",
-                    models.DateTimeField(
-                        default=django.utils.timezone.now, verbose_name="date joined"
-                    ),
+                    models.DateTimeField(default=django.utils.timezone.now, verbose_name="date joined"),
                 ),
                 (
                     "role",
@@ -128,9 +114,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "phone_number",
-                    models.CharField(
-                        blank=True, help_text="Contact phone number", max_length=15
-                    ),
+                    models.CharField(blank=True, help_text="Contact phone number", max_length=15),
                 ),
                 (
                     "date_of_birth",
@@ -240,9 +224,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(
-                        help_text="Name of the subject", max_length=255, unique=True
-                    ),
+                    models.CharField(help_text="Name of the subject", max_length=255, unique=True),
                 ),
                 ("description", models.TextField(blank=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -266,9 +248,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(
-                        help_text="Full name of the school", max_length=255
-                    ),
+                    models.CharField(help_text="Full name of the school", max_length=255),
                 ),
                 ("address", models.TextField(blank=True)),
                 ("city", models.CharField(blank=True, max_length=100)),
@@ -285,9 +265,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "sms_enabled",
-                    models.BooleanField(
-                        default=False, help_text="Whether SMS notifications are enabled"
-                    ),
+                    models.BooleanField(default=False, help_text="Whether SMS notifications are enabled"),
                 ),
                 ("is_active", models.BooleanField(default=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -321,15 +299,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "division",
-                    models.CharField(
-                        help_text="Division name (e.g., A, B, C)", max_length=50
-                    ),
+                    models.CharField(help_text="Division name (e.g., A, B, C)", max_length=50),
                 ),
                 (
                     "academic_year",
-                    models.CharField(
-                        help_text="Academic year (e.g., 2024-25)", max_length=20
-                    ),
+                    models.CharField(help_text="Academic year (e.g., 2024-25)", max_length=20),
                 ),
                 ("is_active", models.BooleanField(default=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -394,15 +368,11 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "name",
-                    models.CharField(
-                        help_text="Name of the chapter/topic", max_length=255
-                    ),
+                    models.CharField(help_text="Name of the chapter/topic", max_length=255),
                 ),
                 (
                     "order",
-                    models.PositiveIntegerField(
-                        default=0, help_text="Display order within subject"
-                    ),
+                    models.PositiveIntegerField(default=0, help_text="Display order within subject"),
                 ),
                 ("description", models.TextField(blank=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -456,9 +426,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="school",
-            index=models.Index(
-                fields=["board", "is_active"], name="schools_board_i_d9b28a_idx"
-            ),
+            index=models.Index(fields=["board", "is_active"], name="schools_board_i_d9b28a_idx"),
         ),
         migrations.AddIndex(
             model_name="classroom",

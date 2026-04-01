@@ -10,7 +10,7 @@ from django.dispatch import receiver
 logger = logging.getLogger(__name__)
 
 
-@receiver(post_save, sender='core.Submission')
+@receiver(post_save, sender="core.Submission")
 def trigger_grading_on_submit(sender, instance, created, update_fields, **kwargs):
     """
     Trigger async grading when a student submits (i.e. submitted_at is first set).
@@ -25,10 +25,11 @@ def trigger_grading_on_submit(sender, instance, created, update_fields, **kwargs
         return
 
     # If update_fields is specified, only trigger when submitted_at was explicitly saved
-    if update_fields is not None and 'submitted_at' not in update_fields:
+    if update_fields is not None and "submitted_at" not in update_fields:
         return
 
     # On create with submitted_at already set, or on explicit submitted_at update
     from openshiksha.apps.core.tasks import grade_submission
-    logger.info(f'Submission {instance.pk} submitted — queuing grade_submission task')
+
+    logger.info(f"Submission {instance.pk} submitted — queuing grade_submission task")
     grade_submission.delay(instance.pk)

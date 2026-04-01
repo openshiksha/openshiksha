@@ -90,12 +90,8 @@ class Migration(migrations.Migration):
                         fields=["student", "subject_room"],
                         name="edge_tick_student_de77c3_idx",
                     ),
-                    models.Index(
-                        fields=["is_acknowledged"], name="edge_tick_is_ackn_5f482f_idx"
-                    ),
-                    models.Index(
-                        fields=["created_at"], name="edge_tick_created_47a80d_idx"
-                    ),
+                    models.Index(fields=["is_acknowledged"], name="edge_tick_is_ackn_5f482f_idx"),
+                    models.Index(fields=["created_at"], name="edge_tick_created_47a80d_idx"),
                 ],
             },
         ),

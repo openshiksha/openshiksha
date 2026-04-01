@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(docs/daily-plans/*)",
+      "Write(docs/changes/*)"
+    ]
+  }
+}

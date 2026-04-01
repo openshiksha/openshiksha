@@ -8,6 +8,7 @@ Flow: grade_submission → _update_assignment_aggregates + update_proficiency
 import logging
 
 from celery import shared_task
+
 from django.db.models import Avg
 
 logger = logging.getLogger(__name__)
@@ -28,29 +29,29 @@ def grade_submission(self, submission_id: int) -> dict:
 
     Returns a summary dict with grading results.
     """
-    from openshiksha.apps.core.models import Submission, QuestionSubpart
+    from openshiksha.apps.core.models import QuestionSubpart, Submission
     from openshiksha.apps.edge.models import Tick
 
     try:
         submission = Submission.objects.select_related(
-            'assignment__problem_set',
-            'assignment__subject_room',
-            'student',
+            "assignment__problem_set",
+            "assignment__subject_room",
+            "student",
         ).get(pk=submission_id)
     except Submission.DoesNotExist:
-        logger.error(f'grade_submission: Submission {submission_id} not found')
-        return {'error': 'Submission not found'}
+        logger.error(f"grade_submission: Submission {submission_id} not found")
+        return {"error": "Submission not found"}
 
     answers = submission.answers  # {str(subpart_id): answer_value}
     problem_set = submission.assignment.problem_set
     subject_room = submission.assignment.subject_room
 
     # Load all subparts for this problem set's questions in one query
-    question_ids = list(problem_set.questions.values_list('id', flat=True))
+    question_ids = list(problem_set.questions.values_list("id", flat=True))
     subparts = list(
         QuestionSubpart.objects.filter(question__in=question_ids)
-        .select_related('question')
-        .order_by('question_id', 'index')
+        .select_related("question")
+        .order_by("question_id", "index")
     )
 
     # Group subpart counts per question for SubjectRoomQuestionMistake
@@ -73,13 +74,15 @@ def grade_submission(self, submission_id: int) -> dict:
         mark = _grade_subpart(subpart.question.question_type, student_answer, subpart.correct_answer)
         total_mark += mark
 
-        ticks_to_create.append(Tick(
-            student=submission.student,
-            question_subpart=subpart,
-            submission=submission,
-            subject_room=subject_room,
-            mark=mark,
-        ))
+        ticks_to_create.append(
+            Tick(
+                student=submission.student,
+                question_subpart=subpart,
+                submission=submission,
+                subject_room=subject_room,
+                mark=mark,
+            )
+        )
 
     # Bulk-create all ticks in one DB round trip
     created_ticks = Tick.objects.bulk_create(ticks_to_create)
@@ -87,7 +90,7 @@ def grade_submission(self, submission_id: int) -> dict:
     # Update submission scores
     submission.score = total_mark / total_subparts if total_subparts > 0 else 0.0
     submission.completion = attempted / total_subparts if total_subparts > 0 else 0.0
-    submission.save(update_fields=['score', 'completion'])
+    submission.save(update_fields=["score", "completion"])
 
     # Update question mistake aggregates
     _update_question_mistakes(created_ticks, subject_room.id, subpart_count_by_question)
@@ -97,12 +100,12 @@ def grade_submission(self, submission_id: int) -> dict:
     update_proficiency.delay(submission.student_id, subject_room.id)
 
     return {
-        'submission_id': submission_id,
-        'total_subparts': total_subparts,
-        'attempted': attempted,
-        'score': submission.score,
-        'completion': submission.completion,
-        'ticks_created': len(ticks_to_create),
+        "submission_id": submission_id,
+        "total_subparts": total_subparts,
+        "attempted": attempted,
+        "score": submission.score,
+        "completion": submission.completion,
+        "ticks_created": len(ticks_to_create),
     }
 
 
@@ -111,30 +114,27 @@ def _grade_subpart(question_type: str, student_answer, correct_answer: dict) -> 
     Grade a single subpart answer. Returns a fraction (0.0–1.0).
     Matching questions support partial credit.
     """
-    if not correct_answer or 'answer' not in correct_answer:
+    if not correct_answer or "answer" not in correct_answer:
         return 0.0
 
-    expected = correct_answer['answer']
+    expected = correct_answer["answer"]
 
-    if question_type in ('mcq', 'fill_blank', 'multi_select'):
+    if question_type in ("mcq", "fill_blank", "multi_select"):
         return 1.0 if str(student_answer) == str(expected) else 0.0
 
-    if question_type == 'numeric':
+    if question_type == "numeric":
         try:
             return 1.0 if abs(float(student_answer) - float(expected)) < 0.001 else 0.0
         except (TypeError, ValueError):
             return 0.0
 
-    if question_type == 'matching':
+    if question_type == "matching":
         # Partial credit: each correctly matched pair = 1/n
         if not isinstance(expected, dict) or not isinstance(student_answer, dict):
             return 0.0
         if not expected:
             return 0.0
-        correct_pairs = sum(
-            1 for k, v in expected.items()
-            if str(student_answer.get(k)) == str(v)
-        )
+        correct_pairs = sum(1 for k, v in expected.items() if str(student_answer.get(k)) == str(v))
         return correct_pairs / len(expected)
 
     return 0.0
@@ -172,12 +172,12 @@ def _update_assignment_aggregates(assignment_id: int) -> None:
         assignment_id=assignment_id,
         submitted_at__isnull=False,
     ).aggregate(
-        avg_score=Avg('score'),
-        avg_completion=Avg('completion'),
+        avg_score=Avg("score"),
+        avg_completion=Avg("completion"),
     )
     Assignment.objects.filter(pk=assignment_id).update(
-        average_score=agg['avg_score'] or 0.0,
-        completion_rate=agg['avg_completion'] or 0.0,
+        average_score=agg["avg_score"] or 0.0,
+        completion_rate=agg["avg_completion"] or 0.0,
     )
 
 
@@ -200,8 +200,9 @@ def update_proficiency(student_id: int, subject_room_id: int) -> None:
             student_id=student_id,
             subject_room_id=subject_room_id,
             is_acknowledged=False,
-        ).select_related('question_subpart__question')
-        .prefetch_related('question_subpart__tags', 'question_subpart__question__tags')
+        )
+        .select_related("question_subpart__question")
+        .prefetch_related("question_subpart__tags", "question_subpart__question__tags")
     )
 
     if not ticks:
@@ -244,7 +245,7 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
         StudentProficiency.objects.filter(
             subject_room_id=subject_room_id,
             question_tag_id=tag_id,
-        ).order_by('rate')
+        ).order_by("rate")
     )
 
     if not profs:
@@ -259,13 +260,13 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
     agg = StudentProficiency.objects.filter(
         subject_room_id=subject_room_id,
         question_tag_id=tag_id,
-    ).aggregate(avg_rate=Avg('rate'), avg_score=Avg('score'))
+    ).aggregate(avg_rate=Avg("rate"), avg_score=Avg("score"))
 
     SubjectRoomProficiency.objects.update_or_create(
         subject_room_id=subject_room_id,
         question_tag_id=tag_id,
         defaults={
-            'rate': agg['avg_rate'] or 0.0,
-            'score': agg['avg_score'] or 0.0,
+            "rate": agg["avg_rate"] or 0.0,
+            "score": agg["avg_score"] or 0.0,
         },
     )

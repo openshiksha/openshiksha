@@ -2,27 +2,39 @@
 Tests for Assignment Pipeline models: ProblemSet, Assignment, Submission
 """
 
-import pytest
 from datetime import timedelta
-from django.utils import timezone
+
+import pytest
+
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
 
 from openshiksha.apps.core.models import (
-    ProblemSet, Assignment, Submission,
-    Question, SubjectRoom,
-    User, UserRole, School, Board, Standard, Subject, Chapter, ClassRoom,
+    Assignment,
+    Board,
+    Chapter,
+    ClassRoom,
+    ProblemSet,
+    Question,
+    School,
+    Standard,
+    Subject,
+    SubjectRoom,
+    Submission,
+    User,
+    UserRole,
 )
 
 
 @pytest.fixture
 def board(db):
-    return Board.objects.create(name='CBSE')
+    return Board.objects.create(name="CBSE")
 
 
 @pytest.fixture
 def school(db, board):
-    return School.objects.create(name='Test School', board=board)
+    return School.objects.create(name="Test School", board=board)
 
 
 @pytest.fixture
@@ -32,40 +44,32 @@ def standard(db):
 
 @pytest.fixture
 def subject(db):
-    return Subject.objects.create(name='Science')
+    return Subject.objects.create(name="Science")
 
 
 @pytest.fixture
 def chapter(db, subject, standard):
-    return Chapter.objects.create(name='Motion', subject=subject, standard=standard, order=1)
+    return Chapter.objects.create(name="Motion", subject=subject, standard=standard, order=1)
 
 
 @pytest.fixture
 def classroom(db, school, standard):
-    return ClassRoom.objects.create(
-        school=school, standard=standard, division='B', academic_year='2025-26'
-    )
+    return ClassRoom.objects.create(school=school, standard=standard, division="B", academic_year="2025-26")
 
 
 @pytest.fixture
 def teacher_user(db, school):
-    return User.objects.create_user(
-        username='teacher2', password='pass', role=UserRole.TEACHER, school=school
-    )
+    return User.objects.create_user(username="teacher2", password="pass", role=UserRole.TEACHER, school=school)
 
 
 @pytest.fixture
 def student_user(db, school):
-    return User.objects.create_user(
-        username='student2', password='pass', role=UserRole.STUDENT, school=school
-    )
+    return User.objects.create_user(username="student2", password="pass", role=UserRole.STUDENT, school=school)
 
 
 @pytest.fixture
 def subject_room(db, classroom, subject, teacher_user, student_user):
-    room = SubjectRoom.objects.create(
-        classroom=classroom, subject=subject, teacher=teacher_user
-    )
+    room = SubjectRoom.objects.create(classroom=classroom, subject=subject, teacher=teacher_user)
     room.students.add(student_user)
     return room
 
@@ -78,8 +82,12 @@ def question(db, school, standard, subject, chapter):
 @pytest.fixture
 def problem_set(db, school, standard, subject, chapter, question):
     ps = ProblemSet.objects.create(
-        school=school, standard=standard, subject=subject, chapter=chapter,
-        title='Motion Basics #1', number=1,
+        school=school,
+        standard=standard,
+        subject=subject,
+        chapter=chapter,
+        title="Motion Basics #1",
+        number=1,
     )
     ps.questions.add(question)
     return ps
@@ -103,19 +111,31 @@ class TestProblemSet:
 
     def test_unique_number_per_chapter(self, db, school, standard, subject, chapter, question):
         ProblemSet.objects.create(
-            school=school, standard=standard, subject=subject, chapter=chapter,
-            title='Set 1', number=1,
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            title="Set 1",
+            number=1,
         )
         with pytest.raises(IntegrityError):
             ProblemSet.objects.create(
-                school=school, standard=standard, subject=subject, chapter=chapter,
-                title='Another Set 1', number=1,
+                school=school,
+                standard=standard,
+                subject=subject,
+                chapter=chapter,
+                title="Another Set 1",
+                number=1,
             )
 
     def test_null_school_is_shared(self, db, standard, subject, chapter):
         ps = ProblemSet.objects.create(
-            school=None, standard=standard, subject=subject, chapter=chapter,
-            title='Shared Set', number=1,
+            school=None,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            title="Shared Set",
+            number=1,
         )
         assert ps.school is None
 
@@ -123,7 +143,7 @@ class TestProblemSet:
         assert problem_set.questions.filter(pk=question.pk).exists()
 
     def test_str(self, problem_set):
-        assert 'Motion Basics' in str(problem_set)
+        assert "Motion Basics" in str(problem_set)
 
 
 class TestAssignment:
@@ -144,7 +164,7 @@ class TestAssignment:
             assignment.full_clean()
 
     def test_str(self, assignment):
-        assert 'Motion Basics' in str(assignment)
+        assert "Motion Basics" in str(assignment)
 
 
 class TestSubmission:
@@ -152,7 +172,7 @@ class TestSubmission:
         sub = Submission.objects.create(
             assignment=assignment,
             student=student_user,
-            answers={'1': 2, '2': 'velocity'},
+            answers={"1": 2, "2": "velocity"},
         )
         assert sub.pk is not None
         assert sub.score is None  # Not graded yet
@@ -165,16 +185,12 @@ class TestSubmission:
             Submission.objects.create(assignment=assignment, student=student_user)
 
     def test_submission_score_fraction_validation(self, db, assignment, student_user):
-        sub = Submission(
-            assignment=assignment, student=student_user, score=1.5
-        )
+        sub = Submission(assignment=assignment, student=student_user, score=1.5)
         with pytest.raises(ValidationError):
             sub.full_clean()
 
     def test_completion_fraction_validation(self, db, assignment, student_user):
-        sub = Submission(
-            assignment=assignment, student=student_user, completion=2.0
-        )
+        sub = Submission(assignment=assignment, student=student_user, completion=2.0)
         with pytest.raises(ValidationError):
             sub.full_clean()
 
@@ -182,7 +198,7 @@ class TestSubmission:
         sub = Submission.objects.create(
             assignment=assignment,
             student=student_user,
-            answers={'1': 3},
+            answers={"1": 3},
             completion=1.0,
         )
         assert sub.submitted_at is None
@@ -192,7 +208,7 @@ class TestSubmission:
         assert sub.submitted_at is not None
 
     def test_answers_json_storage(self, db, assignment, student_user):
-        answers = {'42': 3, '43': 'photosynthesis', '44': [1, 3]}
+        answers = {"42": 3, "43": "photosynthesis", "44": [1, 3]}
         sub = Submission.objects.create(
             assignment=assignment,
             student=student_user,
@@ -203,4 +219,4 @@ class TestSubmission:
 
     def test_str(self, db, assignment, student_user):
         sub = Submission.objects.create(assignment=assignment, student=student_user)
-        assert 'student2' in str(sub)
+        assert "student2" in str(sub)

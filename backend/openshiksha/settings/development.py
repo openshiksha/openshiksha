@@ -48,7 +48,7 @@ SHELL_PLUS = "ipython"
 SHELL_PLUS_PRINT_SQL = True
 
 # Celery - Eager execution in development (synchronous)
-CELERY_TASK_ALWAYS_EAGER = False  # Set to True for synchronous task execution
+CELERY_TASK_ALWAYS_EAGER = True  # Synchronous task execution in development (no Celery worker needed)
 CELERY_TASK_EAGER_PROPAGATES = True
 
 print("[OK] Development settings loaded")

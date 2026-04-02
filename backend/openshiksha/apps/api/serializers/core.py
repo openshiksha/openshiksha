@@ -35,11 +35,47 @@ class QuestionTagSerializer(serializers.ModelSerializer):
 
 
 class QuestionSubpartSerializer(serializers.ModelSerializer):
+    """Full subpart serializer — for admin/teacher use only (exposes correct_answer)."""
+
     tags = QuestionTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "correct_answer"]
+        fields = ["id", "index", "tags", "question_text", "options", "correct_answer"]
+
+
+class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
+    """Student-safe subpart serializer — omits correct_answer so students cannot see answers."""
+
+    tags = QuestionTagSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = QuestionSubpart
+        fields = ["id", "index", "tags", "question_text", "options"]
+
+
+class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
+    """Question serializer using the student-safe subpart serializer."""
+
+    subparts = QuestionSubpartStudentSerializer(many=True, read_only=True)
+    tags = QuestionTagSerializer(many=True, read_only=True)
+    question_type_display = serializers.CharField(source="get_question_type_display", read_only=True)
+
+    class Meta:
+        model = Question
+        fields = [
+            "id",
+            "standard",
+            "subject",
+            "chapter",
+            "question_type",
+            "question_type_display",
+            "difficulty",
+            "tags",
+            "subparts",
+            "is_active",
+            "created_at",
+        ]
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -125,6 +161,15 @@ class ProblemSetDetailSerializer(ProblemSetSerializer):
         fields = ProblemSetSerializer.Meta.fields + ["questions"]
 
 
+class ProblemSetStudentDetailSerializer(ProblemSetSerializer):
+    """Student-facing problem set detail — uses student-safe question serializer (no correct_answer)."""
+
+    questions = QuestionWithSubpartsStudentSerializer(many=True, read_only=True)
+
+    class Meta(ProblemSetSerializer.Meta):
+        fields = ProblemSetSerializer.Meta.fields + ["questions"]
+
+
 class AssignmentSerializer(serializers.ModelSerializer):
     problem_set = ProblemSetSerializer(read_only=True)
     problem_set_id = serializers.PrimaryKeyRelatedField(
@@ -167,9 +212,12 @@ class AssignmentDetailSerializer(AssignmentSerializer):
     """
     Extended assignment serializer with full problem set questions
     and the current user's submission (for student views).
+
+    Uses ProblemSetStudentDetailSerializer so correct_answer is never exposed
+    to students via the assignment detail endpoint.
     """
 
-    problem_set = ProblemSetDetailSerializer(read_only=True)
+    problem_set = ProblemSetStudentDetailSerializer(read_only=True)
     my_submission = serializers.SerializerMethodField()
 
     class Meta(AssignmentSerializer.Meta):

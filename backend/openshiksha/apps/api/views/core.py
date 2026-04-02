@@ -225,6 +225,9 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             "subject_room__classroom",
             "subject_room__subject",
             "assigned_by",
+        ).prefetch_related(
+            "problem_set__questions__subparts__tags",
+            "problem_set__questions__tags",
         )
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
@@ -271,12 +274,18 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         qs = Submission.objects.select_related("assignment__problem_set", "student")
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
-            return qs.filter(student=user)
+            qs = qs.filter(student=user)
         elif user.role == UserRole.TEACHER:
-            return qs.filter(assignment__subject_room__teacher=user)
+            qs = qs.filter(assignment__subject_room__teacher=user)
         elif user.role == UserRole.ADMIN:
-            return qs.filter(assignment__subject_room__classroom__school=user.school)
-        return qs.none()
+            qs = qs.filter(assignment__subject_room__classroom__school=user.school)
+        else:
+            return qs.none()
+
+        assignment_id = self.request.query_params.get("assignment")
+        if assignment_id:
+            qs = qs.filter(assignment_id=assignment_id)
+        return qs
 
     def get_permissions(self):
         if self.action == "create":

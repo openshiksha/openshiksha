@@ -25,11 +25,19 @@ export interface QuestionTag {
   tag_type: 'concept' | 'skill' | 'difficulty' | 'special';
 }
 
+export interface MCQOption {
+  key: string;
+  text: string;
+}
+
 export interface QuestionSubpart {
   id: number;
   index: number;
   tags: QuestionTag[];
+  question_text: string;
+  options: MCQOption[] | null;
 }
+
 
 export interface Question {
   id: number;
@@ -69,6 +77,14 @@ export interface ProblemSet {
   question_count: number;
   estimated_minutes: number | null;
   is_active: boolean;
+}
+
+export interface ProblemSetWithQuestions extends ProblemSet {
+  questions: Question[];
+}
+
+export interface AssignmentDetail extends Assignment {
+  problem_set: ProblemSetWithQuestions;
 }
 
 export interface Submission {

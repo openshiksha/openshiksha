@@ -1,4 +1,5 @@
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import type { Assignment } from '@/types/index';
 
 interface AssignmentCardProps {
@@ -6,6 +7,7 @@ interface AssignmentCardProps {
 }
 
 export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
+  const navigate = useNavigate();
   const { problem_set, due_at, my_submission } = assignment;
   const dueDate = parseISO(due_at);
   const isOverdue = isPast(dueDate);
@@ -74,6 +76,7 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
           {isSubmitted ? 'Submitted' : dueDateLabel}
         </span>
         <button
+          onClick={() => navigate(`/student/assignments/${assignment.id}`)}
           className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${ctaStyle}`}
         >
           {cta}

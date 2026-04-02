@@ -141,6 +141,8 @@ jobs:
               run: npm run type-check
             - name: Run tests (Vitest)
               run: npm test -- --run
+            - name: Build
+              run: npm run build
 
     build-publish:
         name: Build & Publish

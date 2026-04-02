@@ -4,14 +4,10 @@ import { LoginPage } from './features/auth/LoginPage';
 import { AppShell } from './features/layout/AppShell';
 import { ProtectedRoute } from './features/layout/ProtectedRoute';
 import { StudentDashboard } from './features/student/StudentDashboard';
+import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
+import { TeacherDashboard } from './features/teacher/TeacherDashboard';
+import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
-
-const TeacherDashboard = () => (
-  <div className="text-center py-16">
-    <h2 className="text-2xl font-semibold text-gray-700">Teacher Dashboard</h2>
-    <p className="text-gray-500 mt-2">Coming soon.</p>
-  </div>
-);
 
 const NotFound = () => (
   <div className="text-center py-16">
@@ -40,7 +36,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
 
         <Route
-          path="/student/*"
+          path="/student"
           element={
             <ProtectedRoute>
               <AppShell>
@@ -51,11 +47,33 @@ function App() {
         />
 
         <Route
-          path="/teacher/*"
+          path="/student/assignments/:id"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <AssignmentDetailPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher"
           element={
             <ProtectedRoute>
               <AppShell>
                 <TeacherDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/assignments/new"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <CreateAssignmentPage />
               </AppShell>
             </ProtectedRoute>
           }

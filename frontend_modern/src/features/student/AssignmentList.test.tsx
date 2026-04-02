@@ -47,7 +47,7 @@ describe('AssignmentList', () => {
   it('shows overdue section for past-due assignments without submission', () => {
     const assignment = makeAssignment({ due_at: formatISO(subDays(new Date(), 2)) });
     render(<AssignmentList assignments={[assignment]} />);
-    expect(screen.getByText(/overdue/i)).toBeDefined();
+    expect(screen.getByRole('heading', { name: /^overdue$/i })).toBeDefined();
   });
 
   it('shows completed section for submitted assignments', () => {
@@ -82,7 +82,7 @@ describe('AssignmentList', () => {
       makeAssignment({ id: 3, due_at: formatISO(addDays(new Date(), 7)) }), // upcoming
     ];
     render(<AssignmentList assignments={assignments} />);
-    expect(screen.getByText(/overdue/i)).toBeDefined();
+    expect(screen.getByRole('heading', { name: /^overdue$/i })).toBeDefined();
     expect(screen.getByText(/due soon/i)).toBeDefined();
     expect(screen.getByText(/upcoming/i)).toBeDefined();
   });

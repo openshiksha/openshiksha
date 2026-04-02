@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAssignmentDetail } from './useAssignmentDetail';
 import { useSubmission, useCreateSubmission, usePatchSubmission } from './useSubmission';
@@ -65,7 +65,10 @@ export const AssignmentDetailPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submissionLoading, existingSubmission]);
 
-  const questions = assignment?.problem_set?.questions ?? [];
+  const questions = useMemo(
+    () => assignment?.problem_set?.questions ?? [],
+    [assignment]
+  );
   const total = countSubparts(questions);
   const answered = countAnswered(questions, answers);
 

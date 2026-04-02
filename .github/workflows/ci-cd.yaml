@@ -118,8 +118,8 @@ jobs:
                 SECRET_KEY: test-secret-key-not-for-production
                 DEBUG: "True"
 
-    frontend-ci:
-        name: Frontend CI
+    frontend:
+        name: Frontend (Lint, Types, Tests)
         runs-on: ubuntu-latest
         defaults:
             run:
@@ -139,14 +139,14 @@ jobs:
               run: npm run lint
             - name: Type check (TypeScript)
               run: npm run type-check
-            - name: Unit tests (Vitest)
-              run: npx vitest run
+            - name: Run tests (Vitest)
+              run: npm test -- --run
             - name: Build
               run: npm run build
 
     build-publish:
         name: Build & Publish
-        needs: [lint, security, test, frontend-ci]
+        needs: [lint, security, test, frontend]
         # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest

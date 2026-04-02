@@ -419,6 +419,16 @@ class QuestionSubpart(models.Model):
     )
     index = models.PositiveIntegerField(help_text="Order within question (0-indexed)")
     tags = models.ManyToManyField(QuestionTag, blank=True, related_name="subparts")
+    question_text = models.TextField(
+        blank=True,
+        default="",
+        help_text="LaTeX or plain text for the question prompt. Use $...$ for inline math.",
+    )
+    options = models.JSONField(
+        null=True,
+        blank=True,
+        help_text='MCQ choices: [{"key": "A", "text": "..."}, ...]. Null for non-MCQ types.',
+    )
     correct_answer = models.JSONField(
         default=dict,
         help_text='Answer data: e.g. {"type": "mcq", "answer": 2} or {"type": "fill_blank", "answer": "42"}',

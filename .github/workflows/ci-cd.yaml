@@ -118,9 +118,35 @@ jobs:
                 SECRET_KEY: test-secret-key-not-for-production
                 DEBUG: "True"
 
+    frontend-ci:
+        name: Frontend CI
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: frontend_modern/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Lint (ESLint)
+              run: npm run lint
+            - name: Type check (TypeScript)
+              run: npm run type-check
+            - name: Unit tests (Vitest)
+              run: npx vitest run
+            - name: Build
+              run: npm run build
+
     build-publish:
         name: Build & Publish
-        needs: [lint, security, test]
+        needs: [lint, security, test, frontend-ci]
         # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest

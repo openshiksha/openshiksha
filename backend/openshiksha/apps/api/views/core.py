@@ -11,23 +11,30 @@ from rest_framework.response import Response
 from openshiksha.apps.api.serializers import (
     AssignmentDetailSerializer,
     AssignmentSerializer,
+    ChapterSerializer,
     ProblemSetSerializer,
     QuestionSerializer,
     QuestionTagSerializer,
+    QuestionWriteSerializer,
+    StudentProficiencySerializer,
     SubjectRoomSerializer,
+    SubjectSerializer,
     SubmissionSerializer,
     UserSerializer,
 )
 from openshiksha.apps.core.models import (
     Assignment,
+    Chapter,
     ProblemSet,
     Question,
     QuestionTag,
+    Subject,
     SubjectRoom,
     Submission,
     User,
     UserRole,
 )
+from openshiksha.apps.edge.models import StudentProficiency
 
 
 class IsTeacher(permissions.BasePermission):
@@ -85,9 +92,51 @@ class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "tag_type"]
 
 
-class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
+class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    List and retrieve questions.
+    List and retrieve subjects.
+    Used by question authoring UI to populate chapter picker.
+    """
+
+    serializer_class = SubjectSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Subject.objects.all().order_by("name")
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"]
+
+
+class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve chapters.
+
+    Filtering:
+    - ?subject=<id>
+    - ?standard=<id>
+    """
+
+    serializer_class = ChapterSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["name"]
+    ordering_fields = ["order"]
+    ordering = ["order"]
+
+    def get_queryset(self):
+        qs = Chapter.objects.select_related("subject", "standard").order_by("order")
+        params = self.request.query_params
+        if subject := params.get("subject"):
+            qs = qs.filter(subject_id=subject)
+        if standard := params.get("standard"):
+            qs = qs.filter(standard_id=standard)
+        return qs
+
+
+class QuestionViewSet(viewsets.ModelViewSet):
+    """
+    Question bank CRUD.
+
+    Read: all authenticated users can list/retrieve questions.
+    Write (create/update/delete): teachers only.
 
     Filtering:
     - ?chapter=<id>
@@ -97,12 +146,21 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     - ?question_type=<mcq|fill_blank|matching|multi_select|numeric>
     """
 
-    serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["chapter__name", "subject__name"]
     ordering_fields = ["difficulty", "created_at"]
     ordering = ["created_at"]
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return QuestionWriteSerializer
+        return QuestionSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [permissions.IsAuthenticated(), IsTeacher()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         from django.db.models import Q
@@ -132,6 +190,10 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(question_type=question_type)
 
         return qs
+
+    def perform_create(self, serializer):
+        school = getattr(self.request.user, "school", None)
+        serializer.save(created_by=self.request.user, school=school)
 
 
 class SubjectRoomViewSet(viewsets.ModelViewSet):
@@ -291,3 +353,29 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         if self.action == "create":
             return [permissions.IsAuthenticated(), IsStudent()]
         return [permissions.IsAuthenticated()]
+
+
+class StudentProficiencyViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only view of a student's proficiency per question tag.
+
+    Students see their own records only.
+    Grouped by subject_room in the frontend for per-subject display.
+
+    GET /api/v1/proficiency/ — list all proficiency records for the current student
+    GET /api/v1/proficiency/{id}/ — retrieve a single record
+    """
+
+    serializer_class = StudentProficiencySerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get_queryset(self):
+        return (
+            StudentProficiency.objects.filter(student=self.request.user)
+            .select_related(
+                "question_tag",
+                "subject_room__subject",
+                "subject_room__classroom__standard",
+            )
+            .order_by("subject_room__subject__name", "question_tag__name")
+        )

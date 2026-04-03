@@ -30,6 +30,8 @@ function makeAssignment(overrides: Partial<Assignment> = {}): Assignment {
     number: 1,
     average_score: null,
     completion_rate: null,
+    submission_count: 0,
+    student_count: 0,
     my_submission: null,
     ...overrides,
   };

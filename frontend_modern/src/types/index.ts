@@ -111,7 +111,56 @@ export interface Assignment {
   number: number;
   average_score: number | null;
   completion_rate: number | null;
+  submission_count: number;
+  student_count: number;
   my_submission?: Submission | null;
+}
+
+export interface Subject {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface ChapterItem {
+  id: number;
+  name: string;
+  subject: number;
+  subject_name: string;
+  standard: number;
+  standard_number: number;
+  order: number;
+}
+
+export interface StudentProficiency {
+  id: number;
+  tag_name: string;
+  tag_type: string;
+  subject_name: string;
+  subject_room: number;
+  classroom_display: string;
+  score: number;
+  rate: number;
+  percentile: number;
+  tick_count: number;
+  updated_at: string;
+}
+
+export interface QuestionSubpartWrite {
+  index: number;
+  question_text: string;
+  options: MCQOption[] | null;
+  correct_answer: Record<string, unknown>;
+}
+
+export interface QuestionCreate {
+  standard: number;
+  subject: number;
+  chapter: number;
+  question_type: 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric';
+  difficulty: number;
+  tag_ids?: number[];
+  subparts: QuestionSubpartWrite[];
 }
 
 export interface ApiError {

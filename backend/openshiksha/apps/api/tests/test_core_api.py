@@ -1,0 +1,350 @@
+"""
+Tests for UserViewSet, SubjectRoomViewSet, and health check endpoint.
+
+Covers:
+- /api/users/me/ — authenticated user profile
+- /api/subject-rooms/ — role-based CRUD and visibility
+- /api/v1/health/ — service health check
+- /api/auth/login/ — JWT token issuance
+"""
+
+import pytest
+
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient
+
+from openshiksha.apps.core.models import (
+    Board,
+    Chapter,
+    ClassRoom,
+    School,
+    Standard,
+    Subject,
+    SubjectRoom,
+    User,
+    UserRole,
+)
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+
+@pytest.fixture
+def board(db):
+    return Board.objects.create(name="CBSE")
+
+
+@pytest.fixture
+def school(db, board):
+    return School.objects.create(name="Test School", board=board)
+
+
+@pytest.fixture
+def other_school(db, board):
+    return School.objects.create(name="Other School", board=board)
+
+
+@pytest.fixture
+def standard(db):
+    return Standard.objects.create(number=9)
+
+
+@pytest.fixture
+def subject(db):
+    return Subject.objects.create(name="Mathematics")
+
+
+@pytest.fixture
+def chapter(db, subject, standard):
+    return Chapter.objects.create(name="Algebra", subject=subject, standard=standard, order=1)
+
+
+@pytest.fixture
+def classroom(db, school, standard):
+    return ClassRoom.objects.create(school=school, standard=standard, division="A", academic_year="2025-26")
+
+
+@pytest.fixture
+def other_classroom(db, other_school, standard):
+    return ClassRoom.objects.create(school=other_school, standard=standard, division="B", academic_year="2025-26")
+
+
+@pytest.fixture
+def teacher(db, school):
+    return User.objects.create_user(username="teacher_core", password="pass", role=UserRole.TEACHER, school=school)
+
+
+@pytest.fixture
+def other_teacher(db, school):
+    return User.objects.create_user(
+        username="other_teacher_core", password="pass", role=UserRole.TEACHER, school=school
+    )
+
+
+@pytest.fixture
+def student(db, school):
+    return User.objects.create_user(username="student_core", password="pass", role=UserRole.STUDENT, school=school)
+
+
+@pytest.fixture
+def admin_user(db, school):
+    return User.objects.create_user(username="admin_core", password="pass", role=UserRole.ADMIN, school=school)
+
+
+@pytest.fixture
+def other_school_admin(db, other_school):
+    return User.objects.create_user(
+        username="other_admin_core", password="pass", role=UserRole.ADMIN, school=other_school
+    )
+
+
+@pytest.fixture
+def subject_room(db, classroom, subject, teacher, student):
+    room = SubjectRoom.objects.create(classroom=classroom, subject=subject, teacher=teacher)
+    room.students.add(student)
+    return room
+
+
+@pytest.fixture
+def other_subject_room(db, other_classroom, subject, other_teacher):
+    """A room in a different school, taught by a different teacher."""
+    return SubjectRoom.objects.create(classroom=other_classroom, subject=subject, teacher=other_teacher)
+
+
+# ---------------------------------------------------------------------------
+# UserViewSet: /api/users/me/
+# ---------------------------------------------------------------------------
+
+
+class TestUserMeEndpoint:
+    def test_unauthenticated_cannot_access_me(self, api_client):
+        url = reverse("user-me")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_authenticated_teacher_gets_own_profile(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("user-me")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == teacher.username
+        assert response.data["role"] == UserRole.TEACHER
+
+    def test_authenticated_student_gets_own_profile(self, api_client, student):
+        api_client.force_authenticate(user=student)
+        url = reverse("user-me")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == student.username
+        assert response.data["role"] == UserRole.STUDENT
+
+    def test_me_response_includes_expected_fields(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("user-me")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        for field in ["id", "username", "email", "first_name", "last_name", "role"]:
+            assert field in response.data, f"Expected field '{field}' in /users/me/ response"
+
+    def test_me_does_not_expose_password(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("user-me")
+        response = api_client.get(url)
+        assert "password" not in response.data
+
+
+# ---------------------------------------------------------------------------
+# Authentication: JWT login
+# ---------------------------------------------------------------------------
+
+
+class TestAuthEndpoints:
+    def test_valid_credentials_return_tokens(self, api_client, teacher):
+        url = reverse("token_obtain_pair")
+        response = api_client.post(url, {"username": "teacher_core", "password": "pass"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        assert "refresh" in response.data
+
+    def test_invalid_password_is_rejected(self, api_client, teacher):
+        url = reverse("token_obtain_pair")
+        response = api_client.post(url, {"username": "teacher_core", "password": "wrong"}, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_nonexistent_user_is_rejected(self, api_client, db):
+        url = reverse("token_obtain_pair")
+        response = api_client.post(url, {"username": "ghost", "password": "pass"}, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_token_refresh(self, api_client, teacher):
+        login_url = reverse("token_obtain_pair")
+        refresh_url = reverse("token_refresh")
+        login_response = api_client.post(login_url, {"username": "teacher_core", "password": "pass"}, format="json")
+        refresh_token = login_response.data["refresh"]
+        response = api_client.post(refresh_url, {"refresh": refresh_token}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+
+
+# ---------------------------------------------------------------------------
+# Health check: /api/v1/health/
+# ---------------------------------------------------------------------------
+
+
+class TestHealthEndpoint:
+    def test_health_returns_200_when_healthy(self, api_client):
+        url = reverse("health_check")
+        response = api_client.get(url)
+        # Accept 200 (healthy) or 503 (unhealthy but endpoint is up)
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_503_SERVICE_UNAVAILABLE]
+
+    def test_health_response_includes_status_field(self, api_client):
+        url = reverse("health_check")
+        response = api_client.get(url)
+        assert "status" in response.data
+
+    def test_health_response_includes_database_field(self, api_client):
+        url = reverse("health_check")
+        response = api_client.get(url)
+        assert "database" in response.data
+
+    def test_health_response_includes_cache_field(self, api_client):
+        url = reverse("health_check")
+        response = api_client.get(url)
+        assert "cache" in response.data
+
+    def test_health_accessible_without_authentication(self, api_client):
+        """Health endpoint must be public — no auth token required."""
+        url = reverse("health_check")
+        response = api_client.get(url)
+        assert response.status_code != status.HTTP_401_UNAUTHORIZED
+        assert response.status_code != status.HTTP_403_FORBIDDEN
+
+    def test_health_returns_healthy_with_real_db(self, api_client, db):
+        """With a real test database available, the health endpoint should report healthy."""
+        url = reverse("health_check")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "healthy"
+        assert response.data["database"] == "connected"
+
+
+# ---------------------------------------------------------------------------
+# SubjectRoomViewSet: /api/subject-rooms/
+# ---------------------------------------------------------------------------
+
+
+class TestSubjectRoomVisibility:
+    def test_unauthenticated_cannot_list(self, api_client):
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_teacher_sees_own_rooms_only(self, api_client, teacher, other_teacher, subject_room, other_subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        ids = [r["id"] for r in response.data]
+        assert subject_room.pk in ids
+        assert other_subject_room.pk not in ids
+
+    def test_student_sees_enrolled_rooms_only(self, api_client, student, subject_room, other_subject_room):
+        # student is enrolled in subject_room but not other_subject_room
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        ids = [r["id"] for r in response.data]
+        assert subject_room.pk in ids
+        assert other_subject_room.pk not in ids
+
+    def test_admin_sees_rooms_for_own_school_only(
+        self, api_client, admin_user, other_school_admin, subject_room, other_subject_room
+    ):
+        api_client.force_authenticate(user=admin_user)
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        ids = [r["id"] for r in response.data]
+        assert subject_room.pk in ids
+        assert other_subject_room.pk not in ids
+
+    def test_other_school_admin_sees_only_their_rooms(
+        self, api_client, other_school_admin, subject_room, other_subject_room
+    ):
+        api_client.force_authenticate(user=other_school_admin)
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        ids = [r["id"] for r in response.data]
+        assert other_subject_room.pk in ids
+        assert subject_room.pk not in ids
+
+    def test_student_cannot_see_inactive_rooms(self, api_client, student, subject_room):
+        subject_room.is_active = False
+        subject_room.save()
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        ids = [r["id"] for r in response.data]
+        assert subject_room.pk not in ids
+
+
+class TestSubjectRoomPermissions:
+    def test_teacher_can_create_subject_room(self, api_client, teacher, classroom, subject):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-list")
+        data = {"classroom": classroom.pk, "subject": subject.pk, "teacher": teacher.pk}
+        response = api_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_student_cannot_create_subject_room(self, api_client, student, classroom, subject, teacher):
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-list")
+        data = {"classroom": classroom.pk, "subject": subject.pk, "teacher": teacher.pk}
+        response = api_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_teacher_can_update_own_room(self, api_client, teacher, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-detail", kwargs={"pk": subject_room.pk})
+        response = api_client.patch(url, {"is_active": True}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_student_cannot_update_subject_room(self, api_client, student, subject_room):
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-detail", kwargs={"pk": subject_room.pk})
+        response = api_client.patch(url, {"is_active": False}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_teacher_cannot_delete_other_teachers_room(self, api_client, other_teacher, subject_room):
+        """other_teacher does not own subject_room — it should be invisible to them, so 404."""
+        api_client.force_authenticate(user=other_teacher)
+        url = reverse("subjectroom-detail", kwargs={"pk": subject_room.pk})
+        response = api_client.delete(url)
+        # Room is not in other_teacher's queryset so should be 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_teacher_can_retrieve_own_room(self, api_client, teacher, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-detail", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == subject_room.pk
+
+    def test_response_includes_student_count(self, api_client, teacher, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-detail", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "student_count" in response.data
+        assert response.data["student_count"] == 1

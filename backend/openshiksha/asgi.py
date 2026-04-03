@@ -9,12 +9,13 @@ https://docs.djangoproject.com/en/4.2/howto/deployment/asgi/
 
 import os
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
-from channels.security.websocket import AllowedHostsOriginValidator
+from channels.auth import AuthMiddlewareStack  # noqa: F401
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: F401
+from channels.security.websocket import AllowedHostsOriginValidator  # noqa: F401
+
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'openshiksha.settings.production')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "openshiksha.settings.production")
 
 # Initialize Django ASGI application early to ensure the AppRegistry
 # is populated before importing code that may import ORM models.
@@ -23,12 +24,14 @@ django_asgi_app = get_asgi_application()
 # Import websocket routing after Django is initialized
 # from apps.api.routing import websocket_urlpatterns
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    # WebSocket support (will be configured later)
-    # "websocket": AllowedHostsOriginValidator(
-    #     AuthMiddlewareStack(
-    #         URLRouter(websocket_urlpatterns)
-    #     )
-    # ),
-})
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        # WebSocket support (will be configured later)
+        # "websocket": AllowedHostsOriginValidator(
+        #     AuthMiddlewareStack(
+        #         URLRouter(websocket_urlpatterns)
+        #     )
+        # ),
+    }
+)

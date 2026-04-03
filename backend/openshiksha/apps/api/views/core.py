@@ -1,49 +1,52 @@
 """
 Core ViewSets for OpenShiksha API
 
-Covers SubjectRoom, Question, ProblemSet, Assignment, and Submission.
+Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
-from rest_framework import viewsets, permissions, filters
+from rest_framework import filters, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from openshiksha.apps.core.models import (
-    QuestionTag,
-    Question,
-    SubjectRoom,
-    ProblemSet,
-    Assignment,
-    Submission,
-    UserRole,
-)
 from openshiksha.apps.api.serializers import (
-    QuestionTagSerializer,
-    QuestionSerializer,
-    SubjectRoomSerializer,
-    ProblemSetSerializer,
-    AssignmentSerializer,
     AssignmentDetailSerializer,
+    AssignmentSerializer,
+    ProblemSetSerializer,
+    QuestionSerializer,
+    QuestionTagSerializer,
+    SubjectRoomSerializer,
     SubmissionSerializer,
+    UserSerializer,
+)
+from openshiksha.apps.core.models import (
+    Assignment,
+    ProblemSet,
+    Question,
+    QuestionTag,
+    SubjectRoom,
+    Submission,
+    User,
+    UserRole,
 )
 
 
 class IsTeacher(permissions.BasePermission):
     """Only teachers may proceed."""
+
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == UserRole.TEACHER
 
 
 class IsStudent(permissions.BasePermission):
     """Only students (including open students) may proceed."""
+
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in [
-            UserRole.STUDENT, UserRole.OPEN_STUDENT
-        ]
+        return request.user.is_authenticated and request.user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]
 
 
 class IsTeacherOrReadOnly(permissions.BasePermission):
     """Teachers have full access; authenticated users have read access."""
+
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
@@ -52,16 +55,34 @@ class IsTeacherOrReadOnly(permissions.BasePermission):
         return request.user.role == UserRole.TEACHER
 
 
+class UserViewSet(viewsets.GenericViewSet):
+    """
+    User profile endpoints.
+
+    GET /api/users/me/ -- returns the current authenticated user's profile.
+    """
+
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = User.objects.none()
+
+    @action(detail=False, methods=["get"], url_path="me")
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+
 class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
     """
     List and retrieve question tags.
-    Read-only — tags are managed via admin.
+    Read-only -- tags are managed via admin.
     """
-    queryset = QuestionTag.objects.all().order_by('name')
+
+    queryset = QuestionTag.objects.all().order_by("name")
     serializer_class = QuestionTagSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'tag_type']
+    search_fields = ["name", "tag_type"]
 
 
 class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
@@ -75,38 +96,39 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     - ?difficulty=<1-5>
     - ?question_type=<mcq|fill_blank|matching|multi_select|numeric>
     """
+
     serializer_class = QuestionSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['chapter__name', 'subject__name']
-    ordering_fields = ['difficulty', 'created_at']
-    ordering = ['created_at']
+    search_fields = ["chapter__name", "subject__name"]
+    ordering_fields = ["difficulty", "created_at"]
+    ordering = ["created_at"]
 
     def get_queryset(self):
         from django.db.models import Q
 
         user = self.request.user
-        base_qs = Question.objects.filter(is_active=True).select_related(
-            'standard', 'subject', 'chapter'
-        ).prefetch_related('tags', 'subparts__tags')
+        base_qs = (
+            Question.objects.filter(is_active=True)
+            .select_related("standard", "subject", "chapter")
+            .prefetch_related("tags", "subparts__tags")
+        )
 
-        # Filter to questions visible to this user: shared bank + their school's
-        if hasattr(user, 'school') and user.school:
+        if hasattr(user, "school") and user.school:
             qs = base_qs.filter(Q(school__isnull=True) | Q(school=user.school))
         else:
             qs = base_qs.filter(school__isnull=True)
 
-        # Optional query param filters
         params = self.request.query_params
-        if chapter := params.get('chapter'):
+        if chapter := params.get("chapter"):
             qs = qs.filter(chapter_id=chapter)
-        if subject := params.get('subject'):
+        if subject := params.get("subject"):
             qs = qs.filter(subject_id=subject)
-        if standard := params.get('standard'):
+        if standard := params.get("standard"):
             qs = qs.filter(standard_id=standard)
-        if difficulty := params.get('difficulty'):
+        if difficulty := params.get("difficulty"):
             qs = qs.filter(difficulty=difficulty)
-        if question_type := params.get('question_type'):
+        if question_type := params.get("question_type"):
             qs = qs.filter(question_type=question_type)
 
         return qs
@@ -120,17 +142,16 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
     - Students see rooms they are enrolled in.
     - Admins see all rooms for their school.
     """
+
     serializer_class = SubjectRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = SubjectRoom.objects.none()  # overridden in get_queryset; needed for schema gen
+    queryset = SubjectRoom.objects.none()
 
     def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
+        if getattr(self, "swagger_fake_view", False):
             return SubjectRoom.objects.none()
         user = self.request.user
-        qs = SubjectRoom.objects.select_related(
-            'classroom__school', 'subject', 'teacher'
-        ).prefetch_related('students')
+        qs = SubjectRoom.objects.select_related("classroom__school", "subject", "teacher").prefetch_related("students")
 
         if user.role == UserRole.TEACHER:
             return qs.filter(teacher=user)
@@ -141,7 +162,7 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ["create", "update", "partial_update", "destroy"]:
             return [permissions.IsAuthenticated(), IsTeacher()]
         return [permissions.IsAuthenticated()]
 
@@ -149,12 +170,8 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
 class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
     """
     List and retrieve problem sets.
-
-    Filtering:
-    - ?chapter=<id>
-    - ?subject=<id>
-    - ?standard=<id>
     """
+
     serializer_class = ProblemSetSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -162,21 +179,19 @@ class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         from django.db.models import Q
 
-        qs = ProblemSet.objects.filter(is_active=True).select_related(
-            'standard', 'subject', 'chapter'
-        )
+        qs = ProblemSet.objects.filter(is_active=True).select_related("standard", "subject", "chapter")
 
-        if hasattr(user, 'school') and user.school:
+        if hasattr(user, "school") and user.school:
             qs = qs.filter(Q(school__isnull=True) | Q(school=user.school))
         else:
             qs = qs.filter(school__isnull=True)
 
         params = self.request.query_params
-        if chapter := params.get('chapter'):
+        if chapter := params.get("chapter"):
             qs = qs.filter(chapter_id=chapter)
-        if subject := params.get('subject'):
+        if subject := params.get("subject"):
             qs = qs.filter(subject_id=subject)
-        if standard := params.get('standard'):
+        if standard := params.get("standard"):
             qs = qs.filter(standard_id=standard)
 
         return qs
@@ -186,31 +201,36 @@ class AssignmentViewSet(viewsets.ModelViewSet):
     """
     Assignment CRUD.
 
-    - GET /api/assignments/ — students see their pending/active assignments;
+    - GET /api/assignments/ -- students see their pending/active assignments;
       teachers see assignments they created.
-    - POST /api/assignments/ — teachers only.
-    - GET /api/assignments/{id}/ — detail view with questions + submission status.
+    - POST /api/assignments/ -- teachers only.
+    - GET /api/assignments/{id}/ -- detail view with questions + submission status.
     """
+
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Assignment.objects.none()  # overridden in get_queryset; needed for schema gen
+    queryset = Assignment.objects.none()
 
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        if self.action == "retrieve":
             return AssignmentDetailSerializer
         return AssignmentSerializer
 
     def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
+        if getattr(self, "swagger_fake_view", False):
             return Assignment.objects.none()
         user = self.request.user
         qs = Assignment.objects.select_related(
-            'problem_set__subject', 'problem_set__chapter',
-            'subject_room__classroom', 'subject_room__subject',
-            'assigned_by',
+            "problem_set__subject",
+            "problem_set__chapter",
+            "subject_room__classroom",
+            "subject_room__subject",
+            "assigned_by",
+        ).prefetch_related(
+            "problem_set__questions__subparts__tags",
+            "problem_set__questions__tags",
         )
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
-            # Students see assignments for their enrolled subject rooms
             return qs.filter(subject_room__students=user, subject_room__is_active=True)
         elif user.role == UserRole.TEACHER:
             return qs.filter(assigned_by=user)
@@ -219,18 +239,18 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ["create", "update", "partial_update", "destroy"]:
             return [permissions.IsAuthenticated(), IsTeacher()]
         return [permissions.IsAuthenticated()]
 
-    @action(detail=True, methods=['get'], url_path='submissions')
+    @action(detail=True, methods=["get"], url_path="submissions")
     def submissions(self, request, pk=None):
-        """GET /api/assignments/{id}/submissions/ — teacher views all submissions."""
+        """GET /api/assignments/{id}/submissions/ -- teacher views all submissions."""
         assignment = self.get_object()
         if request.user.role != UserRole.TEACHER:
-            return Response({'detail': 'Forbidden.'}, status=403)
-        subs = assignment.submissions.select_related('student')
-        serializer = SubmissionSerializer(subs, many=True, context={'request': request})
+            return Response({"detail": "Forbidden."}, status=403)
+        subs = assignment.submissions.select_related("student")
+        serializer = SubmissionSerializer(subs, many=True, context={"request": request})
         return Response(serializer.data)
 
 
@@ -238,30 +258,36 @@ class SubmissionViewSet(viewsets.ModelViewSet):
     """
     Submission CRUD.
 
-    - POST /api/submissions/ — student creates submission (saves answers in progress)
-    - PATCH /api/submissions/{id}/ — student updates answers or sets submitted_at
-    - GET /api/submissions/{id}/ — student views their own submission
+    - POST /api/submissions/ -- student creates submission (saves answers in progress)
+    - PATCH /api/submissions/{id}/ -- student updates answers or sets submitted_at
+    - GET /api/submissions/{id}/ -- student views their own submission
     """
+
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Submission.objects.none()  # overridden in get_queryset; needed for schema gen
+    queryset = Submission.objects.none()
 
     def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
+        if getattr(self, "swagger_fake_view", False):
             return Submission.objects.none()
         user = self.request.user
-        qs = Submission.objects.select_related('assignment__problem_set', 'student')
+        qs = Submission.objects.select_related("assignment__problem_set", "student")
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
-            return qs.filter(student=user)
+            qs = qs.filter(student=user)
         elif user.role == UserRole.TEACHER:
-            # Teachers see submissions for assignments in their subject rooms
-            return qs.filter(assignment__subject_room__teacher=user)
+            qs = qs.filter(assignment__subject_room__teacher=user)
         elif user.role == UserRole.ADMIN:
-            return qs.filter(assignment__subject_room__classroom__school=user.school)
-        return qs.none()
+            qs = qs.filter(assignment__subject_room__classroom__school=user.school)
+        else:
+            return qs.none()
+
+        assignment_id = self.request.query_params.get("assignment")
+        if assignment_id:
+            qs = qs.filter(assignment_id=assignment_id)
+        return qs
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action == "create":
             return [permissions.IsAuthenticated(), IsStudent()]
         return [permissions.IsAuthenticated()]

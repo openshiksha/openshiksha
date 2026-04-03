@@ -6,27 +6,38 @@ Implements smart analytics and insights:
 - ClassInsight: Aggregated class-level insight for teachers
 - PerformancePrediction: Heuristic exam-readiness forecast per subject
 
+AI-Powered Content Recommendations:
+- ContentRecommendation: What a student should practice next (and why)
+- PracticePlan: A daily bundle of recommendations for a student
+
+Adaptive Learning Engine:
+- KnowledgeNode: Chapter in the curriculum with prerequisite relationships
+- StudentMastery: Per-student mastery level for a KnowledgeNode
+- LearningPath: Personalised chapter sequence generated for a student
+- LearningPathStep: Individual step within a LearningPath with status
+- SpacedRepetitionEntry: SM-2-style review scheduling per student × chapter
+
 All analytics are computed asynchronously via Celery tasks and cached here
 for fast API reads. The source of truth is always the Tick + StudentProficiency
 data in edge/; these models are derived views.
 """
 
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 FRACTION_VALIDATOR = [MinValueValidator(0.0), MaxValueValidator(1.0)]
 
 
 class GapSeverity(models.TextChoices):
-    MILD = 'mild', 'Mild (score 40–50%)'
-    MODERATE = 'moderate', 'Moderate (score 25–40%)'
-    SEVERE = 'severe', 'Severe (score < 25%)'
+    MILD = "mild", "Mild (score 40–50%)"
+    MODERATE = "moderate", "Moderate (score 25–40%)"
+    SEVERE = "severe", "Severe (score < 25%)"
 
 
 class InsightType(models.TextChoices):
-    STRUGGLING = 'struggling', 'Class Struggling (>40% below threshold)'
-    AT_RISK = 'at_risk', 'At Risk (20–40% below threshold)'
-    PROFICIENT = 'proficient', 'Class Proficient (<20% below threshold)'
+    STRUGGLING = "struggling", "Class Struggling (>40% below threshold)"
+    AT_RISK = "at_risk", "At Risk (20–40% below threshold)"
+    PROFICIENT = "proficient", "Class Proficient (<20% below threshold)"
 
 
 class LearningGap(models.Model):
@@ -41,57 +52,55 @@ class LearningGap(models.Model):
       moderate: 0.25 <= avg_score < 0.40
       mild:     0.40 <= avg_score < 0.50
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="learning_gaps",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
+        related_name="learning_gaps",
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='learning_gaps',
-        help_text='Context in which the gap was observed',
+        related_name="learning_gaps",
+        help_text="Context in which the gap was observed",
     )
 
     avg_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Student average mark across all ticks in this chapter (0.0–1.0)',
+        help_text="Student average mark across all ticks in this chapter (0.0–1.0)",
     )
     severity = models.CharField(
         max_length=10,
         choices=GapSeverity.choices,
     )
     tick_count = models.PositiveIntegerField(
-        help_text='Number of question-subpart ticks that contributed to this score',
+        help_text="Number of question-subpart ticks that contributed to this score",
     )
 
     is_resolved = models.BooleanField(
         default=False,
-        help_text='Set True when avg_score rises >= 0.60 on a re-analysis',
+        help_text="Set True when avg_score rises >= 0.60 on a re-analysis",
     )
     detected_at = models.DateTimeField(auto_now_add=True)
     refreshed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_learning_gaps'
-        unique_together = [['student', 'chapter', 'subject_room']]
+        db_table = "ai_learning_gaps"
+        unique_together = [["student", "chapter", "subject_room"]]
         indexes = [
-            models.Index(fields=['student', 'is_resolved']),
-            models.Index(fields=['chapter', 'is_resolved']),
-            models.Index(fields=['subject_room', 'severity']),
+            models.Index(fields=["student", "is_resolved"]),
+            models.Index(fields=["chapter", "is_resolved"]),
+            models.Index(fields=["subject_room", "severity"]),
         ]
 
     def __str__(self):
-        return (
-            f'Gap: {self.student} | {self.chapter} | '
-            f'{self.severity} ({self.avg_score:.0%})'
-        )
+        return f"Gap: {self.student} | {self.chapter} | " f"{self.severity} ({self.avg_score:.0%})"
 
     @staticmethod
     def severity_for_score(score: float) -> str:
@@ -114,46 +123,46 @@ class ClassInsight(models.Model):
       at_risk:    20–40% below threshold
       proficient: <20% below threshold
     """
+
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='class_insights',
+        related_name="class_insights",
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='class_insights',
+        related_name="class_insights",
     )
 
     insight_type = models.CharField(max_length=15, choices=InsightType.choices)
     class_avg_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Class average mark for this chapter (0.0–1.0)',
+        help_text="Class average mark for this chapter (0.0–1.0)",
     )
     students_assessed = models.PositiveIntegerField(
-        help_text='Number of students with at least 1 tick in this chapter',
+        help_text="Number of students with at least 1 tick in this chapter",
     )
     students_struggling = models.PositiveIntegerField(
-        help_text='Students with avg_score < 0.50 in this chapter',
+        help_text="Students with avg_score < 0.50 in this chapter",
     )
     pct_struggling = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Fraction of assessed students who are struggling (0.0–1.0)',
+        help_text="Fraction of assessed students who are struggling (0.0–1.0)",
     )
 
     generated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_class_insights'
-        unique_together = [['subject_room', 'chapter']]
+        db_table = "ai_class_insights"
+        unique_together = [["subject_room", "chapter"]]
         indexes = [
-            models.Index(fields=['subject_room', 'insight_type']),
+            models.Index(fields=["subject_room", "insight_type"]),
         ]
 
     def __str__(self):
         return (
-            f'Insight: {self.subject_room} | {self.chapter} | '
-            f'{self.insight_type} (avg {self.class_avg_score:.0%})'
+            f"Insight: {self.subject_room} | {self.chapter} | " f"{self.insight_type} (avg {self.class_avg_score:.0%})"
         )
 
     @staticmethod
@@ -183,42 +192,42 @@ class PerformancePrediction(models.Model):
     """
 
     class ReadinessLevel(models.TextChoices):
-        NEEDS_ATTENTION = 'needs_attention', 'Needs Attention'
-        DEVELOPING = 'developing', 'Developing'
-        ON_TRACK = 'on_track', 'On Track'
-        EXAM_READY = 'exam_ready', 'Exam Ready'
+        NEEDS_ATTENTION = "needs_attention", "Needs Attention"
+        DEVELOPING = "developing", "Developing"
+        ON_TRACK = "on_track", "On Track"
+        EXAM_READY = "exam_ready", "Exam Ready"
 
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='performance_predictions',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="performance_predictions",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='performance_predictions',
+        related_name="performance_predictions",
     )
 
     predicted_score = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Predicted performance score (0.0–1.0)',
+        help_text="Predicted performance score (0.0–1.0)",
     )
     confidence = models.FloatField(
         validators=FRACTION_VALIDATOR,
-        help_text='Confidence in the prediction — low when tick data is sparse',
+        help_text="Confidence in the prediction — low when tick data is sparse",
     )
     readiness_level = models.CharField(
         max_length=20,
         choices=ReadinessLevel.choices,
     )
     tick_count = models.PositiveIntegerField(
-        help_text='Total ticks used to compute this prediction',
+        help_text="Total ticks used to compute this prediction",
     )
     factors = models.JSONField(
         default=dict,
         help_text=(
-            'Top contributing factors: '
+            "Top contributing factors: "
             '{"strong_chapters": [...], "weak_chapters": [...], '
             '"recent_trend": "improving|declining|stable"}'
         ),
@@ -227,18 +236,18 @@ class PerformancePrediction(models.Model):
     generated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_performance_predictions'
-        unique_together = [['student', 'subject_room']]
+        db_table = "ai_performance_predictions"
+        unique_together = [["student", "subject_room"]]
         indexes = [
-            models.Index(fields=['student', 'readiness_level']),
-            models.Index(fields=['subject_room', 'readiness_level']),
+            models.Index(fields=["student", "readiness_level"]),
+            models.Index(fields=["subject_room", "readiness_level"]),
         ]
 
     def __str__(self):
         return (
-            f'Prediction: {self.student} | {self.subject_room} | '
-            f'{self.readiness_level} ({self.predicted_score:.0%}, '
-            f'confidence {self.confidence:.0%})'
+            f"Prediction: {self.student} | {self.subject_room} | "
+            f"{self.readiness_level} ({self.predicted_score:.0%}, "
+            f"confidence {self.confidence:.0%})"
         )
 
     @staticmethod
@@ -250,3 +259,524 @@ class PerformancePrediction(models.Model):
         if score >= 0.40:
             return PerformancePrediction.ReadinessLevel.DEVELOPING
         return PerformancePrediction.ReadinessLevel.NEEDS_ATTENTION
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Content Recommendations
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class RecommendationReason(models.TextChoices):
+    SEVERE_GAP = "severe_gap", "Severe Gap — urgent remediation needed"
+    MODERATE_GAP = "moderate_gap", "Moderate Gap — needs more practice"
+    MILD_GAP = "mild_gap", "Mild Gap — a few more attempts recommended"
+    SPACED_REVIEW = "spaced_review", "Spaced Review — reinforce resolved gap"
+    NEXT_TOPIC = "next_topic", "Next Topic — ready to progress"
+
+
+class RecommendationPriority(models.IntegerChoices):
+    URGENT = 1, "Urgent"
+    HIGH = 2, "High"
+    MEDIUM = 3, "Medium"
+    LOW = 4, "Low"
+
+
+class ContentRecommendation(models.Model):
+    """
+    A single "practice this next" recommendation for a student.
+
+    Generated by scanning LearningGap and PerformancePrediction data.
+
+    Priority rules (lower number = higher priority):
+      1 (urgent)  — severe active gap
+      2 (high)    — moderate active gap  OR  spaced_review of recently resolved gap
+      3 (medium)  — mild active gap
+      4 (low)     — next_topic progression (student ready to advance)
+
+    is_actioned becomes True when the student opens or submits the problem set.
+    Stale recommendations (superseded by re-analysis) are soft-deleted via is_active=False.
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="content_recommendations",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="content_recommendations",
+    )
+    chapter = models.ForeignKey(
+        "core.Chapter",
+        on_delete=models.CASCADE,
+        related_name="content_recommendations",
+    )
+    problem_set = models.ForeignKey(
+        "core.ProblemSet",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="content_recommendations",
+        help_text="Specific problem set to attempt (null = any set in the chapter)",
+    )
+
+    reason = models.CharField(max_length=20, choices=RecommendationReason.choices)
+    priority = models.PositiveSmallIntegerField(
+        choices=RecommendationPriority.choices,
+        help_text="Lower = more urgent",
+    )
+
+    # Snapshot of the score that triggered this recommendation (for audit / display)
+    score_snapshot = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text="Student avg score in this chapter when the recommendation was generated",
+    )
+
+    is_actioned = models.BooleanField(
+        default=False,
+        help_text="True once the student has opened or submitted the recommended problem set",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="False when superseded by a newer analysis run",
+    )
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+    actioned_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "ai_content_recommendations"
+        # Only one active recommendation per student × chapter × subject_room
+        unique_together = [["student", "chapter", "subject_room"]]
+        indexes = [
+            models.Index(fields=["student", "is_active", "priority"]),
+            models.Index(fields=["subject_room", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"Rec: {self.student} | {self.chapter} | " f"{self.get_reason_display()} (p{self.priority})"
+
+    @staticmethod
+    def priority_for_reason(reason: str) -> int:
+        mapping = {
+            RecommendationReason.SEVERE_GAP: RecommendationPriority.URGENT,
+            RecommendationReason.MODERATE_GAP: RecommendationPriority.HIGH,
+            RecommendationReason.SPACED_REVIEW: RecommendationPriority.HIGH,
+            RecommendationReason.MILD_GAP: RecommendationPriority.MEDIUM,
+            RecommendationReason.NEXT_TOPIC: RecommendationPriority.LOW,
+        }
+        return mapping.get(reason, RecommendationPriority.MEDIUM)
+
+
+class PracticePlan(models.Model):
+    """
+    A daily practice plan for a student in a SubjectRoom.
+
+    Bundles the top N active ContentRecommendations into a digestible plan.
+    One plan per student × subject_room × date.
+
+    estimated_minutes = sum of estimated_minutes for linked problem sets
+    (defaults to 10 min per recommendation if problem set has no estimate).
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="practice_plans",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="practice_plans",
+    )
+    recommendations = models.ManyToManyField(
+        ContentRecommendation,
+        related_name="practice_plans",
+        blank=True,
+    )
+    plan_date = models.DateField(help_text="The day this plan is intended for")
+    estimated_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text="Total estimated practice time in minutes",
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        help_text="True when the student has actioned all recommendations in the plan",
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ai_practice_plans"
+        unique_together = [["student", "subject_room", "plan_date"]]
+        indexes = [
+            models.Index(fields=["student", "plan_date"]),
+            models.Index(fields=["subject_room", "plan_date"]),
+        ]
+
+    def __str__(self):
+        return (
+            f'Plan: {self.student} | {self.subject_room} | '
+            f'{self.plan_date} (~{self.estimated_minutes}min)'
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# Adaptive Learning Engine Models
+# ─────────────────────────────────────────────────────────────
+
+
+class MasteryLevel(models.TextChoices):
+    UNKNOWN = 'unknown', 'Unknown (not attempted)'
+    NOVICE = 'novice', 'Novice (0–39%)'
+    DEVELOPING = 'developing', 'Developing (40–59%)'
+    PROFICIENT = 'proficient', 'Proficient (60–79%)'
+    MASTERED = 'mastered', 'Mastered (80%+)'
+
+
+class LearningPathStatus(models.TextChoices):
+    ACTIVE = 'active', 'Active'
+    COMPLETED = 'completed', 'Completed'
+    STALE = 'stale', 'Stale (regenerated)'
+
+
+class StepStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    IN_PROGRESS = 'in_progress', 'In Progress'
+    COMPLETED = 'completed', 'Completed'
+    SKIPPED = 'skipped', 'Skipped'
+
+
+class KnowledgeNode(models.Model):
+    """
+    Represents a chapter as a node in the prerequisite knowledge graph.
+
+    Prerequisites define the directed edges: a student should ideally master
+    all prerequisites before tackling this chapter. The adaptive engine uses
+    this graph to order chapters in a LearningPath.
+
+    One KnowledgeNode per (subject, chapter) pair — shared across all students.
+    Teachers and admins can curate the prerequisite relationships through admin.
+
+    Examples:
+      - "Quadratic Equations" depends on "Linear Equations"
+      - "Fractions" depends on "Division"
+      - "Photosynthesis" depends on "Cell Structure"
+    """
+    subject = models.ForeignKey(
+        'core.Subject',
+        on_delete=models.CASCADE,
+        related_name='knowledge_nodes',
+    )
+    chapter = models.ForeignKey(
+        'core.Chapter',
+        on_delete=models.CASCADE,
+        related_name='knowledge_nodes',
+    )
+    prerequisites = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='unlocks',
+        help_text='Chapters that should be mastered before this one',
+    )
+    difficulty_weight = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0.1), MaxValueValidator(5.0)],
+        help_text='Relative difficulty 0.1–5.0; affects spaced repetition interval scaling',
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_knowledge_nodes'
+        unique_together = [['subject', 'chapter']]
+        indexes = [
+            models.Index(fields=['subject', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'KNode: {self.subject.name} — {self.chapter.name}'
+
+
+class StudentMastery(models.Model):
+    """
+    Tracks a student's current mastery level for a specific KnowledgeNode.
+
+    mastery_score is an exponentially weighted moving average (EWMA) of the
+    student's scores across all attempts at questions in this chapter:
+
+        new_score = alpha * latest_score + (1 - alpha) * old_score
+        (alpha = 0.3, so recent performance matters more)
+
+    mastery_level is derived from mastery_score:
+        unknown:    no attempts yet
+        novice:     0.00–0.39
+        developing: 0.40–0.59
+        proficient: 0.60–0.79
+        mastered:   0.80–1.00
+
+    Used by the adaptive engine to:
+    - Skip chapters the student has mastered
+    - Prioritise chapters where the student is novice/developing
+    - Decide whether prerequisites are met before advancing
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='masteries',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='masteries',
+    )
+    mastery_score = models.FloatField(
+        default=0.0,
+        validators=FRACTION_VALIDATOR,
+        help_text='EWMA of scores across all attempts (0.0–1.0)',
+    )
+    mastery_level = models.CharField(
+        max_length=12,
+        choices=MasteryLevel.choices,
+        default=MasteryLevel.UNKNOWN,
+    )
+    attempt_count = models.PositiveIntegerField(
+        default=0,
+        help_text='Total number of practice attempts contributing to this score',
+    )
+    last_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the student last practiced this chapter',
+    )
+    first_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the student first attempted this chapter',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_student_mastery'
+        unique_together = [['student', 'knowledge_node']]
+        indexes = [
+            models.Index(fields=['student', 'mastery_level']),
+            models.Index(fields=['knowledge_node', 'mastery_level']),
+        ]
+
+    def __str__(self):
+        return (
+            f'Mastery: {self.student} | {self.knowledge_node.chapter.name} | '
+            f'{self.mastery_level} ({self.mastery_score:.0%})'
+        )
+
+    @staticmethod
+    def level_from_score(score: float) -> str:
+        if score >= 0.80:
+            return MasteryLevel.MASTERED
+        if score >= 0.60:
+            return MasteryLevel.PROFICIENT
+        if score >= 0.40:
+            return MasteryLevel.DEVELOPING
+        return MasteryLevel.NOVICE
+
+
+class LearningPath(models.Model):
+    """
+    A personalised, ordered sequence of KnowledgeNodes for a student.
+
+    Generated by the adaptive engine by:
+    1. Collecting all KnowledgeNodes for the student's enrolled subjects
+    2. Filtering out already-mastered nodes (score >= 0.80)
+    3. Topologically ordering remaining nodes respecting prerequisite edges
+    4. Interleaving spaced-repetition review nodes (recently mastered chapters
+       that are due for review)
+
+    Only one ACTIVE path exists per (student, subject_room) at a time.
+    When regenerated, the old path is marked STALE.
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    subject_room = models.ForeignKey(
+        'core.SubjectRoom',
+        on_delete=models.CASCADE,
+        related_name='learning_paths',
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=LearningPathStatus.choices,
+        default=LearningPathStatus.ACTIVE,
+    )
+    total_steps = models.PositiveIntegerField(default=0)
+    completed_steps = models.PositiveIntegerField(default=0)
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_learning_paths'
+        indexes = [
+            models.Index(fields=['student', 'status']),
+            models.Index(fields=['subject_room', 'status']),
+        ]
+
+    def __str__(self):
+        return (
+            f'Path: {self.student} | {self.subject_room} | '
+            f'{self.status} ({self.completed_steps}/{self.total_steps})'
+        )
+
+    @property
+    def progress_pct(self) -> float:
+        if self.total_steps == 0:
+            return 0.0
+        return self.completed_steps / self.total_steps
+
+
+class LearningPathStep(models.Model):
+    """
+    A single step in a LearningPath — one chapter to study or review.
+
+    Steps are ordered by `position` (1-indexed). The adaptive engine sets
+    `is_review=True` for steps inserted by the spaced-repetition scheduler
+    (chapters due for review rather than first-time learning).
+
+    When a student completes the assigned problem_set for this step, the
+    step status is updated to COMPLETED and StudentMastery is refreshed.
+    """
+    learning_path = models.ForeignKey(
+        LearningPath,
+        on_delete=models.CASCADE,
+        related_name='steps',
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='path_steps',
+    )
+    problem_set = models.ForeignKey(
+        'core.ProblemSet',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='path_steps',
+        help_text='Suggested problem set for this step; null = student chooses freely',
+    )
+    position = models.PositiveIntegerField(
+        help_text='1-indexed order in the learning path',
+    )
+    status = models.CharField(
+        max_length=12,
+        choices=StepStatus.choices,
+        default=StepStatus.PENDING,
+    )
+    is_review = models.BooleanField(
+        default=False,
+        help_text='True when inserted by spaced-repetition scheduler for review',
+    )
+    score_when_completed = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text='Score the student achieved when they completed this step',
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'ai_learning_path_steps'
+        unique_together = [['learning_path', 'position']]
+        indexes = [
+            models.Index(fields=['learning_path', 'status']),
+            models.Index(fields=['knowledge_node', 'status']),
+        ]
+
+    def __str__(self):
+        review_tag = ' [review]' if self.is_review else ''
+        return (
+            f'Step {self.position}{review_tag}: '
+            f'{self.knowledge_node.chapter.name} [{self.status}]'
+        )
+
+
+class SpacedRepetitionEntry(models.Model):
+    """
+    SM-2-inspired spaced repetition schedule for a student × KnowledgeNode.
+
+    After each practice session the scheduler updates:
+    - interval_days: days until next review (starts at 1, grows exponentially)
+    - easiness_factor: governs how fast the interval grows (starts at 2.5)
+    - repetitions: count of consecutive successful reviews
+    - next_review_date: today + interval_days
+
+    SM-2 update rules (simplified):
+      If score >= 0.60 (successful recall):
+        if repetitions == 0: interval = 1
+        elif repetitions == 1: interval = 6
+        else: interval = round(prev_interval * easiness_factor)
+        easiness_factor = max(1.3, ef + 0.1 - (1-score)*0.8)
+        repetitions += 1
+      If score < 0.60 (failed recall):
+        repetitions = 0
+        interval = 1
+        easiness_factor unchanged
+
+    Entries with next_review_date <= today are surfaced by the adaptive engine
+    as review steps in the student's LearningPath.
+    """
+    student = models.ForeignKey(
+        'core.User',
+        on_delete=models.CASCADE,
+        related_name='srs_entries',
+        limit_choices_to={'role__in': ['student', 'open_student']},
+    )
+    knowledge_node = models.ForeignKey(
+        KnowledgeNode,
+        on_delete=models.CASCADE,
+        related_name='srs_entries',
+    )
+    interval_days = models.PositiveIntegerField(
+        default=1,
+        help_text='Days until next review',
+    )
+    easiness_factor = models.FloatField(
+        default=2.5,
+        validators=[MinValueValidator(1.3), MaxValueValidator(5.0)],
+        help_text='SM-2 easiness factor — controls interval growth rate',
+    )
+    repetitions = models.PositiveIntegerField(
+        default=0,
+        help_text='Consecutive successful review count',
+    )
+    next_review_date = models.DateField(
+        help_text='Date on which this chapter is scheduled for review',
+    )
+    last_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_spaced_repetition_entries'
+        unique_together = [['student', 'knowledge_node']]
+        indexes = [
+            models.Index(fields=['student', 'next_review_date']),
+            models.Index(fields=['knowledge_node', 'next_review_date']),
+        ]
+
+    def __str__(self):
+        return (
+            f'SRS: {self.student} | {self.knowledge_node.chapter.name} | '
+            f'next={self.next_review_date} interval={self.interval_days}d'
+        )

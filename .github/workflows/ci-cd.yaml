@@ -3,6 +3,55 @@ name: CI/CD Pipeline
 on: push
 
 jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+                cache: 'pip'
+                cache-dependency-path: 'backend/requirements.txt'
+            - name: Install Code Quality Tools
+              run: pip install black==26.3.1 flake8==7.1.1 isort==5.13.2
+              working-directory: backend
+            - name: Check formatting (black)
+              # TODO: Remove continue-on-error once the codebase has been reformatted
+              # Run: cd backend && black . --line-length=120 to fix
+              continue-on-error: true
+              run: black --check --line-length=120 openshiksha/
+              working-directory: backend
+            - name: Check import order (isort)
+              # TODO: Remove continue-on-error once the codebase has been reformatted
+              # Run: cd backend && isort openshiksha/ --profile=black --line-length=120 to fix
+              continue-on-error: true
+              run: isort --check --profile=black --line-length=120 openshiksha/
+              working-directory: backend
+            - name: Check style (flake8)
+              run: flake8 openshiksha/
+              working-directory: backend
+
+    security:
+        name: Security Audit
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+                cache: 'pip'
+                cache-dependency-path: 'backend/requirements.txt'
+            - name: Install pip-audit
+              run: pip install pip-audit==2.8.0
+            - name: Audit dependencies for known CVEs
+              run: pip-audit -r requirements.txt
+              working-directory: backend
+
     test:
         name: Test
         runs-on: ubuntu-latest
@@ -69,9 +118,35 @@ jobs:
                 SECRET_KEY: test-secret-key-not-for-production
                 DEBUG: "True"
 
+    frontend:
+        name: Frontend (Lint, Types, Tests)
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: frontend_modern/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Lint (ESLint)
+              run: npm run lint
+            - name: Type check (TypeScript)
+              run: npm run type-check
+            - name: Run tests (Vitest)
+              run: npm test -- --run
+            - name: Build
+              run: npm run build
+
     build-publish:
         name: Build & Publish
-        needs: test
+        needs: [lint, security, test, frontend]
         # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest

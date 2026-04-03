@@ -1,49 +1,87 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './shared/hooks/useAuth';
+import { LoginPage } from './features/auth/LoginPage';
+import { AppShell } from './features/layout/AppShell';
+import { ProtectedRoute } from './features/layout/ProtectedRoute';
+import { StudentDashboard } from './features/student/StudentDashboard';
+import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
+import { TeacherDashboard } from './features/teacher/TeacherDashboard';
+import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
+import { LoadingSpinner } from './shared/components/LoadingSpinner';
 
-// Placeholder components - will be implemented in phases
-const LoginPage = () => <div className="p-4">Login Page - Coming Soon</div>;
-const StudentDashboard = () => <div className="p-4">Student Dashboard - Coming Soon</div>;
-const TeacherDashboard = () => <div className="p-4">Teacher Dashboard - Coming Soon</div>;
-const NotFound = () => <div className="p-4">404 - Page Not Found</div>;
+const NotFound = () => (
+  <div className="text-center py-16">
+    <h2 className="text-2xl font-semibold text-gray-700">404 - Page Not Found</h2>
+  </div>
+);
 
 function App() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
+  const defaultPath = isAuthenticated
+    ? user?.role === 'teacher' ? '/teacher' : '/student'
+    : '/login';
+
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/student/*"
-            element={isAuthenticated ? <StudentDashboard /> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/teacher/*"
-            element={isAuthenticated ? <TeacherDashboard /> : <Navigate to="/login" />}
-          />
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <StudentDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Default route */}
-          <Route
-            path="/"
-            element={isAuthenticated ? <Navigate to="/student" /> : <Navigate to="/login" />}
-          />
+        <Route
+          path="/student/assignments/:id"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <AssignmentDetailPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
 
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </div>
+        <Route
+          path="/teacher"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <TeacherDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/assignments/new"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <CreateAssignmentPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/" element={<Navigate to={defaultPath} replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </Router>
   );
 }

@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { AssignmentList } from './AssignmentList';
 import { useAssignments } from './useAssignments';
 
 export const StudentDashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: assignments, isLoading, isError } = useAssignments();
 
@@ -12,9 +14,17 @@ export const StudentDashboard = () => {
   return (
     <div>
       {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
-        <p className="text-gray-500 mt-1">Here are your assignments</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
+          <p className="text-gray-500 mt-1">Here are your assignments</p>
+        </div>
+        <button
+          onClick={() => navigate('/student/proficiency')}
+          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap"
+        >
+          My Progress →
+        </button>
       </div>
 
       {/* Content */}

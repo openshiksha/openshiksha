@@ -8,15 +8,19 @@ from rest_framework import serializers
 
 from openshiksha.apps.core.models import (
     Assignment,
+    Chapter,
     ProblemSet,
     Question,
     QuestionSubpart,
     QuestionTag,
+    Standard,
+    Subject,
     SubjectRoom,
     Submission,
     User,
     UserRole,
 )
+from openshiksha.apps.edge.models import StudentProficiency
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -26,6 +30,27 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "first_name", "last_name", "role"]
         read_only_fields = ["id", "username", "email", "first_name", "last_name", "role"]
+
+
+class StandardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Standard
+        fields = ["id", "number", "description"]
+
+
+class SubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ["id", "name", "description"]
+
+
+class ChapterSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    standard_number = serializers.IntegerField(source="standard.number", read_only=True)
+
+    class Meta:
+        model = Chapter
+        fields = ["id", "name", "subject", "subject_name", "standard", "standard_number", "order"]
 
 
 class QuestionTagSerializer(serializers.ModelSerializer):
@@ -98,6 +123,65 @@ class QuestionSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
+
+
+class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
+    """Writable serializer for creating/updating question subparts."""
+
+    class Meta:
+        model = QuestionSubpart
+        fields = ["index", "question_text", "options", "correct_answer"]
+
+
+class QuestionWriteSerializer(serializers.ModelSerializer):
+    """
+    Writable serializer for teacher question authoring.
+
+    Accepts nested subparts on create. Tags are set via IDs.
+    Correct answers are stored per-subpart — never exposed to students
+    via the read serializer.
+    """
+
+    subparts = QuestionSubpartWriteSerializer(many=True)
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        queryset=QuestionTag.objects.all(),
+        many=True,
+        required=False,
+        source="tags",
+        write_only=True,
+    )
+    # Read-back fields after create
+    id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = Question
+        fields = [
+            "id",
+            "standard",
+            "subject",
+            "chapter",
+            "question_type",
+            "difficulty",
+            "tag_ids",
+            "subparts",
+            "created_at",
+        ]
+
+    def validate_subparts(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one subpart is required.")
+        return value
+
+    def create(self, validated_data):
+        subparts_data = validated_data.pop("subparts")
+        tags = validated_data.pop("tags", [])
+        question = Question.objects.create(**validated_data)
+        if tags:
+            question.tags.set(tags)
+        for subpart_data in subparts_data:
+            QuestionSubpart.objects.create(question=question, **subpart_data)
+        return question
 
 
 class SubjectRoomSerializer(serializers.ModelSerializer):
@@ -178,6 +262,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     subject_room_display = serializers.StringRelatedField(source="subject_room")
+    submission_count = serializers.SerializerMethodField()
+    student_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -193,8 +279,16 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "number",
             "average_score",
             "completion_rate",
+            "submission_count",
+            "student_count",
         ]
         read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
+
+    def get_submission_count(self, obj) -> int:
+        return obj.submissions.count()
+
+    def get_student_count(self, obj) -> int:
+        return obj.subject_room.students.count()
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -272,3 +366,38 @@ class SubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         validated_data["student"] = request.user
         return super().create(validated_data)
+
+
+class StudentProficiencySerializer(serializers.ModelSerializer):
+    """
+    Exposes a student's proficiency per question tag within a subject room.
+
+    Groups naturally by subject_room → subject for frontend display.
+    Score is 0.0–1.0; multiply by 100 for percentage display.
+    """
+
+    tag_name = serializers.CharField(source="question_tag.name", read_only=True)
+    tag_type = serializers.CharField(source="question_tag.tag_type", read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProficiency
+        fields = [
+            "id",
+            "tag_name",
+            "tag_type",
+            "subject_name",
+            "subject_room",
+            "classroom_display",
+            "score",
+            "rate",
+            "percentile",
+            "tick_count",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_classroom_display(self, obj) -> str:
+        classroom = obj.subject_room.classroom
+        return f"Standard {classroom.standard.number} {classroom.division}"

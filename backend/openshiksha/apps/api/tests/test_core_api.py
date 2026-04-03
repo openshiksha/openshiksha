@@ -252,7 +252,7 @@ class TestSubjectRoomVisibility:
         url = reverse("subjectroom-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        ids = [r["id"] for r in response.data]
+        ids = [r["id"] for r in response.data["results"]]
         assert subject_room.pk in ids
         assert other_subject_room.pk not in ids
 
@@ -262,7 +262,7 @@ class TestSubjectRoomVisibility:
         url = reverse("subjectroom-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        ids = [r["id"] for r in response.data]
+        ids = [r["id"] for r in response.data["results"]]
         assert subject_room.pk in ids
         assert other_subject_room.pk not in ids
 
@@ -273,7 +273,7 @@ class TestSubjectRoomVisibility:
         url = reverse("subjectroom-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        ids = [r["id"] for r in response.data]
+        ids = [r["id"] for r in response.data["results"]]
         assert subject_room.pk in ids
         assert other_subject_room.pk not in ids
 
@@ -284,7 +284,7 @@ class TestSubjectRoomVisibility:
         url = reverse("subjectroom-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        ids = [r["id"] for r in response.data]
+        ids = [r["id"] for r in response.data["results"]]
         assert other_subject_room.pk in ids
         assert subject_room.pk not in ids
 
@@ -295,7 +295,7 @@ class TestSubjectRoomVisibility:
         url = reverse("subjectroom-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        ids = [r["id"] for r in response.data]
+        ids = [r["id"] for r in response.data["results"]]
         assert subject_room.pk not in ids
 
 

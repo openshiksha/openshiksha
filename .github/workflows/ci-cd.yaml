@@ -19,15 +19,9 @@ jobs:
               run: pip install black==26.3.1 flake8==7.1.1 isort==5.13.2
               working-directory: backend
             - name: Check formatting (black)
-              # TODO: Remove continue-on-error once the codebase has been reformatted
-              # Run: cd backend && black . --line-length=120 to fix
-              continue-on-error: true
               run: black --check --line-length=120 openshiksha/
               working-directory: backend
             - name: Check import order (isort)
-              # TODO: Remove continue-on-error once the codebase has been reformatted
-              # Run: cd backend && isort openshiksha/ --profile=black --line-length=120 to fix
-              continue-on-error: true
               run: isort --check --profile=black --line-length=120 openshiksha/
               working-directory: backend
             - name: Check style (flake8)
@@ -109,7 +103,7 @@ jobs:
                 SECRET_KEY: test-secret-key-not-for-production
                 DEBUG: "True"
             - name: Run Tests
-              run: python -m pytest --tb=short -q
+              run: python -m pytest
               working-directory: backend
               env:
                 DJANGO_SETTINGS_MODULE: openshiksha.settings.development
@@ -117,6 +111,13 @@ jobs:
                 REDIS_URL: redis://localhost:6379/0
                 SECRET_KEY: test-secret-key-not-for-production
                 DEBUG: "True"
+            - name: Upload coverage report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                name: coverage-report
+                path: backend/coverage.xml
+                retention-days: 14
 
     frontend:
         name: Frontend (Lint, Types, Tests)

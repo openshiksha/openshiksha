@@ -25,8 +25,8 @@ from .models import (
     KnowledgeNode,
     LearningGap,
     LearningPath,
-    LearningPathStep,
     LearningPathStatus,
+    LearningPathStep,
     PerformancePrediction,
     PracticePlan,
     SpacedRepetitionEntry,
@@ -347,6 +347,7 @@ class PracticePlanViewSet(ReadOnlyModelViewSet):
 # Adaptive Learning Engine Views
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class KnowledgeNodeViewSet(ReadOnlyModelViewSet):
     """
     list:     GET /api/v1/ai/knowledge-nodes/          — nodes for a subject
@@ -355,15 +356,16 @@ class KnowledgeNodeViewSet(ReadOnlyModelViewSet):
     Query params:
       ?subject_id=<int>   — filter by subject (required for useful results)
     """
+
     serializer_class = KnowledgeNodeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = KnowledgeNode.objects.select_related('subject', 'chapter').prefetch_related('prerequisites')
-        subject_id = self.request.query_params.get('subject_id')
+        qs = KnowledgeNode.objects.select_related("subject", "chapter").prefetch_related("prerequisites")
+        subject_id = self.request.query_params.get("subject_id")
         if subject_id:
             qs = qs.filter(subject_id=subject_id)
-        return qs.filter(is_active=True).order_by('chapter__order', 'chapter__name')
+        return qs.filter(is_active=True).order_by("chapter__order", "chapter__name")
 
 
 class StudentMasteryViewSet(ReadOnlyModelViewSet):
@@ -374,6 +376,7 @@ class StudentMasteryViewSet(ReadOnlyModelViewSet):
     Query params:
       ?mastery_level=<level>   — filter: unknown | novice | developing | proficient | mastered
     """
+
     serializer_class = StudentMasterySerializer
     permission_classes = [IsAuthenticated]
 
@@ -382,15 +385,15 @@ class StudentMasteryViewSet(ReadOnlyModelViewSet):
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return StudentMastery.objects.none()
 
-        qs = StudentMastery.objects.select_related(
-            'knowledge_node__chapter', 'knowledge_node__subject'
-        ).filter(student=user)
+        qs = StudentMastery.objects.select_related("knowledge_node__chapter", "knowledge_node__subject").filter(
+            student=user
+        )
 
-        mastery_level = self.request.query_params.get('mastery_level')
+        mastery_level = self.request.query_params.get("mastery_level")
         if mastery_level:
             qs = qs.filter(mastery_level=mastery_level)
 
-        return qs.order_by('knowledge_node__chapter__order')
+        return qs.order_by("knowledge_node__chapter__order")
 
 
 class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
@@ -401,6 +404,7 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
     Custom action:
       GET /api/v1/ai/spaced-repetition/due/  — entries due for review today/soon
     """
+
     serializer_class = SpacedRepetitionEntrySerializer
     permission_classes = [IsAuthenticated]
 
@@ -408,27 +412,32 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         user = self.request.user
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return SpacedRepetitionEntry.objects.none()
-        return SpacedRepetitionEntry.objects.select_related(
-            'knowledge_node__chapter'
-        ).filter(student=user).order_by('next_review_date')
+        return (
+            SpacedRepetitionEntry.objects.select_related("knowledge_node__chapter")
+            .filter(student=user)
+            .order_by("next_review_date")
+        )
 
-    @action(detail=False, methods=['get'], url_path='due')
+    @action(detail=False, methods=["get"], url_path="due")
     def due(self, request):
         """Return SRS entries due for review today or in the next 3 days."""
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         user = request.user
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return Response(
-                {'detail': 'Only students have SRS entries.'},
+                {"detail": "Only students have SRS entries."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         lookahead = timezone.localdate() + timedelta(days=3)
-        entries = SpacedRepetitionEntry.objects.select_related(
-            'knowledge_node__chapter'
-        ).filter(student=user, next_review_date__lte=lookahead).order_by('next_review_date')
+        entries = (
+            SpacedRepetitionEntry.objects.select_related("knowledge_node__chapter")
+            .filter(student=user, next_review_date__lte=lookahead)
+            .order_by("next_review_date")
+        )
 
         return Response(self.get_serializer(entries, many=True).data)
 
@@ -443,6 +452,7 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
       POST /api/v1/ai/learning-paths/rebuild/        — trigger path regeneration
       POST /api/v1/ai/learning-paths/steps/{id}/complete/ — mark a step complete
     """
+
     serializer_class = LearningPathSerializer
     permission_classes = [IsAuthenticated]
 
@@ -451,44 +461,39 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return LearningPath.objects.none()
         return (
-            LearningPath.objects
-            .prefetch_related(
-                'steps__knowledge_node__chapter',
-                'steps__knowledge_node__subject',
-                'steps__problem_set',
+            LearningPath.objects.prefetch_related(
+                "steps__knowledge_node__chapter",
+                "steps__knowledge_node__subject",
+                "steps__problem_set",
             )
             .filter(student=user)
-            .order_by('-generated_at')
+            .order_by("-generated_at")
         )
 
-    @action(detail=False, methods=['get'], url_path='active')
+    @action(detail=False, methods=["get"], url_path="active")
     def active(self, request):
         """Return the current ACTIVE learning path for the student."""
         user = request.user
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return Response(
-                {'detail': 'Only students have learning paths.'},
+                {"detail": "Only students have learning paths."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         try:
-            path = (
-                LearningPath.objects
-                .prefetch_related(
-                    'steps__knowledge_node__chapter',
-                    'steps__knowledge_node__subject',
-                    'steps__problem_set',
-                )
-                .get(student=user, status=LearningPathStatus.ACTIVE)
-            )
+            path = LearningPath.objects.prefetch_related(
+                "steps__knowledge_node__chapter",
+                "steps__knowledge_node__subject",
+                "steps__problem_set",
+            ).get(student=user, status=LearningPathStatus.ACTIVE)
             return Response(self.get_serializer(path).data)
         except LearningPath.DoesNotExist:
             return Response(
-                {'detail': 'No active learning path. POST to /ai/learning-paths/rebuild/ to generate one.'},
+                {"detail": "No active learning path. POST to /ai/learning-paths/rebuild/ to generate one."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-    @action(detail=False, methods=['post'], url_path='rebuild')
+    @action(detail=False, methods=["post"], url_path="rebuild")
     def rebuild(self, request):
         """Trigger async regeneration of the student's learning path."""
         serializer = TriggerAdaptiveSerializer(data=request.data)
@@ -497,21 +502,21 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
         user = request.user
         if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
             return Response(
-                {'detail': 'Only students can rebuild their learning paths.'},
+                {"detail": "Only students can rebuild their learning paths."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        subject_room_id = serializer.validated_data['subject_room_id']
+        subject_room_id = serializer.validated_data["subject_room_id"]
         subject_room = get_object_or_404(SubjectRoom, pk=subject_room_id)
 
         rebuild_learning_path.delay(user.pk, subject_room.pk)
 
         return Response(
-            {'detail': 'Learning path regeneration queued.'},
+            {"detail": "Learning path regeneration queued."},
             status=status.HTTP_202_ACCEPTED,
         )
 
-    @action(detail=False, methods=['post'], url_path='steps/(?P<step_pk>[^/.]+)/complete')
+    @action(detail=False, methods=["post"], url_path="steps/(?P<step_pk>[^/.]+)/complete")
     def complete_step(self, request, step_pk=None):
         """
         Mark a LearningPathStep as completed with a score.
@@ -528,10 +533,10 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
         serializer = CompleteStepSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        score = serializer.validated_data['score']
+        score = serializer.validated_data["score"]
         complete_learning_path_step.delay(step.pk, score)
 
         return Response(
-            {'detail': f'Step {step.pk} completion queued with score {score}.'},
+            {"detail": f"Step {step.pk} completion queued with score {score}."},
             status=status.HTTP_202_ACCEPTED,
         )

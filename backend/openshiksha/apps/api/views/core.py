@@ -13,6 +13,7 @@ from openshiksha.apps.api.serializers import (
     AssignmentSerializer,
     ChapterSerializer,
     ProblemSetSerializer,
+    ProblemSetWriteSerializer,
     QuestionSerializer,
     QuestionTagSerializer,
     QuestionWriteSerializer,
@@ -229,13 +230,30 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
 
-class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
+class ProblemSetViewSet(viewsets.ModelViewSet):
     """
-    List and retrieve problem sets.
+    Problem set CRUD.
+
+    Read: all authenticated users.
+    Write (create/update/delete): teachers only.
+
+    Filtering:
+    - ?chapter=<id>
+    - ?subject=<id>
+    - ?standard=<id>
     """
 
-    serializer_class = ProblemSetSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return ProblemSetWriteSerializer
+        return ProblemSetSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [permissions.IsAuthenticated(), IsTeacher()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
@@ -257,6 +275,10 @@ class ProblemSetViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(standard_id=standard)
 
         return qs
+
+    def perform_create(self, serializer):
+        school = getattr(self.request.user, "school", None)
+        serializer.save(school=school, created_by=self.request.user)
 
 
 class AssignmentViewSet(viewsets.ModelViewSet):

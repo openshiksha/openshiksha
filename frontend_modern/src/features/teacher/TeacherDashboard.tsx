@@ -60,12 +60,18 @@ export const TeacherDashboard = () => {
           <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your subject rooms and assignments.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={() => navigate('/teacher/questions/new')}
             className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             + New Question
+          </button>
+          <button
+            onClick={() => navigate('/teacher/problem-sets/new')}
+            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            + Problem Set
           </button>
           <button
             onClick={() => navigate('/teacher/assignments/new')}

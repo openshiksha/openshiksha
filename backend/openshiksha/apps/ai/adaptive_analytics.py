@@ -41,6 +41,7 @@ SRS_LOOKAHEAD_DAYS = 3
 # Mastery Scoring
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def compute_updated_mastery(current_score: float, new_score: float, attempt_count: int) -> float:
     """
     Update a student's mastery score using EWMA.
@@ -79,8 +80,7 @@ def compute_mastery_for_student(student: "User", subject_room: "SubjectRoom") ->
     from openshiksha.apps.core.models import Submission
 
     submissions_qs = (
-        Submission.objects
-        .filter(
+        Submission.objects.filter(
             student=student,
             assignment__subject_room=subject_room,
             score__isnull=False,
@@ -132,19 +132,17 @@ def compute_mastery_for_student(student: "User", subject_room: "SubjectRoom") ->
         current_attempts = existing.attempt_count if existing else 0
 
         new_score = compute_updated_mastery(current_score, float(agg["avg_score"]), current_attempts)
-        new_level = (
-            MasteryLevel.level_from_score(new_score)
-            if new_score > 0
-            else MasteryLevel.UNKNOWN
-        )
+        new_level = MasteryLevel.level_from_score(new_score) if new_score > 0 else MasteryLevel.UNKNOWN
 
-        results.append({
-            "knowledge_node_id": node_id,
-            "new_mastery_score": round(new_score, 6),
-            "mastery_level": new_level,
-            "attempt_count": current_attempts + int(agg["attempt_count"]),
-            "last_attempted_at": agg["last_at"],
-        })
+        results.append(
+            {
+                "knowledge_node_id": node_id,
+                "new_mastery_score": round(new_score, 6),
+                "mastery_level": new_level,
+                "attempt_count": current_attempts + int(agg["attempt_count"]),
+                "last_attempted_at": agg["last_at"],
+            }
+        )
 
     return results
 
@@ -152,6 +150,7 @@ def compute_mastery_for_student(student: "User", subject_room: "SubjectRoom") ->
 # ─────────────────────────────────────────────────────────────────────────────
 # Spaced Repetition (SM-2)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def compute_srs_update(
     score: float,
@@ -222,6 +221,7 @@ def get_due_srs_entries(student: "User", subject_room: "SubjectRoom") -> list[di
 # Learning Path Generation
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _topological_sort_nodes(nodes: list, prerequisite_map: dict[int, list[int]]) -> list:
     """
     Topologically sort KnowledgeNode instances by prerequisite edges.
@@ -284,8 +284,7 @@ def _best_problem_set_for_chapter(student: "User", subject_room: "SubjectRoom", 
     from openshiksha.apps.core.models import Assignment, ProblemSet
 
     assigned_ps_ids = list(
-        Assignment.objects
-        .filter(subject_room=subject_room, problem_set__chapter_id=chapter_id)
+        Assignment.objects.filter(subject_room=subject_room, problem_set__chapter_id=chapter_id)
         .exclude(submissions__student=student)
         .values_list("problem_set_id", flat=True)
         .order_by("problem_set__number")
@@ -294,8 +293,7 @@ def _best_problem_set_for_chapter(student: "User", subject_room: "SubjectRoom", 
         return assigned_ps_ids[0]
 
     return (
-        ProblemSet.objects
-        .filter(chapter_id=chapter_id, is_active=True)
+        ProblemSet.objects.filter(chapter_id=chapter_id, is_active=True)
         .order_by("number")
         .values_list("id", flat=True)
         .first()
@@ -326,8 +324,7 @@ def generate_learning_path_steps(student: "User", subject_room: "SubjectRoom") -
     from openshiksha.apps.ai.models import KnowledgeNode, StudentMastery
 
     nodes = list(
-        KnowledgeNode.objects
-        .filter(subject=subject_room.subject, is_active=True)
+        KnowledgeNode.objects.filter(subject=subject_room.subject, is_active=True)
         .select_related("chapter")
         .prefetch_related("prerequisites")
     )
@@ -347,10 +344,7 @@ def generate_learning_path_steps(student: "User", subject_room: "SubjectRoom") -
 
     unmastered = [n for n in nodes if mastery_map.get(n.pk, 0.0) < MASTERY_SKIP_THRESHOLD]
 
-    prerequisite_map: dict[int, list[int]] = {
-        n.pk: [p.pk for p in n.prerequisites.all()]
-        for n in nodes
-    }
+    prerequisite_map: dict[int, list[int]] = {n.pk: [p.pk for p in n.prerequisites.all()] for n in nodes}
 
     sorted_nodes = _topological_sort_nodes(unmastered, prerequisite_map)
 
@@ -362,9 +356,7 @@ def generate_learning_path_steps(student: "User", subject_room: "SubjectRoom") -
 
     # Mastered nodes that are due for review (not already in the learning queue)
     extra_review_nodes = [
-        all_node_map[nid]
-        for nid in due_node_ids
-        if nid not in sorted_node_ids and nid in all_node_map
+        all_node_map[nid] for nid in due_node_ids if nid not in sorted_node_ids and nid in all_node_map
     ]
 
     steps = []
@@ -372,22 +364,26 @@ def generate_learning_path_steps(student: "User", subject_room: "SubjectRoom") -
 
     for node in extra_review_nodes:
         ps_id = _best_problem_set_for_chapter(student, subject_room, node.chapter_id)
-        steps.append({
-            "knowledge_node_id": node.pk,
-            "position": position,
-            "is_review": True,
-            "problem_set_id": ps_id,
-        })
+        steps.append(
+            {
+                "knowledge_node_id": node.pk,
+                "position": position,
+                "is_review": True,
+                "problem_set_id": ps_id,
+            }
+        )
         position += 1
 
     for node in sorted_nodes:
         ps_id = _best_problem_set_for_chapter(student, subject_room, node.chapter_id)
-        steps.append({
-            "knowledge_node_id": node.pk,
-            "position": position,
-            "is_review": node.pk in due_node_ids,
-            "problem_set_id": ps_id,
-        })
+        steps.append(
+            {
+                "knowledge_node_id": node.pk,
+                "position": position,
+                "is_review": node.pk in due_node_ids,
+                "problem_set_id": ps_id,
+            }
+        )
         position += 1
 
     return steps

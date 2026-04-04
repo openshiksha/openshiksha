@@ -13,6 +13,7 @@ Uses pytest-django with in-memory SQLite (no running Postgres needed).
 """
 
 import pytest
+
 from django.utils import timezone
 
 from openshiksha.apps.ai.adaptive_analytics import (
@@ -33,47 +34,55 @@ from openshiksha.apps.ai.models import (
     StudentMastery,
 )
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared DB fixtures
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def make_user(role="student", username=None):
     from openshiksha.apps.core.models import User
+
     username = username or f"user_{timezone.now().timestamp()}"
     return User.objects.create_user(username=username, password="pass", role=role)
 
 
 def make_board():
     from openshiksha.apps.core.models import Board
+
     return Board.objects.create(name=f"Board_{timezone.now().timestamp()}")
 
 
 def make_school(board):
     from openshiksha.apps.core.models import School
+
     return School.objects.create(name=f"School_{timezone.now().timestamp()}", board=board)
 
 
 def make_standard():
     from openshiksha.apps.core.models import Standard
+
     obj, _ = Standard.objects.get_or_create(number=7)
     return obj
 
 
 def make_subject(name="Maths"):
     from openshiksha.apps.core.models import Subject
+
     obj, _ = Subject.objects.get_or_create(name=name)
     return obj
 
 
 def make_chapter(name, order=1, subject=None, standard=None):
     from openshiksha.apps.core.models import Chapter
+
     if subject is None:
         subject = make_subject()
     if standard is None:
         standard = make_standard()
     obj, _ = Chapter.objects.get_or_create(
-        name=name, subject=subject, standard=standard,
+        name=name,
+        subject=subject,
+        standard=standard,
         defaults={"order": order},
     )
     return obj
@@ -81,10 +90,12 @@ def make_chapter(name, order=1, subject=None, standard=None):
 
 def make_subject_room(classroom, subject, teacher=None):
     from openshiksha.apps.core.models import SubjectRoom
+
     if teacher is None:
         teacher = make_user(role="teacher", username=f"teacher_{subject.name}")
     obj, _ = SubjectRoom.objects.get_or_create(
-        classroom=classroom, subject=subject,
+        classroom=classroom,
+        subject=subject,
         defaults={"teacher": teacher},
     )
     return obj
@@ -92,8 +103,11 @@ def make_subject_room(classroom, subject, teacher=None):
 
 def make_classroom(school, standard, division="A"):
     from openshiksha.apps.core.models import ClassRoom
+
     obj, _ = ClassRoom.objects.get_or_create(
-        school=school, standard=standard, division=division,
+        school=school,
+        standard=standard,
+        division=division,
         defaults={"academic_year": "2025-26"},
     )
     return obj
@@ -111,6 +125,7 @@ def make_knowledge_node(subject, chapter, difficulty_weight=1.0):
 # ─────────────────────────────────────────────────────────────────────────────
 # compute_updated_mastery
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestComputeUpdatedMastery:
     def test_first_attempt_uses_raw_score(self):
@@ -143,6 +158,7 @@ class TestComputeUpdatedMastery:
 # ─────────────────────────────────────────────────────────────────────────────
 # compute_srs_update
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestComputeSrsUpdate:
     def test_first_success_gives_interval_1(self):
@@ -189,6 +205,7 @@ class TestComputeSrsUpdate:
 # MasteryLevel.level_from_score
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestMasteryLevelFromScore:
     def test_mastered(self):
         assert StudentMastery.level_from_score(0.85) == MasteryLevel.MASTERED
@@ -210,6 +227,7 @@ class TestMasteryLevelFromScore:
 # ─────────────────────────────────────────────────────────────────────────────
 # Topological sort
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTopologicalSortNodes:
     """Test _topological_sort_nodes using mock-like objects."""
@@ -256,6 +274,7 @@ class TestTopologicalSortNodes:
 # KnowledgeNode model
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestKnowledgeNodeModel:
     def test_create_node(self):
@@ -286,6 +305,7 @@ class TestKnowledgeNodeModel:
 # StudentMastery model
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestStudentMasteryModel:
     def test_create_mastery(self):
@@ -313,6 +333,7 @@ class TestStudentMasteryModel:
 # ─────────────────────────────────────────────────────────────────────────────
 # SpacedRepetitionEntry model
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestSpacedRepetitionEntryModel:
@@ -349,6 +370,7 @@ class TestSpacedRepetitionEntryModel:
 # ─────────────────────────────────────────────────────────────────────────────
 # LearningPath + LearningPathStep models
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestLearningPathModel:
@@ -414,12 +436,14 @@ class TestLearningPathModel:
 # API endpoint smoke tests (no DB-backed auth; just URL resolution)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestAdaptiveAPIEndpoints:
     """Smoke-test that endpoints respond correctly for auth/no-auth."""
 
     def _make_authenticated_client(self, role="student"):
         from django.test import Client
+
         from openshiksha.apps.core.models import User
 
         username = f"api_{role}_{timezone.now().timestamp()}"
@@ -430,24 +454,28 @@ class TestAdaptiveAPIEndpoints:
 
     def test_knowledge_nodes_requires_auth(self):
         from django.test import Client
+
         client = Client()
         response = client.get("/api/v1/ai/knowledge-nodes/")
         assert response.status_code == 401
 
     def test_mastery_requires_auth(self):
         from django.test import Client
+
         client = Client()
         response = client.get("/api/v1/ai/mastery/")
         assert response.status_code == 401
 
     def test_spaced_repetition_requires_auth(self):
         from django.test import Client
+
         client = Client()
         response = client.get("/api/v1/ai/spaced-repetition/")
         assert response.status_code == 401
 
     def test_learning_paths_requires_auth(self):
         from django.test import Client
+
         client = Client()
         response = client.get("/api/v1/ai/learning-paths/")
         assert response.status_code == 401
@@ -477,6 +505,7 @@ class TestAdaptiveAPIEndpoints:
 
     def test_rebuild_path_requires_subject_room_id(self):
         import json
+
         client, _ = self._make_authenticated_client(role="student")
         response = client.post(
             "/api/v1/ai/learning-paths/rebuild/",

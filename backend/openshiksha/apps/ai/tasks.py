@@ -342,6 +342,7 @@ def analyze_student_subject_room(student_id: int, subject_room_id: int) -> None:
 # Adaptive Learning Engine Tasks
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def update_student_mastery(self, student_id: int, subject_room_id: int) -> dict:
     """
@@ -369,29 +370,29 @@ def update_student_mastery(self, student_id: int, subject_room_id: int) -> dict:
         for data in mastery_data:
             obj, created = StudentMastery.objects.update_or_create(
                 student=student,
-                knowledge_node_id=data['knowledge_node_id'],
+                knowledge_node_id=data["knowledge_node_id"],
                 defaults={
-                    'mastery_score': data['new_mastery_score'],
-                    'mastery_level': data['mastery_level'],
-                    'attempt_count': data['attempt_count'],
-                    'last_attempted_at': data['last_attempted_at'],
+                    "mastery_score": data["new_mastery_score"],
+                    "mastery_level": data["mastery_level"],
+                    "attempt_count": data["attempt_count"],
+                    "last_attempted_at": data["last_attempted_at"],
                 },
             )
             if created:
                 obj.first_attempted_at = now
-                obj.save(update_fields=['first_attempted_at'])
+                obj.save(update_fields=["first_attempted_at"])
             upserted += 1
 
         logger.info(
-            'update_student_mastery: student=%d room=%d upserted=%d',
-            student_id, subject_room_id, upserted,
+            "update_student_mastery: student=%d room=%d upserted=%d",
+            student_id,
+            subject_room_id,
+            upserted,
         )
-        return {'upserted': upserted}
+        return {"upserted": upserted}
 
     except Exception as exc:
-        logger.exception(
-            'update_student_mastery failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("update_student_mastery failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -414,7 +415,7 @@ def update_spaced_repetition_for_student(
     try:
         from django.utils import timezone
 
-        from openshiksha.apps.ai.adaptive_analytics import compute_srs_update, SRS_INITIAL_EF
+        from openshiksha.apps.ai.adaptive_analytics import SRS_INITIAL_EF, compute_srs_update
         from openshiksha.apps.ai.models import SpacedRepetitionEntry
         from openshiksha.apps.core.models import User
 
@@ -422,9 +423,7 @@ def update_spaced_repetition_for_student(
         now = timezone.now()
 
         try:
-            entry = SpacedRepetitionEntry.objects.get(
-                student=student, knowledge_node_id=knowledge_node_id
-            )
+            entry = SpacedRepetitionEntry.objects.get(student=student, knowledge_node_id=knowledge_node_id)
             current_interval = entry.interval_days
             current_ef = entry.easiness_factor
             current_reps = entry.repetitions
@@ -434,36 +433,36 @@ def update_spaced_repetition_for_student(
             current_reps = 0
 
         updated = compute_srs_update(score, current_interval, current_ef, current_reps)
-        next_review = timezone.localdate() + __import__('datetime').timedelta(
-            days=updated['interval_days']
-        )
+        next_review = timezone.localdate() + __import__("datetime").timedelta(days=updated["interval_days"])
 
         SpacedRepetitionEntry.objects.update_or_create(
             student=student,
             knowledge_node_id=knowledge_node_id,
             defaults={
-                'interval_days': updated['interval_days'],
-                'easiness_factor': updated['easiness_factor'],
-                'repetitions': updated['repetitions'],
-                'next_review_date': next_review,
-                'last_reviewed_at': now,
+                "interval_days": updated["interval_days"],
+                "easiness_factor": updated["easiness_factor"],
+                "repetitions": updated["repetitions"],
+                "next_review_date": next_review,
+                "last_reviewed_at": now,
             },
         )
 
         logger.info(
-            'update_srs: student=%d node=%d score=%.2f interval=%dd next=%s',
-            student_id, knowledge_node_id, score, updated['interval_days'], next_review,
+            "update_srs: student=%d node=%d score=%.2f interval=%dd next=%s",
+            student_id,
+            knowledge_node_id,
+            score,
+            updated["interval_days"],
+            next_review,
         )
         return {
-            'knowledge_node_id': knowledge_node_id,
-            'next_review_date': next_review.isoformat(),
-            'interval_days': updated['interval_days'],
+            "knowledge_node_id": knowledge_node_id,
+            "next_review_date": next_review.isoformat(),
+            "interval_days": updated["interval_days"],
         }
 
     except Exception as exc:
-        logger.exception(
-            'update_srs failed: student=%d node=%d', student_id, knowledge_node_id
-        )
+        logger.exception("update_srs failed: student=%d node=%d", student_id, knowledge_node_id)
         raise self.retry(exc=exc)
 
 
@@ -481,11 +480,7 @@ def rebuild_learning_path(self, student_id: int, subject_room_id: int) -> dict:
     """
     try:
         from openshiksha.apps.ai.adaptive_analytics import generate_learning_path_steps
-        from openshiksha.apps.ai.models import (
-            LearningPath,
-            LearningPathStatus,
-            LearningPathStep,
-        )
+        from openshiksha.apps.ai.models import LearningPath, LearningPathStatus, LearningPathStep
         from openshiksha.apps.core.models import SubjectRoom, User
 
         student = User.objects.get(pk=student_id)
@@ -513,25 +508,26 @@ def rebuild_learning_path(self, student_id: int, subject_room_id: int) -> dict:
         steps = [
             LearningPathStep(
                 learning_path=path,
-                knowledge_node_id=s['knowledge_node_id'],
-                problem_set_id=s['problem_set_id'],
-                position=s['position'],
-                is_review=s['is_review'],
+                knowledge_node_id=s["knowledge_node_id"],
+                problem_set_id=s["problem_set_id"],
+                position=s["position"],
+                is_review=s["is_review"],
             )
             for s in step_data
         ]
         LearningPathStep.objects.bulk_create(steps)
 
         logger.info(
-            'rebuild_learning_path: student=%d room=%d path=%d steps=%d',
-            student_id, subject_room_id, path.pk, len(steps),
+            "rebuild_learning_path: student=%d room=%d path=%d steps=%d",
+            student_id,
+            subject_room_id,
+            path.pk,
+            len(steps),
         )
-        return {'path_id': path.pk, 'total_steps': len(steps)}
+        return {"path_id": path.pk, "total_steps": len(steps)}
 
     except Exception as exc:
-        logger.exception(
-            'rebuild_learning_path failed: student=%d room=%d', student_id, subject_room_id
-        )
+        logger.exception("rebuild_learning_path failed: student=%d room=%d", student_id, subject_room_id)
         raise self.retry(exc=exc)
 
 
@@ -558,18 +554,17 @@ def complete_learning_path_step(
 
         from openshiksha.apps.ai.models import LearningPath, LearningPathStep, StepStatus
 
-        step = LearningPathStep.objects.select_related('learning_path').get(pk=step_id)
+        step = LearningPathStep.objects.select_related("learning_path").get(pk=step_id)
         path = step.learning_path
 
         step.status = StepStatus.COMPLETED
         step.score_when_completed = score
         step.completed_at = timezone.now()
-        step.save(update_fields=['status', 'score_when_completed', 'completed_at'])
+        step.save(update_fields=["status", "score_when_completed", "completed_at"])
 
         LearningPath.objects.filter(pk=path.pk).update(
-            completed_steps=LearningPath.objects.filter(pk=path.pk).values_list(
-                'completed_steps', flat=True
-            ).first() + 1
+            completed_steps=LearningPath.objects.filter(pk=path.pk).values_list("completed_steps", flat=True).first()
+            + 1
         )
 
         # Refresh SRS for the chapter
@@ -588,17 +583,20 @@ def complete_learning_path_step(
 
         if path_completed:
             from openshiksha.apps.ai.models import LearningPathStatus
+
             path.status = LearningPathStatus.COMPLETED
-            path.save(update_fields=['status'])
+            path.save(update_fields=["status"])
         else:
             rebuild_learning_path.delay(path.student_id, path.subject_room_id)
 
         logger.info(
-            'complete_step: step=%d score=%.2f path_completed=%s',
-            step_id, score, path_completed,
+            "complete_step: step=%d score=%.2f path_completed=%s",
+            step_id,
+            score,
+            path_completed,
         )
-        return {'step_id': step_id, 'path_completed': path_completed}
+        return {"step_id": step_id, "path_completed": path_completed}
 
     except Exception as exc:
-        logger.exception('complete_step failed: step=%d', step_id)
+        logger.exception("complete_step failed: step=%d", step_id)
         raise self.retry(exc=exc)

@@ -419,10 +419,7 @@ class PracticePlan(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f'Plan: {self.student} | {self.subject_room} | '
-            f'{self.plan_date} (~{self.estimated_minutes}min)'
-        )
+        return f"Plan: {self.student} | {self.subject_room} | " f"{self.plan_date} (~{self.estimated_minutes}min)"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -431,24 +428,24 @@ class PracticePlan(models.Model):
 
 
 class MasteryLevel(models.TextChoices):
-    UNKNOWN = 'unknown', 'Unknown (not attempted)'
-    NOVICE = 'novice', 'Novice (0–39%)'
-    DEVELOPING = 'developing', 'Developing (40–59%)'
-    PROFICIENT = 'proficient', 'Proficient (60–79%)'
-    MASTERED = 'mastered', 'Mastered (80%+)'
+    UNKNOWN = "unknown", "Unknown (not attempted)"
+    NOVICE = "novice", "Novice (0–39%)"
+    DEVELOPING = "developing", "Developing (40–59%)"
+    PROFICIENT = "proficient", "Proficient (60–79%)"
+    MASTERED = "mastered", "Mastered (80%+)"
 
 
 class LearningPathStatus(models.TextChoices):
-    ACTIVE = 'active', 'Active'
-    COMPLETED = 'completed', 'Completed'
-    STALE = 'stale', 'Stale (regenerated)'
+    ACTIVE = "active", "Active"
+    COMPLETED = "completed", "Completed"
+    STALE = "stale", "Stale (regenerated)"
 
 
 class StepStatus(models.TextChoices):
-    PENDING = 'pending', 'Pending'
-    IN_PROGRESS = 'in_progress', 'In Progress'
-    COMPLETED = 'completed', 'Completed'
-    SKIPPED = 'skipped', 'Skipped'
+    PENDING = "pending", "Pending"
+    IN_PROGRESS = "in_progress", "In Progress"
+    COMPLETED = "completed", "Completed"
+    SKIPPED = "skipped", "Skipped"
 
 
 class KnowledgeNode(models.Model):
@@ -467,41 +464,42 @@ class KnowledgeNode(models.Model):
       - "Fractions" depends on "Division"
       - "Photosynthesis" depends on "Cell Structure"
     """
+
     subject = models.ForeignKey(
-        'core.Subject',
+        "core.Subject",
         on_delete=models.CASCADE,
-        related_name='knowledge_nodes',
+        related_name="knowledge_nodes",
     )
     chapter = models.ForeignKey(
-        'core.Chapter',
+        "core.Chapter",
         on_delete=models.CASCADE,
-        related_name='knowledge_nodes',
+        related_name="knowledge_nodes",
     )
     prerequisites = models.ManyToManyField(
-        'self',
+        "self",
         symmetrical=False,
         blank=True,
-        related_name='unlocks',
-        help_text='Chapters that should be mastered before this one',
+        related_name="unlocks",
+        help_text="Chapters that should be mastered before this one",
     )
     difficulty_weight = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0.1), MaxValueValidator(5.0)],
-        help_text='Relative difficulty 0.1–5.0; affects spaced repetition interval scaling',
+        help_text="Relative difficulty 0.1–5.0; affects spaced repetition interval scaling",
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_knowledge_nodes'
-        unique_together = [['subject', 'chapter']]
+        db_table = "ai_knowledge_nodes"
+        unique_together = [["subject", "chapter"]]
         indexes = [
-            models.Index(fields=['subject', 'is_active']),
+            models.Index(fields=["subject", "is_active"]),
         ]
 
     def __str__(self):
-        return f'KNode: {self.subject.name} — {self.chapter.name}'
+        return f"KNode: {self.subject.name} — {self.chapter.name}"
 
 
 class StudentMastery(models.Model):
@@ -526,21 +524,22 @@ class StudentMastery(models.Model):
     - Prioritise chapters where the student is novice/developing
     - Decide whether prerequisites are met before advancing
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='masteries',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="masteries",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     knowledge_node = models.ForeignKey(
         KnowledgeNode,
         on_delete=models.CASCADE,
-        related_name='masteries',
+        related_name="masteries",
     )
     mastery_score = models.FloatField(
         default=0.0,
         validators=FRACTION_VALIDATOR,
-        help_text='EWMA of scores across all attempts (0.0–1.0)',
+        help_text="EWMA of scores across all attempts (0.0–1.0)",
     )
     mastery_level = models.CharField(
         max_length=12,
@@ -549,32 +548,32 @@ class StudentMastery(models.Model):
     )
     attempt_count = models.PositiveIntegerField(
         default=0,
-        help_text='Total number of practice attempts contributing to this score',
+        help_text="Total number of practice attempts contributing to this score",
     )
     last_attempted_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='When the student last practiced this chapter',
+        help_text="When the student last practiced this chapter",
     )
     first_attempted_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='When the student first attempted this chapter',
+        help_text="When the student first attempted this chapter",
     )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_student_mastery'
-        unique_together = [['student', 'knowledge_node']]
+        db_table = "ai_student_mastery"
+        unique_together = [["student", "knowledge_node"]]
         indexes = [
-            models.Index(fields=['student', 'mastery_level']),
-            models.Index(fields=['knowledge_node', 'mastery_level']),
+            models.Index(fields=["student", "mastery_level"]),
+            models.Index(fields=["knowledge_node", "mastery_level"]),
         ]
 
     def __str__(self):
         return (
-            f'Mastery: {self.student} | {self.knowledge_node.chapter.name} | '
-            f'{self.mastery_level} ({self.mastery_score:.0%})'
+            f"Mastery: {self.student} | {self.knowledge_node.chapter.name} | "
+            f"{self.mastery_level} ({self.mastery_score:.0%})"
         )
 
     @staticmethod
@@ -602,16 +601,17 @@ class LearningPath(models.Model):
     Only one ACTIVE path exists per (student, subject_room) at a time.
     When regenerated, the old path is marked STALE.
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='learning_paths',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="learning_paths",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     subject_room = models.ForeignKey(
-        'core.SubjectRoom',
+        "core.SubjectRoom",
         on_delete=models.CASCADE,
-        related_name='learning_paths',
+        related_name="learning_paths",
     )
     status = models.CharField(
         max_length=10,
@@ -625,16 +625,16 @@ class LearningPath(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_learning_paths'
+        db_table = "ai_learning_paths"
         indexes = [
-            models.Index(fields=['student', 'status']),
-            models.Index(fields=['subject_room', 'status']),
+            models.Index(fields=["student", "status"]),
+            models.Index(fields=["subject_room", "status"]),
         ]
 
     def __str__(self):
         return (
-            f'Path: {self.student} | {self.subject_room} | '
-            f'{self.status} ({self.completed_steps}/{self.total_steps})'
+            f"Path: {self.student} | {self.subject_room} | "
+            f"{self.status} ({self.completed_steps}/{self.total_steps})"
         )
 
     @property
@@ -655,26 +655,27 @@ class LearningPathStep(models.Model):
     When a student completes the assigned problem_set for this step, the
     step status is updated to COMPLETED and StudentMastery is refreshed.
     """
+
     learning_path = models.ForeignKey(
         LearningPath,
         on_delete=models.CASCADE,
-        related_name='steps',
+        related_name="steps",
     )
     knowledge_node = models.ForeignKey(
         KnowledgeNode,
         on_delete=models.CASCADE,
-        related_name='path_steps',
+        related_name="path_steps",
     )
     problem_set = models.ForeignKey(
-        'core.ProblemSet',
+        "core.ProblemSet",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='path_steps',
-        help_text='Suggested problem set for this step; null = student chooses freely',
+        related_name="path_steps",
+        help_text="Suggested problem set for this step; null = student chooses freely",
     )
     position = models.PositiveIntegerField(
-        help_text='1-indexed order in the learning path',
+        help_text="1-indexed order in the learning path",
     )
     status = models.CharField(
         max_length=12,
@@ -683,30 +684,27 @@ class LearningPathStep(models.Model):
     )
     is_review = models.BooleanField(
         default=False,
-        help_text='True when inserted by spaced-repetition scheduler for review',
+        help_text="True when inserted by spaced-repetition scheduler for review",
     )
     score_when_completed = models.FloatField(
         null=True,
         blank=True,
         validators=FRACTION_VALIDATOR,
-        help_text='Score the student achieved when they completed this step',
+        help_text="Score the student achieved when they completed this step",
     )
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'ai_learning_path_steps'
-        unique_together = [['learning_path', 'position']]
+        db_table = "ai_learning_path_steps"
+        unique_together = [["learning_path", "position"]]
         indexes = [
-            models.Index(fields=['learning_path', 'status']),
-            models.Index(fields=['knowledge_node', 'status']),
+            models.Index(fields=["learning_path", "status"]),
+            models.Index(fields=["knowledge_node", "status"]),
         ]
 
     def __str__(self):
-        review_tag = ' [review]' if self.is_review else ''
-        return (
-            f'Step {self.position}{review_tag}: '
-            f'{self.knowledge_node.chapter.name} [{self.status}]'
-        )
+        review_tag = " [review]" if self.is_review else ""
+        return f"Step {self.position}{review_tag}: " f"{self.knowledge_node.chapter.name} [{self.status}]"
 
 
 class SpacedRepetitionEntry(models.Model):
@@ -734,32 +732,33 @@ class SpacedRepetitionEntry(models.Model):
     Entries with next_review_date <= today are surfaced by the adaptive engine
     as review steps in the student's LearningPath.
     """
+
     student = models.ForeignKey(
-        'core.User',
+        "core.User",
         on_delete=models.CASCADE,
-        related_name='srs_entries',
-        limit_choices_to={'role__in': ['student', 'open_student']},
+        related_name="srs_entries",
+        limit_choices_to={"role__in": ["student", "open_student"]},
     )
     knowledge_node = models.ForeignKey(
         KnowledgeNode,
         on_delete=models.CASCADE,
-        related_name='srs_entries',
+        related_name="srs_entries",
     )
     interval_days = models.PositiveIntegerField(
         default=1,
-        help_text='Days until next review',
+        help_text="Days until next review",
     )
     easiness_factor = models.FloatField(
         default=2.5,
         validators=[MinValueValidator(1.3), MaxValueValidator(5.0)],
-        help_text='SM-2 easiness factor — controls interval growth rate',
+        help_text="SM-2 easiness factor — controls interval growth rate",
     )
     repetitions = models.PositiveIntegerField(
         default=0,
-        help_text='Consecutive successful review count',
+        help_text="Consecutive successful review count",
     )
     next_review_date = models.DateField(
-        help_text='Date on which this chapter is scheduled for review',
+        help_text="Date on which this chapter is scheduled for review",
     )
     last_reviewed_at = models.DateTimeField(
         null=True,
@@ -768,15 +767,15 @@ class SpacedRepetitionEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'ai_spaced_repetition_entries'
-        unique_together = [['student', 'knowledge_node']]
+        db_table = "ai_spaced_repetition_entries"
+        unique_together = [["student", "knowledge_node"]]
         indexes = [
-            models.Index(fields=['student', 'next_review_date']),
-            models.Index(fields=['knowledge_node', 'next_review_date']),
+            models.Index(fields=["student", "next_review_date"]),
+            models.Index(fields=["knowledge_node", "next_review_date"]),
         ]
 
     def __str__(self):
         return (
-            f'SRS: {self.student} | {self.knowledge_node.chapter.name} | '
-            f'next={self.next_review_date} interval={self.interval_days}d'
+            f"SRS: {self.student} | {self.knowledge_node.chapter.name} | "
+            f"next={self.next_review_date} interval={self.interval_days}d"
         )

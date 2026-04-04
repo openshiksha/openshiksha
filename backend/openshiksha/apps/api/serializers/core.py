@@ -70,13 +70,29 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
 
 
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
-    """Student-safe subpart serializer — omits correct_answer so students cannot see answers."""
+    """
+    Student-safe subpart serializer — omits correct_answer.
+
+    For MCQ/multi_select subparts, options are shuffled deterministically
+    by (student_id, subpart_id) so each student sees a unique ordering.
+    Keys are re-assigned by display position after shuffling.
+    """
 
     tags = QuestionTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuestionSubpart
         fields = ["id", "index", "tags", "question_text", "options"]
+
+    def to_representation(self, instance):
+        from openshiksha.apps.api.croupier import shuffle_options_for_student
+
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        options = data.get("options")
+        if request and request.user.is_authenticated and options:
+            data["options"] = shuffle_options_for_student(options, request.user.id, instance.id)
+        return data
 
 
 class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
@@ -329,12 +345,15 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Submission
         fields = [
             "id",
             "assignment",
             "student",
+            "student_name",
             "score",
             "completion",
             "answers",
@@ -344,6 +363,9 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["student", "score", "created_at", "updated_at"]
+
+    def get_student_name(self, obj) -> str:
+        return obj.student.get_full_name() or obj.student.username
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -366,6 +388,49 @@ class SubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         validated_data["student"] = request.user
         return super().create(validated_data)
+
+
+class ProblemSetWriteSerializer(serializers.ModelSerializer):
+    """
+    Writable serializer for teacher problem set creation.
+
+    Accepts question_ids to link existing questions to the new problem set.
+    """
+
+    question_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Question.objects.filter(is_active=True),
+        source="questions",
+        required=False,
+    )
+    id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = ProblemSet
+        fields = [
+            "id",
+            "title",
+            "description",
+            "standard",
+            "subject",
+            "chapter",
+            "estimated_minutes",
+            "question_ids",
+            "created_at",
+        ]
+
+    def validate_question_ids(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one question is required.")
+        return value
+
+    def create(self, validated_data):
+        questions = validated_data.pop("questions", [])
+        problem_set = ProblemSet.objects.create(**validated_data)
+        if questions:
+            problem_set.questions.set(questions)
+        return problem_set
 
 
 class StudentProficiencySerializer(serializers.ModelSerializer):

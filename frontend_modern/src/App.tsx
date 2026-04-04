@@ -9,6 +9,8 @@ import { ProficiencyPage } from './features/student/ProficiencyPage';
 import { TeacherDashboard } from './features/teacher/TeacherDashboard';
 import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
+import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
+import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 
 const NotFound = () => (
@@ -98,6 +100,28 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <CreateQuestionPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/problem-sets/new"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <CreateProblemSetPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/assignments/:id"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <TeacherAssignmentDetailPage />
               </AppShell>
             </ProtectedRoute>
           }

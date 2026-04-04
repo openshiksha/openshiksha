@@ -112,20 +112,20 @@ services:
     networks:
       - openshiksha-network
 
-  # React Frontend
+  # React Frontend (modern)
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend_modern
       dockerfile: Dockerfile
     container_name: openshiksha-frontend
     command: npm run dev -- --host
     volumes:
-      - ./frontend:/app
+      - ./frontend_modern:/app
       - /app/node_modules  # Anonymous volume for node_modules
     ports:
       - "5173:5173"
     env_file:
-      - ./frontend/.env
+      - ./frontend_modern/.env
     environment:
       - VITE_API_BASE_URL=http://localhost:8000/api/v1
       - VITE_WS_URL=ws://localhost:8000/ws

@@ -49,29 +49,7 @@ jobs:
     test:
         name: Test
         runs-on: ubuntu-latest
-        services:
-            db:
-                image: postgres:15
-                env:
-                    POSTGRES_USER: openshiksha_app
-                    POSTGRES_DB: openshiksha_test
-                    POSTGRES_PASSWORD: testpass
-                ports:
-                    - 5432:5432
-                options: >-
-                    --health-cmd pg_isready
-                    --health-interval 10s
-                    --health-timeout 5s
-                    --health-retries 5
-            redis:
-                image: redis:7
-                ports:
-                    - 6379:6379
-                options: >-
-                    --health-cmd "redis-cli ping"
-                    --health-interval 10s
-                    --health-timeout 5s
-                    --health-retries 5
+        # No external services needed — tests use SQLite in-memory and LocMemCache
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
@@ -88,29 +66,19 @@ jobs:
               run: python manage.py check
               working-directory: backend
               env:
-                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
-                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
-                REDIS_URL: redis://localhost:6379/0
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.test
                 SECRET_KEY: test-secret-key-not-for-production
-                DEBUG: "True"
             - name: Run migrations
               run: python manage.py migrate
               working-directory: backend
               env:
-                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
-                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
-                REDIS_URL: redis://localhost:6379/0
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.test
                 SECRET_KEY: test-secret-key-not-for-production
-                DEBUG: "True"
             - name: Run Tests
               run: python -m pytest
               working-directory: backend
               env:
-                DJANGO_SETTINGS_MODULE: openshiksha.settings.development
-                DATABASE_URL: postgresql://openshiksha_app:testpass@localhost:5432/openshiksha_test
-                REDIS_URL: redis://localhost:6379/0
                 SECRET_KEY: test-secret-key-not-for-production
-                DEBUG: "True"
             - name: Upload coverage report
               uses: actions/upload-artifact@v4
               if: always()

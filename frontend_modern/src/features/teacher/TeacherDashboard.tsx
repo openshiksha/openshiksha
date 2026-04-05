@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useTeacherAssignments } from './useTeacherAssignments';
+import { ClassHealthPanel } from './ClassHealthPanel';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { Assignment } from '@/types/index';
 
@@ -114,6 +115,7 @@ export const TeacherDashboard = () => {
                     </button>
                   </div>
                 </div>
+                <ClassHealthPanel subjectRoomId={room.id} />
               </div>
             ))}
           </div>

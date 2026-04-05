@@ -328,14 +328,15 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
 def analyze_student_subject_room(student_id: int, subject_room_id: int) -> None:
     """
     Convenience task: runs gap detection, performance prediction,
-    recommendation refresh, and mastery/path updates for a student.
-    Called after grading completes for a submission.
+    recommendation refresh, mastery/path updates, and daily practice plan
+    generation for a student. Called after grading completes for a submission.
     """
     detect_learning_gaps_for_student.delay(student_id, subject_room_id)
     update_performance_prediction_for_student.delay(student_id, subject_room_id)
     refresh_recommendations_for_student.delay(student_id, subject_room_id)
     update_student_mastery.delay(student_id, subject_room_id)
     rebuild_learning_path.delay(student_id, subject_room_id)
+    generate_daily_practice_plan.delay(student_id, subject_room_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

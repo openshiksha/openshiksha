@@ -3,6 +3,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { AssignmentList } from './AssignmentList';
 import { useAssignments } from './useAssignments';
+import { RecommendationsPanel } from './RecommendationsPanel';
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -43,6 +44,8 @@ export const StudentDashboard = () => {
       {assignments && (
         <AssignmentList assignments={assignments} />
       )}
+
+      <RecommendationsPanel />
     </div>
   );
 };

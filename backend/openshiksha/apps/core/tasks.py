@@ -108,6 +108,12 @@ def grade_submission(self, submission_id: int) -> dict:
     _update_assignment_aggregates.delay(submission.assignment_id)
     update_proficiency.delay(submission.student_id, subject_room.id)
 
+    # Trigger AI analytics pipeline (learning gaps, recommendations, mastery, learning path)
+    from openshiksha.apps.ai.tasks import analyze_student_subject_room, generate_class_insights_for_subject_room
+
+    analyze_student_subject_room.delay(submission.student_id, subject_room.id)
+    generate_class_insights_for_subject_room.delay(subject_room.id)
+
     return {
         "submission_id": submission_id,
         "total_subparts": total_subparts,

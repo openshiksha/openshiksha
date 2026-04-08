@@ -66,7 +66,7 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options", "correct_answer"]
+        fields = ["id", "index", "tags", "question_text", "options", "correct_answer", "variable_constraints"]
 
 
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
@@ -76,6 +76,9 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
     For MCQ/multi_select subparts, options are shuffled deterministically
     by (student_id, subpart_id) so each student sees a unique ordering.
     Keys are re-assigned by display position after shuffling.
+
+    For numeric/fill_blank subparts with variable_constraints, {{var}} tokens
+    in question_text and options are substituted with per-student values (Phase 2).
     """
 
     tags = QuestionTagSerializer(many=True, read_only=True)
@@ -85,13 +88,31 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
         fields = ["id", "index", "tags", "question_text", "options"]
 
     def to_representation(self, instance):
-        from openshiksha.apps.api.croupier import shuffle_options_for_student
+        from openshiksha.apps.api.croupier import shuffle_options_for_student, substitute_variables_for_student
 
         data = super().to_representation(instance)
         request = self.context.get("request")
+        if not (request and request.user.is_authenticated):
+            return data
+
+        # Phase 2: Variable substitution (numeric/fill_blank with {{var}} tokens)
+        if instance.variable_constraints:
+            subst_text, subst_options, _ = substitute_variables_for_student(
+                data["question_text"],
+                data.get("options"),
+                instance.variable_constraints,
+                request.user.id,
+                instance.id,
+            )
+            data["question_text"] = subst_text
+            if subst_options is not None:
+                data["options"] = subst_options
+
+        # Phase 1: MCQ option shuffling (applied after variable substitution)
         options = data.get("options")
-        if request and request.user.is_authenticated and options:
+        if options:
             data["options"] = shuffle_options_for_student(options, request.user.id, instance.id)
+
         return data
 
 
@@ -146,7 +167,7 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["index", "question_text", "options", "correct_answer"]
+        fields = ["index", "question_text", "options", "correct_answer", "variable_constraints"]
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):

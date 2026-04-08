@@ -167,6 +167,19 @@ class Command(BaseCommand):
                 ),
                 "options": None,
                 "correct_answer": {"type": "numeric", "answer": 3.5},
+                "variable_constraints": None,
+            },
+            {
+                "question_type": QuestionType.NUMERIC,
+                "difficulty": 2,
+                "question_text": r"Solve: ${{a}}x + {{b}} = {{c}}$. Find $x$.",
+                "options": None,
+                "correct_answer": {"type": "numeric", "answer": "({{c}} - {{b}}) / {{a}}"},
+                "variable_constraints": {
+                    "a": {"min": 2, "max": 9, "integer": True},
+                    "b": {"min": 1, "max": 20, "integer": True},
+                    "c": {"min": 10, "max": 50, "integer": True},
+                },
             },
         ]
 
@@ -191,6 +204,7 @@ class Command(BaseCommand):
                     "question_text": qdata["question_text"],
                     "options": qdata["options"],
                     "correct_answer": qdata["correct_answer"],
+                    "variable_constraints": qdata.get("variable_constraints"),
                 },
             )
             # Update text/options even if subpart already existed (allows re-seeding content)
@@ -198,7 +212,8 @@ class Command(BaseCommand):
                 subpart.question_text = qdata["question_text"]
                 subpart.options = qdata["options"]
                 subpart.correct_answer = qdata["correct_answer"]
-                subpart.save(update_fields=["question_text", "options", "correct_answer"])
+                subpart.variable_constraints = qdata.get("variable_constraints")
+                subpart.save(update_fields=["question_text", "options", "correct_answer", "variable_constraints"])
 
             created_questions.append(question)
 

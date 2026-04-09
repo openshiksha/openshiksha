@@ -28,6 +28,28 @@ jobs:
               run: flake8 openshiksha/
               working-directory: backend
 
+    typecheck:
+        name: Type Check (mypy)
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+                cache: 'pip'
+                cache-dependency-path: 'backend/requirements.txt'
+            - name: Install Dependencies
+              run: pip install -r requirements.txt
+              working-directory: backend
+            - name: Run mypy
+              run: mypy openshiksha/
+              working-directory: backend
+              env:
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.test
+                SECRET_KEY: test-secret-key-not-for-production
+
     security:
         name: Security Audit
         runs-on: ubuntu-latest
@@ -104,6 +126,8 @@ jobs:
                 cache-dependency-path: frontend_modern/package-lock.json
             - name: Install dependencies
               run: npm ci
+            - name: Audit dependencies for known CVEs
+              run: npm audit --audit-level=high
             - name: Lint (ESLint)
               run: npm run lint
             - name: Type check (TypeScript)
@@ -115,7 +139,7 @@ jobs:
 
     build-publish:
         name: Build & Publish
-        needs: [lint, security, test, frontend]
+        needs: [lint, typecheck, security, test, frontend]
         # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest

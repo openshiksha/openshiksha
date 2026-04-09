@@ -563,10 +563,10 @@ def complete_learning_path_step(
         step.completed_at = timezone.now()
         step.save(update_fields=["status", "score_when_completed", "completed_at"])
 
-        LearningPath.objects.filter(pk=path.pk).update(
-            completed_steps=LearningPath.objects.filter(pk=path.pk).values_list("completed_steps", flat=True).first()
-            + 1
+        current_completed = (
+            LearningPath.objects.filter(pk=path.pk).values_list("completed_steps", flat=True).first() or 0
         )
+        LearningPath.objects.filter(pk=path.pk).update(completed_steps=current_completed + 1)
 
         # Refresh SRS for the chapter
         update_spaced_repetition_for_student.delay(

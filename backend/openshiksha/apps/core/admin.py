@@ -33,7 +33,7 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ["is_staff", "is_superuser", "is_active", "role", "school"]
     search_fields = ["username", "first_name", "last_name", "email"]
 
-    fieldsets = BaseUserAdmin.fieldsets + (
+    fieldsets = BaseUserAdmin.fieldsets + (  # type: ignore[operator]
         ("Profile Information", {"fields": ("role", "school", "grade", "phone_number", "date_of_birth")}),
     )
 

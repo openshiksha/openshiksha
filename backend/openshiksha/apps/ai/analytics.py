@@ -476,7 +476,7 @@ def _reason_for_severity(severity: str) -> str:
         GapSeverity.MODERATE: RecommendationReason.MODERATE_GAP,
         GapSeverity.MILD: RecommendationReason.MILD_GAP,
     }
-    return mapping.get(severity, RecommendationReason.MILD_GAP)
+    return mapping.get(severity, RecommendationReason.MILD_GAP)  # type: ignore[call-overload]
 
 
 def _best_problem_set_for_chapter(

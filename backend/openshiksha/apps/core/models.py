@@ -477,7 +477,7 @@ class SubjectRoom(models.Model):
         related_name="subject_rooms_taught",
         limit_choices_to={"role": UserRole.TEACHER},
     )
-    students = models.ManyToManyField(
+    students: models.ManyToManyField = models.ManyToManyField(
         "User",
         related_name="subject_rooms_enrolled",
         blank=True,

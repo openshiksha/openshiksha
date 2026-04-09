@@ -369,7 +369,7 @@ class ContentRecommendation(models.Model):
             RecommendationReason.MILD_GAP: RecommendationPriority.MEDIUM,
             RecommendationReason.NEXT_TOPIC: RecommendationPriority.LOW,
         }
-        return mapping.get(reason, RecommendationPriority.MEDIUM)
+        return mapping.get(reason, RecommendationPriority.MEDIUM)  # type: ignore[call-overload]
 
 
 class PracticePlan(models.Model):

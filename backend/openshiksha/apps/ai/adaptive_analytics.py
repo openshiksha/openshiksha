@@ -132,7 +132,7 @@ def compute_mastery_for_student(student: "User", subject_room: "SubjectRoom") ->
         current_attempts = existing.attempt_count if existing else 0
 
         new_score = compute_updated_mastery(current_score, float(agg["avg_score"]), current_attempts)
-        new_level = MasteryLevel.level_from_score(new_score) if new_score > 0 else MasteryLevel.UNKNOWN
+        new_level = StudentMastery.level_from_score(new_score) if new_score > 0 else MasteryLevel.UNKNOWN
 
         results.append(
             {
@@ -214,7 +214,7 @@ def get_due_srs_entries(student: "User", subject_room: "SubjectRoom") -> list[di
         next_review_date__lte=lookahead,
     ).values("knowledge_node_id", "next_review_date", "interval_days")
 
-    return list(entries)
+    return list(entries)  # type: ignore[arg-type]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -32,5 +32,12 @@ warn_redundant_casts = true
 disallow_untyped_defs = false
 check_untyped_defs = false
 
+[[tool.mypy.overrides]]
+# Settings files use `from .base import *` which defeats mypy's type inference.
+# Dict accesses like LOGGING["root"]["level"] appear as "object" subscript errors
+# — false positives, the runtime types are correct.
+module = "openshiksha.settings.*"
+ignore_errors = true
+
 [tool.django-stubs]
 django_settings_module = "openshiksha.settings.development"

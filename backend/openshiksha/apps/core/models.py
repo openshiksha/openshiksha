@@ -433,6 +433,15 @@ class QuestionSubpart(models.Model):
         default=dict,
         help_text='Answer data: e.g. {"type": "mcq", "answer": 2} or {"type": "fill_blank", "answer": "42"}',
     )
+    variable_constraints = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Variable definitions for token substitution. "
+            'e.g. {"a": {"min": 1, "max": 9, "integer": true}}. '
+            "Tokens {{a}} in question_text/options are replaced per student."
+        ),
+    )
 
     class Meta:
         db_table = "question_subparts"

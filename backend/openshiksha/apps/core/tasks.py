@@ -80,6 +80,7 @@ def grade_submission(self, submission_id: int) -> dict:
             student_id=student_id,
             subpart_id=subpart.id,
             original_options=subpart.options,
+            variable_constraints=subpart.variable_constraints,
         )
         total_mark += mark
 
@@ -131,6 +132,7 @@ def _grade_subpart(
     student_id: int | None = None,
     subpart_id: int | None = None,
     original_options: list | None = None,
+    variable_constraints: dict | None = None,
 ) -> float:
     """
     Grade a single subpart answer. Returns a fraction (0.0–1.0).
@@ -139,6 +141,10 @@ def _grade_subpart(
     For MCQ/multi_select, if student_id + subpart_id + original_options are
     provided, the student's submitted key is reverse-mapped through the
     Croupier shuffle back to the original storage key before comparison.
+
+    For numeric questions with variable_constraints, the correct_answer["answer"]
+    may be an expression like "({{c}} - {{b}}) / {{a}}" that is evaluated with
+    the same deterministic variable values shown to the student.
     """
     if not correct_answer or "answer" not in correct_answer:
         return 0.0
@@ -154,6 +160,23 @@ def _grade_subpart(
         return 1.0 if answer_to_compare == str(expected) else 0.0
 
     if question_type == "numeric":
+        # Re-derive variable values and evaluate expression answers
+        if variable_constraints and student_id and subpart_id:
+            from openshiksha.apps.api.croupier import safe_eval_expr, sample_variable_values
+
+            variable_values = sample_variable_values(variable_constraints, student_id, subpart_id)
+            expected_raw = str(expected)
+            if "{{" in expected_raw:
+                try:
+                    expected_float = safe_eval_expr(expected_raw, variable_values)
+                    try:
+                        submitted_float = float(student_answer)
+                        return 1.0 if abs(submitted_float - expected_float) < 0.01 else 0.0
+                    except (TypeError, ValueError):
+                        return 0.0
+                except (ValueError, ZeroDivisionError):
+                    return 0.0
+        # Non-variable numeric: direct comparison
         try:
             return 1.0 if abs(float(student_answer) - float(expected)) < 0.001 else 0.0
         except (TypeError, ValueError):

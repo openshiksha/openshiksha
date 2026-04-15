@@ -6,6 +6,7 @@ import { ProtectedRoute } from './features/layout/ProtectedRoute';
 import { StudentDashboard } from './features/student/StudentDashboard';
 import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
 import { ProficiencyPage } from './features/student/ProficiencyPage';
+import { LearningPathPage } from './features/student/LearningPathPage';
 import { TeacherDashboard } from './features/teacher/TeacherDashboard';
 import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
@@ -78,6 +79,17 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <ProficiencyPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/learning-path"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <LearningPathPage />
               </AppShell>
             </ProtectedRoute>
           }

@@ -40,9 +40,17 @@ export const Navbar = () => {
 
             <div className="flex items-center gap-1">
               {isStudent && (
-                <NavLink to="/student" active={location.pathname.startsWith('/student')}>
-                  Dashboard
-                </NavLink>
+                <>
+                  <NavLink to="/student" active={location.pathname === '/student'}>
+                    Dashboard
+                  </NavLink>
+                  <NavLink
+                    to="/student/learning-path"
+                    active={location.pathname.startsWith('/student/learning-path')}
+                  >
+                    Learning Path
+                  </NavLink>
+                </>
               )}
               {isTeacher && (
                 <NavLink to="/teacher" active={location.pathname.startsWith('/teacher')}>

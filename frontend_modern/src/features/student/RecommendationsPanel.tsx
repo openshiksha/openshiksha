@@ -57,12 +57,20 @@ export const RecommendationsPanel = () => {
           <span className="text-xs text-gray-500">
             {plan.recommendations.length} topic{plan.recommendations.length !== 1 ? 's' : ''} in today&apos;s plan
           </span>
-          <a
-            href="/student/proficiency"
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-          >
-            View progress →
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/student/proficiency"
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              View progress →
+            </a>
+            <a
+              href="/student/learning-path"
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              View learning path →
+            </a>
+          </div>
         </div>
       )}
     </div>

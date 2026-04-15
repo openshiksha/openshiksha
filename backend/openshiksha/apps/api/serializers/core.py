@@ -20,7 +20,7 @@ from openshiksha.apps.core.models import (
     User,
     UserRole,
 )
-from openshiksha.apps.edge.models import StudentProficiency
+from openshiksha.apps.edge.models import StudentProficiency, SubjectRoomQuestionMistake
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -487,3 +487,35 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
     def get_classroom_display(self, obj) -> str:
         classroom = obj.subject_room.classroom
         return f"Standard {classroom.standard.number} {classroom.division}"
+
+
+class QuestionMistakeSerializer(serializers.ModelSerializer):
+    """
+    Exposes a subject room's question mistake data for teachers.
+
+    Ordered by regression (highest = hardest question for that class).
+    question_text and question_type are from the first subpart of each question.
+    """
+
+    question_text = serializers.SerializerMethodField()
+    question_type = serializers.SerializerMethodField()
+    question_id = serializers.IntegerField(source="question.id", read_only=True)
+
+    class Meta:
+        model = SubjectRoomQuestionMistake
+        fields = [
+            "id",
+            "question_id",
+            "question_text",
+            "question_type",
+            "regression",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_question_text(self, obj) -> str:
+        first_subpart = obj.question.subparts.order_by("index").first()
+        return first_subpart.question_text if first_subpart else ""
+
+    def get_question_type(self, obj) -> str:
+        return obj.question.question_type

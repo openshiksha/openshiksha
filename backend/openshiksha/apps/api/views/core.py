@@ -14,6 +14,7 @@ from openshiksha.apps.api.serializers import (
     ChapterSerializer,
     ProblemSetSerializer,
     ProblemSetWriteSerializer,
+    QuestionMistakeSerializer,
     QuestionSerializer,
     QuestionTagSerializer,
     QuestionWriteSerializer,
@@ -35,7 +36,7 @@ from openshiksha.apps.core.models import (
     User,
     UserRole,
 )
-from openshiksha.apps.edge.models import StudentProficiency
+from openshiksha.apps.edge.models import StudentProficiency, SubjectRoomQuestionMistake
 
 
 class IsTeacher(permissions.BasePermission):
@@ -401,3 +402,27 @@ class StudentProficiencyViewSet(viewsets.ReadOnlyModelViewSet):
             )
             .order_by("subject_room__subject__name", "question_tag__name")
         )
+
+
+class QuestionMistakeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    GET /api/question-mistakes/?subject_room=<id>
+
+    Returns questions ordered by regression (hardest first).
+    Restricted to teachers; only returns data for their own subject rooms.
+    """
+
+    serializer_class = QuestionMistakeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get_queryset(self):
+        qs = (
+            SubjectRoomQuestionMistake.objects.filter(subject_room__teacher=self.request.user)
+            .select_related("question", "subject_room")
+            .prefetch_related("question__subparts")
+            .order_by("-regression")
+        )
+        subject_room_id = self.request.query_params.get("subject_room")
+        if subject_room_id:
+            qs = qs.filter(subject_room_id=subject_room_id)
+        return qs

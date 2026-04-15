@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherAssignmentDetail } from './useTeacherAssignmentDetail';
+import { useQuestionMistakes } from './useQuestionMistakes';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { SubmissionWithStudent } from './useTeacherAssignmentDetail';
+import type { QuestionMistake } from './useQuestionMistakes';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -44,12 +46,44 @@ const SubmissionRow = ({ sub }: { sub: SubmissionWithStudent }) => (
   </tr>
 );
 
+const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) => {
+  if (!mistakes.length) return null;
+  const maxRegression = Math.max(...mistakes.map((m) => m.regression));
+  return (
+    <div className="mt-6 bg-white rounded-xl border border-red-100 p-5">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+        Hardest Questions{' '}
+        <span className="text-gray-400 font-normal">(by cumulative marks lost)</span>
+      </h3>
+      <div className="space-y-3">
+        {mistakes.slice(0, 5).map((m) => (
+          <div key={m.id} className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-700 line-clamp-2">{m.question_text}</p>
+              <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-red-400 rounded-full"
+                  style={{ width: `${Math.round((m.regression / maxRegression) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <span className="shrink-0 text-xs font-semibold text-red-700">
+              {m.regression.toFixed(1)} pts lost
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const TeacherAssignmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const assignmentId = id ? parseInt(id, 10) : 0;
 
   const { metaQuery, submissionsQuery } = useTeacherAssignmentDetail(assignmentId);
+  const { data: mistakes } = useQuestionMistakes(metaQuery.data?.subject_room);
 
   const isLoading = metaQuery.isLoading || submissionsQuery.isLoading;
   const isError = metaQuery.isError || submissionsQuery.isError;
@@ -171,6 +205,8 @@ export const TeacherAssignmentDetailPage = () => {
           </div>
         )}
       </div>
+
+      <HardestQuestionsPanel mistakes={mistakes ?? []} />
     </div>
   );
 };

@@ -151,6 +151,7 @@ export interface QuestionSubpartWrite {
   question_text: string;
   options: MCQOption[] | null;
   correct_answer: Record<string, unknown>;
+  variable_constraints?: Record<string, { min: number; max: number; integer: boolean }> | null;
 }
 
 export interface QuestionCreate {

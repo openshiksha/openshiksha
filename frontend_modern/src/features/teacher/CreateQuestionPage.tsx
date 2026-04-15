@@ -10,11 +10,14 @@ import type { MCQOption, QuestionSubpartWrite } from '@/types/index';
 
 type QuestionType = 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
 
+type VariableSpec = { min: number; max: number; integer: boolean };
+
 interface SubpartDraft {
   question_text: string;
   question_type: QuestionType;
   options: MCQOption[];
   correct_answer: string;
+  variable_constraints: Record<string, VariableSpec>;
 }
 
 const defaultSubpart = (): SubpartDraft => ({
@@ -27,7 +30,87 @@ const defaultSubpart = (): SubpartDraft => ({
     { key: 'D', text: '' },
   ],
   correct_answer: '',
+  variable_constraints: {},
 });
+
+// ---------------------------------------------------------------------------
+// Variable token helpers
+// ---------------------------------------------------------------------------
+
+const extractTokens = (text: string): string[] => {
+  const re = /\{\{(\w+)\}\}/g;
+  const names = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) names.add(match[1]);
+  return Array.from(names).sort();
+};
+
+const syncVariableConstraints = (
+  text: string,
+  existing: Record<string, VariableSpec>
+): Record<string, VariableSpec> => {
+  const tokens = extractTokens(text);
+  const next: Record<string, VariableSpec> = {};
+  for (const token of tokens) {
+    next[token] = existing[token] ?? { min: 1, max: 10, integer: true };
+  }
+  return next;
+};
+
+// ---------------------------------------------------------------------------
+// Live preview widget (client-side RNG — matches backend seed concept, not exact values)
+// ---------------------------------------------------------------------------
+
+const xorshift32 = (seed: number) => {
+  let s = seed | 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+};
+
+const sampleValues = (
+  constraints: Record<string, VariableSpec>,
+  studentNum: number
+): Record<string, number> => {
+  const rng = xorshift32(studentNum * 31337);
+  const out: Record<string, number> = {};
+  for (const [name, spec] of Object.entries(constraints)) {
+    const raw = rng() * (spec.max - spec.min) + spec.min;
+    out[name] = spec.integer ? Math.round(raw) : parseFloat(raw.toFixed(2));
+  }
+  return out;
+};
+
+const substituteText = (text: string, values: Record<string, number>): string =>
+  text.replace(/\{\{(\w+)\}\}/g, (_, name) =>
+    values[name] !== undefined ? String(values[name]) : `{{${name}}}`
+  );
+
+const VariablePreview = ({
+  constraints,
+  questionText,
+}: {
+  constraints: Record<string, VariableSpec>;
+  questionText: string;
+}) => {
+  if (!Object.keys(constraints).length) return null;
+  const v1 = sampleValues(constraints, 1);
+  const v2 = sampleValues(constraints, 2);
+  return (
+    <div className="mt-3 pt-3 border-t border-amber-200">
+      <p className="text-xs font-semibold text-amber-900 mb-1">Preview</p>
+      <p className="text-xs text-gray-600">Student A: {substituteText(questionText, v1)}</p>
+      <p className="text-xs text-gray-600 mt-0.5">Student B: {substituteText(questionText, v2)}</p>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// KaTeX preview
+// ---------------------------------------------------------------------------
 
 /** Render a single line of mixed LaTeX/plain text for the preview. */
 function renderPreview(text: string): React.ReactNode {
@@ -61,6 +144,10 @@ function renderPreview(text: string): React.ReactNode {
   return <>{nodes}</>;
 }
 
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 export const CreateQuestionPage = () => {
   const navigate = useNavigate();
   const { data: subjectRooms } = useSubjectRooms();
@@ -76,18 +163,24 @@ export const CreateQuestionPage = () => {
   );
   const createQuestion = useCreateQuestion();
 
-  // Derive unique subjects and standards from the teacher's subject rooms
+  // Derive unique subjects from the teacher's subject rooms
   const subjects = Array.from(
     new Map(subjectRooms?.map((r) => [r.subject, { id: r.subject, name: r.subject_name }]) ?? []).values()
   );
-  // For standard, we need to parse it from classroom_display — use chapters or rooms
-  // Rooms have classroom_display like "Standard 10 A". Use that to get standard info.
-  // Actually, the SubjectRoom has `classroom` (number) not standard directly.
-  // We'll let teachers pick subject first, then browse chapters across all standards.
 
   const updateSubpart = useCallback((idx: number, patch: Partial<SubpartDraft>) => {
     setSubparts((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }, []);
+
+  const handleTextChange = useCallback(
+    (idx: number, value: string, currentConstraints: Record<string, VariableSpec>) => {
+      updateSubpart(idx, {
+        question_text: value,
+        variable_constraints: syncVariableConstraints(value, currentConstraints),
+      });
+    },
+    [updateSubpart]
+  );
 
   const addSubpart = () => {
     setSubparts((prev) => [...prev, defaultSubpart()]);
@@ -125,6 +218,9 @@ export const CreateQuestionPage = () => {
         ? s.options.filter((o) => o.text.trim() !== '')
         : null,
       correct_answer: { type: s.question_type, answer: s.correct_answer },
+      variable_constraints: Object.keys(s.variable_constraints).length > 0
+        ? s.variable_constraints
+        : null,
     }));
 
     // Derive standard from selected chapter
@@ -173,6 +269,10 @@ export const CreateQuestionPage = () => {
   }
 
   const current = subparts[activeSubpart];
+  const hasVariableTokens = Object.keys(current.variable_constraints).length > 0;
+  const showVariablePanel =
+    (current.question_type === 'numeric' || current.question_type === 'fill_blank') &&
+    hasVariableTokens;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -283,7 +383,9 @@ export const CreateQuestionPage = () => {
               <select
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={current.question_type}
-                onChange={(e) => updateSubpart(activeSubpart, { question_type: e.target.value as QuestionType })}
+                onChange={(e) =>
+                  updateSubpart(activeSubpart, { question_type: e.target.value as QuestionType })
+                }
               >
                 <option value="mcq">Multiple choice (MCQ)</option>
                 <option value="numeric">Numeric</option>
@@ -295,14 +397,25 @@ export const CreateQuestionPage = () => {
             {/* Question text */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Question text <span className="text-gray-400">{'(LaTeX supported: $x^2$ or $$\\frac{a}{b}$$)'}</span>
+                Question text{' '}
+                <span className="text-gray-400">
+                  {'(LaTeX: $x^2$ or $$\\frac{a}{b}$$)'}
+                  {(current.question_type === 'numeric' || current.question_type === 'fill_blank') &&
+                    ' · use {{a}} for variable tokens'}
+                </span>
               </label>
               <textarea
                 rows={3}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. Solve $x^2 - 4 = 0$"
+                placeholder={
+                  current.question_type === 'numeric' || current.question_type === 'fill_blank'
+                    ? 'e.g. Solve ${{a}}x + {{b}} = {{c}}$'
+                    : 'e.g. Solve $x^2 - 4 = 0$'
+                }
                 value={current.question_text}
-                onChange={(e) => updateSubpart(activeSubpart, { question_text: e.target.value })}
+                onChange={(e) =>
+                  handleTextChange(activeSubpart, e.target.value, current.variable_constraints)
+                }
               />
             </div>
 
@@ -311,6 +424,75 @@ export const CreateQuestionPage = () => {
               <span className="text-xs text-gray-400 block mb-1">Preview</span>
               {renderPreview(current.question_text)}
             </div>
+
+            {/* Variable constraints panel — only for numeric/fill_blank with {{tokens}} */}
+            {showVariablePanel && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="text-xs font-semibold text-amber-900 mb-3">
+                  Variable Constraints
+                  <span className="ml-1 font-normal text-amber-700">
+                    {'— define the range for each {{token}} in your question'}
+                  </span>
+                </h4>
+                <div className="space-y-2">
+                  {Object.entries(current.variable_constraints).map(([name, spec]) => (
+                    <div key={name} className="flex items-center gap-3 flex-wrap">
+                      <span className="w-20 text-xs font-mono font-semibold text-amber-800">
+                        {`{{${name}}}`}
+                      </span>
+                      <label className="text-xs text-gray-600">min</label>
+                      <input
+                        type="number"
+                        value={spec.min}
+                        onChange={(e) =>
+                          updateSubpart(activeSubpart, {
+                            variable_constraints: {
+                              ...current.variable_constraints,
+                              [name]: { ...spec, min: Number(e.target.value) },
+                            },
+                          })
+                        }
+                        className="w-20 text-xs border border-gray-300 rounded px-2 py-1"
+                      />
+                      <label className="text-xs text-gray-600">max</label>
+                      <input
+                        type="number"
+                        value={spec.max}
+                        onChange={(e) =>
+                          updateSubpart(activeSubpart, {
+                            variable_constraints: {
+                              ...current.variable_constraints,
+                              [name]: { ...spec, max: Number(e.target.value) },
+                            },
+                          })
+                        }
+                        className="w-20 text-xs border border-gray-300 rounded px-2 py-1"
+                      />
+                      <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={spec.integer}
+                          onChange={(e) =>
+                            updateSubpart(activeSubpart, {
+                              variable_constraints: {
+                                ...current.variable_constraints,
+                                [name]: { ...spec, integer: e.target.checked },
+                              },
+                            })
+                          }
+                          className="rounded"
+                        />
+                        Integer
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <VariablePreview
+                  constraints={current.variable_constraints}
+                  questionText={current.question_text}
+                />
+              </div>
+            )}
 
             {/* MCQ options */}
             {(current.question_type === 'mcq' || current.question_type === 'multi_select') && (
@@ -335,16 +517,27 @@ export const CreateQuestionPage = () => {
 
             {/* Correct answer */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Correct answer</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Correct answer
+                {hasVariableTokens && current.question_type === 'numeric' && (
+                  <span className="ml-1 text-gray-400 font-normal">
+                    {'(can use {{tokens}}, e.g. ({{c}} - {{b}}) / {{a}})'}
+                  </span>
+                )}
+              </label>
               {current.question_type === 'mcq' ? (
                 <select
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={current.correct_answer}
-                  onChange={(e) => updateSubpart(activeSubpart, { correct_answer: e.target.value })}
+                  onChange={(e) =>
+                    updateSubpart(activeSubpart, { correct_answer: e.target.value })
+                  }
                 >
                   <option value="">Select correct option...</option>
                   {current.options.filter((o) => o.text.trim()).map((o) => (
-                    <option key={o.key} value={o.key}>{o.key}: {o.text}</option>
+                    <option key={o.key} value={o.key}>
+                      {o.key}: {o.text}
+                    </option>
                   ))}
                 </select>
               ) : (
@@ -353,7 +546,9 @@ export const CreateQuestionPage = () => {
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder={current.question_type === 'numeric' ? 'e.g. 42' : 'Correct answer'}
                   value={current.correct_answer}
-                  onChange={(e) => updateSubpart(activeSubpart, { correct_answer: e.target.value })}
+                  onChange={(e) =>
+                    updateSubpart(activeSubpart, { correct_answer: e.target.value })
+                  }
                 />
               )}
             </div>
@@ -381,7 +576,9 @@ export const CreateQuestionPage = () => {
             Save question
           </button>
           {!canSubmit && (
-            <p className="text-xs text-gray-400">Select a chapter and fill in all question text to save.</p>
+            <p className="text-xs text-gray-400">
+              Select a chapter and fill in all question text to save.
+            </p>
           )}
           {createQuestion.isError && (
             <p className="text-xs text-red-500">Failed to save. Please try again.</p>

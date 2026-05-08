@@ -53,6 +53,24 @@ class IsStudent(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]
 
 
+class IsParent(permissions.BasePermission):
+    """Only parents may proceed."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == UserRole.PARENT
+
+
+class IsStudentOrParent(permissions.BasePermission):
+    """Students (including open) and parents may proceed."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in [
+            UserRole.STUDENT,
+            UserRole.OPEN_STUDENT,
+            UserRole.PARENT,
+        ]
+
+
 class IsTeacherOrReadOnly(permissions.BasePermission):
     """Teachers have full access; authenticated users have read access."""
 
@@ -79,6 +97,12 @@ class UserViewSet(viewsets.GenericViewSet):
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="me/children", permission_classes=[IsParent])
+    def children(self, request):
+        """GET /api/users/me/children/ — returns authenticated parent's linked children."""
+        kids = request.user.children.select_related("school").all()
+        return Response(UserSerializer(kids, many=True).data)
 
 
 class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -382,26 +406,49 @@ class StudentProficiencyViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Read-only view of a student's proficiency per question tag.
 
-    Students see their own records only.
-    Grouped by subject_room in the frontend for per-subject display.
+    - Students see their own records.
+    - Parents see a child's records via ?student=<child_id> (ownership enforced).
 
-    GET /api/v1/proficiency/ — list all proficiency records for the current student
-    GET /api/v1/proficiency/{id}/ — retrieve a single record
+    GET /api/proficiency/ — list all proficiency records for the current student
+    GET /api/proficiency/?student=<id> — parent reads child's proficiency
+    GET /api/proficiency/{id}/ — retrieve a single record
     """
 
     serializer_class = StudentProficiencySerializer
-    permission_classes = [permissions.IsAuthenticated, IsStudent]
+    permission_classes = [permissions.IsAuthenticated, IsStudentOrParent]
 
     def get_queryset(self):
-        return (
-            StudentProficiency.objects.filter(student=self.request.user)
-            .select_related(
-                "question_tag",
-                "subject_room__subject",
-                "subject_room__classroom__standard",
+        user = self.request.user
+        base_select = {
+            "question_tag",
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+        }
+
+        if user.role in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return (
+                StudentProficiency.objects.filter(student=user)
+                .select_related(*base_select)
+                .order_by("subject_room__subject__name", "question_tag__name")
             )
-            .order_by("subject_room__subject__name", "question_tag__name")
-        )
+
+        if user.role == UserRole.PARENT:
+            child_id_param = self.request.query_params.get("student")
+            if not child_id_param:
+                return StudentProficiency.objects.none()
+            try:
+                child_pk = int(child_id_param)
+            except (ValueError, TypeError):
+                return StudentProficiency.objects.none()
+            if not user.children.filter(id=child_pk).exists():
+                return StudentProficiency.objects.none()
+            return (
+                StudentProficiency.objects.filter(student_id=child_pk)
+                .select_related(*base_select)
+                .order_by("subject_room__subject__name", "question_tag__name")
+            )
+
+        return StudentProficiency.objects.none()
 
 
 class QuestionMistakeViewSet(viewsets.ReadOnlyModelViewSet):

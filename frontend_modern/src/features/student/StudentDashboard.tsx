@@ -4,6 +4,7 @@ import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { AssignmentList } from './AssignmentList';
 import { useAssignments } from './useAssignments';
 import { RecommendationsPanel } from './RecommendationsPanel';
+import { DueForReviewPanel } from './DueForReviewPanel';
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export const StudentDashboard = () => {
       )}
 
       <RecommendationsPanel />
+      <DueForReviewPanel />
     </div>
   );
 };

@@ -28,8 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role"]
-        read_only_fields = ["id", "username", "email", "first_name", "last_name", "role"]
+        fields = ["id", "username", "email", "first_name", "last_name", "role", "grade"]
+        read_only_fields = ["id", "username", "email", "first_name", "last_name", "role", "grade"]
 
 
 class StandardSerializer(serializers.ModelSerializer):
@@ -144,14 +144,20 @@ class QuestionSerializer(serializers.ModelSerializer):
     subparts = QuestionSubpartSerializer(many=True, read_only=True)
     tags = QuestionTagSerializer(many=True, read_only=True)
     question_type_display = serializers.CharField(source="get_question_type_display", read_only=True)
+    chapter_name = serializers.CharField(source="chapter.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    standard_number = serializers.IntegerField(source="standard.number", read_only=True)
 
     class Meta:
         model = Question
         fields = [
             "id",
             "standard",
+            "standard_number",
             "subject",
+            "subject_name",
             "chapter",
+            "chapter_name",
             "question_type",
             "question_type_display",
             "difficulty",

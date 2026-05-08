@@ -31,7 +31,7 @@ httpx==0.28.1
 requests==2.33.0
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 Pillow==12.2.0
 
 # Development

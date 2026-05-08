@@ -9,6 +9,7 @@ export interface User {
   first_name: string;
   last_name: string;
   role: UserRole;
+  grade?: number | null;
 }
 
 export enum UserRole {
@@ -42,9 +43,13 @@ export interface QuestionSubpart {
 export interface Question {
   id: number;
   standard: number;
+  standard_number?: number;
   subject: number;
+  subject_name?: string;
   chapter: number;
+  chapter_name?: string;
   question_type: 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric';
+  question_type_display?: string;
   difficulty: number;
   tags: QuestionTag[];
   subparts: QuestionSubpart[];

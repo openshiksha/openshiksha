@@ -12,6 +12,8 @@ import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
 import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
 import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
+import { QuestionBankPage } from './features/teacher/QuestionBankPage';
+import { ParentDashboard } from './features/parent/ParentDashboard';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 
 const NotFound = () => (
@@ -32,7 +34,9 @@ function App() {
   }
 
   const defaultPath = isAuthenticated
-    ? user?.role === 'teacher' ? '/teacher' : '/student'
+    ? user?.role === 'teacher' ? '/teacher'
+    : user?.role === 'parent' ? '/parent'
+    : '/student'
     : '/login';
 
   return (
@@ -134,6 +138,28 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <TeacherAssignmentDetailPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/questions"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <QuestionBankPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/parent"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <ParentDashboard />
               </AppShell>
             </ProtectedRoute>
           }

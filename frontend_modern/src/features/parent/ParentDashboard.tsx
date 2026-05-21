@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useChildren } from './useChildren';
 import { useChildProficiency } from './useChildProficiency';
+import { useChildAssignments } from './useChildAssignments';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
-import type { User, StudentProficiency } from '@/types/index';
+import type { User, StudentProficiency, Assignment } from '@/types/index';
 
 interface SubjectGroup {
   subjectName: string;
@@ -91,9 +92,88 @@ const ChildView = ({ child }: { child: User }) => {
   );
 };
 
+const AssignmentStatusBadge = ({ status }: { status: Assignment['child_submission_status'] }) => {
+  if (status === 'submitted') {
+    return (
+      <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
+        Submitted
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+      Pending
+    </span>
+  );
+};
+
+const ChildAssignmentsView = ({ child }: { child: User }) => {
+  const { data: assignments, isLoading } = useChildAssignments(child.id);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+        <p className="text-gray-500 font-medium">No assignments yet</p>
+        <p className="text-sm text-gray-400 mt-1">
+          Assignments will appear here once the teacher creates them.
+        </p>
+      </div>
+    );
+  }
+
+  const now = new Date();
+  const sorted = [...assignments].sort(
+    (a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime(),
+  );
+
+  return (
+    <div className="space-y-3">
+      {sorted.map((a) => {
+        const dueDate = new Date(a.due_at);
+        const isOverdue = dueDate < now;
+        const isSubmitted = a.child_submission_status === 'submitted';
+        const dueFmt = dueDate.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+
+        return (
+          <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 truncate">{a.problem_set.title}</p>
+                <p className="text-sm text-gray-500 mt-0.5">{a.subject_room_display}</p>
+              </div>
+              <AssignmentStatusBadge status={a.child_submission_status} />
+            </div>
+            <p
+              className={`text-xs mt-2 ${
+                isOverdue && !isSubmitted ? 'text-red-500 font-medium' : 'text-gray-400'
+              }`}
+            >
+              {isOverdue && !isSubmitted ? 'Overdue — ' : 'Due '}
+              {dueFmt}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const ParentDashboard = () => {
   const { data: children, isLoading } = useChildren();
   const [selectedChildId, setSelectedChildId] = useState<number | undefined>();
+  const [activeTab, setActiveTab] = useState<'progress' | 'assignments'>('progress');
 
   const effectiveChildId = selectedChildId ?? children?.[0]?.id;
   const selectedChild = children?.find((c) => c.id === effectiveChildId);
@@ -152,13 +232,32 @@ export const ParentDashboard = () => {
         <>
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-gray-800">
-              {selectedChild.first_name || selectedChild.username}'s Progress
+              {selectedChild.first_name || selectedChild.username}'s Overview
             </h2>
             {selectedChild.grade != null && (
               <p className="text-sm text-gray-500">Grade {selectedChild.grade}</p>
             )}
           </div>
-          <ChildView child={selectedChild} />
+
+          {/* Tab switcher */}
+          <div className="flex gap-1 mb-6 border-b border-gray-200">
+            {(['progress', 'assignments'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab === 'progress' ? 'Progress' : 'Assignments'}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'progress' && <ChildView child={selectedChild} />}
+          {activeTab === 'assignments' && <ChildAssignmentsView child={selectedChild} />}
         </>
       )}
     </div>

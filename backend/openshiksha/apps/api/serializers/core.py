@@ -307,6 +307,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     subject_room_display = serializers.StringRelatedField(source="subject_room")
     submission_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
+    child_submission_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -324,6 +325,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "completion_rate",
             "submission_count",
             "student_count",
+            "child_submission_status",
         ]
         read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
 
@@ -332,6 +334,32 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def get_student_count(self, obj) -> int:
         return obj.subject_room.students.count()
+
+    def get_child_submission_status(self, obj) -> str | None:
+        """
+        For parent role with ?student=<id>: returns 'submitted' or 'not_submitted'.
+        Returns None for all other roles — field is ignored on student/teacher responses.
+        Uses prefetched submissions when available to avoid N+1.
+        """
+        request = self.context.get("request")
+        if not request:
+            return None
+        user = request.user
+        if user.role != UserRole.PARENT:
+            return None
+        child_id = request.query_params.get("student")
+        if not child_id:
+            return None
+        try:
+            child_pk = int(child_id)
+        except (ValueError, TypeError):
+            return None
+        # Use prefetch cache if present, else fall back to query
+        if "submissions" in getattr(obj, "_prefetched_objects_cache", {}):
+            submitted = any(s.student_id == child_pk for s in obj.submissions.all())
+        else:
+            submitted = obj.submissions.filter(student_id=child_pk).exists()
+        return "submitted" if submitted else "not_submitted"
 
     def validate(self, attrs):
         request = self.context.get("request")

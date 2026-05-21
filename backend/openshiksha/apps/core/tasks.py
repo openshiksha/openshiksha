@@ -305,10 +305,22 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
     if not profs:
         return
 
+    from openshiksha.apps.edge.models import StudentProficiencySnapshot
+
     n = len(profs)
+    snapshots_to_create = []
     for i, prof in enumerate(profs):
         percentile = i / n  # rank fraction: bottom student gets 0, top gets (n-1)/n
         prof.recalculate_score(percentile)
+        snapshots_to_create.append(
+            StudentProficiencySnapshot(
+                student_id=prof.student_id,
+                question_tag_id=prof.question_tag_id,
+                subject_room_id=prof.subject_room_id,
+                score=prof.score,
+            )
+        )
+    StudentProficiencySnapshot.objects.bulk_create(snapshots_to_create)
 
     # Update SubjectRoom aggregate
     agg = StudentProficiency.objects.filter(

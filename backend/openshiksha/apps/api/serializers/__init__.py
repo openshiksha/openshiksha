@@ -10,6 +10,7 @@ from .core import (
     QuestionTagSerializer,
     QuestionWriteSerializer,
     StudentProficiencySerializer,
+    StudentProficiencySnapshotSerializer,
     SubjectRoomSerializer,
     SubjectSerializer,
     SubmissionSerializer,
@@ -31,5 +32,6 @@ __all__ = [
     "AssignmentDetailSerializer",
     "SubmissionSerializer",
     "StudentProficiencySerializer",
+    "StudentProficiencySnapshotSerializer",
     "QuestionMistakeSerializer",
 ]

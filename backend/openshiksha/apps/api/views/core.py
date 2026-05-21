@@ -19,6 +19,7 @@ from openshiksha.apps.api.serializers import (
     QuestionTagSerializer,
     QuestionWriteSerializer,
     StudentProficiencySerializer,
+    StudentProficiencySnapshotSerializer,
     SubjectRoomSerializer,
     SubjectSerializer,
     SubmissionSerializer,
@@ -36,7 +37,7 @@ from openshiksha.apps.core.models import (
     User,
     UserRole,
 )
-from openshiksha.apps.edge.models import StudentProficiency, SubjectRoomQuestionMistake
+from openshiksha.apps.edge.models import StudentProficiency, StudentProficiencySnapshot, SubjectRoomQuestionMistake
 
 
 class IsTeacher(permissions.BasePermission):
@@ -449,6 +450,49 @@ class StudentProficiencyViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return StudentProficiency.objects.none()
+
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request):
+        """
+        GET /api/v1/proficiency/history/?tag=<id>&subject_room=<id>
+        GET /api/v1/proficiency/history/?tag=<id>&subject_room=<id>&student=<id>  (parent)
+
+        Returns append-only snapshot history for trend sparklines.
+        Students see their own history; parents see a child's history (ownership enforced).
+        """
+        tag_id = request.query_params.get("tag")
+        room_id = request.query_params.get("subject_room")
+        if not tag_id or not room_id:
+            return Response({"detail": "tag and subject_room are required."}, status=400)
+
+        user = request.user
+
+        if user.role in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            student_id = user.id
+        elif user.role == UserRole.PARENT:
+            child_id = request.query_params.get("student")
+            if not child_id:
+                return Response([], status=200)
+            try:
+                child_pk = int(child_id)
+            except (ValueError, TypeError):
+                return Response([], status=200)
+            if not user.children.filter(id=child_pk).exists():
+                return Response([], status=200)
+            student_id = child_pk
+        else:
+            return Response([], status=200)
+
+        snapshots = (
+            StudentProficiencySnapshot.objects.filter(
+                student_id=student_id,
+                question_tag_id=tag_id,
+                subject_room_id=room_id,
+            )
+            .order_by("recorded_at")
+            .only("id", "score", "recorded_at")
+        )
+        return Response(StudentProficiencySnapshotSerializer(snapshots, many=True).data)
 
 
 class QuestionMistakeViewSet(viewsets.ReadOnlyModelViewSet):

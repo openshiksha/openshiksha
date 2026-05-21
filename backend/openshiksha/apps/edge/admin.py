@@ -4,7 +4,13 @@ Django admin configuration for Edge app
 
 from django.contrib import admin
 
-from .models import StudentProficiency, SubjectRoomProficiency, SubjectRoomQuestionMistake, Tick
+from .models import (
+    StudentProficiency,
+    StudentProficiencySnapshot,
+    SubjectRoomProficiency,
+    SubjectRoomQuestionMistake,
+    Tick,
+)
 
 
 @admin.register(Tick)
@@ -34,6 +40,16 @@ class StudentProficiencyAdmin(admin.ModelAdmin):
     readonly_fields = ["updated_at"]
     raw_id_fields = ["student", "question_tag", "subject_room"]
     ordering = ["-score"]
+
+
+@admin.register(StudentProficiencySnapshot)
+class StudentProficiencySnapshotAdmin(admin.ModelAdmin):
+    list_display = ["id", "student", "question_tag", "subject_room", "score", "recorded_at"]
+    list_filter = ["subject_room", "question_tag"]
+    search_fields = ["student__username"]
+    readonly_fields = ["recorded_at"]
+    raw_id_fields = ["student", "question_tag", "subject_room"]
+    ordering = ["-recorded_at"]
 
 
 @admin.register(SubjectRoomProficiency)

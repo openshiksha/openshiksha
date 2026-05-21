@@ -139,6 +139,7 @@ export interface ChapterItem {
 
 export interface StudentProficiency {
   id: number;
+  question_tag: number;
   tag_name: string;
   tag_type: string;
   subject_name: string;

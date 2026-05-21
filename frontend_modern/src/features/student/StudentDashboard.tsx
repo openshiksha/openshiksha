@@ -16,14 +16,14 @@ export const StudentDashboard = () => {
   return (
     <div>
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
-          <p className="text-gray-500 mt-1">Here are your assignments</p>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 truncate">{greeting}</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Here are your assignments</p>
         </div>
         <button
           onClick={() => navigate('/student/proficiency')}
-          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap"
+          className="text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap shrink-0 mt-1"
         >
           My Progress →
         </button>

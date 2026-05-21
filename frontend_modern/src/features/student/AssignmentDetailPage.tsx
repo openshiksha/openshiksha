@@ -231,7 +231,7 @@ export const AssignmentDetailPage = () => {
           <button
             onClick={() => setShowConfirm(true)}
             disabled={answered === 0}
-            className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 sm:py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Submit assignment
           </button>

@@ -119,6 +119,7 @@ export interface Assignment {
   submission_count: number;
   student_count: number;
   my_submission?: Submission | null;
+  child_submission_status?: 'submitted' | 'not_submitted' | null;
 }
 
 export interface Subject {

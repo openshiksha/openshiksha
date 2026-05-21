@@ -4,6 +4,7 @@ Tests for parent dashboard API endpoints.
 Covers:
 - GET /api/users/me/children/ — authenticated parent gets their linked children
 - GET /api/proficiency/?student=<id> — parent reads child proficiency (ownership enforced)
+- GET /api/assignments/?student=<id> — parent reads child assignments (ownership enforced)
 - Non-parent roles cannot access the children endpoint
 """
 
@@ -13,9 +14,11 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from openshiksha.apps.core.models import (
+    Assignment,
     Board,
     Chapter,
     ClassRoom,
+    ProblemSet,
     QuestionTag,
     School,
     Standard,
@@ -215,6 +218,88 @@ def test_parent_with_no_student_param_gets_empty_proficiency(api_client, parent_
     """Parent without ?student= param gets empty proficiency (not their own records)."""
     api_client.force_authenticate(user=parent_user)
     response = api_client.get("/api/v1/proficiency/")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    results = data.get("results", data)
+    assert len(results) == 0
+
+
+# ---------------------------------------------------------------------------
+# GET /api/assignments/?student=<id>
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def problem_set(db, subject, chapter, standard):
+    ps = ProblemSet.objects.create(
+        title="Test Problem Set",
+        standard=standard,
+        subject=subject,
+        chapter=chapter,
+        number=1,
+    )
+    return ps
+
+
+@pytest.fixture
+def assignment(db, subject_room, problem_set, teacher_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    return Assignment.objects.create(
+        subject_room=subject_room,
+        problem_set=problem_set,
+        assigned_by=teacher_user,
+        due_at=timezone.now() + timedelta(days=7),
+        number=1,
+    )
+
+
+@pytest.mark.django_db
+def test_parent_sees_child_assignments_with_student_param(api_client, parent_user, student_user, assignment):
+    """Parent can list child's assignments via GET /api/assignments/?student=<child_id>."""
+    api_client.force_authenticate(user=parent_user)
+    response = api_client.get(f"/api/v1/assignments/?student={student_user.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    results = data.get("results", data)
+    assert len(results) >= 1
+    ids = [r["id"] for r in results]
+    assert assignment.id in ids
+
+
+@pytest.mark.django_db
+def test_parent_sees_child_submission_status_field(api_client, parent_user, student_user, assignment):
+    """child_submission_status field is present and shows not_submitted for unsubmitted assignment."""
+    api_client.force_authenticate(user=parent_user)
+    response = api_client.get(f"/api/v1/assignments/?student={student_user.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    results = data.get("results", data)
+    record = next(r for r in results if r["id"] == assignment.id)
+    assert record["child_submission_status"] == "not_submitted"
+
+
+@pytest.mark.django_db
+def test_parent_cannot_see_other_childs_assignments(
+    api_client, parent_user, other_student_user, assignment, subject_room
+):
+    """Parent cannot see assignments via ?student=<non-child>."""
+    # other_student_user is not parent_user's child
+    api_client.force_authenticate(user=parent_user)
+    response = api_client.get(f"/api/v1/assignments/?student={other_student_user.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    results = data.get("results", data)
+    assert len(results) == 0
+
+
+@pytest.mark.django_db
+def test_parent_without_student_param_gets_empty_assignments(api_client, parent_user, assignment):
+    """Parent without ?student= param gets empty assignment list."""
+    api_client.force_authenticate(user=parent_user)
+    response = api_client.get("/api/v1/assignments/")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     results = data.get("results", data)

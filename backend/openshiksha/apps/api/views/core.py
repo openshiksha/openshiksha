@@ -346,6 +346,24 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return qs.filter(assigned_by=user)
         elif user.role == UserRole.ADMIN:
             return qs.filter(subject_room__classroom__school=user.school)
+        elif user.role == UserRole.PARENT:
+            child_id = self.request.query_params.get("student")
+            if not child_id:
+                return qs.none()
+            try:
+                child_pk = int(child_id)
+            except (ValueError, TypeError):
+                return qs.none()
+            if not user.children.filter(id=child_pk).exists():
+                return qs.none()
+            return (
+                qs.filter(
+                    subject_room__students__id=child_pk,
+                    subject_room__is_active=True,
+                )
+                .prefetch_related("submissions")
+                .order_by("-assigned_at")
+            )
         return qs.none()
 
     def get_permissions(self):

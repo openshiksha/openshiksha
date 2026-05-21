@@ -71,13 +71,13 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
       )}
 
       {/* Footer: due date + CTA */}
-      <div className="flex items-center justify-between mt-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
         <span className={`text-xs ${isOverdue && !isSubmitted ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
           {isSubmitted ? 'Submitted' : dueDateLabel}
         </span>
         <button
           onClick={() => navigate(`/student/assignments/${assignment.id}`)}
-          className={`text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${ctaStyle}`}
+          className={`w-full sm:w-auto text-sm font-medium px-4 py-2.5 sm:py-1.5 rounded-lg transition-colors ${ctaStyle}`}
         >
           {cta}
         </button>

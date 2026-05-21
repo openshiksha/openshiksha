@@ -20,7 +20,7 @@ from openshiksha.apps.core.models import (
     User,
     UserRole,
 )
-from openshiksha.apps.edge.models import StudentProficiency, SubjectRoomQuestionMistake
+from openshiksha.apps.edge.models import StudentProficiency, StudentProficiencySnapshot, SubjectRoomQuestionMistake
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -466,6 +466,7 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
 
     Groups naturally by subject_room → subject for frontend display.
     Score is 0.0–1.0; multiply by 100 for percentage display.
+    question_tag (integer FK) is included so the frontend can query history.
     """
 
     tag_name = serializers.CharField(source="question_tag.name", read_only=True)
@@ -477,6 +478,7 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
         model = StudentProficiency
         fields = [
             "id",
+            "question_tag",
             "tag_name",
             "tag_type",
             "subject_name",
@@ -493,6 +495,15 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
     def get_classroom_display(self, obj) -> str:
         classroom = obj.subject_room.classroom
         return f"Standard {classroom.standard.number} {classroom.division}"
+
+
+class StudentProficiencySnapshotSerializer(serializers.ModelSerializer):
+    """Read-only snapshot serializer — minimal payload for sparkline trend data."""
+
+    class Meta:
+        model = StudentProficiencySnapshot
+        fields = ["id", "score", "recorded_at"]
+        read_only_fields = fields
 
 
 class QuestionMistakeSerializer(serializers.ModelSerializer):

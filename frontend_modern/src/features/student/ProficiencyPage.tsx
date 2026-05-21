@@ -1,5 +1,7 @@
 import { useProficiency } from './useProficiency';
+import { useProficiencyHistory } from './useProficiencyHistory';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { TrendSparkline } from '@/shared/components/TrendSparkline';
 import type { StudentProficiency } from '@/types/index';
 
 interface SubjectGroup {
@@ -23,13 +25,20 @@ const groupBySubject = (records: StudentProficiency[]): SubjectGroup[] => {
 const ProficiencyBar = ({ record }: { record: StudentProficiency }) => {
   const pct = Math.round(record.score * 100);
   const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-red-400';
+  const { data: history } = useProficiencyHistory({
+    tagId: record.question_tag,
+    subjectRoomId: record.subject_room,
+  });
 
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2 mb-1">
           <span className="text-sm font-medium text-gray-800 truncate">{record.tag_name}</span>
-          <span className="text-sm font-semibold text-gray-700 shrink-0">{pct}%</span>
+          <div className="flex items-center gap-2 shrink-0">
+            {history && history.length >= 2 && <TrendSparkline snapshots={history} />}
+            <span className="text-sm font-semibold text-gray-700">{pct}%</span>
+          </div>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
           <div

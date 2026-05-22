@@ -418,6 +418,142 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
             .order_by("next_review_date")
         )
 
+    @action(detail=True, methods=["get"], url_path="review")
+    def review(self, request, pk=None):
+        """
+        GET /api/v1/ai/spaced-repetition/{id}/review/
+        Returns up to 5 questions from the chapter associated with this SRS entry.
+        Only the owning student may access this — uses student-safe serializer
+        (no correct_answer exposed; grading happens in mark_reviewed).
+        """
+        entry = self.get_object()
+        if entry.student_id != request.user.id:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from openshiksha.apps.api.serializers.core import QuestionWithSubpartsStudentSerializer
+        from openshiksha.apps.core.models import Question
+
+        questions = list(
+            Question.objects.filter(
+                chapter=entry.knowledge_node.chapter,
+                is_active=True,
+            )
+            .prefetch_related("subparts__tags", "tags")
+            .order_by("?")[:5]
+        )
+
+        return Response(
+            {
+                "entry_id": entry.id,
+                "chapter_name": entry.knowledge_node.chapter.name,
+                "subject_name": entry.knowledge_node.subject.name,
+                "questions": QuestionWithSubpartsStudentSerializer(
+                    questions, many=True, context={"request": request}
+                ).data,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="mark-reviewed")
+    def mark_reviewed(self, request, pk=None):
+        """
+        POST /api/v1/ai/spaced-repetition/{id}/mark-reviewed/
+
+        Two accepted body shapes:
+          {"answers": {"<subpart_id>": "<student_answer>", ...}}  (preferred — server grades)
+          {"score": 0.8}                                          (fallback — client-supplied score)
+
+        Updates SM-2 schedule:
+          score >= 0.6 → successful recall, interval grows
+          score <  0.6 → failed recall, reset to interval=1
+        """
+        entry = self.get_object()
+        if entry.student_id != request.user.id:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from openshiksha.apps.core.models import QuestionSubpart
+        from openshiksha.apps.core.tasks import _grade_subpart
+
+        answers = request.data.get("answers")
+        if answers is not None:
+            if not isinstance(answers, dict):
+                return Response({"detail": "answers must be an object."}, status=400)
+            if not answers:
+                return Response({"detail": "answers must not be empty."}, status=400)
+            subparts = QuestionSubpart.objects.select_related("question").filter(
+                id__in=[int(k) for k in answers.keys() if str(k).isdigit()],
+                question__chapter=entry.knowledge_node.chapter,
+            )
+            total = 0
+            correct_sum = 0.0
+            for subpart in subparts:
+                student_answer = answers.get(str(subpart.id))
+                if student_answer is None or student_answer == "":
+                    total += 1
+                    continue
+                fraction = _grade_subpart(
+                    question_type=subpart.question.question_type,
+                    student_answer=student_answer,
+                    correct_answer=subpart.correct_answer or {},
+                    student_id=request.user.id,
+                    subpart_id=subpart.id,
+                    original_options=subpart.options,
+                    variable_constraints=subpart.variable_constraints,
+                )
+                correct_sum += fraction
+                total += 1
+            if total == 0:
+                return Response({"detail": "no valid subparts to grade."}, status=400)
+            score = correct_sum / total
+        else:
+            raw_score = request.data.get("score")
+            try:
+                score = float(raw_score)
+                if not (0.0 <= score <= 1.0):
+                    raise ValueError()
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "Provide either answers (object) or score (0.0–1.0)."},
+                    status=400,
+                )
+
+        if score >= 0.60:
+            if entry.repetitions == 0:
+                new_interval = 1
+            elif entry.repetitions == 1:
+                new_interval = 6
+            else:
+                new_interval = max(1, round(entry.interval_days * entry.easiness_factor))
+            new_ef = max(1.3, entry.easiness_factor + 0.1 - (1 - score) * 0.8)
+            new_reps = entry.repetitions + 1
+        else:
+            new_interval = 1
+            new_ef = entry.easiness_factor
+            new_reps = 0
+
+        entry.interval_days = new_interval
+        entry.easiness_factor = new_ef
+        entry.repetitions = new_reps
+        entry.next_review_date = timezone.localdate() + timedelta(days=new_interval)
+        entry.last_reviewed_at = timezone.now()
+        entry.save(
+            update_fields=[
+                "interval_days",
+                "easiness_factor",
+                "repetitions",
+                "next_review_date",
+                "last_reviewed_at",
+                "updated_at",
+            ]
+        )
+
+        data = self.get_serializer(entry).data
+        data["score"] = round(score, 4)
+        return Response(data)
+
     @action(detail=False, methods=["get"], url_path="due")
     def due(self, request):
         """Return SRS entries due for review today or in the next 3 days."""

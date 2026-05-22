@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useSpacedRepetitionDue } from './useSpacedRepetitionDue';
 import type { SRSEntry } from './useSpacedRepetitionDue';
 
@@ -37,9 +38,17 @@ const SRSRow = ({ entry }: { entry: SRSEntry }) => {
           <p className={`text-xs ${style.text}`}>{dueLabel}</p>
         </div>
       </div>
-      <div className="text-right shrink-0 ml-3">
-        <p className="text-xs text-gray-500">every {entry.interval_days}d</p>
-        <p className="text-xs text-gray-400">{entry.repetitions}× reviewed</p>
+      <div className="flex items-center gap-3 shrink-0 ml-3">
+        <div className="text-right hidden sm:block">
+          <p className="text-xs text-gray-500">every {entry.interval_days}d</p>
+          <p className="text-xs text-gray-400">{entry.repetitions}× reviewed</p>
+        </div>
+        <Link
+          to={`/student/srs-drill/${entry.id}`}
+          className="text-xs font-semibold text-indigo-600 hover:text-white border border-indigo-200 rounded-full px-3 py-1 hover:bg-indigo-600 hover:border-indigo-600 transition-colors"
+        >
+          Practice
+        </Link>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { StudentDashboard } from './features/student/StudentDashboard';
 import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
 import { ProficiencyPage } from './features/student/ProficiencyPage';
 import { LearningPathPage } from './features/student/LearningPathPage';
+import { SRSDrillPage } from './features/student/SRSDrillPage';
 import { TeacherDashboard } from './features/teacher/TeacherDashboard';
 import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
@@ -94,6 +95,17 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <LearningPathPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/srs-drill/:entryId"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <SRSDrillPage />
               </AppShell>
             </ProtectedRoute>
           }

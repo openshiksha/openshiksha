@@ -272,6 +272,8 @@ class ProblemSetSerializer(serializers.ModelSerializer):
             "question_count",
             "estimated_minutes",
             "is_active",
+            "is_remedial",
+            "source_assignment",
             "created_at",
         ]
 

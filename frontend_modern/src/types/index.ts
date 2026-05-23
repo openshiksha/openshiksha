@@ -82,6 +82,8 @@ export interface ProblemSet {
   question_count: number;
   estimated_minutes: number | null;
   is_active: boolean;
+  is_remedial: boolean;
+  source_assignment: number | null;
 }
 
 export interface ProblemSetWithQuestions extends ProblemSet {

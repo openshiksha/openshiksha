@@ -105,6 +105,24 @@ class UserViewSet(viewsets.GenericViewSet):
         kids = request.user.children.select_related("school").all()
         return Response(UserSerializer(kids, many=True).data)
 
+    @action(detail=False, methods=["get"], url_path="me/streak")
+    def me_streak(self, request):
+        """GET /api/users/me/streak/ — returns authenticated student's current streak."""
+        from openshiksha.apps.core.models import StudentStreak, UserRole
+
+        user = request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return Response({"detail": "Only students have streaks."}, status=403)
+
+        streak, _ = StudentStreak.objects.get_or_create(student=user)
+        return Response(
+            {
+                "current_streak": streak.current_streak,
+                "longest_streak": streak.longest_streak,
+                "last_activity_date": streak.last_activity_date,
+            }
+        )
+
 
 class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -175,7 +193,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["chapter__name", "subject__name"]
+    search_fields = ["chapter__name", "subject__name", "subparts__question_text", "tags__name"]
     ordering_fields = ["difficulty", "created_at"]
     ordering = ["created_at"]
 

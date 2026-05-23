@@ -29,9 +29,16 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
       <div className="flex items-start justify-between gap-4">
         {/* Left: Content info */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide mb-1">
-            {problem_set.subject.name}
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">
+              {problem_set.subject.name}
+            </p>
+            {problem_set.is_remedial && (
+              <span className="inline-flex items-center text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                Remedial Practice
+              </span>
+            )}
+          </div>
           <h3 className="font-semibold text-gray-900 truncate">
             {problem_set.title}
           </h3>

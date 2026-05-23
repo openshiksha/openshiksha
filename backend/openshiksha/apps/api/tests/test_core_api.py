@@ -348,3 +348,60 @@ class TestSubjectRoomPermissions:
         assert response.status_code == status.HTTP_200_OK
         assert "student_count" in response.data
         assert response.data["student_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# QuestionViewSet: content search
+# ---------------------------------------------------------------------------
+
+
+class TestQuestionContentSearch:
+    def test_search_by_subpart_text_returns_matching_question(
+        self, db, api_client, teacher, school, standard, subject, chapter
+    ):
+        """?search=photosynthesis should find a question whose subpart contains that word."""
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="fill_blank",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="The process of photosynthesis occurs in chloroplasts.",
+            correct_answer={"answer": "chloroplasts"},
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get("/api/v1/questions/", {"search": "photosynthesis"})
+
+        assert response.status_code == status.HTTP_200_OK
+        ids = [q["id"] for q in response.data["results"]]
+        assert question.id in ids
+
+    def test_search_by_tag_name_returns_matching_question(
+        self, db, api_client, teacher, school, standard, subject, chapter
+    ):
+        """?search=<tag name> should find a question with that tag."""
+        from openshiksha.apps.core.models import Question, QuestionTag
+
+        tag = QuestionTag.objects.create(name="quadratic-equations", tag_type="topic")
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="mcq",
+        )
+        question.tags.add(tag)
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get("/api/v1/questions/", {"search": "quadratic-equations"})
+
+        assert response.status_code == status.HTTP_200_OK
+        ids = [q["id"] for q in response.data["results"]]
+        assert question.id in ids

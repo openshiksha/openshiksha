@@ -556,6 +556,18 @@ class ProblemSet(models.Model):
         help_text="Estimated completion time in minutes",
     )
     is_active = models.BooleanField(default=True)
+    is_remedial = models.BooleanField(
+        default=False,
+        help_text="Auto-created by grader for students scoring below the remedial threshold",
+    )
+    source_assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="remedial_problem_sets",
+        help_text="The original assignment this remedial was created from",
+    )
     created_by = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
@@ -693,3 +705,54 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission: {self.student} → {self.assignment}"
+
+
+class StudentStreak(models.Model):
+    """
+    Daily activity streak for a student.
+
+    One row per student — updated in-place by record_activity().
+    Incremented when a student submits an assignment (via post_save signal).
+    """
+
+    student = models.OneToOneField(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="streak",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_activity_date = models.DateField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_streaks"
+
+    def __str__(self):
+        return f"Streak({self.student_id}): {self.current_streak}d"
+
+    def record_activity(self, activity_date):
+        """
+        Record activity for a given date and update streak counters.
+
+        Rules:
+        - Same day as last_activity_date → no-op (already counted)
+        - Next consecutive day → current_streak += 1
+        - Gap of 1+ days → current_streak resets to 1
+        """
+        from datetime import timedelta
+
+        if self.last_activity_date is None:
+            self.current_streak = 1
+        elif activity_date == self.last_activity_date:
+            return
+        elif activity_date == self.last_activity_date + timedelta(days=1):
+            self.current_streak += 1
+        else:
+            self.current_streak = 1
+
+        self.last_activity_date = activity_date
+        if self.current_streak > self.longest_streak:
+            self.longest_streak = self.current_streak
+        self.save(update_fields=["current_streak", "longest_streak", "last_activity_date", "updated_at"])

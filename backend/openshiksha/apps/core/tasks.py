@@ -13,6 +13,8 @@ from django.db.models import Avg
 
 logger = logging.getLogger(__name__)
 
+REMEDIAL_THRESHOLD = 0.30
+
 
 @shared_task(bind=True, max_retries=3)
 def grade_submission(self, submission_id: int) -> dict:
@@ -114,6 +116,10 @@ def grade_submission(self, submission_id: int) -> dict:
 
     analyze_student_subject_room.delay(submission.student_id, subject_room.id)
     generate_class_insights_for_subject_room.delay(subject_room.id)
+
+    # Create remedial assignment if student scored below threshold
+    if submission.score is not None and submission.score < REMEDIAL_THRESHOLD:
+        _create_remedial_assignment(submission.pk)
 
     return {
         "submission_id": submission_id,
@@ -335,4 +341,94 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
             "rate": agg["avg_rate"] or 0.0,
             "score": agg["avg_score"] or 0.0,
         },
+    )
+
+
+def _create_remedial_assignment(submission_id: int) -> None:
+    """
+    Create a remedial ProblemSet + Assignment for a student who scored below REMEDIAL_THRESHOLD.
+
+    Targets only the questions the student answered incorrectly.
+    Idempotent: skips if a remedial already exists for this assignment + student.
+    """
+    from datetime import timedelta
+
+    from django.db.models import Max
+    from django.utils import timezone
+
+    from openshiksha.apps.core.models import Assignment, ProblemSet, Submission
+    from openshiksha.apps.edge.models import Tick
+
+    try:
+        submission = Submission.objects.select_related(
+            "assignment__problem_set",
+            "assignment__subject_room",
+            "student",
+            "assignment__assigned_by",
+        ).get(pk=submission_id)
+    except Submission.DoesNotExist:
+        logger.error(f"_create_remedial_assignment: Submission {submission_id} not found")
+        return
+
+    orig = submission.assignment
+    orig_ps = orig.problem_set
+
+    # Idempotency: skip if a remedial already exists for this source assignment in this room
+    already_exists = Assignment.objects.filter(
+        problem_set__is_remedial=True,
+        problem_set__source_assignment=orig,
+        subject_room=orig.subject_room,
+    ).exists()
+    if already_exists:
+        return
+
+    # Find questions the student got wrong (any subpart with mark < 1.0)
+    wrong_question_ids = list(
+        Tick.objects.filter(submission=submission, mark__lt=1.0)
+        .values_list("question_subpart__question_id", flat=True)
+        .distinct()
+    )
+
+    if not wrong_question_ids:
+        logger.warning(
+            f"_create_remedial_assignment: no wrong ticks for submission {submission_id} "
+            f"despite score {submission.score:.2f} — skipping"
+        )
+        return
+
+    # Pick a unique number to satisfy ProblemSet.unique_together
+    max_num = (
+        ProblemSet.objects.filter(
+            school=orig_ps.school,
+            standard=orig_ps.standard,
+            subject=orig_ps.subject,
+            chapter=orig_ps.chapter,
+        ).aggregate(Max("number"))["number__max"]
+        or 0
+    )
+
+    remedial_ps = ProblemSet.objects.create(
+        title=f"Remedial: {orig_ps.title}",
+        school=orig_ps.school,
+        standard=orig_ps.standard,
+        subject=orig_ps.subject,
+        chapter=orig_ps.chapter,
+        number=max_num + 1,
+        is_remedial=True,
+        source_assignment=orig,
+        created_by=orig.assigned_by,
+    )
+    remedial_ps.questions.set(wrong_question_ids)
+
+    due = timezone.now() + timedelta(days=3)
+    Assignment.objects.create(
+        problem_set=remedial_ps,
+        subject_room=orig.subject_room,
+        assigned_by=orig.assigned_by,
+        due_at=due,
+    )
+
+    logger.info(
+        f"Created remedial assignment for student {submission.student_id} "
+        f"(submission {submission_id}, {len(wrong_question_ids)} wrong questions)"
     )

@@ -33,3 +33,20 @@ def trigger_grading_on_submit(sender, instance, created, update_fields, **kwargs
 
     logger.info(f"Submission {instance.pk} submitted — queuing grade_submission task")
     grade_submission.delay(instance.pk)
+
+
+@receiver(post_save, sender="core.Submission")
+def update_student_streak(sender, instance, update_fields, **kwargs):
+    """
+    When a student submits (submitted_at set), record activity on their streak.
+    Mirrors the guard logic of trigger_grading_on_submit so both fire together.
+    """
+    if not instance.submitted_at:
+        return
+    if update_fields is not None and "submitted_at" not in update_fields:
+        return
+
+    from openshiksha.apps.core.models import StudentStreak
+
+    streak, _ = StudentStreak.objects.get_or_create(student_id=instance.student_id)
+    streak.record_activity(instance.submitted_at.date())

@@ -3,6 +3,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { AssignmentList } from './AssignmentList';
 import { useAssignments } from './useAssignments';
+import { useStreak } from './useStreak';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { DueForReviewPanel } from './DueForReviewPanel';
 
@@ -10,6 +11,7 @@ export const StudentDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: assignments, isLoading, isError } = useAssignments();
+  const { data: streak } = useStreak();
 
   const greeting = user?.first_name ? `Hi, ${user.first_name}!` : 'Your Dashboard';
 
@@ -19,7 +21,19 @@ export const StudentDashboard = () => {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 truncate">{greeting}</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">Here are your assignments</p>
+          {streak && streak.current_streak > 0 ? (
+            <div className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1 rounded-full mt-2">
+              <span>🔥</span>
+              <span>{streak.current_streak}-day streak</span>
+              {streak.longest_streak > streak.current_streak && (
+                <span className="text-orange-400 font-normal">
+                  · best: {streak.longest_streak}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">Here are your assignments</p>
+          )}
         </div>
         <button
           onClick={() => navigate('/student/proficiency')}

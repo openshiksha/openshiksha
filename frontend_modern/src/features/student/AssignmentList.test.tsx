@@ -23,6 +23,8 @@ function makeAssignment(overrides: Partial<Assignment> = {}): Assignment {
       question_count: 10,
       estimated_minutes: 30,
       is_active: true,
+      is_remedial: false,
+      source_assignment: null,
     },
     assigned_by: 1,
     assigned_at: formatISO(new Date()),

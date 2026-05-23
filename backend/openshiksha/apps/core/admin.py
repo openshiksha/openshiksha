@@ -16,6 +16,7 @@ from .models import (
     QuestionTag,
     School,
     Standard,
+    StudentStreak,
     Subject,
     SubjectRoom,
     Submission,
@@ -145,14 +146,25 @@ class SubjectRoomAdmin(admin.ModelAdmin):
 
 @admin.register(ProblemSet)
 class ProblemSetAdmin(admin.ModelAdmin):
-    list_display = ["title", "standard", "subject", "chapter", "number", "school", "is_active", "created_at"]
-    list_filter = ["is_active", "standard", "subject", "school"]
+    list_display = [
+        "title",
+        "standard",
+        "subject",
+        "chapter",
+        "number",
+        "school",
+        "is_active",
+        "is_remedial",
+        "created_at",
+    ]
+    list_filter = ["is_active", "is_remedial", "standard", "subject", "school"]
     search_fields = ["title", "chapter__name", "subject__name"]
     filter_horizontal = ["questions"]
-    raw_id_fields = ["created_by"]
+    raw_id_fields = ["created_by", "source_assignment"]
     fieldsets = (
         ("Content", {"fields": ("title", "description", "standard", "subject", "chapter", "number", "questions")}),
         ("Metadata", {"fields": ("school", "estimated_minutes", "created_by", "is_active")}),
+        ("Remedial", {"fields": ("is_remedial", "source_assignment"), "classes": ("collapse",)}),
     )
 
 
@@ -190,3 +202,11 @@ class SubmissionAdmin(admin.ModelAdmin):
     search_fields = ["student__username", "student__first_name", "student__last_name"]
     raw_id_fields = ["student", "assignment"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(StudentStreak)
+class StudentStreakAdmin(admin.ModelAdmin):
+    list_display = ["student", "current_streak", "longest_streak", "last_activity_date", "updated_at"]
+    search_fields = ["student__username", "student__first_name", "student__last_name"]
+    raw_id_fields = ["student"]
+    readonly_fields = ["updated_at"]

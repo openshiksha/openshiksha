@@ -478,14 +478,20 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         from openshiksha.apps.core.tasks import _grade_subpart
 
         answers = request.data.get("answers")
+        # per_subpart_fractions: subpart_id → grade fraction (populated when answers provided)
+        per_subpart_fractions: dict[int, float] = {}
+        graded_subparts: list = []
+
         if answers is not None:
             if not isinstance(answers, dict):
                 return Response({"detail": "answers must be an object."}, status=400)
             if not answers:
                 return Response({"detail": "answers must not be empty."}, status=400)
-            subparts = QuestionSubpart.objects.select_related("question").filter(
-                id__in=[int(k) for k in answers.keys() if str(k).isdigit()],
-                question__chapter=entry.knowledge_node.chapter,
+            subparts = list(
+                QuestionSubpart.objects.select_related("question").filter(
+                    id__in=[int(k) for k in answers.keys() if str(k).isdigit()],
+                    question__chapter=entry.knowledge_node.chapter,
+                )
             )
             total = 0
             correct_sum = 0.0
@@ -503,6 +509,8 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
                     original_options=subpart.options,
                     variable_constraints=subpart.variable_constraints,
                 )
+                per_subpart_fractions[subpart.id] = fraction
+                graded_subparts.append(subpart)
                 correct_sum += fraction
                 total += 1
             if total == 0:
@@ -549,6 +557,39 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
                 "updated_at",
             ]
         )
+
+        # Side effects: proficiency engine and streak
+        if graded_subparts:
+            from openshiksha.apps.core.models import SubjectRoom
+            from openshiksha.apps.core.tasks import update_proficiency
+            from openshiksha.apps.edge.models import Tick
+
+            subject_room = (
+                SubjectRoom.objects.filter(
+                    students=entry.student,
+                    subject=entry.knowledge_node.chapter.subject,
+                )
+                .order_by("-id")
+                .first()
+            )
+            if subject_room:
+                ticks = [
+                    Tick(
+                        student=entry.student,
+                        question_subpart=sp,
+                        submission=None,
+                        subject_room=subject_room,
+                        mark=per_subpart_fractions[sp.id],
+                    )
+                    for sp in graded_subparts
+                ]
+                Tick.objects.bulk_create(ticks)
+                update_proficiency.delay(entry.student_id, subject_room.id)
+
+        from openshiksha.apps.core.models import StudentStreak
+
+        streak_obj, _ = StudentStreak.objects.get_or_create(student=entry.student)
+        streak_obj.record_activity(timezone.localdate())
 
         data = self.get_serializer(entry).data
         data["score"] = round(score, 4)

@@ -202,6 +202,19 @@ export const QuestionCard = ({
               <p className="text-xs text-gray-400 mb-1">Part {String.fromCharCode(97 + i)})</p>
             )}
 
+            {subpart.image_url && (
+              <div className="mb-3">
+                <img
+                  src={subpart.image_url}
+                  alt="Question diagram"
+                  className="max-w-full rounded border border-gray-200"
+                  style={{ maxHeight: '320px', objectFit: 'contain' }}
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
+
             {subpart.question_text ? (
               <div className="text-sm text-gray-800 leading-relaxed">
                 {renderMixedContent(subpart.question_text)}

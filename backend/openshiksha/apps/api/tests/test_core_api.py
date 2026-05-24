@@ -405,3 +405,60 @@ class TestQuestionContentSearch:
         assert response.status_code == status.HTTP_200_OK
         ids = [q["id"] for q in response.data["results"]]
         assert question.id in ids
+
+
+# ---------------------------------------------------------------------------
+# Question image_url field tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestQuestionSubpartImageUrl:
+    def test_image_url_exposed_in_question_api(self, api_client, teacher, school, standard, subject, chapter):
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="mcq",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="What is H2O?",
+            correct_answer={"answer": "A"},
+            image_url="https://example.com/diagram.png",
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get(f"/api/v1/questions/{question.id}/")
+
+        assert response.status_code == 200
+        subpart = response.data["subparts"][0]
+        assert subpart["image_url"] == "https://example.com/diagram.png"
+
+    def test_image_url_default_empty_string(self, api_client, teacher, school, standard, subject, chapter):
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="fill_blank",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="Fill in the blank.",
+            correct_answer={"answer": "water"},
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get(f"/api/v1/questions/{question.id}/")
+
+        assert response.status_code == 200
+        subpart = response.data["subparts"][0]
+        assert subpart["image_url"] == ""

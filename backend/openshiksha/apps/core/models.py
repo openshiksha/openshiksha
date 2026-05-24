@@ -442,6 +442,12 @@ class QuestionSubpart(models.Model):
             "Tokens {{a}} in question_text/options are replaced per student."
         ),
     )
+    image_url = models.URLField(
+        max_length=2000,
+        blank=True,
+        default="",
+        help_text="Optional image shown above the question text (teacher-provided URL)",
+    )
 
     class Meta:
         db_table = "question_subparts"

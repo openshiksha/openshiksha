@@ -66,7 +66,16 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options", "correct_answer", "variable_constraints"]
+        fields = [
+            "id",
+            "index",
+            "tags",
+            "question_text",
+            "options",
+            "correct_answer",
+            "variable_constraints",
+            "image_url",
+        ]
 
 
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
@@ -85,7 +94,7 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options"]
+        fields = ["id", "index", "tags", "question_text", "options", "image_url"]
 
     def to_representation(self, instance):
         from openshiksha.apps.api.croupier import shuffle_options_for_student, substitute_variables_for_student

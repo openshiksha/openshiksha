@@ -37,6 +37,7 @@ export interface QuestionSubpart {
   tags: QuestionTag[];
   question_text: string;
   options: MCQOption[] | null;
+  image_url?: string;
 }
 
 
@@ -161,6 +162,7 @@ export interface QuestionSubpartWrite {
   options: MCQOption[] | null;
   correct_answer: Record<string, unknown>;
   variable_constraints?: Record<string, { min: number; max: number; integer: boolean }> | null;
+  image_url?: string;
 }
 
 export interface QuestionCreate {

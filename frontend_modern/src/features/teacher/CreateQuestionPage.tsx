@@ -18,6 +18,7 @@ interface SubpartDraft {
   options: MCQOption[];
   correct_answer: string;
   variable_constraints: Record<string, VariableSpec>;
+  image_url: string;
 }
 
 const defaultSubpart = (): SubpartDraft => ({
@@ -31,6 +32,7 @@ const defaultSubpart = (): SubpartDraft => ({
   ],
   correct_answer: '',
   variable_constraints: {},
+  image_url: '',
 });
 
 // ---------------------------------------------------------------------------
@@ -221,6 +223,7 @@ export const CreateQuestionPage = () => {
       variable_constraints: Object.keys(s.variable_constraints).length > 0
         ? s.variable_constraints
         : null,
+      ...(s.image_url.trim() ? { image_url: s.image_url.trim() } : {}),
     }));
 
     // Derive standard from selected chapter
@@ -423,6 +426,29 @@ export const CreateQuestionPage = () => {
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 min-h-[48px]">
               <span className="text-xs text-gray-400 block mb-1">Preview</span>
               {renderPreview(current.question_text)}
+            </div>
+
+            {/* Optional image URL */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Image URL <span className="font-normal text-gray-400">(optional — shown above question text)</span>
+              </label>
+              <input
+                type="url"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="https://example.com/diagram.png"
+                value={current.image_url}
+                onChange={(e) => updateSubpart(activeSubpart, { image_url: e.target.value })}
+              />
+              {current.image_url.trim() && (
+                <img
+                  src={current.image_url}
+                  alt="Preview"
+                  className="mt-2 max-w-xs rounded border border-gray-200"
+                  style={{ maxHeight: '160px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
             </div>
 
             {/* Variable constraints panel — only for numeric/fill_blank with {{tokens}} */}

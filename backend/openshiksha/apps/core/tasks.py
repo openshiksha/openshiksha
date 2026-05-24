@@ -373,11 +373,11 @@ def _create_remedial_assignment(submission_id: int) -> None:
     orig = submission.assignment
     orig_ps = orig.problem_set
 
-    # Idempotency: skip if a remedial already exists for this source assignment in this room
+    # Idempotency: skip if a remedial already exists for this specific student + source assignment
     already_exists = Assignment.objects.filter(
         problem_set__is_remedial=True,
         problem_set__source_assignment=orig,
-        subject_room=orig.subject_room,
+        target_student=submission.student,
     ).exists()
     if already_exists:
         return
@@ -426,6 +426,7 @@ def _create_remedial_assignment(submission_id: int) -> None:
         subject_room=orig.subject_room,
         assigned_by=orig.assigned_by,
         due_at=due,
+        target_student=submission.student,
     )
 
     logger.info(

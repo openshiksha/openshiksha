@@ -225,3 +225,103 @@ class TestRemedialAssignmentCreation:
 
         remedial_count = ProblemSet.objects.filter(is_remedial=True, source_assignment=assignment).count()
         assert remedial_count == 1, "Remedial should be idempotent — only one created"
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_remedial_has_target_student(self, mock_prof, mock_agg, db, assignment, student, subpart_a, subpart_b):
+        """Remedial assignment created for failing student has target_student set to that student."""
+        from openshiksha.apps.core.models import Assignment, Submission
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        submission = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={str(subpart_a.id): 99, str(subpart_b.id): 99},
+        )
+        grade_submission(submission.pk)
+
+        remedial = Assignment.objects.filter(
+            problem_set__is_remedial=True, problem_set__source_assignment=assignment
+        ).first()
+        assert remedial is not None
+        assert remedial.target_student == student
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_remedial_not_visible_to_passing_student(
+        self, mock_prof, mock_agg, db, assignment, student, subpart_a, subpart_b, school
+    ):
+        """A student who passed should not see the remedial created for a student who failed."""
+        from django.test import Client
+
+        from openshiksha.apps.core.models import Assignment, Submission, User, UserRole
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        # Second student in the same subject room
+        passing_student = User.objects.create_user(
+            username="remedial_passing_student", password="pass", role=UserRole.STUDENT, school=school
+        )
+        assignment.subject_room.students.add(passing_student)
+
+        from openshiksha.apps.core.tasks import grade_submission
+
+        # Failing student gets a remedial
+        failing_submission = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={str(subpart_a.id): 99, str(subpart_b.id): 99},
+        )
+        grade_submission(failing_submission.pk)
+
+        remedial = Assignment.objects.filter(
+            problem_set__is_remedial=True, problem_set__source_assignment=assignment
+        ).first()
+        assert remedial is not None
+        assert remedial.target_student == student
+
+        # Passing student queries their assignments — should not see the remedial
+        client = Client()
+        client.force_login(passing_student)
+        response = client.get("/api/v1/assignments/")
+        assert response.status_code == 200
+        ids = [a["id"] for a in response.json()["results"]]
+        assert remedial.id not in ids, "Passing student should not see a remedial targeted at another student"
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_remedial_per_student_two_students_two_assignments(
+        self, mock_prof, mock_agg, db, assignment, student, subpart_a, subpart_b, school
+    ):
+        """Two failing students on the same assignment → two separate remedial Assignments."""
+        from openshiksha.apps.core.models import Assignment, Submission, User, UserRole
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        student2 = User.objects.create_user(
+            username="remedial_student2", password="pass", role=UserRole.STUDENT, school=school
+        )
+        assignment.subject_room.students.add(student2)
+
+        for s in [student, student2]:
+            sub = Submission.objects.create(
+                assignment=assignment,
+                student=s,
+                answers={str(subpart_a.id): 99, str(subpart_b.id): 99},
+            )
+            grade_submission(sub.pk)
+
+        remedial_assignments = Assignment.objects.filter(
+            problem_set__is_remedial=True, problem_set__source_assignment=assignment
+        )
+        assert remedial_assignments.count() == 2, "Each failing student should get their own remedial Assignment"
+
+        targets = set(remedial_assignments.values_list("target_student_id", flat=True))
+        assert student.id in targets
+        assert student2.id in targets

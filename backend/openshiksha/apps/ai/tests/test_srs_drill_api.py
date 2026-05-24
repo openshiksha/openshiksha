@@ -252,3 +252,104 @@ class TestMarkReviewedAction:
             content_type="application/json",
         )
         assert response.status_code == 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SRS → Proficiency + Streak integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _make_subject_room_for(student, subject):
+    """Create ClassRoom + SubjectRoom so Tick creation finds a subject_room."""
+    from openshiksha.apps.core.models import Board, ClassRoom, School, Standard, SubjectRoom
+
+    board, _ = Board.objects.get_or_create(name="CBSE_SRS_TEST")
+    school, _ = School.objects.get_or_create(
+        name="SRS Test School",
+        defaults={"board": board},
+    )
+    standard, _ = Standard.objects.get_or_create(number=8)
+    teacher = make_user(role="teacher", username=f"srs_teacher_{subject.name}")
+    classroom, _ = ClassRoom.objects.get_or_create(
+        school=school,
+        standard=standard,
+        division="A_SRS",
+        defaults={"class_teacher": teacher},
+    )
+    subject_room, _ = SubjectRoom.objects.get_or_create(
+        classroom=classroom,
+        subject=subject,
+        defaults={"teacher": teacher},
+    )
+    subject_room.students.add(student)
+    return subject_room
+
+
+@pytest.mark.django_db
+class TestMarkReviewedProficiencyStreakIntegration:
+    def test_mark_reviewed_creates_tick_records(self):
+        from openshiksha.apps.edge.models import Tick
+
+        student = make_user(role="student", username="srs_tick_student")
+        entry, chapter = _make_entry(student, subject_name="Physics_SRS", chapter_name="Optics_SRS")
+        _, subpart = _make_question_with_subpart(chapter, qtype="numeric", correct="42", options=None)
+        _make_subject_room_for(student, chapter.subject)
+
+        client = _client_for(student)
+        response = client.post(
+            f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/",
+            data=json.dumps({"answers": {str(subpart.id): "42"}}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert Tick.objects.filter(student=student, question_subpart=subpart).exists()
+
+    def test_mark_reviewed_updates_streak(self):
+        from openshiksha.apps.core.models import StudentStreak
+
+        student = make_user(role="student", username="srs_streak_student")
+        entry, chapter = _make_entry(student, subject_name="Chemistry_SRS", chapter_name="Atoms_SRS")
+        _make_question_with_subpart(chapter, qtype="numeric", correct="10", options=None)
+
+        client = _client_for(student)
+        response = client.post(
+            f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/",
+            data=json.dumps({"score": 0.8}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        streak = StudentStreak.objects.get(student=student)
+        assert streak.current_streak >= 1
+
+    def test_mark_reviewed_streak_idempotent_same_day(self):
+        from openshiksha.apps.core.models import StudentStreak
+
+        student = make_user(role="student", username="srs_streak_idem")
+        entry, chapter = _make_entry(student, subject_name="Biology_SRS2", chapter_name="Cells_SRS")
+        _make_question_with_subpart(chapter, qtype="numeric", correct="5", options=None)
+
+        client = _client_for(student)
+        url = f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/"
+        payload = json.dumps({"score": 0.9})
+        client.post(url, data=payload, content_type="application/json")
+        client.post(url, data=payload, content_type="application/json")
+
+        streak = StudentStreak.objects.get(student=student)
+        assert streak.current_streak == 1
+
+    def test_mark_reviewed_no_subject_room_graceful(self):
+        """Student with no SubjectRoom: 200 response, no Tick created, no error."""
+        from openshiksha.apps.edge.models import Tick
+
+        student = make_user(role="student", username="srs_no_room")
+        entry, chapter = _make_entry(student, subject_name="History_SRS", chapter_name="Mughals_SRS")
+        _, subpart = _make_question_with_subpart(chapter, qtype="numeric", correct="99", options=None)
+
+        client = _client_for(student)
+        response = client.post(
+            f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/",
+            data=json.dumps({"answers": {str(subpart.id): "99"}}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert not Tick.objects.filter(student=student).exists()

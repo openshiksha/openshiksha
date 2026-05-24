@@ -47,8 +47,10 @@ class Tick(models.Model):
     submission = models.ForeignKey(
         "core.Submission",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="ticks",
-        help_text="The submission this tick came from",
+        help_text="The submission this tick came from. Null for SRS drill ticks.",
     )
     subject_room = models.ForeignKey(
         "core.SubjectRoom",

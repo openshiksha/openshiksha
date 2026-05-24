@@ -359,7 +359,12 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         )
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
-            return qs.filter(subject_room__students=user, subject_room__is_active=True)
+            from django.db.models import Q
+
+            return qs.filter(
+                subject_room__students=user,
+                subject_room__is_active=True,
+            ).filter(Q(target_student=None) | Q(target_student=user))
         elif user.role == UserRole.TEACHER:
             return qs.filter(assigned_by=user)
         elif user.role == UserRole.ADMIN:

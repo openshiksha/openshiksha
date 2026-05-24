@@ -621,6 +621,16 @@ class Assignment(models.Model):
         default=1,
         help_text="Disambiguates if same problem set is assigned twice to same room",
     )
+    target_student = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="targeted_assignments",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+        help_text="If set, only this student sees this assignment (used for per-student remedials). Null = class-wide.",
+    )
+
     # Cached aggregates — updated after grading runs
     average_score = models.FloatField(
         null=True,

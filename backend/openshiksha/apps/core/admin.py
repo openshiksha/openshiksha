@@ -182,6 +182,7 @@ class AssignmentAdmin(admin.ModelAdmin):
         "id",
         "problem_set",
         "subject_room",
+        "target_student",
         "assigned_by",
         "assigned_at",
         "due_at",
@@ -189,8 +190,8 @@ class AssignmentAdmin(admin.ModelAdmin):
         "completion_rate",
     ]
     list_filter = ["subject_room__subject", "subject_room__classroom__school"]
-    search_fields = ["problem_set__title", "subject_room__classroom__school__name"]
-    raw_id_fields = ["assigned_by"]
+    search_fields = ["problem_set__title", "subject_room__classroom__school__name", "target_student__username"]
+    raw_id_fields = ["assigned_by", "target_student"]
     readonly_fields = ["assigned_at", "average_score", "completion_rate"]
     inlines = [SubmissionInline]
 

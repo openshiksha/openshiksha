@@ -328,6 +328,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "submission_count",
             "student_count",
             "child_submission_status",
+            "target_student",
         ]
         read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
 

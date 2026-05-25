@@ -107,6 +107,16 @@ def grade_submission(self, submission_id: int) -> dict:
     # Update question mistake aggregates
     _update_question_mistakes(created_ticks, subject_room.id, subpart_count_by_question)
 
+    # Email student with grading result
+    from openshiksha.apps.core.emails import notify_grading_complete
+
+    score_pct = int(submission.score * 100) if submission.score is not None else 0
+    notify_grading_complete(
+        submission.student,
+        submission.assignment.problem_set.title,
+        score_pct,
+    )
+
     # Queue downstream tasks
     _update_assignment_aggregates.delay(submission.assignment_id)
     update_proficiency.delay(submission.student_id, subject_room.id)
@@ -427,6 +437,15 @@ def _create_remedial_assignment(submission_id: int) -> None:
         assigned_by=orig.assigned_by,
         due_at=due,
         target_student=submission.student,
+    )
+
+    # Email student about the new remedial assignment
+    from openshiksha.apps.core.emails import notify_remedial_assigned
+
+    notify_remedial_assigned(
+        submission.student,
+        orig_ps.chapter.name,
+        due.strftime("%B %d"),
     )
 
     logger.info(

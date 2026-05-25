@@ -196,7 +196,8 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", 25))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@openshiksha.org")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "OpenShiksha <noreply@openshiksha.edu.in>")
+EMAIL_SUBJECT_PREFIX = "[OpenShiksha] "
 
 # Logging Configuration
 # Ensure the logs directory exists (CI environments and fresh checkouts won't have it)

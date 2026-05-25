@@ -120,6 +120,8 @@ class UserViewSet(viewsets.GenericViewSet):
                 "current_streak": streak.current_streak,
                 "longest_streak": streak.longest_streak,
                 "last_activity_date": streak.last_activity_date,
+                "streak_grace_used": streak.streak_grace_used,
+                "milestone_tier": streak.milestone_tier,
             }
         )
 

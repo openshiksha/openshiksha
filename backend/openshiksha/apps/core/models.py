@@ -740,6 +740,10 @@ class StudentStreak(models.Model):
     current_streak = models.PositiveIntegerField(default=0)
     longest_streak = models.PositiveIntegerField(default=0)
     last_activity_date = models.DateField(null=True, blank=True)
+    streak_grace_used = models.BooleanField(
+        default=False,
+        help_text="True if the student has already used their grace day for the current streak run.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -748,27 +752,56 @@ class StudentStreak(models.Model):
     def __str__(self):
         return f"Streak({self.student_id}): {self.current_streak}d"
 
+    @property
+    def milestone_tier(self) -> str:
+        """Returns current milestone tier based on current_streak."""
+        if self.current_streak >= 60:
+            return "champion"
+        elif self.current_streak >= 30:
+            return "month"
+        elif self.current_streak >= 7:
+            return "week"
+        elif self.current_streak >= 3:
+            return "starter"
+        return "none"
+
     def record_activity(self, activity_date):
         """
         Record activity for a given date and update streak counters.
 
         Rules:
-        - Same day as last_activity_date → no-op (already counted)
-        - Next consecutive day → current_streak += 1
-        - Gap of 1+ days → current_streak resets to 1
+        - Same day as last_activity_date → no-op
+        - Next consecutive day → current_streak += 1, grace resets
+        - Gap of exactly 1 day with grace available → streak continues (grace consumed)
+        - Gap of 2+ days, or grace already used → current_streak resets to 1
         """
         from datetime import timedelta
 
         if self.last_activity_date is None:
             self.current_streak = 1
+            self.streak_grace_used = False
         elif activity_date == self.last_activity_date:
             return
         elif activity_date == self.last_activity_date + timedelta(days=1):
             self.current_streak += 1
+            self.streak_grace_used = False
+        elif activity_date == self.last_activity_date + timedelta(days=2) and not self.streak_grace_used:
+            # Missed exactly one day and grace is available — pause, don't break
+            self.current_streak += 1
+            self.streak_grace_used = True
         else:
             self.current_streak = 1
+            self.streak_grace_used = False
 
         self.last_activity_date = activity_date
         if self.current_streak > self.longest_streak:
             self.longest_streak = self.current_streak
-        self.save(update_fields=["current_streak", "longest_streak", "last_activity_date", "updated_at"])
+        self.save(
+            update_fields=[
+                "current_streak",
+                "longest_streak",
+                "last_activity_date",
+                "streak_grace_used",
+                "updated_at",
+            ]
+        )

@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0005_add_student_streak_and_remedial_fields"),
+        ("core", "0006_add_question_subpart_image_url"),
     ]
 
     operations = [

@@ -2,6 +2,7 @@ from .core import (
     AssignmentDetailSerializer,
     AssignmentSerializer,
     ChapterSerializer,
+    ClassroomInviteCodeSerializer,
     ProblemSetSerializer,
     ProblemSetWriteSerializer,
     QuestionMistakeSerializer,
@@ -14,11 +15,14 @@ from .core import (
     SubjectRoomSerializer,
     SubjectSerializer,
     SubmissionSerializer,
+    UserProfileUpdateSerializer,
     UserSerializer,
 )
 
 __all__ = [
     "UserSerializer",
+    "UserProfileUpdateSerializer",
+    "ClassroomInviteCodeSerializer",
     "QuestionTagSerializer",
     "QuestionSubpartSerializer",
     "QuestionSerializer",

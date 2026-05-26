@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useLoginMutation } from './useLoginMutation';
 
@@ -98,7 +98,13 @@ export const LoginPage = () => {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Don&apos;t have an account?{' '}
+          <Link to="/register" className="text-indigo-600 hover:text-indigo-800 font-medium">
+            Register
+          </Link>
+        </p>
+        <p className="text-center text-xs text-gray-400 mt-2">
           OpenShiksha © {new Date().getFullYear()}
         </p>
       </div>

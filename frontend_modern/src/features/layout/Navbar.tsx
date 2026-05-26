@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { UserRole } from '@/types/index';
@@ -23,11 +23,25 @@ export const Navbar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Close mobile menu on route change
   useEffect(() => {
     setMenuOpen(false);
+    setUserMenuOpen(false);
   }, [location.pathname]);
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
   const isTeacher = user?.role === UserRole.TEACHER;
@@ -52,6 +66,12 @@ export const Navbar = () => {
                 <>
                   <NavLink to="/student" active={location.pathname === '/student'}>
                     Dashboard
+                  </NavLink>
+                  <NavLink
+                    to="/student/browse"
+                    active={location.pathname.startsWith('/student/browse')}
+                  >
+                    Browse
                   </NavLink>
                   <NavLink
                     to="/student/learning-path"
@@ -82,27 +102,43 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* Right: User info + logout (desktop) + hamburger (mobile) */}
+          {/* Right: User avatar dropdown (desktop) + hamburger (mobile) */}
           <div className="flex items-center gap-2">
             {user && (
-              <>
-                <span className="text-sm text-gray-700 hidden sm:block">
-                  {user.first_name || user.username}
-                </span>
-                <span
-                  className={`hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    ROLE_COLORS[user.role] ?? 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {ROLE_LABELS[user.role] ?? user.role}
-                </span>
+              <div className="relative hidden sm:block" ref={userMenuRef}>
                 <button
-                  onClick={logout}
-                  className="hidden sm:block text-sm text-gray-500 hover:text-gray-900 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  Sign out
+                  <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-indigo-700 text-xs font-bold">
+                      {(user.first_name?.[0] ?? user.username[0]).toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-700">{user.first_name || user.username}</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
-              </>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Profile
+                    </Link>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={logout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Hamburger button — mobile only */}
@@ -150,6 +186,7 @@ export const Navbar = () => {
             {isStudent && (
               <>
                 <MobileNavLink to="/student">Dashboard</MobileNavLink>
+                <MobileNavLink to="/student/browse">Browse Subjects</MobileNavLink>
                 <MobileNavLink to="/student/learning-path">Learning Path</MobileNavLink>
                 <MobileNavLink to="/student/proficiency">My Progress</MobileNavLink>
               </>
@@ -162,8 +199,9 @@ export const Navbar = () => {
             )}
             {isParent && <MobileNavLink to="/parent">Dashboard</MobileNavLink>}
 
-            {/* Sign out */}
-            <div className="pt-2 border-t border-gray-100 mt-2">
+            {/* Profile + Sign out */}
+            <div className="pt-2 border-t border-gray-100 mt-2 space-y-1">
+              <MobileNavLink to="/profile">Profile</MobileNavLink>
               <button
                 onClick={() => {
                   logout();

@@ -10,6 +10,7 @@ from .models import (
     Board,
     Chapter,
     ClassRoom,
+    ClassroomInviteCode,
     ProblemSet,
     Question,
     QuestionSubpart,
@@ -211,3 +212,12 @@ class StudentStreakAdmin(admin.ModelAdmin):
     search_fields = ["student__username", "student__first_name", "student__last_name"]
     raw_id_fields = ["student"]
     readonly_fields = ["updated_at"]
+
+
+@admin.register(ClassroomInviteCode)
+class ClassroomInviteCodeAdmin(admin.ModelAdmin):
+    list_display = ["code", "classroom", "created_by", "is_active", "expires_at", "created_at"]
+    list_filter = ["is_active", "classroom__school"]
+    search_fields = ["code", "classroom__school__name", "created_by__username"]
+    raw_id_fields = ["created_by"]
+    readonly_fields = ["created_at"]

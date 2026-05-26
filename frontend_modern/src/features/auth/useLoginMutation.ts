@@ -24,6 +24,10 @@ export const useLoginMutation = () => {
         const user = await authApi.getCurrentUser();
         if (user.role === UserRole.TEACHER) {
           navigate('/teacher');
+        } else if (user.role === UserRole.PARENT) {
+          navigate('/parent');
+        } else if (user.role === UserRole.OPEN_STUDENT) {
+          navigate('/student/browse');
         } else {
           navigate('/student');
         }

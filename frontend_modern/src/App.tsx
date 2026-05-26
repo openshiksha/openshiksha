@@ -1,6 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './shared/hooks/useAuth';
 import { LoginPage } from './features/auth/LoginPage';
+import { RegisterPage } from './features/auth/RegisterPage';
+import { RegisterSchoolPage } from './features/auth/RegisterSchoolPage';
+import { RegisterOpenPage } from './features/auth/RegisterOpenPage';
 import { AppShell } from './features/layout/AppShell';
 import { ProtectedRoute } from './features/layout/ProtectedRoute';
 import { StudentDashboard } from './features/student/StudentDashboard';
@@ -8,6 +11,9 @@ import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
 import { ProficiencyPage } from './features/student/ProficiencyPage';
 import { LearningPathPage } from './features/student/LearningPathPage';
 import { SRSDrillPage } from './features/student/SRSDrillPage';
+import { BrowsePage } from './features/student/BrowsePage';
+import { BrowsePracticePage } from './features/student/BrowsePracticePage';
+import { ProfilePage } from './features/shared/ProfilePage';
 import { TeacherDashboard } from './features/teacher/TeacherDashboard';
 import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
@@ -37,6 +43,7 @@ function App() {
   const defaultPath = isAuthenticated
     ? user?.role === 'teacher' ? '/teacher'
     : user?.role === 'parent' ? '/parent'
+    : user?.role === 'open_student' ? '/student/browse'
     : '/student'
     : '/login';
 
@@ -44,6 +51,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register/school" element={<RegisterSchoolPage />} />
+        <Route path="/register/open" element={<RegisterOpenPage />} />
 
         <Route
           path="/student"
@@ -106,6 +116,39 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <SRSDrillPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/browse"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <BrowsePage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/browse/chapter/:chapterId"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <BrowsePracticePage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <ProfilePage />
               </AppShell>
             </ProtectedRoute>
           }

@@ -6,6 +6,8 @@ Two registration paths:
   POST /api/v1/auth/register/school/ — creates a student account via classroom join code
 """
 
+from typing import Any
+
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from django.contrib.auth.password_validation import validate_password
@@ -79,8 +81,8 @@ class RegisterOpenView(APIView):
     Returns JWT token pair on success.
     """
 
-    permission_classes = []
-    authentication_classes = []
+    permission_classes: list[Any] = []
+    authentication_classes: list[Any] = []
 
     def post(self, request):
         serializer = _RegistrationSerializer(data=request.data)
@@ -107,8 +109,8 @@ class RegisterSchoolView(APIView):
     Returns JWT token pair on success.
     """
 
-    permission_classes = []
-    authentication_classes = []
+    permission_classes: list[Any] = []
+    authentication_classes: list[Any] = []
 
     def post(self, request):
         ctx: dict = {}

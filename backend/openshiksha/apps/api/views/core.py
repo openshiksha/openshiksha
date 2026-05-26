@@ -125,6 +125,47 @@ class UserViewSet(viewsets.GenericViewSet):
             }
         )
 
+    @action(detail=False, methods=["patch"], url_path="me/profile")
+    def update_profile(self, request):
+        """PATCH /api/v1/users/me/profile/ — update own profile fields."""
+        from openshiksha.apps.api.serializers.core import UserProfileUpdateSerializer
+
+        ALLOWED_FIELDS = {"first_name", "last_name", "email", "phone_number"}
+        data = {k: v for k, v in request.data.items() if k in ALLOWED_FIELDS}
+        serializer = UserProfileUpdateSerializer(request.user, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
+
+    @action(detail=False, methods=["get", "post"], url_path="me/classroom-code", permission_classes=[IsTeacher])
+    def classroom_code(self, request):
+        """
+        GET  — returns all active join codes for classrooms taught by this teacher.
+        POST — generates a new code for a specified classroom (body: {classroom_id}).
+        """
+        from django.shortcuts import get_object_or_404
+
+        from openshiksha.apps.api.serializers.core import ClassroomInviteCodeSerializer
+        from openshiksha.apps.core.models import ClassRoom, ClassroomInviteCode
+
+        if request.method == "GET":
+            codes = ClassroomInviteCode.objects.filter(
+                classroom__class_teacher=request.user, is_active=True
+            ).select_related("classroom")
+            return Response(ClassroomInviteCodeSerializer(codes, many=True).data)
+
+        classroom_id = request.data.get("classroom_id")
+        if not classroom_id:
+            return Response({"detail": "classroom_id is required."}, status=400)
+        classroom = get_object_or_404(ClassRoom, id=classroom_id, class_teacher=request.user)
+        ClassroomInviteCode.objects.filter(classroom=classroom).update(is_active=False)
+        code = ClassroomInviteCode.objects.create(
+            classroom=classroom,
+            code=ClassroomInviteCode.generate_code(),
+            created_by=request.user,
+        )
+        return Response(ClassroomInviteCodeSerializer(code).data, status=201)
+
 
 class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -241,6 +282,48 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         school = getattr(self.request.user, "school", None)
         serializer.save(created_by=self.request.user, school=school)
+
+    @action(detail=False, methods=["get"], url_path="browse")
+    def browse_chapters(self, request):
+        """
+        GET /api/v1/questions/browse/
+
+        Returns chapters from the shared question bank with question counts.
+        Filtered by ?subject=<id> and/or ?standard=<id>.
+        """
+        from django.db.models import Count, Q
+
+        qs = (
+            Chapter.objects.annotate(
+                question_count=Count(
+                    "questions",
+                    filter=Q(questions__school__isnull=True, questions__is_active=True),
+                )
+            )
+            .filter(question_count__gt=0)
+            .select_related("subject", "standard")
+            .order_by("standard__number", "subject__name", "order")
+        )
+
+        params = request.query_params
+        if subject := params.get("subject"):
+            qs = qs.filter(subject_id=subject)
+        if standard := params.get("standard"):
+            qs = qs.filter(standard_id=standard)
+
+        data = [
+            {
+                "id": ch.id,
+                "name": ch.name,
+                "subject_id": ch.subject_id,
+                "subject": ch.subject.name,
+                "standard_id": ch.standard_id,
+                "standard": ch.standard.number,
+                "question_count": ch.question_count,
+            }
+            for ch in qs
+        ]
+        return Response(data)
 
 
 class SubjectRoomViewSet(viewsets.ModelViewSet):

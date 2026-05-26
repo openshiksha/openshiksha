@@ -7,6 +7,7 @@ import { useStreak } from './useStreak';
 import { StreakBadge } from './StreakBadge';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { DueForReviewPanel } from './DueForReviewPanel';
+import { UserRole } from '@/types/index';
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -54,7 +55,22 @@ export const StudentDashboard = () => {
         </div>
       )}
 
-      {assignments && (
+      {assignments && assignments.length === 0 && user?.role === UserRole.OPEN_STUDENT && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6 text-center">
+          <p className="text-indigo-800 font-medium mb-1">You&apos;re not enrolled in a classroom yet.</p>
+          <p className="text-indigo-600 text-sm mb-4">
+            Browse the shared question bank to start practising on your own.
+          </p>
+          <button
+            onClick={() => navigate('/student/browse')}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors text-sm"
+          >
+            Browse Subjects →
+          </button>
+        </div>
+      )}
+
+      {assignments && assignments.length > 0 && (
         <AssignmentList assignments={assignments} />
       )}
 

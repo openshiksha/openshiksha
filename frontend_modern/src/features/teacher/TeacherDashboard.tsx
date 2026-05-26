@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useTeacherAssignments } from './useTeacherAssignments';
 import { ClassHealthPanel } from './ClassHealthPanel';
+import { ClassroomCodeWidget } from './ClassroomCodeWidget';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { Assignment } from '@/types/index';
 
@@ -116,6 +117,10 @@ export const TeacherDashboard = () => {
                   </div>
                 </div>
                 <ClassHealthPanel subjectRoomId={room.id} />
+                <ClassroomCodeWidget
+                  classroomId={room.classroom}
+                  classroomName={room.classroom_display}
+                />
               </div>
             ))}
           </div>

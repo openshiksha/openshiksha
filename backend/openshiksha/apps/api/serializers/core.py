@@ -9,6 +9,7 @@ from rest_framework import serializers
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
+    ClassroomInviteCode,
     ProblemSet,
     Question,
     QuestionSubpart,
@@ -28,8 +29,36 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "grade"]
-        read_only_fields = ["id", "username", "email", "first_name", "last_name", "role", "grade"]
+        fields = ["id", "username", "email", "first_name", "last_name", "role", "grade", "phone_number"]
+        read_only_fields = ["id", "username", "role", "grade"]
+
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Writeable serializer for profile fields the user may update themselves."""
+
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "phone_number"]
+
+    def validate_email(self, value):
+        if not value:
+            return value
+        qs = User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk if self.instance else None)
+        if qs.exists():
+            raise serializers.ValidationError("This email address is already in use.")
+        return value
+
+
+class ClassroomInviteCodeSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    classroom_id = serializers.IntegerField(source="classroom.id", read_only=True)
+
+    class Meta:
+        model = ClassroomInviteCode
+        fields = ["id", "code", "classroom_id", "classroom_name", "is_active", "expires_at", "created_at"]
+        read_only_fields = fields
 
 
 class StandardSerializer(serializers.ModelSerializer):

@@ -10,6 +10,52 @@ export interface User {
   last_name: string;
   role: UserRole;
   grade?: number | null;
+  phone_number?: string;
+}
+
+export interface ClassroomInviteCode {
+  id: number;
+  code: string;
+  classroom_id: number;
+  classroom_name: string;
+  is_active: boolean;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface BrowseChapter {
+  id: number;
+  name: string;
+  subject_id: number;
+  subject: string;
+  standard_id: number;
+  standard: number;
+  question_count: number;
+}
+
+export interface RegisterOpenRequest {
+  username: string;
+  password: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface RegisterSchoolRequest extends RegisterOpenRequest {
+  join_code: string;
+}
+
+export interface RegisterResponse {
+  access: string;
+  refresh: string;
+  user: {
+    id: number;
+    username: string;
+    role: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export enum UserRole {

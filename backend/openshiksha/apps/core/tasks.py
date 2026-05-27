@@ -122,10 +122,17 @@ def grade_submission(self, submission_id: int) -> dict:
     update_proficiency.delay(submission.student_id, subject_room.id)
 
     # Trigger AI analytics pipeline (learning gaps, recommendations, mastery, learning path)
-    from openshiksha.apps.ai.tasks import analyze_student_subject_room, generate_class_insights_for_subject_room
+    from openshiksha.apps.ai.tasks import (
+        analyze_student_subject_room,
+        generate_class_insights_for_subject_room,
+        generate_explanations_for_submission,
+    )
 
     analyze_student_subject_room.delay(submission.student_id, subject_room.id)
     generate_class_insights_for_subject_room.delay(subject_room.id)
+
+    # Generate per-subpart AI explanations for the student
+    generate_explanations_for_submission.delay(submission_id)
 
     # Create remedial assignment if student scored below threshold
     if submission.score is not None and submission.score < REMEDIAL_THRESHOLD:

@@ -28,6 +28,98 @@ from django.db import models
 FRACTION_VALIDATOR = [MinValueValidator(0.0), MaxValueValidator(1.0)]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Natural Language Explanations
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ExplanationLanguage(models.TextChoices):
+    ENGLISH = "en", "English"
+    HINDI = "hi", "Hindi"
+
+
+class SubpartExplanation(models.Model):
+    """
+    AI-generated explanation of why a student's answer was correct or incorrect.
+
+    Generated asynchronously after grading. One per (student, subpart, submission).
+
+    The explanation is grade-calibrated: simpler language for Std 1–6,
+    intermediate for 7–9, and full complexity for 10–12.
+
+    Stored persistently so students can revisit explanations without re-calling
+    the LLM API. Each explanation records the model and token count for cost
+    visibility.
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="subpart_explanations",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    question_subpart = models.ForeignKey(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="explanations",
+    )
+    submission = models.ForeignKey(
+        "core.Submission",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="explanations",
+        help_text="Null for SRS drill explanations not tied to a formal submission.",
+    )
+
+    student_answer = models.JSONField(
+        help_text="The answer the student submitted (raw value, pre-croupier-reversal).",
+    )
+    is_correct = models.BooleanField(
+        help_text="Whether the student's answer was graded as correct.",
+    )
+    explanation_text = models.TextField(
+        help_text="AI-generated plain-language explanation (2–5 sentences).",
+    )
+    language = models.CharField(
+        max_length=5,
+        choices=ExplanationLanguage.choices,
+        default=ExplanationLanguage.ENGLISH,
+    )
+    grade_level = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Grade level used to calibrate explanation complexity.",
+    )
+
+    model_used = models.CharField(
+        max_length=60,
+        default="claude-sonnet-4-6",
+        help_text="LLM model ID that generated this explanation.",
+    )
+    input_tokens = models.PositiveIntegerField(
+        default=0,
+        help_text="Prompt tokens consumed (for cost tracking).",
+    )
+    output_tokens = models.PositiveIntegerField(
+        default=0,
+        help_text="Completion tokens produced (for cost tracking).",
+    )
+
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ai_subpart_explanations"
+        unique_together = [["student", "question_subpart", "submission"]]
+        indexes = [
+            models.Index(fields=["submission"]),
+            models.Index(fields=["student", "generated_at"]),
+        ]
+
+    def __str__(self):
+        status = "correct" if self.is_correct else "incorrect"
+        return f"Explanation: {self.student} | subpart {self.question_subpart_id} | {status}"
+
+
 class GapSeverity(models.TextChoices):
     MILD = "mild", "Mild (score 40–50%)"
     MODERATE = "moderate", "Moderate (score 25–40%)"

@@ -11,6 +11,7 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    SubpartExplanation,
 )
 
 
@@ -244,3 +245,35 @@ class TriggerAdaptiveSerializer(serializers.Serializer):
 
 class CompleteStepSerializer(serializers.Serializer):
     score = serializers.FloatField(min_value=0.0, max_value=1.0)
+
+
+class SubpartExplanationSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="question_subpart.question_text", read_only=True)
+    subpart_index = serializers.IntegerField(source="question_subpart.index", read_only=True)
+
+    class Meta:
+        model = SubpartExplanation
+        fields = [
+            "id",
+            "question_subpart",
+            "question_text",
+            "subpart_index",
+            "submission",
+            "student_answer",
+            "is_correct",
+            "explanation_text",
+            "language",
+            "grade_level",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateExplanationSerializer(serializers.Serializer):
+    """Request body for on-demand single-subpart explanation."""
+
+    subpart_id = serializers.IntegerField()
+    student_answer = serializers.JSONField()
+    is_correct = serializers.BooleanField()
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, default=8)
+    language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")

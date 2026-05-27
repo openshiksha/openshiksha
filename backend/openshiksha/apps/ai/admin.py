@@ -11,6 +11,7 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    SubpartExplanation,
 )
 
 
@@ -182,3 +183,28 @@ class LearningPathAdmin(admin.ModelAdmin):
     readonly_fields = ["generated_at", "updated_at"]
     inlines = [LearningPathStepInline]
     list_select_related = ["student", "subject_room__subject"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Natural Language Explanations Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(SubpartExplanation)
+class SubpartExplanationAdmin(admin.ModelAdmin):
+    list_display = [
+        "student",
+        "question_subpart",
+        "submission",
+        "is_correct",
+        "language",
+        "grade_level",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "generated_at",
+    ]
+    list_filter = ["is_correct", "language", "grade_level", "model_used"]
+    search_fields = ["student__username", "student__email"]
+    readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
+    list_select_related = ["student", "question_subpart", "submission"]

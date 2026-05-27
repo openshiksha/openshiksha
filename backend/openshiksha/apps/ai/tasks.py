@@ -532,6 +532,188 @@ def rebuild_learning_path(self, student_id: int, subject_room_id: int) -> dict:
         raise self.retry(exc=exc)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Natural Language Explanation Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_explanations_for_submission(self, submission_id: int) -> dict:
+    """
+    Generate AI explanations for every graded subpart in a submission.
+
+    Called asynchronously after grade_submission completes. For each Tick
+    associated with the submission, calls the Anthropic API to produce a
+    short plain-language explanation of why the student's answer was right
+    or wrong.
+
+    Idempotent: uses update_or_create so re-runs don't duplicate records.
+
+    Returns {"created": int, "updated": int, "skipped": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import generate_explanation
+        from openshiksha.apps.ai.models import SubpartExplanation
+        from openshiksha.apps.core.models import Submission
+        from openshiksha.apps.edge.models import Tick
+
+        try:
+            submission = Submission.objects.select_related(
+                "student__school",
+                "assignment__subject_room__classroom__standard",
+            ).get(pk=submission_id)
+        except Submission.DoesNotExist:
+            logger.error("generate_explanations: submission %d not found", submission_id)
+            return {"created": 0, "updated": 0, "skipped": 0}
+
+        # Determine grade level from student's school enrollment or direct grade field
+        grade_level = (
+            submission.student.grade
+            or getattr(submission.assignment.subject_room.classroom.standard, "number", None)
+            or 8
+        )
+
+        ticks = list(
+            Tick.objects.filter(submission=submission).select_related(
+                "question_subpart__question",
+            )
+        )
+
+        if not ticks:
+            logger.info("generate_explanations: no ticks for submission %d", submission_id)
+            return {"created": 0, "updated": 0, "skipped": 0}
+
+        created = 0
+        updated = 0
+        skipped = 0
+
+        for tick in ticks:
+            subpart = tick.question_subpart
+            student_answer = submission.answers.get(str(subpart.id))
+
+            if student_answer is None:
+                skipped += 1
+                continue
+
+            try:
+                result = generate_explanation(
+                    question_text=subpart.question_text or subpart.question.question_type,
+                    options=subpart.options,
+                    student_answer=student_answer,
+                    correct_answer=subpart.correct_answer,
+                    is_correct=tick.mark >= 1.0,
+                    grade_level=grade_level,
+                    language="en",
+                )
+            except Exception:
+                logger.exception(
+                    "generate_explanations: LLM call failed for subpart %d submission %d",
+                    subpart.id,
+                    submission_id,
+                )
+                skipped += 1
+                continue
+
+            _, was_created = SubpartExplanation.objects.update_or_create(
+                student=submission.student,
+                question_subpart=subpart,
+                submission=submission,
+                defaults={
+                    "student_answer": student_answer,
+                    "is_correct": tick.mark >= 1.0,
+                    "explanation_text": result["text"],
+                    "language": "en",
+                    "grade_level": grade_level,
+                    "model_used": result["model"],
+                    "input_tokens": result["input_tokens"],
+                    "output_tokens": result["output_tokens"],
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+
+        logger.info(
+            "generate_explanations: submission=%d created=%d updated=%d skipped=%d",
+            submission_id,
+            created,
+            updated,
+            skipped,
+        )
+        return {"created": created, "updated": updated, "skipped": skipped}
+
+    except Exception as exc:
+        logger.exception("generate_explanations failed: submission=%d", submission_id)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_explanation_for_subpart(
+    self,
+    student_id: int,
+    subpart_id: int,
+    student_answer: object,
+    is_correct: bool,
+    grade_level: int,
+    submission_id: int | None = None,
+    language: str = "en",
+) -> dict:
+    """
+    Generate an explanation for a single subpart (e.g., from SRS drill mode).
+
+    Returns {"explanation_id": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import generate_explanation
+        from openshiksha.apps.ai.models import SubpartExplanation
+        from openshiksha.apps.core.models import QuestionSubpart, User
+
+        student = User.objects.get(pk=student_id)
+        subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+
+        result = generate_explanation(
+            question_text=subpart.question_text or subpart.question.question_type,
+            options=subpart.options,
+            student_answer=student_answer,
+            correct_answer=subpart.correct_answer,
+            is_correct=is_correct,
+            grade_level=grade_level,
+            language=language,
+        )
+
+        obj, _ = SubpartExplanation.objects.update_or_create(
+            student=student,
+            question_subpart=subpart,
+            submission_id=submission_id,
+            defaults={
+                "student_answer": student_answer,
+                "is_correct": is_correct,
+                "explanation_text": result["text"],
+                "language": language,
+                "grade_level": grade_level,
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+        logger.info(
+            "generate_explanation_for_subpart: student=%d subpart=%d explanation=%d",
+            student_id,
+            subpart_id,
+            obj.pk,
+        )
+        return {"explanation_id": obj.pk}
+
+    except Exception as exc:
+        logger.exception(
+            "generate_explanation_for_subpart failed: student=%d subpart=%d",
+            student_id,
+            subpart_id,
+        )
+        raise self.retry(exc=exc)
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def complete_learning_path_step(
     self,

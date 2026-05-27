@@ -101,6 +101,8 @@ jobs:
                 DJANGO_SETTINGS_MODULE: openshiksha.settings.test
                 SECRET_KEY: test-secret-key-not-for-production
             - name: Run Tests
+              # Coverage threshold (--cov-fail-under) is enforced via pytest.ini addopts.
+              # Currently set to 90%; measured at 91.6% as of 2026-05-26.
               run: python -m pytest
               working-directory: backend
               env:

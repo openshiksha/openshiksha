@@ -95,6 +95,7 @@ def _build_prompt(
 
 def _call_anthropic(prompt: str, api_key: str) -> dict:
     import anthropic
+    from anthropic.types import TextBlock
 
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
@@ -102,7 +103,8 @@ def _call_anthropic(prompt: str, api_key: str) -> dict:
         max_tokens=MAX_TOKENS,
         messages=[{"role": "user", "content": prompt}],
     )
-    text = message.content[0].text.strip() if message.content else ""
+    text_blocks = [b for b in message.content if isinstance(b, TextBlock)]
+    text = text_blocks[0].text.strip() if text_blocks else ""
     return {
         "text": text,
         "model": message.model,

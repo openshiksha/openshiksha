@@ -17,18 +17,18 @@ export interface TeacherProblemSet {
   is_active: boolean;
 }
 
-const fetchProblemSets = async (subjectId: number): Promise<TeacherProblemSet[]> => {
+const fetchProblemSets = async (subjectId?: number): Promise<TeacherProblemSet[]> => {
+  const params = subjectId ? `?subject=${subjectId}` : '';
   const response = await apiClient.get<PaginatedResponse<TeacherProblemSet>>(
-    `/problem-sets/?subject=${subjectId}`
+    `/problem-sets/${params}`
   );
   return response.data.results;
 };
 
-export const useProblemSets = (subjectId: number | null) => {
+export const useProblemSets = (subjectId?: number | null) => {
   return useQuery<TeacherProblemSet[]>({
-    queryKey: ['problem-sets', subjectId],
-    queryFn: () => fetchProblemSets(subjectId!),
-    enabled: subjectId !== null,
+    queryKey: ['problem-sets', subjectId ?? null],
+    queryFn: () => fetchProblemSets(subjectId ?? undefined),
     staleTime: 5 * 60 * 1000,
   });
 };

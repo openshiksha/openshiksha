@@ -255,3 +255,261 @@ def _stub_explanation(is_correct: bool) -> str:
     if is_correct:
         return "Great job! Your answer is correct. Keep up the good work."
     return "That answer was incorrect. Review the concept and try again."
+
+
+# ─────────────────────────────────────────────────────────────
+# Question Generation
+# ─────────────────────────────────────────────────────────────
+
+QUESTION_GEN_MAX_TOKENS = 2500
+
+_QUESTION_GEN_TOOL = {
+    "name": "save_questions",
+    "description": "Save the generated questions in structured JSON format.",
+    "input_schema": {
+        "type": "object",
+        "required": ["questions"],
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["question_text", "correct_answer"],
+                    "properties": {
+                        "question_text": {"type": "string"},
+                        "options": {
+                            "type": ["array", "null"],
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "key": {"type": "string"},
+                                    "text": {"type": "string"},
+                                },
+                            },
+                        },
+                        "correct_answer": {"type": "string"},
+                        "variable_constraints": {
+                            "type": ["object", "null"],
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "min": {"type": "number"},
+                                    "max": {"type": "number"},
+                                    "integer": {"type": "boolean"},
+                                },
+                            },
+                        },
+                        "suggested_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                },
+            }
+        },
+    },
+}
+
+
+def _build_question_gen_prompt(
+    topic: str,
+    chapter_name: str,
+    subject_name: str,
+    standard_number: int,
+    question_type: str,
+    difficulty: int,
+    count: int,
+) -> str:
+    type_instructions = {
+        "mcq": (
+            "Multiple choice with exactly 4 options keyed A, B, C, D. "
+            "Exactly one correct answer. Put all 4 options in the 'options' array."
+        ),
+        "multi_select": (
+            "Multi-select with 4 options keyed A, B, C, D — 2 or more are correct. "
+            "Set correct_answer to a comma-separated string like 'A,C'. "
+            "Put all 4 options in the 'options' array."
+        ),
+        "numeric": (
+            "Numeric answer question — the answer is a number. "
+            "You may use {{variable}} tokens (double curly braces) for parameterization "
+            "and provide variable_constraints for each token. "
+            "Set correct_answer to the numeric value or expression string."
+        ),
+        "fill_blank": (
+            "Fill in the blank. The answer is a short word or phrase. "
+            "Set correct_answer to the expected answer string. "
+            "Leave options as null."
+        ),
+    }
+    type_hint = type_instructions.get(question_type, type_instructions["mcq"])
+    _diff_labels = {1: "very easy", 2: "easy", 3: "medium", 4: "hard", 5: "very hard"}
+    difficulty_label = _diff_labels.get(difficulty, "medium")
+
+    return (
+        f"Generate exactly {count} {difficulty_label} difficulty question(s) "
+        f"about '{topic}' for Standard {standard_number} {subject_name}, "
+        f"chapter '{chapter_name}' — Indian K-12 curriculum (CBSE/ICSE style).\n\n"
+        f"Question type: {type_hint}\n\n"
+        f"Guidelines:\n"
+        f"- Each question should test a distinct concept or sub-topic.\n"
+        f"- Use LaTeX for math ($expression$ inline, $$expression$$ display).\n"
+        f"- For numeric/fill_blank, use {{{{variable}}}} tokens for parameterization "
+        f"and include variable_constraints (min, max, integer: true/false).\n"
+        f"- suggested_tags: 1–3 short concept keywords (e.g. 'polynomials', 'factoring').\n"
+        f"- Difficulty {difficulty}/5: "
+        + (
+            "focus on direct recall and definitions."
+            if difficulty <= 2
+            else (
+                "test application and multi-step reasoning."
+                if difficulty <= 3
+                else "require analysis, synthesis, and non-obvious connections."
+            )
+        )
+        + "\n\n"
+        "Call save_questions with the structured result."
+    )
+
+
+def _call_anthropic_generate_questions(prompt: str, api_key: str) -> list[dict]:
+    import anthropic
+    from anthropic.types import ToolChoiceAnyParam, ToolParam, ToolUseBlock
+
+    client = anthropic.Anthropic(api_key=api_key)
+    tool: ToolParam = {
+        "name": str(_QUESTION_GEN_TOOL["name"]),
+        "description": str(_QUESTION_GEN_TOOL["description"]),
+        "input_schema": _QUESTION_GEN_TOOL["input_schema"],  # type: ignore[typeddict-item]
+    }
+    message = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=QUESTION_GEN_MAX_TOKENS,
+        tools=[tool],
+        tool_choice=ToolChoiceAnyParam(type="any"),
+        messages=[{"role": "user", "content": prompt}],
+    )
+    for block in message.content:
+        if isinstance(block, ToolUseBlock) and block.name == "save_questions":
+            input_data = block.input if isinstance(block.input, dict) else {}
+            return input_data.get("questions", [])
+    return []
+
+
+def _call_google_generate_questions(prompt: str, api_key: str) -> list[dict]:
+    """Fallback: ask Gemma to return JSON and parse it."""
+    import json as _json
+
+    from google import genai
+    from google.genai import types
+
+    json_prompt = (
+        prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects, "
+        'no markdown fences, no explanation. Example: [{"question_text": "...", ...}]'
+    )
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=GEMMA_MODEL,
+        contents=json_prompt,
+        config=types.GenerateContentConfig(
+            max_output_tokens=QUESTION_GEN_MAX_TOKENS,
+            temperature=0.8,
+        ),
+    )
+    text = (response.text or "").strip()
+    text = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+    return _json.loads(text)
+
+
+def _call_ollama_generate_questions(prompt: str, base_url: str) -> list[dict]:
+    import json as _json
+
+    import httpx
+
+    json_prompt = prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects."
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": json_prompt,
+        "stream": False,
+        "options": {"num_predict": QUESTION_GEN_MAX_TOKENS, "temperature": 0.8},
+    }
+    resp = httpx.post(f"{base_url.rstrip('/')}/api/generate", json=payload, timeout=120)
+    resp.raise_for_status()
+    text = resp.json().get("response", "").strip()
+    text = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+    return _json.loads(text)
+
+
+def _stub_questions(question_type: str, count: int) -> list[dict]:
+    stubs = []
+    for i in range(count):
+        q: dict = {
+            "question_text": f"Sample {question_type} question {i + 1} (AI provider unavailable)",
+            "correct_answer": "A" if question_type in ("mcq", "multi_select") else "42",
+            "variable_constraints": None,
+            "suggested_tags": ["sample"],
+        }
+        if question_type in ("mcq", "multi_select"):
+            q["options"] = [
+                {"key": "A", "text": "Option A"},
+                {"key": "B", "text": "Option B"},
+                {"key": "C", "text": "Option C"},
+                {"key": "D", "text": "Option D"},
+            ]
+        else:
+            q["options"] = None
+        stubs.append(q)
+    return stubs
+
+
+def generate_questions(
+    topic: str,
+    chapter_name: str,
+    subject_name: str,
+    standard_number: int,
+    question_type: str,
+    difficulty: int,
+    count: int,
+) -> list[dict]:
+    """
+    Generate question drafts using the same LLM cascade as generate_explanation.
+
+    Returns a list of draft dicts:
+        [{question_text, options, correct_answer, variable_constraints, suggested_tags}]
+    """
+    prompt = _build_question_gen_prompt(
+        topic=topic,
+        chapter_name=chapter_name,
+        subject_name=subject_name,
+        standard_number=standard_number,
+        question_type=question_type,
+        difficulty=difficulty,
+        count=count,
+    )
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_questions: using Anthropic Claude")
+            return _call_anthropic_generate_questions(prompt, anthropic_key)
+        except Exception:
+            logger.exception("generate_questions: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_questions: using Google Gemma 4")
+            return _call_google_generate_questions(prompt, google_key)
+        except Exception:
+            logger.exception("generate_questions: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_questions: using Ollama at %s", ollama_url)
+            return _call_ollama_generate_questions(prompt, ollama_url)
+        except Exception:
+            logger.exception("generate_questions: Ollama failed, falling back to stub")
+
+    logger.warning("generate_questions: no LLM provider available — returning stub")
+    return _stub_questions(question_type, count)

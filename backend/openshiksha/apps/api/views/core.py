@@ -4,7 +4,8 @@ Core ViewSets for OpenShiksha API
 Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
-from rest_framework import filters, permissions, viewsets
+from django.shortcuts import get_object_or_404
+from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -408,6 +409,31 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         school = getattr(self.request.user, "school", None)
         serializer.save(school=school, created_by=self.request.user)
+
+    @action(detail=True, methods=["post"], url_path="add-question")
+    def add_question(self, request, pk=None):
+        """
+        POST /api/v1/problem-sets/<id>/add-question/
+        Body: {"question_id": <int>}
+
+        Adds a question to this problem set.  Teacher must have created the set.
+        """
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Only teachers can modify problem sets."}, status=status.HTTP_403_FORBIDDEN)
+
+        problem_set = get_object_or_404(ProblemSet, pk=pk, is_active=True)
+        if problem_set.created_by_id != request.user.pk:
+            return Response(
+                {"detail": "You can only modify problem sets you created."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        question_id = request.data.get("question_id")
+        if not question_id:
+            return Response({"detail": "question_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        question = get_object_or_404(Question, pk=question_id, is_active=True)
+        problem_set.questions.add(question)
+        return Response({"detail": "Question added.", "question_id": question.id, "problem_set_id": problem_set.id})
 
 
 class AssignmentViewSet(viewsets.ModelViewSet):

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from openshiksha.apps.core.models import QuestionType
+
 from .models import (
     ClassInsight,
     ContentRecommendation,
@@ -277,3 +279,30 @@ class GenerateExplanationSerializer(serializers.Serializer):
     is_correct = serializers.BooleanField()
     grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, default=8)
     language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")
+
+
+class GenerateQuestionsRequestSerializer(serializers.Serializer):
+    """Request body for AI question generation."""
+
+    topic = serializers.CharField(max_length=300)
+    chapter_id = serializers.IntegerField()
+    question_type = serializers.ChoiceField(choices=[qt[0] for qt in QuestionType.choices])
+    difficulty = serializers.IntegerField(min_value=1, max_value=5, default=2)
+    count = serializers.IntegerField(min_value=1, max_value=5, default=3)
+
+
+class MCQOptionDraftSerializer(serializers.Serializer):
+    key = serializers.CharField(max_length=4)
+    text = serializers.CharField()
+
+
+class GeneratedQuestionDraftSerializer(serializers.Serializer):
+    """One draft question returned by the AI generation endpoint."""
+
+    question_text = serializers.CharField()
+    options = MCQOptionDraftSerializer(many=True, allow_null=True, required=False)
+    correct_answer = serializers.CharField()
+    variable_constraints = serializers.DictField(
+        child=serializers.DictField(), allow_null=True, required=False, default=None
+    )
+    suggested_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)

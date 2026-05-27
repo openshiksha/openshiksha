@@ -210,6 +210,17 @@ function App() {
         />
 
         <Route
+          path="/teacher/questions/:id/edit"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <CreateQuestionPage editMode={true} />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/parent"
           element={
             <ProtectedRoute>

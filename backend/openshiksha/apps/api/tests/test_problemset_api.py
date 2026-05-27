@@ -243,3 +243,74 @@ class TestSubmissionStudentName:
         url = reverse("assignment-submissions", kwargs={"pk": assignment.pk})
         response = api_client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestAddQuestionToProblemSet:
+    """Tests for POST /api/v1/problem-sets/<id>/add-question/"""
+
+    @pytest.fixture
+    def extra_question(self, db, school, standard, subject, chapter, teacher):
+        q = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            created_by=teacher,
+        )
+        QuestionSubpart.objects.create(
+            question=q,
+            index=0,
+            question_text="Another question?",
+            options=[
+                {"key": "A", "text": "Yes"},
+                {"key": "B", "text": "No"},
+            ],
+            correct_answer={"type": "mcq", "answer": "A"},
+        )
+        return q
+
+    def test_teacher_can_add_question(self, api_client, teacher, problem_set, extra_question):
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {"question_id": extra_question.pk}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert problem_set.questions.filter(pk=extra_question.pk).exists()
+
+    def test_add_question_is_idempotent(self, api_client, teacher, problem_set, question):
+        """Adding an already-present question does not raise an error."""
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {"question_id": question.pk}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        # Still exactly one such question
+        assert problem_set.questions.filter(pk=question.pk).count() == 1
+
+    def test_student_cannot_add_question(self, api_client, student, problem_set, extra_question):
+        api_client.force_authenticate(user=student)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {"question_id": extra_question.pk}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_other_teacher_cannot_add_to_problem_set(self, api_client, school, problem_set, extra_question, board):
+        other_teacher = User.objects.create_user(
+            username="other_teacher",
+            password="pass",
+            role=UserRole.TEACHER,
+            school=school,
+        )
+        api_client.force_authenticate(user=other_teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {"question_id": extra_question.pk}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_missing_question_id_returns_400(self, api_client, teacher, problem_set):
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_nonexistent_question_returns_404(self, api_client, teacher, problem_set):
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
+        response = api_client.post(url, {"question_id": 99999}, format="json")
+        assert response.status_code == status.HTTP_404_NOT_FOUND

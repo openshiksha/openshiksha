@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuestionList } from './useQuestionList';
 import { useSubjects } from './useSubjects';
+import { useProblemSets } from './useProblemSets';
+import { useAddQuestionToProblemSet } from './useAddQuestionToProblemSet';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { Question } from '@/types/index';
 
@@ -24,7 +26,126 @@ const DifficultyDots = ({ difficulty }: { difficulty: number }) => (
   </span>
 );
 
-const QuestionCard = ({ question }: { question: Question }) => {
+// ---------------------------------------------------------------------------
+// Add-to-problem-set modal
+// ---------------------------------------------------------------------------
+
+interface AddToProblemSetModalProps {
+  questionId: number;
+  questionSubject: number;
+  onClose: () => void;
+}
+
+const AddToProblemSetModal = ({ questionId, questionSubject, onClose }: AddToProblemSetModalProps) => {
+  const [selectedPsId, setSelectedPsId] = useState<number | null>(null);
+  const { data: problemSets, isLoading } = useProblemSets(questionSubject);
+  const addQuestion = useAddQuestionToProblemSet();
+  const [success, setSuccess] = useState(false);
+
+  const handleAdd = () => {
+    if (!selectedPsId) return;
+    addQuestion.mutate(
+      { problemSetId: selectedPsId, questionId },
+      {
+        onSuccess: () => setSuccess(true),
+      }
+    );
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xl w-full max-w-sm p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Add to Problem Set</h3>
+
+        {success ? (
+          <div className="text-center py-4">
+            <p className="text-green-700 font-medium mb-4">Question added!</p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            {isLoading ? (
+              <div className="flex justify-center py-6"><LoadingSpinner size="md" /></div>
+            ) : !problemSets || problemSets.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                No problem sets for this subject yet.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto mb-4">
+                {problemSets.map((ps) => (
+                  <label
+                    key={ps.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedPsId === ps.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="problem_set"
+                      value={ps.id}
+                      checked={selectedPsId === ps.id}
+                      onChange={() => setSelectedPsId(ps.id)}
+                      className="accent-indigo-600"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{ps.title}</p>
+                      <p className="text-xs text-gray-500">{ps.question_count} questions</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!selectedPsId || addQuestion.isPending}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {addQuestion.isPending && <LoadingSpinner size="sm" />}
+                Add
+              </button>
+            </div>
+
+            {addQuestion.isError && (
+              <p className="text-xs text-red-500 mt-2">Failed to add. Please try again.</p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Question card
+// ---------------------------------------------------------------------------
+
+const QuestionCard = ({
+  question,
+  onAddToSet,
+  onEdit,
+}: {
+  question: Question;
+  onAddToSet: (q: Question) => void;
+  onEdit: (q: Question) => void;
+}) => {
   const firstSubpart = question.subparts[0];
   const previewText = firstSubpart?.question_text ?? '—';
   const preview = previewText.slice(0, 120);
@@ -57,7 +178,7 @@ const QuestionCard = ({ question }: { question: Question }) => {
       </p>
 
       {question.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 mb-3">
           {visibleTags.map((t) => (
             <span key={t.id} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
               {t.name}
@@ -68,9 +189,29 @@ const QuestionCard = ({ question }: { question: Question }) => {
           )}
         </div>
       )}
+
+      <div className="flex gap-2 pt-2 border-t border-gray-100">
+        <button
+          onClick={() => onAddToSet(question)}
+          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+        >
+          + Add to problem set
+        </button>
+        <span className="text-gray-200">|</span>
+        <button
+          onClick={() => onEdit(question)}
+          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          Edit
+        </button>
+      </div>
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 
 export const QuestionBankPage = () => {
   const navigate = useNavigate();
@@ -78,6 +219,7 @@ export const QuestionBankPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<number | undefined>();
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | undefined>();
+  const [modalQuestion, setModalQuestion] = useState<Question | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: subjects } = useSubjects();
@@ -184,10 +326,23 @@ export const QuestionBankPage = () => {
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {questions.map((q) => (
-              <QuestionCard key={q.id} question={q} />
+              <QuestionCard
+                key={q.id}
+                question={q}
+                onAddToSet={(question) => setModalQuestion(question)}
+                onEdit={(question) => navigate(`/teacher/questions/${question.id}/edit`)}
+              />
             ))}
           </div>
         </>
+      )}
+
+      {modalQuestion && (
+        <AddToProblemSetModal
+          questionId={modalQuestion.id}
+          questionSubject={modalQuestion.subject}
+          onClose={() => setModalQuestion(null)}
+        />
       )}
     </div>
   );

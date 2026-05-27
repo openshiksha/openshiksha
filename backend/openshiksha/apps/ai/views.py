@@ -17,7 +17,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.core.models import SubjectRoom, UserRole
+from openshiksha.apps.ai.llm_client import generate_questions
+from openshiksha.apps.core.models import Chapter, SubjectRoom, UserRole
 
 from .models import (
     ClassInsight,
@@ -37,7 +38,9 @@ from .serializers import (
     ClassInsightSerializer,
     CompleteStepSerializer,
     ContentRecommendationSerializer,
+    GeneratedQuestionDraftSerializer,
     GenerateExplanationSerializer,
+    GenerateQuestionsRequestSerializer,
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
@@ -799,3 +802,67 @@ class SubpartExplanationViewSet(ReadOnlyModelViewSet):
             {"detail": "Explanation generation queued."},
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Question Generation
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GenerateQuestionsViewSet(ViewSet):
+    """
+    POST /api/v1/ai/generate-questions/   — teacher-only
+
+    Generates question drafts using Claude AI.  Returns an array of draft
+    objects that the teacher can review, edit, and save.
+
+    Request body:
+        topic          string     free-text description of the question topic
+        chapter_id     int        FK to Chapter
+        question_type  string     mcq | fill_blank | numeric | multi_select
+        difficulty     int        1–5 (default 2)
+        count          int        1–5 (default 3)
+
+    Response: 200 with {"questions": [...draft objects...]}
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can generate questions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = GenerateQuestionsRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        chapter = get_object_or_404(
+            Chapter.objects.select_related("subject", "standard"),
+            pk=d["chapter_id"],
+        )
+
+        try:
+            drafts = generate_questions(
+                topic=d["topic"],
+                chapter_name=chapter.name,
+                subject_name=chapter.subject.name,
+                standard_number=chapter.standard.number,
+                question_type=d["question_type"],
+                difficulty=d["difficulty"],
+                count=d["count"],
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_questions: unexpected error")
+            return Response(
+                {"detail": "Question generation failed. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        out_serializer = GeneratedQuestionDraftSerializer(data=drafts, many=True)
+        out_serializer.is_valid()
+        return Response({"questions": out_serializer.data})

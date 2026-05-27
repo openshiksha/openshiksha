@@ -1,12 +1,19 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useChapters } from './useChapters';
 import { useCreateQuestion } from './useCreateQuestion';
+import { useUpdateQuestion } from './useUpdateQuestion';
+import { useQuestion } from './useQuestion';
+import { useGenerateQuestions } from './useGenerateQuestions';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
-import type { MCQOption, QuestionSubpartWrite } from '@/types/index';
+import type {
+  MCQOption,
+  QuestionSubpartWrite,
+  GeneratedQuestionDraft,
+} from '@/types/index';
 
 type QuestionType = 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
 
@@ -60,7 +67,7 @@ const syncVariableConstraints = (
 };
 
 // ---------------------------------------------------------------------------
-// Live preview widget (client-side RNG — matches backend seed concept, not exact values)
+// Live preview widget
 // ---------------------------------------------------------------------------
 
 const xorshift32 = (seed: number) => {
@@ -114,7 +121,6 @@ const VariablePreview = ({
 // KaTeX preview
 // ---------------------------------------------------------------------------
 
-/** Render a single line of mixed LaTeX/plain text for the preview. */
 function renderPreview(text: string): React.ReactNode {
   if (!text) return <span className="text-gray-400">Type question text above to see preview...</span>;
   const pattern = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
@@ -147,11 +153,233 @@ function renderPreview(text: string): React.ReactNode {
 }
 
 // ---------------------------------------------------------------------------
+// Draft card (from AI generation)
+// ---------------------------------------------------------------------------
+
+const DraftCard = ({
+  draft,
+  onUse,
+}: {
+  draft: GeneratedQuestionDraft;
+  onUse: (draft: GeneratedQuestionDraft) => void;
+}) => (
+  <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="flex items-start justify-between gap-2 mb-2">
+      <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+        Draft
+      </span>
+      <button
+        onClick={() => onUse(draft)}
+        className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors shrink-0"
+      >
+        Use this
+      </button>
+    </div>
+    <p className="text-sm text-gray-800 font-mono leading-relaxed mb-2">
+      {draft.question_text}
+    </p>
+    {draft.options && draft.options.length > 0 && (
+      <div className="space-y-1 mb-2">
+        {draft.options.map((opt) => (
+          <div
+            key={opt.key}
+            className={`flex gap-2 text-xs ${opt.key === draft.correct_answer ? 'text-green-700 font-semibold' : 'text-gray-600'}`}
+          >
+            <span className="font-mono">{opt.key}.</span>
+            <span>{opt.text}</span>
+          </div>
+        ))}
+      </div>
+    )}
+    {!draft.options && (
+      <p className="text-xs text-gray-500 mb-2">
+        Answer: <span className="font-mono text-green-700">{draft.correct_answer}</span>
+      </p>
+    )}
+    {draft.suggested_tags.length > 0 && (
+      <div className="flex flex-wrap gap-1">
+        {draft.suggested_tags.map((t) => (
+          <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{t}</span>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// AI Generation Panel
+// ---------------------------------------------------------------------------
+
+const AIGenerationPanel = ({
+  chapterId,
+  onUseDraft,
+}: {
+  chapterId: number | '';
+  onUseDraft: (draft: GeneratedQuestionDraft) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [topic, setTopic] = useState('');
+  const [qType, setQType] = useState<QuestionType>('mcq');
+  const [difficulty, setDifficulty] = useState(2);
+  const [count, setCount] = useState(3);
+  const [drafts, setDrafts] = useState<GeneratedQuestionDraft[]>([]);
+
+  const generateMutation = useGenerateQuestions();
+
+  const handleGenerate = () => {
+    if (!chapterId || !topic.trim()) return;
+    generateMutation.mutate(
+      {
+        topic: topic.trim(),
+        chapter_id: chapterId as number,
+        question_type: qType,
+        difficulty,
+        count,
+      },
+      {
+        onSuccess: (data) => setDrafts(data.questions),
+      }
+    );
+  };
+
+  return (
+    <div className="bg-indigo-50 rounded-xl border border-indigo-200 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">✨</span>
+          <span className="font-semibold text-indigo-900 text-sm">Generate with AI</span>
+          <span className="text-xs text-indigo-600 font-normal">
+            Let Claude draft questions for you
+          </span>
+        </div>
+        <span className="text-indigo-400 text-sm">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 space-y-4 border-t border-indigo-200">
+          {!chapterId && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+              Select a chapter above before generating questions.
+            </p>
+          )}
+
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-indigo-800 mb-1">
+              Topic or concept to test
+            </label>
+            <textarea
+              rows={2}
+              className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              placeholder="e.g. Factoring quadratic polynomials, laws of thermodynamics…"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-indigo-800 mb-1">Type</label>
+              <select
+                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={qType}
+                onChange={(e) => setQType(e.target.value as QuestionType)}
+              >
+                <option value="mcq">MCQ</option>
+                <option value="numeric">Numeric</option>
+                <option value="fill_blank">Fill blank</option>
+                <option value="multi_select">Multi-select</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-indigo-800 mb-1">Difficulty</label>
+              <select
+                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={difficulty}
+                onChange={(e) => setDifficulty(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5].map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-indigo-800 mb-1">Count</label>
+              <select
+                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleGenerate}
+              disabled={!chapterId || !topic.trim() || generateMutation.isPending}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {generateMutation.isPending ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  Generating…
+                </>
+              ) : (
+                '✨ Generate'
+              )}
+            </button>
+            {generateMutation.isError && (
+              <div className="flex items-center gap-2 text-xs text-red-600">
+                <span>Generation failed.</span>
+                <button
+                  onClick={handleGenerate}
+                  className="underline hover:no-underline"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
+
+          {generateMutation.isPending && (
+            <div className="space-y-2">
+              {Array.from({ length: count }).map((_, i) => (
+                <div key={i} className="h-20 bg-indigo-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!generateMutation.isPending && drafts.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-indigo-900">
+                {drafts.length} draft{drafts.length > 1 ? 's' : ''} — click "Use this" to pre-fill the form
+              </p>
+              {drafts.map((d, i) => (
+                <DraftCard key={i} draft={d} onUse={onUseDraft} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
-export const CreateQuestionPage = () => {
+export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean }) => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const editId = editMode && id ? Number(id) : undefined;
+
   const { data: subjectRooms } = useSubjectRooms();
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
   const [selectedChapterId, setSelectedChapterId] = useState<number | ''>('');
@@ -164,6 +392,31 @@ export const CreateQuestionPage = () => {
     selectedSubjectId !== '' ? selectedSubjectId : undefined,
   );
   const createQuestion = useCreateQuestion();
+  const updateQuestion = useUpdateQuestion();
+  const { data: existingQuestion, isLoading: loadingExisting } = useQuestion(editId);
+
+  // Pre-fill form in edit mode once data loads
+  useEffect(() => {
+    if (!existingQuestion || !editMode) return;
+    setSelectedSubjectId(existingQuestion.subject);
+    setSelectedChapterId(existingQuestion.chapter);
+    setDifficulty(existingQuestion.difficulty);
+    setSubparts(
+      existingQuestion.subparts.map((sp) => ({
+        question_text: sp.question_text,
+        question_type: existingQuestion.question_type as QuestionType,
+        options: sp.options ?? [
+          { key: 'A', text: '' },
+          { key: 'B', text: '' },
+          { key: 'C', text: '' },
+          { key: 'D', text: '' },
+        ],
+        correct_answer: '',
+        variable_constraints: {},
+        image_url: sp.image_url ?? '',
+      }))
+    );
+  }, [existingQuestion, editMode]);
 
   // Derive unique subjects from the teacher's subject rooms
   const subjects = Array.from(
@@ -205,6 +458,48 @@ export const CreateQuestionPage = () => {
     );
   };
 
+  // Pre-fill subparts from an AI draft
+  const handleUseDraft = useCallback((draft: GeneratedQuestionDraft) => {
+    const draftType = draft.options
+      ? draft.correct_answer.includes(',')
+        ? 'multi_select'
+        : 'mcq'
+      : 'numeric';
+
+    const opts: MCQOption[] = draft.options?.length
+      ? draft.options
+      : [
+          { key: 'A', text: '' },
+          { key: 'B', text: '' },
+          { key: 'C', text: '' },
+          { key: 'D', text: '' },
+        ];
+
+    const vc: Record<string, VariableSpec> = {};
+    if (draft.variable_constraints) {
+      for (const [k, v] of Object.entries(draft.variable_constraints)) {
+        vc[k] = {
+          min: typeof v.min === 'number' ? v.min : 1,
+          max: typeof v.max === 'number' ? v.max : 10,
+          integer: typeof v.integer === 'boolean' ? v.integer : true,
+        };
+      }
+    }
+
+    setSubparts([
+      {
+        question_text: draft.question_text,
+        question_type: draftType,
+        options: opts,
+        correct_answer: draft.correct_answer,
+        variable_constraints: vc,
+        image_url: '',
+      },
+    ]);
+    setActiveSubpart(0);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }, []);
+
   const canSubmit =
     selectedSubjectId !== '' &&
     selectedChapterId !== '' &&
@@ -226,44 +521,74 @@ export const CreateQuestionPage = () => {
       ...(s.image_url.trim() ? { image_url: s.image_url.trim() } : {}),
     }));
 
-    // Derive standard from selected chapter
     const chapter = chapters?.find((c) => c.id === selectedChapterId);
 
-    const result = await createQuestion.mutateAsync({
-      standard: chapter?.standard ?? 1,
-      subject: selectedSubjectId as number,
-      chapter: selectedChapterId as number,
-      question_type: subparts[0].question_type,
-      difficulty,
-      subparts: subpartsPayload,
-    });
-
-    setSuccessId(result.id);
+    if (editMode && editId) {
+      const result = await updateQuestion.mutateAsync({
+        id: editId,
+        data: {
+          standard: chapter?.standard ?? 1,
+          subject: selectedSubjectId as number,
+          chapter: selectedChapterId as number,
+          question_type: subparts[0].question_type,
+          difficulty,
+          subparts: subpartsPayload,
+        },
+      });
+      setSuccessId(result.id);
+    } else {
+      const result = await createQuestion.mutateAsync({
+        standard: chapter?.standard ?? 1,
+        subject: selectedSubjectId as number,
+        chapter: selectedChapterId as number,
+        question_type: subparts[0].question_type,
+        difficulty,
+        subparts: subpartsPayload,
+      });
+      setSuccessId(result.id);
+    }
   };
+
+  const isPending = createQuestion.isPending || updateQuestion.isPending;
+  const isError = createQuestion.isError || updateQuestion.isError;
+
+  if (editMode && loadingExisting) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   if (successId !== null) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 text-center">
         <div className="bg-white rounded-xl border border-gray-200 p-10">
           <div className="text-4xl mb-4">✓</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Question created!</h2>
-          <p className="text-sm text-gray-500 mb-6">Question #{successId} has been added to the question bank.</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            Question {editMode ? 'updated' : 'created'}!
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Question #{successId} has been {editMode ? 'updated in' : 'added to'} the question bank.
+          </p>
           <div className="flex gap-3 justify-center">
+            {!editMode && (
+              <button
+                onClick={() => {
+                  setSuccessId(null);
+                  setSubparts([defaultSubpart()]);
+                  setSelectedChapterId('');
+                }}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+              >
+                Create another
+              </button>
+            )}
             <button
-              onClick={() => {
-                setSuccessId(null);
-                setSubparts([defaultSubpart()]);
-                setSelectedChapterId('');
-              }}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
-            >
-              Create another
-            </button>
-            <button
-              onClick={() => navigate('/teacher')}
+              onClick={() => navigate('/teacher/questions')}
               className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
             >
-              Back to dashboard
+              Back to question bank
             </button>
           </div>
         </div>
@@ -281,11 +606,17 @@ export const CreateQuestionPage = () => {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Create Question</h1>
-          <p className="text-sm text-gray-500 mt-1">Add a question to the shared question bank.</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {editMode ? 'Edit Question' : 'Create Question'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {editMode
+              ? 'Update this question in the shared question bank.'
+              : 'Add a question to the shared question bank.'}
+          </p>
         </div>
         <button
-          onClick={() => navigate('/teacher')}
+          onClick={() => navigate('/teacher/questions')}
           className="text-sm text-gray-500 hover:text-gray-700"
         >
           ← Back
@@ -293,6 +624,14 @@ export const CreateQuestionPage = () => {
       </div>
 
       <div className="space-y-6">
+        {/* AI Generation Panel */}
+        {!editMode && (
+          <AIGenerationPanel
+            chapterId={selectedChapterId}
+            onUseDraft={handleUseDraft}
+          />
+        )}
+
         {/* Chapter selection */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="font-semibold text-gray-800">Chapter</h2>
@@ -451,7 +790,7 @@ export const CreateQuestionPage = () => {
               )}
             </div>
 
-            {/* Variable constraints panel — only for numeric/fill_blank with {{tokens}} */}
+            {/* Variable constraints panel */}
             {showVariablePanel && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <h4 className="text-xs font-semibold text-amber-900 mb-3">
@@ -595,18 +934,18 @@ export const CreateQuestionPage = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={handleSubmit}
-            disabled={!canSubmit || createQuestion.isPending}
+            disabled={!canSubmit || isPending}
             className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {createQuestion.isPending && <LoadingSpinner size="sm" />}
-            Save question
+            {isPending && <LoadingSpinner size="sm" />}
+            {editMode ? 'Update question' : 'Save question'}
           </button>
           {!canSubmit && (
             <p className="text-xs text-gray-400">
               Select a chapter and fill in all question text to save.
             </p>
           )}
-          {createQuestion.isError && (
+          {isError && (
             <p className="text-xs text-red-500">Failed to save. Please try again.</p>
           )}
         </div>

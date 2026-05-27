@@ -202,6 +202,22 @@ export interface StudentProficiency {
   updated_at: string;
 }
 
+export interface GeneratedQuestionDraft {
+  question_text: string;
+  options: MCQOption[] | null;
+  correct_answer: string;
+  variable_constraints: Record<string, { min: number; max: number; integer: boolean }> | null;
+  suggested_tags: string[];
+}
+
+export interface GenerateQuestionsRequest {
+  topic: string;
+  chapter_id: number;
+  question_type: 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
+  difficulty: number;
+  count: number;
+}
+
 export interface QuestionSubpartWrite {
   index: number;
   question_text: string;

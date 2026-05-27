@@ -4,6 +4,7 @@ from .views import (
     AnalysisTriggerViewSet,
     ClassInsightViewSet,
     ContentRecommendationViewSet,
+    GenerateQuestionsViewSet,
     KnowledgeNodeViewSet,
     LearningGapViewSet,
     LearningPathViewSet,
@@ -31,5 +32,7 @@ router.register("spaced-repetition", SpacedRepetitionViewSet, basename="spaced-r
 router.register("learning-paths", LearningPathViewSet, basename="learning-path")
 # Natural Language Explanations
 router.register("explanations", SubpartExplanationViewSet, basename="explanation")
+# AI Question Generation (teacher-only)
+router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
 
 urlpatterns = router.urls

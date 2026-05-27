@@ -30,6 +30,10 @@ pydantic-settings==2.7.1
 httpx==0.28.1
 requests==2.33.0
 
+# AI / LLM
+anthropic==0.52.0
+google-genai==1.16.0
+
 # Utilities
 python-dotenv==1.2.2
 Pillow==12.2.0

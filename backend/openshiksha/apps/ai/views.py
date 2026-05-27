@@ -31,11 +31,13 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    SubpartExplanation,
 )
 from .serializers import (
     ClassInsightSerializer,
     CompleteStepSerializer,
     ContentRecommendationSerializer,
+    GenerateExplanationSerializer,
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
@@ -43,6 +45,7 @@ from .serializers import (
     PracticePlanSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
+    SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
     TriggerRecommendationsSerializer,
@@ -52,6 +55,7 @@ from .tasks import (
     complete_learning_path_step,
     generate_class_insights_for_subject_room,
     generate_daily_practice_plan,
+    generate_explanation_for_subpart,
     rebuild_learning_path,
     refresh_recommendations_for_student,
 )
@@ -715,5 +719,83 @@ class LearningPathViewSet(ReadOnlyModelViewSet):
 
         return Response(
             {"detail": f"Step {step.pk} completion queued with score {score}."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class SubpartExplanationViewSet(ReadOnlyModelViewSet):
+    """
+    Natural language explanations for student answers.
+
+    list:     GET /api/v1/ai/explanations/                      — student's own explanations
+              GET /api/v1/ai/explanations/?submission=<id>      — filter by submission
+              GET /api/v1/ai/explanations/?subpart=<id>         — filter by subpart
+    retrieve: GET /api/v1/ai/explanations/{id}/                 — single explanation
+    generate: POST /api/v1/ai/explanations/generate/            — on-demand for SRS drill
+
+    Only students (or open_students) can access their own explanations.
+    """
+
+    serializer_class = SubpartExplanationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return SubpartExplanation.objects.none()
+
+        qs = (
+            SubpartExplanation.objects.filter(student=user)
+            .select_related(
+                "question_subpart",
+            )
+            .order_by("-generated_at")
+        )
+
+        if submission_id := self.request.query_params.get("submission"):
+            qs = qs.filter(submission_id=submission_id)
+        if subpart_id := self.request.query_params.get("subpart"):
+            qs = qs.filter(question_subpart_id=subpart_id)
+
+        return qs
+
+    @action(detail=False, methods=["post"], url_path="generate")
+    def generate(self, request):
+        """
+        POST /api/v1/ai/explanations/generate/
+
+        Trigger on-demand explanation for a single subpart (e.g., SRS drill).
+        Body: {subpart_id, student_answer, is_correct, grade_level?, language?}
+
+        Returns 202 Accepted with the queued task description.
+        """
+        user = request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return Response({"detail": "Only students can request explanations."}, status=403)
+
+        serializer = GenerateExplanationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        from openshiksha.apps.core.models import QuestionSubpart
+
+        try:
+            QuestionSubpart.objects.get(pk=d["subpart_id"])
+        except QuestionSubpart.DoesNotExist:
+            return Response({"detail": "Subpart not found."}, status=404)
+
+        grade_level = d.get("grade_level") or user.grade or 8
+
+        generate_explanation_for_subpart.delay(
+            student_id=user.pk,
+            subpart_id=d["subpart_id"],
+            student_answer=d["student_answer"],
+            is_correct=d["is_correct"],
+            grade_level=grade_level,
+            language=d.get("language", "en"),
+        )
+
+        return Response(
+            {"detail": "Explanation generation queued."},
             status=status.HTTP_202_ACCEPTED,
         )

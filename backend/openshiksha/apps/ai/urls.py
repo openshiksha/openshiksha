@@ -11,6 +11,7 @@ from .views import (
     PracticePlanViewSet,
     SpacedRepetitionViewSet,
     StudentMasteryViewSet,
+    SubpartExplanationViewSet,
 )
 
 router = DefaultRouter()
@@ -28,5 +29,7 @@ router.register("knowledge-nodes", KnowledgeNodeViewSet, basename="knowledge-nod
 router.register("mastery", StudentMasteryViewSet, basename="student-mastery")
 router.register("spaced-repetition", SpacedRepetitionViewSet, basename="spaced-repetition")
 router.register("learning-paths", LearningPathViewSet, basename="learning-path")
+# Natural Language Explanations
+router.register("explanations", SubpartExplanationViewSet, basename="explanation")
 
 urlpatterns = router.urls

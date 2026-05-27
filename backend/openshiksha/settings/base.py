@@ -189,6 +189,16 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# AI / LLM Configuration
+# Provider cascade for natural language explanations:
+#   1. Anthropic Claude  — set ANTHROPIC_API_KEY
+#   2. Google Gemma 4    — set GOOGLE_AI_API_KEY (free via Google AI Studio)
+#   3. Ollama (local)    — set OLLAMA_BASE_URL or run Ollama at localhost:11434
+#   4. Stub              — plain text fallback (dev/test, no keys needed)
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY", "")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 # Email Configuration
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")

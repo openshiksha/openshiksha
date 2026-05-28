@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import type { Question, QuestionSubpart, MCQOption } from '@/types/index';
@@ -61,6 +61,44 @@ function renderMixedContent(text: string): React.ReactNode[] {
   }
 
   return nodes;
+}
+
+/**
+ * Collapsible reveal for hints (during practice) and worked solutions
+ * (after grading). Kept collapsed by default so it never spoils the answer
+ * before the student has tried.
+ */
+function CollapsibleReveal({
+  label,
+  content,
+  tone,
+}: {
+  label: string;
+  content: string;
+  tone: 'hint' | 'solution';
+}) {
+  const [open, setOpen] = useState(false);
+  const styles =
+    tone === 'solution'
+      ? { btn: 'text-indigo-700 hover:text-indigo-900', box: 'bg-indigo-50 border-indigo-100' }
+      : { btn: 'text-amber-700 hover:text-amber-900', box: 'bg-amber-50 border-amber-100' };
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`text-xs font-medium transition-colors ${styles.btn}`}
+      >
+        {open ? '▾' : '▸'} {label}
+      </button>
+      {open && (
+        <div className={`mt-2 rounded-lg border p-3 text-sm text-gray-800 leading-relaxed ${styles.box}`}>
+          {renderMixedContent(content)}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface SubpartInputProps {
@@ -233,6 +271,18 @@ export const QuestionCard = ({
 
             {isAnswered && !isSubmitted && (
               <p className="text-xs text-green-600 mt-1">Answered</p>
+            )}
+
+            {!isSubmitted && subpart.hint_text && (
+              <CollapsibleReveal label="Need a hint?" content={subpart.hint_text} tone="hint" />
+            )}
+
+            {isSubmitted && subpart.solution_text && (
+              <CollapsibleReveal
+                label="Show worked solution"
+                content={subpart.solution_text}
+                tone="solution"
+              />
             )}
           </div>
         );

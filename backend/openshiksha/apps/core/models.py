@@ -448,6 +448,18 @@ class QuestionSubpart(models.Model):
         default="",
         help_text="Optional image shown above the question text (teacher-provided URL)",
     )
+    solution_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Step-by-step worked solution (plain text or KaTeX). " "Populated by Cabinet import or LLM generation."
+        ),
+    )
+    hint_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=("Progressive hint shown to struggling students. " "Populated by Cabinet import or teacher."),
+    )
 
     class Meta:
         db_table = "question_subparts"

@@ -84,6 +84,8 @@ export interface QuestionSubpart {
   question_text: string;
   options: MCQOption[] | null;
   image_url?: string;
+  solution_text?: string;
+  hint_text?: string;
 }
 
 
@@ -208,6 +210,7 @@ export interface GeneratedQuestionDraft {
   correct_answer: string;
   variable_constraints: Record<string, { min: number; max: number; integer: boolean }> | null;
   suggested_tags: string[];
+  solution?: string;
 }
 
 export interface GenerateQuestionsRequest {
@@ -225,6 +228,8 @@ export interface QuestionSubpartWrite {
   correct_answer: Record<string, unknown>;
   variable_constraints?: Record<string, { min: number; max: number; integer: boolean }> | null;
   image_url?: string;
+  solution_text?: string;
+  hint_text?: string;
 }
 
 export interface QuestionCreate {

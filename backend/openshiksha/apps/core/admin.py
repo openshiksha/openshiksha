@@ -103,7 +103,17 @@ class QuestionTagAdmin(admin.ModelAdmin):
 class QuestionSubpartInline(admin.TabularInline):
     model = QuestionSubpart
     extra = 1
-    fields = ["index", "question_text", "image_url", "options", "correct_answer", "variable_constraints", "tags"]
+    fields = [
+        "index",
+        "question_text",
+        "image_url",
+        "options",
+        "correct_answer",
+        "variable_constraints",
+        "solution_text",
+        "hint_text",
+        "tags",
+    ]
     filter_horizontal = ["tags"]
 
 

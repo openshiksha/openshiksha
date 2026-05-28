@@ -1,0 +1,12 @@
+{
+  "subpart_index": 0,
+  "type": 2,
+  "content": {"text": "Which of these are prime?"},
+  "options": {
+    "correct": [{"text": "2"}, {"text": "3"}],
+    "incorrect": [{"text": "4"}, {"text": "6"}]
+  },
+  "variable_constraints": {},
+  "solution": {"text": "Primes have exactly two divisors."},
+  "hint": {"text": "Check divisibility."}
+}

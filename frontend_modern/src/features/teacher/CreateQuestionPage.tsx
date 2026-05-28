@@ -26,6 +26,8 @@ interface SubpartDraft {
   correct_answer: string;
   variable_constraints: Record<string, VariableSpec>;
   image_url: string;
+  solution_text: string;
+  hint_text: string;
 }
 
 const defaultSubpart = (): SubpartDraft => ({
@@ -40,6 +42,8 @@ const defaultSubpart = (): SubpartDraft => ({
   correct_answer: '',
   variable_constraints: {},
   image_url: '',
+  solution_text: '',
+  hint_text: '',
 });
 
 // ---------------------------------------------------------------------------
@@ -414,6 +418,8 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         correct_answer: '',
         variable_constraints: {},
         image_url: sp.image_url ?? '',
+        solution_text: sp.solution_text ?? '',
+        hint_text: sp.hint_text ?? '',
       }))
     );
   }, [existingQuestion, editMode]);
@@ -494,6 +500,8 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         correct_answer: draft.correct_answer,
         variable_constraints: vc,
         image_url: '',
+        solution_text: draft.solution ?? '',
+        hint_text: '',
       },
     ]);
     setActiveSubpart(0);
@@ -519,6 +527,8 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         ? s.variable_constraints
         : null,
       ...(s.image_url.trim() ? { image_url: s.image_url.trim() } : {}),
+      ...(s.solution_text.trim() ? { solution_text: s.solution_text.trim() } : {}),
+      ...(s.hint_text.trim() ? { hint_text: s.hint_text.trim() } : {}),
     }));
 
     const chapter = chapters?.find((c) => c.id === selectedChapterId);
@@ -788,6 +798,32 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Worked solution <span className="font-normal text-gray-400">(optional — shown to students after grading)</span>
+              </label>
+              <textarea
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Step-by-step solution. LaTeX with $...$ supported."
+                value={current.solution_text}
+                onChange={(e) => updateSubpart(activeSubpart, { solution_text: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Hint <span className="font-normal text-gray-400">(optional — shown to struggling students during practice)</span>
+              </label>
+              <textarea
+                rows={2}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="A nudge in the right direction."
+                value={current.hint_text}
+                onChange={(e) => updateSubpart(activeSubpart, { hint_text: e.target.value })}
+              />
             </div>
 
             {/* Variable constraints panel */}

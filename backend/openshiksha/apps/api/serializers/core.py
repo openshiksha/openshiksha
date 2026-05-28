@@ -104,6 +104,8 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
             "correct_answer",
             "variable_constraints",
             "image_url",
+            "solution_text",
+            "hint_text",
         ]
 
 
@@ -123,12 +125,19 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options", "image_url"]
+        fields = ["id", "index", "tags", "question_text", "options", "image_url", "solution_text", "hint_text"]
 
     def to_representation(self, instance):
         from openshiksha.apps.api.croupier import shuffle_options_for_student, substitute_variables_for_student
 
         data = super().to_representation(instance)
+
+        # Worked solution is anti-cheat gated: only included once the student's
+        # submission has been graded (set by AssignmentViewSet context). Hints
+        # are allowed during practice, so they always pass through.
+        if not self.context.get("include_solutions"):
+            data.pop("solution_text", None)
+
         request = self.context.get("request")
         if not (request and request.user.is_authenticated):
             return data
@@ -211,7 +220,19 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["index", "question_text", "options", "correct_answer", "variable_constraints"]
+        fields = [
+            "index",
+            "question_text",
+            "options",
+            "correct_answer",
+            "variable_constraints",
+            "solution_text",
+            "hint_text",
+        ]
+        extra_kwargs = {
+            "solution_text": {"required": False},
+            "hint_text": {"required": False},
+        }
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):

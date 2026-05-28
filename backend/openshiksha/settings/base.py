@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "openshiksha.apps.api",
     "openshiksha.apps.ai",
     "openshiksha.apps.concierge",
+    "openshiksha.apps.lodge",
 ]
 
 MIDDLEWARE = [

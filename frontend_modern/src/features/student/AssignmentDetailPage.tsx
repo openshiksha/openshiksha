@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAssignmentDetail } from './useAssignmentDetail';
 import { useSubmission, useCreateSubmission, usePatchSubmission } from './useSubmission';
 import { QuestionCard } from './QuestionCard';
+import { VideosPanel } from './VideosPanel';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { Question } from '@/types/index';
 
@@ -223,6 +224,11 @@ export const AssignmentDetailPage = () => {
             />
           ))}
         </div>
+      )}
+
+      {/* Chapter videos */}
+      {assignment.problem_set.chapter?.id && (
+        <VideosPanel chapterId={assignment.problem_set.chapter.id} />
       )}
 
       {/* Submit button */}

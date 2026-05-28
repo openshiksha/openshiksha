@@ -104,6 +104,12 @@ export const LoginPage = () => {
             Register
           </Link>
         </p>
+        <p className="text-center text-sm text-gray-500 mt-2">
+          Are you a school?{' '}
+          <Link to="/enquire" className="text-indigo-600 hover:text-indigo-800 font-medium">
+            Enquire about OpenShiksha
+          </Link>
+        </p>
         <p className="text-center text-xs text-gray-400 mt-2">
           OpenShiksha © {new Date().getFullYear()}
         </p>

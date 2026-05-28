@@ -33,6 +33,7 @@ from .models import (
     SpacedRepetitionEntry,
     StudentMastery,
     SubpartExplanation,
+    WeeklyClassReport,
 )
 from .serializers import (
     ClassInsightSerializer,
@@ -52,6 +53,8 @@ from .serializers import (
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
     TriggerRecommendationsSerializer,
+    TriggerWeeklyReportSerializer,
+    WeeklyClassReportSerializer,
 )
 from .tasks import (
     analyze_student_subject_room,
@@ -59,6 +62,7 @@ from .tasks import (
     generate_class_insights_for_subject_room,
     generate_daily_practice_plan,
     generate_explanation_for_subpart,
+    generate_weekly_class_report,
     rebuild_learning_path,
     refresh_recommendations_for_student,
 )
@@ -866,3 +870,92 @@ class GenerateQuestionsViewSet(ViewSet):
         out_serializer = GeneratedQuestionDraftSerializer(data=drafts, many=True)
         out_serializer.is_valid()
         return Response({"questions": out_serializer.data})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Weekly Class Reports
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class WeeklyClassReportViewSet(ReadOnlyModelViewSet):
+    """
+    AI-generated weekly class summary reports — teacher-only.
+
+    list:     GET  /api/v1/ai/weekly-reports/                    — reports for teacher's rooms
+              GET  /api/v1/ai/weekly-reports/?subject_room=<id>  — filter by room
+    retrieve: GET  /api/v1/ai/weekly-reports/{id}/               — single report
+    latest:   GET  /api/v1/ai/weekly-reports/latest/?subject_room=<id>
+                                                                 — most recent report for a room
+    generate: POST /api/v1/ai/weekly-reports/generate/           — queue report generation
+                  body: {subject_room_id, week_start?}
+
+    A teacher only ever sees reports for SubjectRooms they teach.
+    """
+
+    serializer_class = WeeklyClassReportSerializer
+    permission_classes = [IsAuthenticated]
+
+    def _teacher_rooms(self):
+        return SubjectRoom.objects.filter(teacher=self.request.user)
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return WeeklyClassReport.objects.none()
+
+        qs = WeeklyClassReport.objects.select_related(
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+            "subject_room__classroom__school",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+
+        return qs.order_by("-week_start")
+
+    @action(detail=False, methods=["get"])
+    def latest(self, request):
+        """Return the most recent report for a given subject_room."""
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Only teachers have class reports."}, status=status.HTTP_403_FORBIDDEN)
+
+        subject_room_id = request.query_params.get("subject_room")
+        if not subject_room_id:
+            return Response({"detail": "subject_room query param is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        report = self.get_queryset().filter(subject_room_id=subject_room_id).first()
+        if report is None:
+            return Response(
+                {"detail": "No report yet. Generate one via POST /ai/weekly-reports/generate/."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self.get_serializer(report).data)
+
+    @action(detail=False, methods=["post"])
+    def generate(self, request):
+        """Queue async generation of a weekly report for a SubjectRoom the teacher owns."""
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Only teachers can generate class reports."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = TriggerWeeklyReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room_id = serializer.validated_data["subject_room_id"]
+        subject_room = get_object_or_404(SubjectRoom, pk=subject_room_id)
+
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        week_start = serializer.validated_data.get("week_start")
+        generate_weekly_class_report.delay(
+            subject_room.pk,
+            week_start.isoformat() if week_start else None,
+        )
+        return Response(
+            {"detail": "Weekly report generation queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )

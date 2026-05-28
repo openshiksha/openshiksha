@@ -14,6 +14,7 @@ from .models import (
     SpacedRepetitionEntry,
     StudentMastery,
     SubpartExplanation,
+    WeeklyClassReport,
 )
 
 
@@ -289,6 +290,39 @@ class GenerateQuestionsRequestSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=[qt[0] for qt in QuestionType.choices])
     difficulty = serializers.IntegerField(min_value=1, max_value=5, default=2)
     count = serializers.IntegerField(min_value=1, max_value=5, default=3)
+
+
+class WeeklyClassReportSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+    participation_rate = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = WeeklyClassReport
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "week_start",
+            "week_end",
+            "summary_text",
+            "total_students",
+            "active_students",
+            "participation_rate",
+            "ticks_recorded",
+            "class_avg_score",
+            "struggling_chapters",
+            "strong_chapters",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerWeeklyReportSerializer(serializers.Serializer):
+    subject_room_id = serializers.IntegerField()
+    week_start = serializers.DateField(required=False, allow_null=True)
 
 
 class MCQOptionDraftSerializer(serializers.Serializer):

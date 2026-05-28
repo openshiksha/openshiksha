@@ -513,3 +513,119 @@ def generate_questions(
 
     logger.warning("generate_questions: no LLM provider available — returning stub")
     return _stub_questions(question_type, count)
+
+
+# ─────────────────────────────────────────────────────────────
+# Weekly Class Summary (Teacher AI Assistant)
+# ─────────────────────────────────────────────────────────────
+
+CLASS_SUMMARY_MAX_TOKENS = 400
+
+
+def _build_class_summary_prompt(stats: dict, subject_name: str, standard_number: int) -> str:
+    def _chapter_list(chapters: list[dict]) -> str:
+        if not chapters:
+            return "none"
+        return "; ".join(f"{c['chapter_name']} ({c['avg_score']:.0%})" for c in chapters)
+
+    return (
+        f"You are an assistant writing a weekly progress note for a school teacher "
+        f"of Standard {standard_number} {subject_name}.\n\n"
+        f"This week's data for the class:\n"
+        f"- Students enrolled: {stats['total_students']}\n"
+        f"- Students who practised: {stats['active_students']}\n"
+        f"- Questions attempted: {stats['ticks_recorded']}\n"
+        f"- Class average score: {stats['class_avg_score']:.0%}\n"
+        f"- Chapters the class struggled with: {_chapter_list(stats['struggling_chapters'])}\n"
+        f"- Chapters the class did well in: {_chapter_list(stats['strong_chapters'])}\n\n"
+        f"Write a short report (3–5 sentences) for the teacher that:\n"
+        f"- Opens with participation and overall performance.\n"
+        f"- Names the specific chapters to celebrate and the ones needing reteaching.\n"
+        f"- Ends with one concrete, actionable suggestion for next week.\n"
+        f"- Uses a warm, professional tone. Do NOT use markdown or bullet points.\n\n"
+        f"Report:"
+    )
+
+
+def _stub_class_summary(stats: dict) -> str:
+    parts = [
+        f"{stats['active_students']} of {stats['total_students']} students practised this week, "
+        f"attempting {stats['ticks_recorded']} questions at a {stats['class_avg_score']:.0%} class average."
+    ]
+    if stats["strong_chapters"]:
+        names = ", ".join(c["chapter_name"] for c in stats["strong_chapters"])
+        parts.append(f"The class is doing well in {names}.")
+    if stats["struggling_chapters"]:
+        names = ", ".join(c["chapter_name"] for c in stats["struggling_chapters"])
+        parts.append(f"Consider revisiting {names}, where scores are lowest.")
+    return " ".join(parts)
+
+
+def _call_anthropic_text(prompt: str, api_key: str, max_tokens: int) -> dict:
+    import anthropic
+    from anthropic.types import TextBlock
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text_blocks = [b for b in message.content if isinstance(b, TextBlock)]
+    text = text_blocks[0].text.strip() if text_blocks else ""
+    return {
+        "text": text,
+        "model": message.model,
+        "input_tokens": message.usage.input_tokens,
+        "output_tokens": message.usage.output_tokens,
+    }
+
+
+def generate_class_summary(
+    stats: dict,
+    subject_name: str,
+    standard_number: int,
+) -> dict:
+    """
+    Generate a plain-language weekly class summary for a teacher.
+
+    Uses the same provider cascade as generate_explanation. Always returns a
+    usable narrative — the stub composes a deterministic sentence from the stats
+    when no LLM provider is available.
+
+    Returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_class_summary_prompt(stats, subject_name, standard_number)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_class_summary: using Anthropic Claude")
+            return _call_anthropic_text(prompt, anthropic_key, CLASS_SUMMARY_MAX_TOKENS)
+        except Exception:
+            logger.exception("generate_class_summary: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_class_summary: using Google Gemma 4")
+            return _call_google_gemma(prompt, google_key)
+        except Exception:
+            logger.exception("generate_class_summary: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_class_summary: using Ollama at %s", ollama_url)
+            return _call_ollama(prompt, ollama_url)
+        except Exception:
+            logger.exception("generate_class_summary: Ollama failed, falling back to stub")
+
+    logger.warning("generate_class_summary: no LLM provider available — returning stub")
+    return {
+        "text": _stub_class_summary(stats),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }

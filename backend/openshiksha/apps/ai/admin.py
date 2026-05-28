@@ -12,6 +12,7 @@ from .models import (
     SpacedRepetitionEntry,
     StudentMastery,
     SubpartExplanation,
+    WeeklyClassReport,
 )
 
 
@@ -208,3 +209,27 @@ class SubpartExplanationAdmin(admin.ModelAdmin):
     search_fields = ["student__username", "student__email"]
     readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
     list_select_related = ["student", "question_subpart", "submission"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Weekly Class Reports Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(WeeklyClassReport)
+class WeeklyClassReportAdmin(admin.ModelAdmin):
+    list_display = [
+        "subject_room",
+        "week_start",
+        "week_end",
+        "active_students",
+        "total_students",
+        "class_avg_score",
+        "ticks_recorded",
+        "model_used",
+        "generated_at",
+    ]
+    list_filter = ["week_start", "model_used", "subject_room__subject"]
+    search_fields = ["subject_room__subject__name", "summary_text"]
+    readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
+    list_select_related = ["subject_room__subject", "subject_room__classroom"]

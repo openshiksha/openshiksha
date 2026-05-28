@@ -13,6 +13,7 @@ from .views import (
     SpacedRepetitionViewSet,
     StudentMasteryViewSet,
     SubpartExplanationViewSet,
+    WeeklyClassReportViewSet,
 )
 
 router = DefaultRouter()
@@ -34,5 +35,7 @@ router.register("learning-paths", LearningPathViewSet, basename="learning-path")
 router.register("explanations", SubpartExplanationViewSet, basename="explanation")
 # AI Question Generation (teacher-only)
 router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
+# Teacher AI Assistant — Weekly Class Reports (teacher-only)
+router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
 
 urlpatterns = router.urls

@@ -465,6 +465,111 @@ def build_practice_plan(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Weekly Class Report (Teacher AI Assistant)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Max chapters surfaced in the weekly report's strong/struggling lists
+WEEKLY_REPORT_TOP_N = 3
+
+# Minimum ticks in a chapter before it is eligible for the weekly highlight lists
+MIN_TICKS_FOR_WEEKLY_CHAPTER = 2
+
+
+def compute_weekly_class_stats(
+    subject_room: "SubjectRoom",
+    week_start,
+    week_end,
+) -> dict:
+    """
+    Compute a deterministic statistics snapshot for a SubjectRoom over a week.
+
+    The window is [week_start 00:00, week_end 23:59:59] in the active timezone,
+    matched against Tick.created_at.
+
+    Return format:
+    {
+        "total_students": int,
+        "active_students": int,
+        "ticks_recorded": int,
+        "class_avg_score": float,          # 0.0–1.0, 0.0 when no ticks
+        "struggling_chapters": [           # up to WEEKLY_REPORT_TOP_N, weakest first
+            {"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...
+        ],
+        "strong_chapters": [               # up to WEEKLY_REPORT_TOP_N, strongest first
+            {"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...
+        ],
+    }
+    """
+    from datetime import datetime, time
+
+    from openshiksha.apps.edge.models import Tick
+
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(week_start, time.min), tz)
+    end_dt = timezone.make_aware(datetime.combine(week_end, time.max), tz)
+
+    total_students = subject_room.students.count()
+
+    week_ticks = Tick.objects.filter(
+        subject_room=subject_room,
+        created_at__gte=start_dt,
+        created_at__lte=end_dt,
+    )
+
+    ticks_recorded = week_ticks.count()
+    active_students = week_ticks.values("student_id").distinct().count()
+
+    if ticks_recorded == 0:
+        return {
+            "total_students": total_students,
+            "active_students": 0,
+            "ticks_recorded": 0,
+            "class_avg_score": 0.0,
+            "struggling_chapters": [],
+            "strong_chapters": [],
+        }
+
+    overall = week_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+    class_avg_score = (overall["total"] or 0.0) / overall["n"]
+
+    chapter_rows = (
+        week_ticks.values(
+            "question_subpart__question__chapter_id",
+            "question_subpart__question__chapter__name",
+        )
+        .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+        .filter(tick_count__gte=MIN_TICKS_FOR_WEEKLY_CHAPTER)
+    )
+
+    chapters = []
+    for row in chapter_rows:
+        chapter_id = row["question_subpart__question__chapter_id"]
+        if chapter_id is None:
+            continue
+        chapters.append(
+            {
+                "chapter_id": chapter_id,
+                "chapter_name": row["question_subpart__question__chapter__name"],
+                "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                "tick_count": row["tick_count"],
+            }
+        )
+
+    chapters_by_score = sorted(chapters, key=lambda c: c["avg_score"])
+    struggling = [c for c in chapters_by_score if c["avg_score"] < STRUGGLE_THRESHOLD][:WEEKLY_REPORT_TOP_N]
+    strong = [c for c in reversed(chapters_by_score) if c["avg_score"] >= RESOLVED_THRESHOLD][:WEEKLY_REPORT_TOP_N]
+
+    return {
+        "total_students": total_students,
+        "active_students": active_students,
+        "ticks_recorded": ticks_recorded,
+        "class_avg_score": round(class_avg_score, 4),
+        "struggling_chapters": struggling,
+        "strong_chapters": strong,
+    }
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

@@ -783,3 +783,96 @@ def complete_learning_path_step(
     except Exception as exc:
         logger.exception("complete_step failed: step=%d", step_id)
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Weekly Class Report Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _monday_of_week(day) -> object:
+    """Return the Monday on or before the given date."""
+    from datetime import timedelta
+
+    return day - timedelta(days=day.weekday())
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_weekly_class_report(self, subject_room_id: int, week_start_iso: str | None = None) -> dict:
+    """
+    Generate (or refresh) the AI weekly summary report for a SubjectRoom.
+
+    If week_start_iso is omitted, defaults to the Monday of the current week.
+    Computes a deterministic stats snapshot from Tick data, generates a
+    plain-language narrative via the LLM cascade, and upserts a WeeklyClassReport.
+
+    Idempotent: re-running for the same (subject_room, week_start) overwrites
+    the existing report in place.
+
+    Returns {"report_id": int, "week_start": str, "active_students": int}
+    """
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.analytics import compute_weekly_class_stats
+        from openshiksha.apps.ai.llm_client import generate_class_summary
+        from openshiksha.apps.ai.models import WeeklyClassReport
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.select_related(
+            "subject",
+            "classroom__standard",
+        ).get(pk=subject_room_id)
+
+        if week_start_iso:
+            week_start = date.fromisoformat(week_start_iso)
+            week_start = _monday_of_week(week_start)
+        else:
+            week_start = _monday_of_week(timezone.localdate())
+        week_end = week_start + timedelta(days=6)
+
+        stats = compute_weekly_class_stats(subject_room, week_start, week_end)
+
+        standard_number = getattr(subject_room.classroom.standard, "number", 8)
+        result = generate_class_summary(
+            stats=stats,
+            subject_name=subject_room.subject.name,
+            standard_number=standard_number,
+        )
+
+        report, _ = WeeklyClassReport.objects.update_or_create(
+            subject_room=subject_room,
+            week_start=week_start,
+            defaults={
+                "week_end": week_end,
+                "summary_text": result["text"],
+                "total_students": stats["total_students"],
+                "active_students": stats["active_students"],
+                "ticks_recorded": stats["ticks_recorded"],
+                "class_avg_score": stats["class_avg_score"],
+                "struggling_chapters": stats["struggling_chapters"],
+                "strong_chapters": stats["strong_chapters"],
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+
+        logger.info(
+            "generate_weekly_class_report: room=%d week=%s report=%d active=%d",
+            subject_room_id,
+            week_start.isoformat(),
+            report.pk,
+            stats["active_students"],
+        )
+        return {
+            "report_id": report.pk,
+            "week_start": week_start.isoformat(),
+            "active_students": stats["active_students"],
+        }
+
+    except Exception as exc:
+        logger.exception("generate_weekly_class_report failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)

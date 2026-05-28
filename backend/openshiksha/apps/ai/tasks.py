@@ -27,6 +27,7 @@ Downstream trigger (intended usage):
 """
 
 import logging
+from datetime import date
 
 from celery import shared_task
 
@@ -790,7 +791,7 @@ def complete_learning_path_step(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _monday_of_week(day) -> object:
+def _monday_of_week(day: date) -> date:
     """Return the Monday on or before the given date."""
     from datetime import timedelta
 

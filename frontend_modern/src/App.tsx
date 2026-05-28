@@ -4,6 +4,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { RegisterSchoolPage } from './features/auth/RegisterSchoolPage';
 import { RegisterOpenPage } from './features/auth/RegisterOpenPage';
+import { EnquirePage } from './features/enquiry/EnquirePage';
 import { AppShell } from './features/layout/AppShell';
 import { ProtectedRoute } from './features/layout/ProtectedRoute';
 import { StudentDashboard } from './features/student/StudentDashboard';
@@ -54,6 +55,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/school" element={<RegisterSchoolPage />} />
         <Route path="/register/open" element={<RegisterOpenPage />} />
+        <Route path="/enquire" element={<EnquirePage />} />
 
         <Route
           path="/student"

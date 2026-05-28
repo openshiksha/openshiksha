@@ -340,3 +340,4 @@ class GeneratedQuestionDraftSerializer(serializers.Serializer):
         child=serializers.DictField(), allow_null=True, required=False, default=None
     )
     suggested_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
+    solution = serializers.CharField(required=False, allow_blank=True, default="")

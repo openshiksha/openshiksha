@@ -1,0 +1,19 @@
+{
+  "subpart_index": 0,
+  "type": 1,
+  "content": {"text": "What is _{a}_ + _{b}_ equal to?"},
+  "options": {
+    "correct": {"text": "The sum of _{a}_ and _{b}_"},
+    "incorrect": [
+      {"text": "The product"},
+      {"text": "The difference"},
+      {"text": "None of these"}
+    ]
+  },
+  "variable_constraints": {
+    "a": {"range": {"include": [[1, 6]]}},
+    "b": {}
+  },
+  "solution": {"text": "Compute pow(_{a}_, 2) only if needed; otherwise add directly."},
+  "hint": {"text": "Just add _{a}_ and _{b}_."}
+}

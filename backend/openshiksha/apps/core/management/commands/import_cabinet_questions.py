@@ -1,0 +1,383 @@
+"""
+Management command: import_cabinet_questions
+
+Imports the legacy openshiksha-cabinet question bank into the modern Django DB.
+
+Legacy questions lived in the Cabinet microservice — an external HTTP filesystem
+that Django queried live at render/grade time. This command performs a one-time
+migration of that content directly into the DB, removing the runtime dependency.
+
+Cabinet on-disk layout (a local clone of openshiksha-cabinet):
+
+    questions/containers/<board>/<school>/<standard>/<subject_id>/<chapter_id>/<question_id>.json
+    questions/raw/<board>/<school>/<standard>/<subject_id>/<chapter_id>/<subpart_id>.json
+
+A container lists its subpart IDs: ``{"subparts": [101, 102], "hint": null}``.
+Each subpart JSON carries: ``type``, ``content.text``, ``options`` (correct/incorrect),
+``answer``, ``variable_constraints``, ``solution.text``, ``hint.text``.
+
+Conversions (legacy -> modern):
+  - tokens:      ``_{a}_`` -> ``{{a}}``  and  ``_{{expr}}_`` -> ``{{expr}}``
+  - power:       ``pow(a, b)`` -> ``(a)**(b)``  (modern safe_eval_expr has no pow())
+  - constraints: ``{"range": {"include": [[1, 6]]}}`` -> ``{"min": 1, "max": 6, "integer": true}``
+  - options:     ``{"correct": ..., "incorrect": [...]}`` -> ``[{"key": "A", "text": ...}, ...]``
+  - cabinet type 1->mcq, 2->multi_select, 3->numeric, 4->fill_blank
+
+Usage:
+    python manage.py import_cabinet_questions --source /path/to/openshiksha-cabinet/questions
+    python manage.py import_cabinet_questions --source <dir> --dry-run
+    python manage.py import_cabinet_questions --source <dir> --mapping mapping.json --limit 10
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from openshiksha.apps.core.models import (
+    Chapter,
+    Question,
+    QuestionSubpart,
+    QuestionTag,
+    QuestionType,
+    Standard,
+    Subject,
+)
+
+# ─────────────────────────────────────────────────────────────
+# Cabinet type -> modern QuestionType
+# ─────────────────────────────────────────────────────────────
+
+CABINET_TYPE_MAP = {
+    1: QuestionType.MCQ,
+    2: QuestionType.MULTI_SELECT,
+    3: QuestionType.NUMERIC,
+    4: QuestionType.FILL_BLANK,
+}
+
+_OPTION_KEYS = [chr(ord("A") + i) for i in range(26)]
+
+DEFAULT_CONSTRAINT = {"min": 1, "max": 9, "integer": True}
+
+
+# ─────────────────────────────────────────────────────────────
+# Pure conversion helpers (unit-tested in test_import_cabinet.py)
+# ─────────────────────────────────────────────────────────────
+
+# _{{expr}}_  ->  {{expr}}   (expression token: keep inner braces)
+_EXPR_TOKEN = re.compile(r"_\{(\{[^{}]+\})\}_")
+# _{name}_  ->  {{name}}     (variable token: valid identifier only)
+_VAR_TOKEN = re.compile(r"_\{([a-zA-Z_]\w*)\}_")
+# pow(a, b) -> (a)**(b)      (innermost first; applied repeatedly for nesting)
+_POW_CALL = re.compile(r"pow\(\s*([^(),]+?)\s*,\s*([^(),]+?)\s*\)")
+
+
+def convert_tokens(text: str) -> str:
+    """Rewrite legacy ``_{x}_`` / ``_{{expr}}_`` substitution tokens to ``{{...}}``."""
+    if not text:
+        return text or ""
+    text = _EXPR_TOKEN.sub(r"\1", text)
+    text = _VAR_TOKEN.sub(r"{{\1}}", text)
+    return text
+
+
+def convert_pow(expr: str) -> str:
+    """
+    Rewrite Python-2 ``pow(base, exp)`` calls to ``(base)**(exp)``.
+
+    Applied repeatedly so simple nestings collapse. Args containing nested
+    parens/commas are left untouched (the regex only matches atomic args) so an
+    ambiguous expression is preserved rather than corrupted.
+    """
+    if not expr:
+        return expr or ""
+    previous = None
+    current = expr
+    # Iterate until stable, capped to avoid pathological loops.
+    for _ in range(10):
+        if current == previous:
+            break
+        previous = current
+        current = _POW_CALL.sub(r"(\1)**(\2)", current)
+    return current
+
+
+def convert_expression(text: str) -> str:
+    """Token + power conversion for any field that may carry math expressions."""
+    return convert_pow(convert_tokens(text))
+
+
+def convert_constraints(raw: dict | None) -> dict:
+    """
+    Convert a single legacy variable constraint to ``{"min", "max", "integer"}``.
+
+    Legacy unconstrained (``{}`` / ``None``) -> sensible default. Multi-range
+    ``include`` lists collapse to the union (overall min / overall max).
+    """
+    if not raw:
+        return dict(DEFAULT_CONSTRAINT)
+
+    include = (raw.get("range") or {}).get("include")
+    if not include:
+        return dict(DEFAULT_CONSTRAINT)
+
+    lows = [pair[0] for pair in include if isinstance(pair, (list, tuple)) and len(pair) == 2]
+    highs = [pair[1] for pair in include if isinstance(pair, (list, tuple)) and len(pair) == 2]
+    if not lows or not highs:
+        return dict(DEFAULT_CONSTRAINT)
+
+    lo, hi = min(lows), max(highs)
+    integer = all(float(v).is_integer() for v in (lo, hi))
+    return {"min": lo, "max": hi, "integer": integer}
+
+
+def convert_all_constraints(raw: dict | None) -> dict | None:
+    """Convert a whole ``{var: legacy_constraint}`` map. Tokens in names are stripped."""
+    if not raw:
+        return None
+    out: dict = {}
+    for name, spec in raw.items():
+        clean = name.strip("_").strip("{}")
+        out[clean] = convert_constraints(spec if isinstance(spec, dict) else None)
+    return out or None
+
+
+def _option_text(item) -> str:
+    """A cabinet option is ``{"text": "..."}`` (or occasionally a bare string)."""
+    if isinstance(item, dict):
+        return convert_expression(str(item.get("text", "")))
+    return convert_expression(str(item))
+
+
+def convert_options(options: dict | None, cabinet_type: int) -> tuple[list[dict] | None, str | list[str]]:
+    """
+    Convert cabinet ``options`` (correct/incorrect) into modern keyed options.
+
+    Returns ``(options_list, correct)`` where ``correct`` is a single key for
+    MCQ or a list of keys for multi_select. Options are concatenated as
+    [correct..., incorrect...] and keyed A, B, C, ...; the per-student Croupier
+    shuffle randomizes display order at serve time, so storage order is moot.
+    """
+    if not options:
+        return None, ""
+
+    correct_raw = options.get("correct")
+    incorrect_raw = options.get("incorrect") or []
+
+    correct_items: list = []
+    if cabinet_type == 2:  # multi_select: correct is a list
+        correct_items = list(correct_raw or [])
+    elif correct_raw is not None:  # mcq: correct is a single object
+        correct_items = [correct_raw]
+
+    ordered = correct_items + list(incorrect_raw)
+    option_list = [{"key": _OPTION_KEYS[i], "text": _option_text(item)} for i, item in enumerate(ordered)]
+    correct_keys = [_OPTION_KEYS[i] for i in range(len(correct_items))]
+
+    if cabinet_type == 2:
+        return option_list, correct_keys
+    return option_list, (correct_keys[0] if correct_keys else "")
+
+
+def convert_subpart(data: dict, index: int) -> dict:
+    """
+    Convert one cabinet subpart JSON into kwargs for a ``QuestionSubpart``.
+
+    Raises ``ValueError`` for an unrecognized cabinet type so the caller can
+    skip the question without aborting the whole import.
+    """
+    cabinet_type = data.get("type")
+    if cabinet_type not in CABINET_TYPE_MAP:
+        raise ValueError(f"unknown cabinet type {cabinet_type!r}")
+    q_type = CABINET_TYPE_MAP[cabinet_type]
+
+    question_text = convert_expression(str((data.get("content") or {}).get("text", "")))
+    solution_text = convert_expression(str((data.get("solution") or {}).get("text", "")))
+    hint_text = convert_expression(str((data.get("hint") or {}).get("text", "")))
+    variable_constraints = convert_all_constraints(data.get("variable_constraints"))
+
+    options: list[dict] | None = None
+    if cabinet_type in (1, 2):
+        options, correct = convert_options(data.get("options"), cabinet_type)
+        correct_answer = {"type": q_type.value, "answer": correct}
+    elif cabinet_type == 3:  # numeric: answer is {"value": "<expr>"}
+        answer = data.get("answer") or {}
+        value = answer.get("value") if isinstance(answer, dict) else answer
+        correct_answer = {"type": q_type.value, "answer": convert_expression(str(value or ""))}
+    else:  # fill_blank: answer is a plain string
+        correct_answer = {"type": q_type.value, "answer": convert_expression(str(data.get("answer") or ""))}
+
+    return {
+        "index": index,
+        "question_text": question_text,
+        "options": options,
+        "correct_answer": correct_answer,
+        "variable_constraints": variable_constraints,
+        "solution_text": solution_text,
+        "hint_text": hint_text,
+        "_question_type": q_type,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# Command
+# ─────────────────────────────────────────────────────────────
+
+
+class Command(BaseCommand):
+    help = "Import legacy openshiksha-cabinet questions into the modern DB."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--source",
+            required=True,
+            help="Path to the cabinet 'questions' directory (a local clone of openshiksha-cabinet).",
+        )
+        parser.add_argument(
+            "--mapping",
+            default=None,
+            help="Optional JSON file mapping legacy IDs to names: "
+            '{"subjects": {"12": "Mathematics"}, "chapters": {"45": "Polynomials"}}',
+        )
+        parser.add_argument("--limit", type=int, default=None, help="Import at most N questions (testing).")
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Parse and convert everything but write nothing to the DB.",
+        )
+
+    def handle(self, *args, **options):
+        source = Path(options["source"])
+        containers_dir = source / "containers"
+        raw_dir = source / "raw"
+        if not containers_dir.is_dir() or not raw_dir.is_dir():
+            raise CommandError(f"Expected 'containers' and 'raw' subdirs under {source}")
+
+        mapping = self._load_mapping(options.get("mapping"))
+        limit = options.get("limit")
+        dry_run = options.get("dry_run", False)
+
+        stats = {"imported": 0, "updated": 0, "skipped": 0, "subjects": 0, "chapters": 0}
+        container_files = sorted(containers_dir.rglob("*.json"))
+
+        if dry_run:
+            # One outer transaction rolled back at the end: taxonomy created during
+            # the dry run stays valid for FK references but never persists.
+            with transaction.atomic():
+                self._import_all(container_files, raw_dir, mapping, stats, limit)
+                transaction.set_rollback(True)
+        else:
+            self._import_all(container_files, raw_dir, mapping, stats, limit)
+
+        self._report(stats, dry_run)
+
+    def _import_all(self, container_files, raw_dir, mapping, stats, limit) -> None:
+        for container_path in container_files:
+            if limit is not None and (stats["imported"] + stats["updated"]) >= limit:
+                break
+            try:
+                # Nested atomic = savepoint when inside the dry-run transaction, so
+                # one malformed question rolls back only itself, not the whole run.
+                with transaction.atomic():
+                    result = self._import_container(container_path, raw_dir, mapping, stats)
+                stats[result] += 1
+            except Exception as exc:  # noqa: BLE001 — one bad question must not abort the import
+                stats["skipped"] += 1
+                self.stderr.write(self.style.WARNING(f"skip {container_path.name}: {exc}"))
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _load_mapping(self, path: str | None) -> dict:
+        if not path:
+            return {"subjects": {}, "chapters": {}}
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return {"subjects": data.get("subjects", {}), "chapters": data.get("chapters", {})}
+
+    def _parse_path_ids(self, container_path: Path, raw_root: Path) -> dict:
+        """
+        Path layout: .../containers/<board>/<school>/<standard>/<subject_id>/<chapter_id>/<qid>.json
+        Returns the legacy IDs needed to resolve taxonomy + locate raw subparts.
+        """
+        parts = container_path.parts
+        # The last 6 parts are board, school, standard, subject_id, chapter_id, <qid>.json
+        board, school, standard, subject_id, chapter_id, qfile = parts[-6:]
+        return {
+            "board": board,
+            "school": school,
+            "standard": int(standard),
+            "subject_id": subject_id,
+            "chapter_id": chapter_id,
+            "question_id": qfile.removesuffix(".json"),
+            "raw_dir": raw_root / board / school / standard / subject_id / chapter_id,
+        }
+
+    def _resolve_taxonomy(self, ids: dict, mapping: dict, stats: dict):
+        standard, _ = Standard.objects.get_or_create(number=ids["standard"])
+
+        subject_name = mapping["subjects"].get(str(ids["subject_id"]), f"Imported Subject {ids['subject_id']}")
+        subject, s_created = Subject.objects.get_or_create(name=subject_name)
+        if s_created:
+            stats["subjects"] += 1
+
+        chapter_name = mapping["chapters"].get(str(ids["chapter_id"]), f"Imported Chapter {ids['chapter_id']}")
+        chapter, c_created = Chapter.objects.get_or_create(subject=subject, standard=standard, name=chapter_name)
+        if c_created:
+            stats["chapters"] += 1
+
+        return standard, subject, chapter
+
+    def _import_container(self, container_path: Path, raw_root: Path, mapping: dict, stats: dict) -> str:
+        ids = self._parse_path_ids(container_path, raw_root)
+        with open(container_path, encoding="utf-8") as fh:
+            container = json.load(fh)
+
+        subpart_ids = container.get("subparts") or []
+        if not subpart_ids:
+            raise ValueError("container has no subparts")
+
+        converted = []
+        for index, sp_id in enumerate(subpart_ids):
+            sp_path = ids["raw_dir"] / f"{sp_id}.json"
+            with open(sp_path, encoding="utf-8") as fh:
+                converted.append(convert_subpart(json.load(fh), index))
+
+        q_type = converted[0]["_question_type"]
+        standard, subject, chapter = self._resolve_taxonomy(ids, mapping, stats)
+
+        cabinet_tag, _ = QuestionTag.objects.get_or_create(
+            name=f"cabinet:{ids['question_id']}", defaults={"tag_type": "special"}
+        )
+
+        existing = Question.objects.filter(tags=cabinet_tag).first()
+        status = "updated" if existing else "imported"
+
+        question = existing or Question(standard=standard, subject=subject, chapter=chapter, question_type=q_type)
+        question.standard = standard
+        question.subject = subject
+        question.chapter = chapter
+        question.question_type = q_type
+        question.save()
+        question.tags.add(cabinet_tag)
+
+        # Replace subparts wholesale so re-imports stay in sync with the source.
+        question.subparts.all().delete()
+        for fields in converted:
+            fields.pop("_question_type", None)
+            QuestionSubpart.objects.create(question=question, **fields)
+
+        return status
+
+    def _report(self, stats: dict, dry_run: bool) -> None:
+        prefix = "[DRY RUN] " if dry_run else ""
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"{prefix}imported={stats['imported']} updated={stats['updated']} "
+                f"skipped={stats['skipped']} "
+                f"new_subjects={stats['subjects']} new_chapters={stats['chapters']}"
+            )
+        )

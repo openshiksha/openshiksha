@@ -1,0 +1,9 @@
+{
+  "subpart_index": 0,
+  "type": 4,
+  "content": {"text": "The powerhouse of the cell is the _____."},
+  "answer": "mitochondria",
+  "variable_constraints": {},
+  "solution": {"text": "Mitochondria generate ATP."},
+  "hint": {"text": "It starts with 'm'."}
+}

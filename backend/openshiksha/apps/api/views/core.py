@@ -454,6 +454,20 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return AssignmentDetailSerializer
         return AssignmentSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action == "retrieve":
+            user = self.request.user
+            if getattr(user, "role", None) in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+                from openshiksha.apps.core.models import Submission
+
+                context["include_solutions"] = Submission.objects.filter(
+                    assignment_id=self.kwargs.get("pk"),
+                    student=user,
+                    score__isnull=False,
+                ).exists()
+        return context
+
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Assignment.objects.none()

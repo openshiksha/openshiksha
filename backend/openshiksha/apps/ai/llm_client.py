@@ -303,6 +303,7 @@ _QUESTION_GEN_TOOL = {
                             "type": "array",
                             "items": {"type": "string"},
                         },
+                        "solution": {"type": "string"},
                     },
                 },
             }
@@ -357,6 +358,8 @@ def _build_question_gen_prompt(
         f"- For numeric/fill_blank, use {{{{variable}}}} tokens for parameterization "
         f"and include variable_constraints (min, max, integer: true/false).\n"
         f"- suggested_tags: 1–3 short concept keywords (e.g. 'polynomials', 'factoring').\n"
+        f"- solution: a concise step-by-step worked solution (2–4 steps, LaTeX allowed) "
+        f"showing how to arrive at the correct answer.\n"
         f"- Difficulty {difficulty}/5: "
         + (
             "focus on direct recall and definitions."
@@ -448,6 +451,7 @@ def _stub_questions(question_type: str, count: int) -> list[dict]:
             "correct_answer": "A" if question_type in ("mcq", "multi_select") else "42",
             "variable_constraints": None,
             "suggested_tags": ["sample"],
+            "solution": "",
         }
         if question_type in ("mcq", "multi_select"):
             q["options"] = [

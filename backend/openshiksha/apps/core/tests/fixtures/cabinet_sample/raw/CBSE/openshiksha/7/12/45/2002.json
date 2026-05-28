@@ -1,0 +1,11 @@
+{
+  "subpart_index": 0,
+  "type": 3,
+  "content": {"text": "Compute pow(2, _{j}_)."},
+  "answer": {"value": "pow(2, _{j}_)"},
+  "variable_constraints": {
+    "j": {"range": {"include": [[1, 4], [6, 8]]}}
+  },
+  "solution": {"text": "Raise 2 to the power _{j}_."},
+  "hint": {"text": "Use repeated multiplication."}
+}

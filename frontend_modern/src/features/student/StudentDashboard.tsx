@@ -7,6 +7,7 @@ import { useStreak } from './useStreak';
 import { StreakBadge } from './StreakBadge';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { DueForReviewPanel } from './DueForReviewPanel';
+import { AnnouncementsBanner } from './AnnouncementsBanner';
 import { UserRole } from '@/types/index';
 
 export const StudentDashboard = () => {
@@ -41,6 +42,9 @@ export const StudentDashboard = () => {
           My Progress →
         </button>
       </div>
+
+      {/* Announcements */}
+      <AnnouncementsBanner />
 
       {/* Content */}
       {isLoading && (

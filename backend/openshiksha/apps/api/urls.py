@@ -53,4 +53,6 @@ urlpatterns = [
     path("", include("openshiksha.apps.concierge.urls")),
     # Video content (lodge)
     path("", include("openshiksha.apps.lodge.urls")),
+    # Announcements
+    path("", include("openshiksha.apps.announcements.urls")),
 ]

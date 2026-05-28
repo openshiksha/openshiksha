@@ -49,4 +49,6 @@ urlpatterns = [
     path("", include(router.urls)),
     # AI Analytics endpoints
     path("ai/", include("openshiksha.apps.ai.urls")),
+    # Public enquiry endpoint
+    path("", include("openshiksha.apps.concierge.urls")),
 ]

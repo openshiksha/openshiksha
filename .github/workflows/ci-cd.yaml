@@ -94,6 +94,15 @@ jobs:
               env:
                 DJANGO_SETTINGS_MODULE: openshiksha.settings.test
                 SECRET_KEY: test-secret-key-not-for-production
+            - name: Check for missing migrations
+              # Fails if a model was changed without a matching migration.
+              # `makemigrations --check` (not `migrate --check`) is what detects
+              # model/migration drift; --dry-run avoids writing any files.
+              run: python manage.py makemigrations --check --dry-run
+              working-directory: backend
+              env:
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.test
+                SECRET_KEY: test-secret-key-not-for-production
             - name: Run migrations
               run: python manage.py migrate
               working-directory: backend

@@ -756,7 +756,7 @@ def _call_anthropic_tool(prompt: str, api_key: str, tool: dict, max_tokens: int)
     tool_param: ToolParam = {
         "name": str(tool["name"]),
         "description": str(tool["description"]),
-        "input_schema": tool["input_schema"],  # type: ignore[typeddict-item]
+        "input_schema": tool["input_schema"],
     }
     message = client.messages.create(
         model=CLAUDE_MODEL,

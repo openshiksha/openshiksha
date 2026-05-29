@@ -964,3 +964,139 @@ class WeeklyClassReport(models.Model):
         if self.total_students == 0:
             return 0.0
         return self.active_students / self.total_students
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class HintSequence(models.Model):
+    """
+    A cached, ordered set of progressive hints for a single QuestionSubpart.
+
+    Hints guide a struggling student *toward* the answer without revealing it:
+    level 1 is a gentle nudge ("recall what operation a 'sum' implies"), and each
+    subsequent level is more concrete, with the final level stopping just short of
+    stating the answer outright.
+
+    The sequence is student-agnostic and generated once per subpart by the LLM
+    cascade (Claude → Gemma → Ollama → stub), then reused for every student who
+    asks for a hint. This keeps LLM cost to one call per question rather than one
+    per student. Regenerating overwrites in place.
+
+    The stub falls back to the subpart's static ``hint_text`` (if a teacher or
+    Cabinet import supplied one) so the panel is always useful even with no LLM
+    provider configured.
+    """
+
+    question_subpart = models.OneToOneField(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="hint_sequence",
+    )
+    hints = models.JSONField(
+        default=list,
+        help_text='Ordered nudge→strong hints: [{"level": 1, "text": "..."}, ...].',
+    )
+    grade_level = models.PositiveSmallIntegerField(
+        default=8,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Grade level used to calibrate hint language.",
+    )
+
+    model_used = models.CharField(
+        max_length=60,
+        default="stub",
+        help_text="LLM model ID that generated the hints.",
+    )
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_hint_sequences"
+        indexes = [
+            models.Index(fields=["question_subpart"]),
+        ]
+
+    def __str__(self):
+        return f"HintSequence: subpart {self.question_subpart_id} ({len(self.hints)} hints)"
+
+    @property
+    def hint_count(self) -> int:
+        return len(self.hints) if isinstance(self.hints, list) else 0
+
+
+class StudentMisconception(models.Model):
+    """
+    A structured diagnosis of *why* a student got a specific subpart wrong.
+
+    Where SubpartExplanation produces free-text prose, this model captures a
+    short, machine-friendly misconception label plus a remediation tip, so the
+    same wrong-answer signal can power teacher dashboards and adaptive review
+    (e.g. "8 students in this class share the 'distributes exponent over a sum'
+    misconception").
+
+    Generated asynchronously after a wrong answer (grading or SRS drill) by the
+    LLM cascade. One per (student, subpart, submission) — regenerating updates
+    in place. Only created for incorrect answers.
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="misconceptions",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    question_subpart = models.ForeignKey(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="misconceptions",
+    )
+    submission = models.ForeignKey(
+        "core.Submission",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="misconceptions",
+        help_text="Null for SRS drill diagnoses not tied to a formal submission.",
+    )
+
+    student_answer = models.JSONField(
+        help_text="The (incorrect) answer the student submitted.",
+    )
+    misconception_label = models.CharField(
+        max_length=120,
+        help_text="Short label for the underlying misconception (e.g. 'sign error on subtraction').",
+    )
+    diagnosis_text = models.TextField(
+        help_text="Plain-language explanation of the faulty reasoning that led to the wrong answer.",
+    )
+    remediation_tip = models.TextField(
+        blank=True,
+        default="",
+        help_text="Concrete, actionable suggestion for what the student should review or practise.",
+    )
+    grade_level = models.PositiveSmallIntegerField(
+        default=8,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+    )
+
+    model_used = models.CharField(max_length=60, default="stub")
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+
+    detected_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_student_misconceptions"
+        unique_together = [["student", "question_subpart", "submission"]]
+        indexes = [
+            models.Index(fields=["student", "detected_at"]),
+            models.Index(fields=["question_subpart"]),
+        ]
+
+    def __str__(self):
+        return f"Misconception: {self.student} | subpart {self.question_subpart_id} | {self.misconception_label}"

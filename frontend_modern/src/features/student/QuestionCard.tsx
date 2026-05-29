@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import type { Question, QuestionSubpart, MCQOption } from '@/types/index';
+import type { Question, QuestionSubpart, MCQOption, AIHint } from '@/types/index';
+import { useHints } from './useHints';
 
 interface QuestionCardProps {
   question: Question;
@@ -96,6 +97,81 @@ function CollapsibleReveal({
         <div className={`mt-2 rounded-lg border p-3 text-sm text-gray-800 leading-relaxed ${styles.box}`}>
           {renderMixedContent(content)}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Progressive AI hint panel shown during practice. On first request it fetches
+ * the cached (or freshly generated) hint sequence for the subpart, then reveals
+ * one hint at a time so the student is nudged gradually rather than handed the
+ * whole chain at once. Hints never contain the correct answer.
+ */
+function AIHintPanel({ subpartId }: { subpartId: number }) {
+  const { mutate, data, isPending, isError } = useHints();
+  const [revealed, setRevealed] = useState(0);
+
+  const hints: AIHint[] = data?.hints ?? [];
+  const started = isPending || isError || data != null;
+
+  const handleStart = () => {
+    if (data) {
+      setRevealed((n) => Math.min(n + 1, hints.length));
+      return;
+    }
+    mutate(
+      { subpart_id: subpartId },
+      { onSuccess: () => setRevealed(1) }
+    );
+  };
+
+  if (!started) {
+    return (
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={handleStart}
+          className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+        >
+          💡 Get a hint
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      {isPending && <p className="text-xs text-gray-500">Thinking of a good hint…</p>}
+
+      {isError && (
+        <p className="text-xs text-red-600">
+          Couldn&apos;t load a hint right now. Please try again.
+        </p>
+      )}
+
+      {hints.slice(0, revealed).map((hint) => (
+        <div
+          key={hint.level}
+          className="mt-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-gray-800 leading-relaxed"
+        >
+          <span className="mr-1 font-medium text-amber-700">Hint {hint.level}:</span>
+          {renderMixedContent(hint.text)}
+        </div>
+      ))}
+
+      {data && revealed < hints.length && (
+        <button
+          type="button"
+          onClick={() => setRevealed((n) => Math.min(n + 1, hints.length))}
+          className="mt-2 text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+        >
+          ▸ Show next hint ({revealed}/{hints.length})
+        </button>
+      )}
+
+      {data && revealed >= hints.length && hints.length > 0 && (
+        <p className="mt-2 text-xs text-gray-400">That&apos;s all the hints — give it a try!</p>
       )}
     </div>
   );
@@ -273,9 +349,7 @@ export const QuestionCard = ({
               <p className="text-xs text-green-600 mt-1">Answered</p>
             )}
 
-            {!isSubmitted && subpart.hint_text && (
-              <CollapsibleReveal label="Need a hint?" content={subpart.hint_text} tone="hint" />
-            )}
+            {!isSubmitted && <AIHintPanel subpartId={subpart.id} />}
 
             {isSubmitted && subpart.solution_text && (
               <CollapsibleReveal

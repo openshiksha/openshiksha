@@ -17,12 +17,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.ai.llm_client import generate_questions
+from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
 from openshiksha.apps.core.models import Chapter, SubjectRoom, UserRole
 
 from .models import (
     ClassInsight,
     ContentRecommendation,
+    HintSequence,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -32,6 +33,7 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    StudentMisconception,
     SubpartExplanation,
     WeeklyClassReport,
 )
@@ -39,9 +41,12 @@ from .serializers import (
     ClassInsightSerializer,
     CompleteStepSerializer,
     ContentRecommendationSerializer,
+    DiagnoseMisconceptionSerializer,
     GeneratedQuestionDraftSerializer,
     GenerateExplanationSerializer,
+    GenerateHintsSerializer,
     GenerateQuestionsRequestSerializer,
+    HintSequenceSerializer,
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
@@ -49,6 +54,7 @@ from .serializers import (
     PracticePlanSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
+    StudentMisconceptionSerializer,
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
@@ -59,6 +65,7 @@ from .serializers import (
 from .tasks import (
     analyze_student_subject_room,
     complete_learning_path_step,
+    diagnose_misconception_for_subpart,
     generate_class_insights_for_subject_room,
     generate_daily_practice_plan,
     generate_explanation_for_subpart,
@@ -959,3 +966,166 @@ class WeeklyClassReportViewSet(ReadOnlyModelViewSet):
             {"detail": "Weekly report generation queued."},
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class HintSequenceViewSet(ReadOnlyModelViewSet):
+    """
+    Progressive AI hints for question subparts.
+
+    list:     GET  /api/v1/ai/hints/?subpart=<id>   — cached hint sequence for a subpart
+    retrieve: GET  /api/v1/ai/hints/{id}/           — single hint sequence
+    generate: POST /api/v1/ai/hints/generate/       — synchronous generate-or-fetch
+
+    Hints are student-agnostic and cached per subpart, so the first request for a
+    subpart generates and stores them; later requests (by any student) reuse the
+    cached sequence. The payload never includes the correct answer.
+
+    Only students (and open_students) may access this.
+    """
+
+    serializer_class = HintSequenceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def _student_only(self, user):
+        return user.role in (UserRole.STUDENT, UserRole.OPEN_STUDENT)
+
+    def get_queryset(self):
+        user = self.request.user
+        if not self._student_only(user):
+            return HintSequence.objects.none()
+
+        qs = HintSequence.objects.select_related("question_subpart").all()
+        if subpart_id := self.request.query_params.get("subpart"):
+            qs = qs.filter(question_subpart_id=subpart_id)
+        return qs.order_by("-generated_at")
+
+    @action(detail=False, methods=["post"], url_path="generate")
+    def generate(self, request):
+        """
+        POST /api/v1/ai/hints/generate/
+        Body: {subpart_id, num_hints?, grade_level?}
+
+        Returns 200 with the cached hint sequence if one already exists for the
+        subpart, otherwise generates synchronously, caches, and returns it.
+        """
+        user = request.user
+        if not self._student_only(user):
+            return Response({"detail": "Only students can request hints."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GenerateHintsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        from openshiksha.apps.core.models import QuestionSubpart
+
+        try:
+            subpart = QuestionSubpart.objects.select_related("question").get(pk=d["subpart_id"])
+        except QuestionSubpart.DoesNotExist:
+            return Response({"detail": "Subpart not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        existing = HintSequence.objects.filter(question_subpart=subpart).first()
+        if existing:
+            return Response(self.get_serializer(existing).data)
+
+        grade_level = d.get("grade_level") or user.grade or 8
+        try:
+            result = generate_hint_sequence(
+                question_text=subpart.question_text or subpart.question.question_type,
+                options=subpart.options,
+                correct_answer=subpart.correct_answer or {},
+                grade_level=grade_level,
+                num_hints=d["num_hints"],
+                static_hint=subpart.hint_text or "",
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_hint_sequence: unexpected error")
+            return Response(
+                {"detail": "Hint generation failed. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        obj, _ = HintSequence.objects.update_or_create(
+            question_subpart=subpart,
+            defaults={
+                "hints": result["hints"],
+                "grade_level": grade_level,
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+        return Response(self.get_serializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class StudentMisconceptionViewSet(ReadOnlyModelViewSet):
+    """
+    AI misconception diagnoses for wrong answers.
+
+    list:     GET  /api/v1/ai/misconceptions/                  — student's own (or teacher's students')
+              GET  /api/v1/ai/misconceptions/?subpart=<id>
+    retrieve: GET  /api/v1/ai/misconceptions/{id}/
+    diagnose: POST /api/v1/ai/misconceptions/diagnose/         — queue async diagnosis (students only)
+                  body: {subpart_id, student_answer, submission_id?, grade_level?}
+
+    Students see their own diagnoses; teachers see diagnoses for students in the
+    subject rooms they teach (to surface shared misconceptions across the class).
+    """
+
+    serializer_class = StudentMisconceptionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = StudentMisconception.objects.select_related("question_subpart", "student").order_by("-detected_at")
+
+        if user.role in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            qs = qs.filter(student=user)
+        elif user.role == UserRole.TEACHER:
+            from openshiksha.apps.core.models import Question
+
+            taught_chapters = Question.objects.filter(
+                subparts__misconceptions__isnull=False,
+                chapter__subject__subject_rooms__teacher=user,
+            ).values_list("chapter_id", flat=True)
+            qs = qs.filter(question_subpart__question__chapter_id__in=list(taught_chapters))
+        else:
+            return StudentMisconception.objects.none()
+
+        if subpart_id := self.request.query_params.get("subpart"):
+            qs = qs.filter(question_subpart_id=subpart_id)
+        return qs
+
+    @action(detail=False, methods=["post"], url_path="diagnose")
+    def diagnose(self, request):
+        """Queue async misconception diagnosis for the current student's wrong answer."""
+        user = request.user
+        if user.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return Response({"detail": "Only students can request diagnoses."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = DiagnoseMisconceptionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        from openshiksha.apps.core.models import QuestionSubpart
+
+        try:
+            QuestionSubpart.objects.get(pk=d["subpart_id"])
+        except QuestionSubpart.DoesNotExist:
+            return Response({"detail": "Subpart not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        grade_level = d.get("grade_level") or user.grade or 8
+        diagnose_misconception_for_subpart.delay(
+            student_id=user.pk,
+            subpart_id=d["subpart_id"],
+            student_answer=d["student_answer"],
+            grade_level=grade_level,
+            submission_id=d.get("submission_id"),
+        )
+        return Response({"detail": "Misconception diagnosis queued."}, status=status.HTTP_202_ACCEPTED)

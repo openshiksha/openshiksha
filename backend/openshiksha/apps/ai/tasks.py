@@ -877,3 +877,73 @@ def generate_weekly_class_report(self, subject_room_id: int, week_start_iso: str
     except Exception as exc:
         logger.exception("generate_weekly_class_report failed: room=%d", subject_room_id)
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def diagnose_misconception_for_subpart(
+    self,
+    student_id: int,
+    subpart_id: int,
+    student_answer: object,
+    grade_level: int,
+    submission_id: int | None = None,
+) -> dict:
+    """
+    Diagnose and persist the misconception behind a student's wrong answer.
+
+    Only meaningful for incorrect answers — callers should not enqueue this for
+    correct ones. Idempotent: upserts on (student, subpart, submission).
+
+    Returns {"misconception_id": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import diagnose_misconception
+        from openshiksha.apps.ai.models import StudentMisconception
+        from openshiksha.apps.core.models import QuestionSubpart, User
+
+        student = User.objects.get(pk=student_id)
+        subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+
+        result = diagnose_misconception(
+            question_text=subpart.question_text or subpart.question.question_type,
+            options=subpart.options,
+            student_answer=student_answer,
+            correct_answer=subpart.correct_answer or {},
+            grade_level=grade_level,
+        )
+
+        obj, _ = StudentMisconception.objects.update_or_create(
+            student=student,
+            question_subpart=subpart,
+            submission_id=submission_id,
+            defaults={
+                "student_answer": student_answer,
+                "misconception_label": result["misconception_label"],
+                "diagnosis_text": result["diagnosis"],
+                "remediation_tip": result["remediation"],
+                "grade_level": grade_level,
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+        logger.info(
+            "diagnose_misconception_for_subpart: student=%d subpart=%d misconception=%d",
+            student_id,
+            subpart_id,
+            obj.pk,
+        )
+        return {"misconception_id": obj.pk}
+
+    except Exception as exc:
+        logger.exception(
+            "diagnose_misconception_for_subpart failed: student=%d subpart=%d",
+            student_id,
+            subpart_id,
+        )
+        raise self.retry(exc=exc)

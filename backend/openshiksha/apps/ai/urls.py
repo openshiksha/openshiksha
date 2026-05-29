@@ -5,6 +5,7 @@ from .views import (
     ClassInsightViewSet,
     ContentRecommendationViewSet,
     GenerateQuestionsViewSet,
+    HintSequenceViewSet,
     KnowledgeNodeViewSet,
     LearningGapViewSet,
     LearningPathViewSet,
@@ -12,6 +13,7 @@ from .views import (
     PracticePlanViewSet,
     SpacedRepetitionViewSet,
     StudentMasteryViewSet,
+    StudentMisconceptionViewSet,
     SubpartExplanationViewSet,
     WeeklyClassReportViewSet,
 )
@@ -37,5 +39,8 @@ router.register("explanations", SubpartExplanationViewSet, basename="explanation
 router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
 # Teacher AI Assistant — Weekly Class Reports (teacher-only)
 router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
+# Intelligent Hint System
+router.register("hints", HintSequenceViewSet, basename="hint-sequence")
+router.register("misconceptions", StudentMisconceptionViewSet, basename="misconception")
 
 urlpatterns = router.urls

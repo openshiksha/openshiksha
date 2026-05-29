@@ -88,6 +88,20 @@ export interface QuestionSubpart {
   hint_text?: string;
 }
 
+export interface AIHint {
+  level: number;
+  text: string;
+}
+
+export interface HintSequence {
+  id: number;
+  question_subpart: number;
+  hints: AIHint[];
+  hint_count: number;
+  grade_level: number;
+  generated_at: string;
+}
+
 
 export interface Question {
   id: number;

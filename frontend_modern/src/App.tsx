@@ -22,6 +22,9 @@ import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
 import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
 import { QuestionBankPage } from './features/teacher/QuestionBankPage';
 import { ParentDashboard } from './features/parent/ParentDashboard';
+import { AdminDashboard } from './features/admin/AdminDashboard';
+import { ClassroomManagePage } from './features/admin/ClassroomManagePage';
+import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 
 const NotFound = () => (
@@ -44,6 +47,7 @@ function App() {
   const defaultPath = isAuthenticated
     ? user?.role === 'teacher' ? '/teacher'
     : user?.role === 'parent' ? '/parent'
+    : user?.role === 'admin' ? '/admin'
     : user?.role === 'open_student' ? '/student/browse'
     : '/student'
     : '/login';
@@ -228,6 +232,28 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <ParentDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+              <AppShell>
+                <AdminDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/classrooms/:id"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+              <AppShell>
+                <ClassroomManagePage />
               </AppShell>
             </ProtectedRoute>
           }

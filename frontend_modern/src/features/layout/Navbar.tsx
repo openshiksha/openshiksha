@@ -46,6 +46,7 @@ export const Navbar = () => {
   const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
   const isTeacher = user?.role === UserRole.TEACHER;
   const isParent = user?.role === UserRole.PARENT;
+  const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -97,6 +98,11 @@ export const Navbar = () => {
               {isParent && (
                 <NavLink to="/parent" active={location.pathname.startsWith('/parent')}>
                   Dashboard
+                </NavLink>
+              )}
+              {isAdmin && (
+                <NavLink to="/admin" active={location.pathname.startsWith('/admin')}>
+                  School Admin
                 </NavLink>
               )}
             </div>
@@ -198,6 +204,7 @@ export const Navbar = () => {
               </>
             )}
             {isParent && <MobileNavLink to="/parent">Dashboard</MobileNavLink>}
+            {isAdmin && <MobileNavLink to="/admin">School Admin</MobileNavLink>}
 
             {/* Profile + Sign out */}
             <div className="pt-2 border-t border-gray-100 mt-2 space-y-1">

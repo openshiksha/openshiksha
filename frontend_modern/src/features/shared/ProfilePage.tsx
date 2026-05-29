@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { authApi } from '@/api/auth';
+import { UserRole } from '@/types/index';
 import type { AxiosError } from 'axios';
 
 function extractError(err: unknown): string {
@@ -23,7 +24,10 @@ export const ProfilePage = () => {
     email: '',
     phone_number: '',
   });
+  const [emailRemindersOptOut, setEmailRemindersOptOut] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
+
+  const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
 
   useEffect(() => {
     if (user) {
@@ -33,6 +37,7 @@ export const ProfilePage = () => {
         email: user.email ?? '',
         phone_number: user.phone_number ?? '',
       });
+      setEmailRemindersOptOut(user.email_reminders_opt_out ?? false);
     }
   }, [user]);
 
@@ -50,7 +55,9 @@ export const ProfilePage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(form);
+    mutation.mutate(
+      isStudent ? { ...form, email_reminders_opt_out: emailRemindersOptOut } : form
+    );
   };
 
   return (
@@ -113,6 +120,28 @@ export const ProfilePage = () => {
               autoComplete="tel"
               placeholder="+91 9876543210"
             />
+
+            {isStudent && (
+              <div className="pt-2 border-t border-gray-100">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!emailRemindersOptOut}
+                    onChange={(e) => setEmailRemindersOptOut(!e.target.checked)}
+                    disabled={mutation.isPending}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900">
+                      Assignment due-date reminders
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      Email me before an assignment is due. Uncheck to stop these reminders.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
 
             {mutation.isError && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700" role="alert">

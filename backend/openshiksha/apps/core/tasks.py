@@ -361,6 +361,96 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
     )
 
 
+@shared_task
+def send_due_date_reminders(window_hours: int = 24) -> dict:
+    """
+    Email students about assignments due within the next ``window_hours``.
+
+    Runs on a Celery beat schedule (see CELERY_BEAT_SCHEDULE). For each upcoming
+    assignment, reminds every enrolled student who:
+      - has an email address and has not opted out of reminders,
+      - has not already submitted the assignment, and
+      - has not already been reminded for this assignment.
+
+    Idempotency is guaranteed by an AssignmentReminder row per (assignment, student):
+    the row is created before the email is sent, so repeat runs never double-email.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from openshiksha.apps.core.emails import notify_due_date_reminder
+    from openshiksha.apps.core.models import Assignment, AssignmentReminder, Submission, UserRole
+
+    now = timezone.now()
+    window_end = now + timedelta(hours=window_hours)
+
+    assignments = (
+        Assignment.objects.filter(
+            due_at__gt=now,
+            due_at__lte=window_end,
+            subject_room__is_active=True,
+        )
+        .select_related("problem_set", "subject_room", "target_student")
+        .prefetch_related("subject_room__students")
+    )
+
+    stats = {"assignments": 0, "reminded": 0, "skipped": 0}
+
+    for assignment in assignments:
+        stats["assignments"] += 1
+
+        if assignment.target_student_id:
+            students = [assignment.target_student] if assignment.target_student else []
+        else:
+            students = list(assignment.subject_room.students.all())
+
+        if not students:
+            continue
+
+        # Students who already submitted this assignment are not reminded.
+        submitted_ids = set(
+            Submission.objects.filter(
+                assignment=assignment,
+                student__in=students,
+                submitted_at__isnull=False,
+            ).values_list("student_id", flat=True)
+        )
+        # Students already reminded for this assignment.
+        reminded_ids = set(
+            AssignmentReminder.objects.filter(assignment=assignment).values_list("student_id", flat=True)
+        )
+
+        due_str = timezone.localtime(assignment.due_at).strftime("on %B %d at %I:%M %p")
+
+        for student in students:
+            if student.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+                continue
+            if student.id in submitted_ids or student.id in reminded_ids:
+                stats["skipped"] += 1
+                continue
+            if student.email_reminders_opt_out or not student.email:
+                stats["skipped"] += 1
+                continue
+
+            # Create the log first so a crash mid-send never produces a duplicate later.
+            _, created = AssignmentReminder.objects.get_or_create(assignment=assignment, student=student)
+            if not created:
+                stats["skipped"] += 1
+                continue
+
+            notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            stats["reminded"] += 1
+
+    logger.info(
+        "send_due_date_reminders: assignments=%d reminded=%d skipped=%d",
+        stats["assignments"],
+        stats["reminded"],
+        stats["skipped"],
+    )
+    return stats
+
+
 def _create_remedial_assignment(submission_id: int) -> None:
     """
     Create a remedial ProblemSet + Assignment for a student who scored below REMEDIAL_THRESHOLD.

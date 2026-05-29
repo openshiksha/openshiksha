@@ -36,6 +36,31 @@ def notify_remedial_assigned(student, chapter_name: str, due_date_str: str) -> N
         logger.exception("notify_remedial_assigned: failed for %s", student.email)
 
 
+def notify_due_date_reminder(student, assignment_title: str, due_date_str: str) -> None:
+    """Email a student reminding them an assignment is due soon."""
+    if not student.email:
+        return
+    name = student.first_name or student.username
+    try:
+        send_mail(
+            subject=f"Reminder: '{assignment_title}' is due {due_date_str}",
+            message=(
+                f"Hi {name},\n\n"
+                f"This is a friendly reminder that your assignment '{assignment_title}' "
+                f"is due {due_date_str}.\n\n"
+                f"Log in to OpenShiksha to complete it before the deadline.\n\n"
+                f"— OpenShiksha\n\n"
+                f"(You can turn off these reminders in your profile settings.)"
+            ),
+            from_email=None,
+            recipient_list=[student.email],
+            fail_silently=False,
+        )
+        logger.info("notify_due_date_reminder: sent to %s", student.email)
+    except Exception:
+        logger.exception("notify_due_date_reminder: failed for %s", student.email)
+
+
 def notify_grading_complete(student, assignment_title: str, score_pct: int) -> None:
     """Email a student when their submission has been graded."""
     if not student.email:

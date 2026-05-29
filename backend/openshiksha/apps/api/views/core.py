@@ -13,6 +13,7 @@ from openshiksha.apps.api.serializers import (
     AssignmentDetailSerializer,
     AssignmentSerializer,
     ChapterSerializer,
+    ClassRoomSerializer,
     ProblemSetSerializer,
     ProblemSetWriteSerializer,
     QuestionMistakeSerializer,
@@ -21,6 +22,7 @@ from openshiksha.apps.api.serializers import (
     QuestionWriteSerializer,
     StudentProficiencySerializer,
     StudentProficiencySnapshotSerializer,
+    SubjectRoomAdminSerializer,
     SubjectRoomSerializer,
     SubjectSerializer,
     SubmissionSerializer,
@@ -29,6 +31,7 @@ from openshiksha.apps.api.serializers import (
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
+    ClassRoom,
     ProblemSet,
     Question,
     QuestionTag,
@@ -46,6 +49,22 @@ class IsTeacher(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == UserRole.TEACHER
+
+
+class IsSchoolAdmin(permissions.BasePermission):
+    """Only authenticated users with the ADMIN role may proceed."""
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.role == UserRole.ADMIN)
+
+
+class IsTeacherOrSchoolAdmin(permissions.BasePermission):
+    """Teachers or school admins may proceed."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and request.user.role in (UserRole.TEACHER, UserRole.ADMIN)
+        )
 
 
 class IsStudent(permissions.BasePermission):
@@ -166,6 +185,26 @@ class UserViewSet(viewsets.GenericViewSet):
             created_by=request.user,
         )
         return Response(ClassroomInviteCodeSerializer(code).data, status=201)
+
+    @action(detail=False, methods=["get"], url_path="school-teachers", permission_classes=[IsSchoolAdmin])
+    def school_teachers(self, request):
+        """GET /api/v1/users/school-teachers/ — teachers in the admin's own school (enrollment picker)."""
+        if request.user.school_id is None:
+            return Response({"detail": "Your account is not linked to a school."}, status=400)
+        teachers = User.objects.filter(school_id=request.user.school_id, role=UserRole.TEACHER).order_by(
+            "first_name", "last_name"
+        )
+        return Response([{"id": t.id, "full_name": t.full_name, "email": t.email} for t in teachers])
+
+    @action(detail=False, methods=["get"], url_path="school-students", permission_classes=[IsSchoolAdmin])
+    def school_students(self, request):
+        """GET /api/v1/users/school-students/ — students in the admin's own school (enrollment picker)."""
+        if request.user.school_id is None:
+            return Response({"detail": "Your account is not linked to a school."}, status=400)
+        students = User.objects.filter(
+            school_id=request.user.school_id, role__in=[UserRole.STUDENT, UserRole.OPEN_STUDENT]
+        ).order_by("first_name", "last_name")
+        return Response([{"id": s.id, "full_name": s.full_name, "email": s.email} for s in students])
 
 
 class QuestionTagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -327,18 +366,139 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return Response(data)
 
 
+class ClassRoomViewSet(viewsets.ModelViewSet):
+    """
+    School-scoped classroom management for school admins.
+
+    Every queryset and write is hard-scoped to the admin's own school — an admin
+    can never see or mutate another school's classrooms. Deletion is a soft-delete
+    (is_active=False) to preserve historical assignments and submissions.
+    """
+
+    serializer_class = ClassRoomSerializer
+    permission_classes = [permissions.IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        from django.db.models import Count
+
+        if getattr(self, "swagger_fake_view", False):
+            return ClassRoom.objects.none()
+        user = self.request.user
+        if user.school_id is None:
+            return ClassRoom.objects.none()
+        qs = (
+            ClassRoom.objects.filter(school_id=user.school_id)
+            .select_related("standard", "class_teacher")
+            .annotate(num_students=Count("students", distinct=True))
+        )
+        if self.request.query_params.get("include_inactive") != "true":
+            qs = qs.filter(is_active=True)
+        return qs.order_by("standard__number", "division")
+
+    def _require_school(self):
+        if self.request.user.school_id is None:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError("Your account is not linked to a school.")
+
+    def perform_create(self, serializer):
+        from django.db import IntegrityError
+        from rest_framework.exceptions import ValidationError
+
+        self._require_school()
+        try:
+            serializer.save(school=self.request.user.school)
+        except IntegrityError:
+            raise ValidationError("A classroom with this standard, division, and academic year already exists.")
+
+    def destroy(self, request, *args, **kwargs):
+        classroom = self.get_object()
+        classroom.is_active = False
+        classroom.save(update_fields=["is_active"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _resolve_students(self, request):
+        """Return (valid_students, invalid_ids) scoped to the admin's school."""
+        student_ids = request.data.get("student_ids", [])
+        if not isinstance(student_ids, list):
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({"student_ids": "Expected a list of student IDs."})
+        found = User.objects.filter(
+            id__in=student_ids,
+            school_id=request.user.school_id,
+            role__in=[UserRole.STUDENT, UserRole.OPEN_STUDENT],
+        )
+        valid_ids = {u.id for u in found}
+        invalid_ids = [sid for sid in student_ids if sid not in valid_ids]
+        return list(found), invalid_ids
+
+    @action(detail=True, methods=["post"], url_path="enroll")
+    def enroll(self, request, pk=None):
+        """POST — body {"student_ids": [..]}; add same-school students to the classroom roster."""
+        classroom = self.get_object()
+        students, invalid_ids = self._resolve_students(request)
+        classroom.students.add(*students)
+        return Response(
+            {
+                "enrolled": [s.id for s in students],
+                "invalid_ids": invalid_ids,
+                "student_count": classroom.students.count(),
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="unenroll")
+    def unenroll(self, request, pk=None):
+        """POST — body {"student_ids": [..]}; remove students from the classroom roster."""
+        classroom = self.get_object()
+        students, invalid_ids = self._resolve_students(request)
+        classroom.students.remove(*students)
+        return Response(
+            {
+                "unenrolled": [s.id for s in students],
+                "invalid_ids": invalid_ids,
+                "student_count": classroom.students.count(),
+            }
+        )
+
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request):
+        """GET — counts for the admin's school dashboard."""
+        if request.user.school_id is None:
+            return Response({"detail": "Your account is not linked to a school."}, status=400)
+        school = request.user.school
+        school_users = User.objects.filter(school_id=school.id)
+        return Response(
+            {
+                "school": {"id": school.id, "name": school.name},
+                "classroom_count": ClassRoom.objects.filter(school_id=school.id, is_active=True).count(),
+                "teacher_count": school_users.filter(role=UserRole.TEACHER).count(),
+                "student_count": school_users.filter(role__in=[UserRole.STUDENT, UserRole.OPEN_STUDENT]).count(),
+                "active_subject_rooms": SubjectRoom.objects.filter(
+                    classroom__school_id=school.id, is_active=True
+                ).count(),
+            }
+        )
+
+
 class SubjectRoomViewSet(viewsets.ModelViewSet):
     """
     CRUD for SubjectRooms.
 
     - Teachers see and manage rooms they teach.
     - Students see rooms they are enrolled in.
-    - Admins see all rooms for their school.
+    - Admins see and manage (create/enroll) all rooms for their school.
     """
 
     serializer_class = SubjectRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = SubjectRoom.objects.none()
+
+    def get_serializer_class(self):
+        user = getattr(self.request, "user", None)
+        if user is not None and getattr(user, "is_admin", False):
+            return SubjectRoomAdminSerializer
+        return SubjectRoomSerializer
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -355,9 +515,44 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [permissions.IsAuthenticated(), IsTeacher()]
+        if self.action in ["create", "update", "partial_update", "destroy", "enroll", "unenroll"]:
+            return [permissions.IsAuthenticated(), IsTeacherOrSchoolAdmin()]
         return [permissions.IsAuthenticated()]
+
+    def _resolve_students(self, request):
+        student_ids = request.data.get("student_ids", [])
+        if not isinstance(student_ids, list):
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({"student_ids": "Expected a list of student IDs."})
+        found = User.objects.filter(
+            id__in=student_ids,
+            school_id=request.user.school_id,
+            role__in=[UserRole.STUDENT, UserRole.OPEN_STUDENT],
+        )
+        valid_ids = {u.id for u in found}
+        invalid_ids = [sid for sid in student_ids if sid not in valid_ids]
+        return list(found), invalid_ids
+
+    @action(detail=True, methods=["post"], url_path="enroll")
+    def enroll(self, request, pk=None):
+        """POST — body {"student_ids": [..]}; add same-school students to the subject room."""
+        room = self.get_object()
+        students, invalid_ids = self._resolve_students(request)
+        room.students.add(*students)
+        return Response(
+            {"enrolled": [s.id for s in students], "invalid_ids": invalid_ids, "student_count": room.students.count()}
+        )
+
+    @action(detail=True, methods=["post"], url_path="unenroll")
+    def unenroll(self, request, pk=None):
+        """POST — body {"student_ids": [..]}; remove students from the subject room."""
+        room = self.get_object()
+        students, invalid_ids = self._resolve_students(request)
+        room.students.remove(*students)
+        return Response(
+            {"unenrolled": [s.id for s in students], "invalid_ids": invalid_ids, "student_count": room.students.count()}
+        )
 
 
 class ProblemSetViewSet(viewsets.ModelViewSet):

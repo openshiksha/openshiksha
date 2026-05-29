@@ -9,6 +9,7 @@ from rest_framework import serializers
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
+    ClassRoom,
     ClassroomInviteCode,
     ProblemSet,
     Question,
@@ -309,6 +310,90 @@ class SubjectRoomSerializer(serializers.ModelSerializer):
 
     def get_student_count(self, obj) -> int:
         return obj.students.count()
+
+
+class SubjectRoomAdminSerializer(serializers.ModelSerializer):
+    """Admin write/read serializer for subject rooms with school-scoped validation."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+    classroom_display = serializers.StringRelatedField(source="classroom", read_only=True)
+    student_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubjectRoom
+        fields = [
+            "id",
+            "classroom",
+            "classroom_display",
+            "subject",
+            "subject_name",
+            "teacher",
+            "teacher_name",
+            "is_active",
+            "student_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "is_active", "created_at"]
+
+    def get_student_count(self, obj) -> int:
+        return obj.students.count()
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_admin:
+            return attrs
+        if user.school_id is None:
+            raise serializers.ValidationError("Your account is not linked to a school.")
+        classroom = attrs.get("classroom") or getattr(self.instance, "classroom", None)
+        if classroom is not None and classroom.school_id != user.school_id:
+            raise serializers.ValidationError({"classroom": "Classroom must belong to your school."})
+        teacher = attrs.get("teacher") or getattr(self.instance, "teacher", None)
+        if teacher is not None and teacher.school_id != user.school_id:
+            raise serializers.ValidationError({"teacher": "Teacher must belong to your school."})
+        return attrs
+
+
+class ClassRoomSerializer(serializers.ModelSerializer):
+    """School admin serializer for classroom CRUD. School is forced server-side."""
+
+    standard_number = serializers.IntegerField(source="standard.number", read_only=True)
+    class_teacher_name = serializers.CharField(source="class_teacher.full_name", read_only=True, default=None)
+    student_count = serializers.SerializerMethodField()
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = ClassRoom
+        fields = [
+            "id",
+            "school",
+            "standard",
+            "standard_number",
+            "division",
+            "class_teacher",
+            "class_teacher_name",
+            "academic_year",
+            "is_active",
+            "student_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "school", "is_active", "created_at"]
+
+    def get_student_count(self, obj) -> int:
+        annotated = getattr(obj, "num_students", None)
+        return annotated if annotated is not None else obj.students.count()
+
+    def validate_class_teacher(self, value):
+        if value is None:
+            return value
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is not None and value.school_id != user.school_id:
+            raise serializers.ValidationError("Class teacher must belong to your school.")
+        if value.role != UserRole.TEACHER:
+            raise serializers.ValidationError("Assigned user must be a teacher.")
+        return value
 
 
 class ProblemSetSerializer(serializers.ModelSerializer):

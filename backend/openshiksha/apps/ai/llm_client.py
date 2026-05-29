@@ -633,3 +633,329 @@ def generate_class_summary(
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Intelligent Hint System
+# ─────────────────────────────────────────────────────────────
+
+HINTS_MAX_TOKENS = 700
+MISCONCEPTION_MAX_TOKENS = 400
+DEFAULT_NUM_HINTS = 3
+
+_HINTS_TOOL = {
+    "name": "save_hints",
+    "description": "Save the ordered list of progressive hints.",
+    "input_schema": {
+        "type": "object",
+        "required": ["hints"],
+        "properties": {
+            "hints": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["level", "text"],
+                    "properties": {
+                        "level": {"type": "integer"},
+                        "text": {"type": "string"},
+                    },
+                },
+            }
+        },
+    },
+}
+
+_MISCONCEPTION_TOOL = {
+    "name": "save_diagnosis",
+    "description": "Save the structured misconception diagnosis.",
+    "input_schema": {
+        "type": "object",
+        "required": ["misconception_label", "diagnosis", "remediation"],
+        "properties": {
+            "misconception_label": {"type": "string"},
+            "diagnosis": {"type": "string"},
+            "remediation": {"type": "string"},
+        },
+    },
+}
+
+
+def _answer_text(options: list[dict] | None, value: object) -> str:
+    if options:
+        key_to_text = {opt["key"]: opt["text"] for opt in options if "key" in opt and "text" in opt}
+        return key_to_text.get(str(value), str(value))
+    return str(value)
+
+
+def _build_hints_prompt(
+    question_text: str,
+    options: list[dict] | None,
+    correct_answer: dict,
+    grade_level: int,
+    num_hints: int,
+) -> str:
+    tier = _grade_tier(grade_level)
+    options_block = ""
+    if options:
+        opts = "; ".join(f"{o.get('key')}) {o.get('text')}" for o in options)
+        options_block = f"Options: {opts}\n"
+
+    return (
+        f"You are a patient tutor for a student in {tier}\n\n"
+        f"A student is stuck on this question and has asked for help:\n\n"
+        f"Question: {question_text}\n"
+        f"{options_block}\n"
+        f"Write exactly {num_hints} progressive hints that guide the student to "
+        f"work out the answer THEMSELVES.\n"
+        f"- Hint level 1 is a gentle nudge (point at the concept or first step).\n"
+        f"- Each later hint is more concrete than the one before.\n"
+        f"- The final hint may walk through the method but MUST NOT state the "
+        f"final answer or which option is correct.\n"
+        f"- Never reveal the answer. Never say 'the answer is ...'.\n"
+        f"- Use language appropriate for {tier}\n"
+        f"- Use LaTeX ($...$) for any math.\n\n"
+        f"Call save_hints with the ordered list (level 1 first)."
+    )
+
+
+def _stub_hints(num_hints: int, static_hint: str = "") -> list[dict]:
+    if static_hint:
+        return [{"level": 1, "text": static_hint}]
+    generic = [
+        "Re-read the question carefully and underline exactly what is being asked.",
+        "Identify which concept or formula from this chapter applies here.",
+        "Write down what you know, then work step by step toward what you need.",
+        "Check each step — a small slip early on often changes the final result.",
+    ]
+    return [{"level": i + 1, "text": generic[i % len(generic)]} for i in range(num_hints)]
+
+
+def _parse_hints(raw: object, num_hints: int) -> list[dict]:
+    """Normalise raw hint data into [{level, text}] with sequential levels."""
+    items: list = []
+    if isinstance(raw, dict):
+        raw = raw.get("hints", [])
+    if isinstance(raw, list):
+        items = raw
+    cleaned: list[dict] = []
+    for i, item in enumerate(items):
+        if isinstance(item, dict):
+            text = str(item.get("text", "")).strip()
+        else:
+            text = str(item).strip()
+        if text:
+            cleaned.append({"level": len(cleaned) + 1, "text": text})
+    return cleaned[:num_hints] if cleaned else _stub_hints(num_hints)
+
+
+def _call_anthropic_tool(prompt: str, api_key: str, tool: dict, max_tokens: int) -> dict | None:
+    import anthropic
+    from anthropic.types import ToolChoiceAnyParam, ToolParam, ToolUseBlock
+
+    client = anthropic.Anthropic(api_key=api_key)
+    tool_param: ToolParam = {
+        "name": str(tool["name"]),
+        "description": str(tool["description"]),
+        "input_schema": tool["input_schema"],  # type: ignore[typeddict-item]
+    }
+    message = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        tools=[tool_param],
+        tool_choice=ToolChoiceAnyParam(type="any"),
+        messages=[{"role": "user", "content": prompt}],
+    )
+    for block in message.content:
+        if isinstance(block, ToolUseBlock) and block.name == tool["name"]:
+            data = block.input if isinstance(block.input, dict) else {}
+            return {
+                "data": data,
+                "model": message.model,
+                "input_tokens": message.usage.input_tokens,
+                "output_tokens": message.usage.output_tokens,
+            }
+    return None
+
+
+def generate_hint_sequence(
+    question_text: str,
+    options: list[dict] | None,
+    correct_answer: dict,
+    grade_level: int = 8,
+    num_hints: int = DEFAULT_NUM_HINTS,
+    static_hint: str = "",
+) -> dict:
+    """
+    Generate progressive hints for a question subpart.
+
+    Uses the standard provider cascade. The stub falls back to the subpart's
+    static ``hint_text`` when available, otherwise generic study prompts — so the
+    result is always usable.
+
+    Returns:
+        {"hints": [{"level": int, "text": str}], "model": str,
+         "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_hints_prompt(question_text, options, correct_answer, grade_level, num_hints)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _HINTS_TOOL, HINTS_MAX_TOKENS)
+            if result:
+                return {
+                    "hints": _parse_hints(result["data"], num_hints),
+                    "model": result["model"],
+                    "input_tokens": result["input_tokens"],
+                    "output_tokens": result["output_tokens"],
+                }
+        except Exception:
+            logger.exception("generate_hint_sequence: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            import json as _json
+
+            json_prompt = (
+                prompt + "\n\nRespond ONLY with a JSON array like " '[{"level": 1, "text": "..."}], no markdown fences.'
+            )
+            res = _call_google_gemma(json_prompt, google_key)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return {
+                "hints": _parse_hints(_json.loads(text), num_hints),
+                "model": res["model"],
+                "input_tokens": res["input_tokens"],
+                "output_tokens": res["output_tokens"],
+            }
+        except Exception:
+            logger.exception("generate_hint_sequence: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            import json as _json
+
+            json_prompt = prompt + '\n\nRespond ONLY with a JSON array like [{"level": 1, "text": "..."}].'
+            res = _call_ollama(json_prompt, ollama_url)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return {
+                "hints": _parse_hints(_json.loads(text), num_hints),
+                "model": res["model"],
+                "input_tokens": res["input_tokens"],
+                "output_tokens": res["output_tokens"],
+            }
+        except Exception:
+            logger.exception("generate_hint_sequence: Ollama failed, falling back to stub")
+
+    logger.warning("generate_hint_sequence: no LLM provider available — returning stub")
+    return {
+        "hints": _stub_hints(num_hints, static_hint),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+
+def _build_misconception_prompt(
+    question_text: str,
+    options: list[dict] | None,
+    student_answer: object,
+    correct_answer: dict,
+    grade_level: int,
+) -> str:
+    tier = _grade_tier(grade_level)
+    correct_value = correct_answer.get("answer", "")
+    return (
+        f"You are a diagnostic tutor for a student in {tier}\n\n"
+        f"A student answered the following question INCORRECTLY:\n\n"
+        f"Question: {question_text}\n"
+        f"Student's answer: {_answer_text(options, student_answer)}\n"
+        f"Correct answer: {_answer_text(options, correct_value)}\n\n"
+        f"Diagnose the most likely misconception behind the wrong answer:\n"
+        f"- misconception_label: a SHORT phrase (3–8 words) naming the faulty "
+        f"idea (e.g. 'adds numerators and denominators').\n"
+        f"- diagnosis: 1–2 sentences explaining the likely faulty reasoning.\n"
+        f"- remediation: one concrete thing the student should review or practise.\n"
+        f"- Be encouraging. Do not shame the student.\n\n"
+        f"Call save_diagnosis with the result."
+    )
+
+
+def _stub_misconception() -> dict:
+    return {
+        "misconception_label": "needs review of this concept",
+        "diagnosis": "The chosen answer suggests a gap in the underlying concept for this question.",
+        "remediation": "Revisit the worked examples for this chapter and re-attempt a similar question.",
+    }
+
+
+def diagnose_misconception(
+    question_text: str,
+    options: list[dict] | None,
+    student_answer: object,
+    correct_answer: dict,
+    grade_level: int = 8,
+) -> dict:
+    """
+    Produce a structured misconception diagnosis for a wrong answer.
+
+    Returns:
+        {"misconception_label": str, "diagnosis": str, "remediation": str,
+         "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_misconception_prompt(question_text, options, student_answer, correct_answer, grade_level)
+
+    def _shape(data: dict, model: str, in_tok: int, out_tok: int) -> dict:
+        return {
+            "misconception_label": str(data.get("misconception_label", "")).strip()[:120]
+            or _stub_misconception()["misconception_label"],
+            "diagnosis": str(data.get("diagnosis", "")).strip() or _stub_misconception()["diagnosis"],
+            "remediation": str(data.get("remediation", "")).strip(),
+            "model": model,
+            "input_tokens": in_tok,
+            "output_tokens": out_tok,
+        }
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _MISCONCEPTION_TOOL, MISCONCEPTION_MAX_TOKENS)
+            if result:
+                return _shape(result["data"], result["model"], result["input_tokens"], result["output_tokens"])
+        except Exception:
+            logger.exception("diagnose_misconception: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            import json as _json
+
+            json_prompt = (
+                prompt + "\n\nRespond ONLY with JSON: "
+                '{"misconception_label": "...", "diagnosis": "...", "remediation": "..."}'
+            )
+            res = _call_google_gemma(json_prompt, google_key)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return _shape(_json.loads(text), res["model"], res["input_tokens"], res["output_tokens"])
+        except Exception:
+            logger.exception("diagnose_misconception: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            import json as _json
+
+            json_prompt = (
+                prompt + "\n\nRespond ONLY with JSON: "
+                '{"misconception_label": "...", "diagnosis": "...", "remediation": "..."}'
+            )
+            res = _call_ollama(json_prompt, ollama_url)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return _shape(_json.loads(text), res["model"], res["input_tokens"], res["output_tokens"])
+        except Exception:
+            logger.exception("diagnose_misconception: Ollama failed, falling back to stub")
+
+    logger.warning("diagnose_misconception: no LLM provider available — returning stub")
+    stub = _stub_misconception()
+    return {**stub, "model": "stub", "input_tokens": 0, "output_tokens": 0}

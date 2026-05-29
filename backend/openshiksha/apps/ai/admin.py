@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     ClassInsight,
     ContentRecommendation,
+    HintSequence,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -11,6 +12,7 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    StudentMisconception,
     SubpartExplanation,
     WeeklyClassReport,
 )
@@ -233,3 +235,42 @@ class WeeklyClassReportAdmin(admin.ModelAdmin):
     search_fields = ["subject_room__subject__name", "summary_text"]
     readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
     list_select_related = ["subject_room__subject", "subject_room__classroom"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(HintSequence)
+class HintSequenceAdmin(admin.ModelAdmin):
+    list_display = [
+        "question_subpart",
+        "hint_count",
+        "grade_level",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "generated_at",
+    ]
+    list_filter = ["grade_level", "model_used"]
+    search_fields = ["question_subpart__question_text"]
+    readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
+    list_select_related = ["question_subpart"]
+
+
+@admin.register(StudentMisconception)
+class StudentMisconceptionAdmin(admin.ModelAdmin):
+    list_display = [
+        "student",
+        "question_subpart",
+        "submission",
+        "misconception_label",
+        "grade_level",
+        "model_used",
+        "detected_at",
+    ]
+    list_filter = ["grade_level", "model_used"]
+    search_fields = ["student__username", "student__email", "misconception_label", "diagnosis_text"]
+    readonly_fields = ["detected_at", "input_tokens", "output_tokens", "model_used"]
+    list_select_related = ["student", "question_subpart", "submission"]

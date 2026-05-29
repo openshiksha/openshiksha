@@ -5,6 +5,7 @@ from openshiksha.apps.core.models import QuestionType
 from .models import (
     ClassInsight,
     ContentRecommendation,
+    HintSequence,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -13,6 +14,7 @@ from .models import (
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    StudentMisconception,
     SubpartExplanation,
     WeeklyClassReport,
 )
@@ -341,3 +343,68 @@ class GeneratedQuestionDraftSerializer(serializers.Serializer):
     )
     suggested_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
     solution = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System Serializers
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class HintSequenceSerializer(serializers.ModelSerializer):
+    """Student-safe hint payload — never exposes the correct answer."""
+
+    hint_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = HintSequence
+        fields = [
+            "id",
+            "question_subpart",
+            "hints",
+            "hint_count",
+            "grade_level",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateHintsSerializer(serializers.Serializer):
+    """Request body for on-demand hint generation."""
+
+    subpart_id = serializers.IntegerField()
+    num_hints = serializers.IntegerField(min_value=1, max_value=5, required=False, default=3)
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+
+
+class StudentMisconceptionSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="question_subpart.question_text", read_only=True)
+    subpart_index = serializers.IntegerField(source="question_subpart.index", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+
+    class Meta:
+        model = StudentMisconception
+        fields = [
+            "id",
+            "student",
+            "student_username",
+            "question_subpart",
+            "question_text",
+            "subpart_index",
+            "submission",
+            "student_answer",
+            "misconception_label",
+            "diagnosis_text",
+            "remediation_tip",
+            "grade_level",
+            "detected_at",
+        ]
+        read_only_fields = fields
+
+
+class DiagnoseMisconceptionSerializer(serializers.Serializer):
+    """Request body for on-demand misconception diagnosis (incorrect answers only)."""
+
+    subpart_id = serializers.IntegerField()
+    student_answer = serializers.JSONField()
+    submission_id = serializers.IntegerField(required=False, allow_null=True)
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)

@@ -68,6 +68,12 @@ class User(AbstractUser):
 
     date_of_birth = models.DateField(null=True, blank=True, help_text="Date of birth")
 
+    # Notification preferences
+    email_reminders_opt_out = models.BooleanField(
+        default=False,
+        help_text="If True, the student will not receive assignment due-date reminder emails.",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -733,6 +739,39 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission: {self.student} → {self.assignment}"
+
+
+class AssignmentReminder(models.Model):
+    """
+    Log of due-date reminder emails sent for an assignment to a student.
+
+    Exists purely for idempotency: the periodic reminder task creates one row per
+    (assignment, student) before sending, so re-runs never email the same student
+    twice for the same assignment.
+    """
+
+    assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.CASCADE,
+        related_name="reminders",
+    )
+    student = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="assignment_reminders",
+        limit_choices_to={"role__in": [UserRole.STUDENT, UserRole.OPEN_STUDENT]},
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "assignment_reminders"
+        unique_together = [["assignment", "student"]]
+        indexes = [
+            models.Index(fields=["assignment", "student"]),
+        ]
+
+    def __str__(self):
+        return f"Reminder: {self.assignment_id} → {self.student_id}"
 
 
 class ClassroomInviteCode(models.Model):

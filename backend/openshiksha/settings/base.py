@@ -175,6 +175,19 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
+# Periodic tasks (Celery beat)
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "send-due-date-reminders": {
+        "task": "openshiksha.apps.core.tasks.send_due_date_reminders",
+        # Daily at 06:00 (CELERY_TIMEZONE = Asia/Kolkata). Reminds students about
+        # assignments due in the next 24h.
+        "schedule": crontab(hour=6, minute=0),
+        "kwargs": {"window_hours": 24},
+    },
+}
+
 # Redis Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 

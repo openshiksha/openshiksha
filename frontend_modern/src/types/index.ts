@@ -11,6 +11,7 @@ export interface User {
   role: UserRole;
   grade?: number | null;
   phone_number?: string;
+  email_reminders_opt_out?: boolean;
 }
 
 export interface ClassroomInviteCode {

@@ -11,6 +11,7 @@ from openshiksha.apps.api.views.auth import RegisterOpenView, RegisterSchoolView
 from openshiksha.apps.api.views.core import (
     AssignmentViewSet,
     ChapterViewSet,
+    ClassRoomViewSet,
     ProblemSetViewSet,
     QuestionMistakeViewSet,
     QuestionTagViewSet,
@@ -29,6 +30,7 @@ router.register(r"question-tags", QuestionTagViewSet, basename="questiontag")
 router.register(r"questions", QuestionViewSet, basename="question")
 router.register(r"subjects", SubjectViewSet, basename="subject")
 router.register(r"chapters", ChapterViewSet, basename="chapter")
+router.register(r"classrooms", ClassRoomViewSet, basename="classroom")
 router.register(r"subject-rooms", SubjectRoomViewSet, basename="subjectroom")
 router.register(r"problem-sets", ProblemSetViewSet, basename="problemset")
 router.register(r"assignments", AssignmentViewSet, basename="assignment")

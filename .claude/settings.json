@@ -1,8 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Write(docs/daily-plans/*)",
-      "Write(docs/changes/*)"
-    ]
+      "Read",
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "Glob",
+      "Grep",
+      "LS",
+      "NotebookEdit",
+      "TodoWrite",
+      "Task",
+      "Agent",
+      "Skill",
+      "WebFetch",
+      "WebSearch",
+      "Bash",
+      "PowerShell",
+      "KillShell",
+      "BashOutput",
+      "mcp__plugin_playwright_playwright",
+      "mcp__plugin_github_github"
+    ],
+    "defaultMode": "acceptEdits"
   }
 }

@@ -947,3 +947,110 @@ def diagnose_misconception_for_subpart(
             subpart_id,
         )
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_parent_progress_summary(
+    self,
+    parent_id: int,
+    child_id: int,
+    week_start_iso: str | None = None,
+    language: str = "en",
+) -> dict:
+    """
+    Generate (or refresh) the AI weekly progress summary a parent sees for one child.
+
+    Validates that (parent, child) are linked in the User.children M2M. If not,
+    raises ValueError — the API layer enforces this before enqueueing, but the
+    task guards against stale enqueues too.
+
+    If week_start_iso is omitted, defaults to the Monday of the current week.
+
+    Idempotent: re-running for the same (parent, child, week_start) overwrites
+    the existing summary in place.
+
+    Returns {"summary_id": int, "week_start": str, "ticks_recorded": int}
+    """
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.analytics import (
+            build_home_activities,
+            build_parent_alerts,
+            compute_parent_weekly_stats,
+        )
+        from openshiksha.apps.ai.llm_client import generate_parent_summary
+        from openshiksha.apps.ai.models import ParentProgressSummary
+        from openshiksha.apps.core.models import User
+
+        parent = User.objects.get(pk=parent_id)
+        child = User.objects.get(pk=child_id)
+
+        if not parent.children.filter(pk=child.pk).exists():
+            raise ValueError(f"User {parent_id} is not the parent of user {child_id}")
+
+        if week_start_iso:
+            ws = date.fromisoformat(week_start_iso)
+            ws = ws - timedelta(days=ws.weekday())
+        else:
+            today = timezone.localdate()
+            ws = today - timedelta(days=today.weekday())
+        we = ws + timedelta(days=6)
+
+        stats = compute_parent_weekly_stats(child, ws, we)
+        narrative = generate_parent_summary(stats, language=language)
+        activities = build_home_activities(stats)
+        alerts = build_parent_alerts(stats)
+
+        summary, _ = ParentProgressSummary.objects.update_or_create(
+            parent=parent,
+            child=child,
+            week_start=ws,
+            defaults={
+                "week_end": we,
+                "summary_text": narrative["text"],
+                "language": language,
+                "ticks_recorded": stats["ticks_recorded"],
+                "active_days": stats["active_days"],
+                "avg_score": stats["avg_score"],
+                "score_delta": stats["score_delta"],
+                "weak_chapters": stats["weak_chapters"],
+                "strong_chapters": stats["strong_chapters"],
+                "home_activities": activities,
+                "alerts": alerts,
+                "model_used": narrative["model"],
+                "input_tokens": narrative["input_tokens"],
+                "output_tokens": narrative["output_tokens"],
+            },
+        )
+
+        logger.info(
+            "generate_parent_progress_summary: parent=%d child=%d week=%s ticks=%d alerts=%d",
+            parent_id,
+            child_id,
+            ws.isoformat(),
+            stats["ticks_recorded"],
+            len(alerts),
+        )
+        return {
+            "summary_id": summary.pk,
+            "week_start": ws.isoformat(),
+            "ticks_recorded": stats["ticks_recorded"],
+        }
+
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "generate_parent_progress_summary failed: parent=%d child=%d",
+            parent_id,
+            child_id,
+        )
+        raise self.retry(exc=exc)

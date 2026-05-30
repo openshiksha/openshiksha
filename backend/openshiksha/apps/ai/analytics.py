@@ -618,3 +618,221 @@ def _best_problem_set_for_chapter(
         .first()
     )
     return ps
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+PARENT_TOP_CHAPTERS = 3
+MIN_TICKS_FOR_PARENT_CHAPTER = 2
+MAX_HOME_ACTIVITIES = 3
+INACTIVITY_ALERT_DAYS = 7
+SCORE_DROP_ALERT_THRESHOLD = 0.15
+SEVERE_SCORE_THRESHOLD = 0.40
+
+
+def compute_parent_weekly_stats(child, week_start, week_end) -> dict:
+    """
+    Compute a deterministic snapshot of a child's week for parent dashboards.
+
+    Returns a dict shaped for ParentProgressSummary.* fields plus a few extras
+    consumed by the LLM prompt and stub:
+
+    {
+        "child_name": str,
+        "grade_level": int,
+        "ticks_recorded": int,
+        "active_days": int,
+        "avg_score": float,
+        "prev_avg_score": float,
+        "score_delta": float,
+        "weak_chapters": [{"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...],
+        "strong_chapters": [...],
+        "subjects_active": [str, ...],
+        "days_since_last_tick": int | None,   # None when the child has never practised
+    }
+    """
+    from datetime import datetime, time, timedelta
+
+    from openshiksha.apps.edge.models import Tick
+
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(week_start, time.min), tz)
+    end_dt = timezone.make_aware(datetime.combine(week_end, time.max), tz)
+    prev_start_dt = start_dt - timedelta(days=7)
+
+    week_ticks = Tick.objects.filter(student=child, created_at__gte=start_dt, created_at__lte=end_dt)
+    ticks_recorded = week_ticks.count()
+    active_days = week_ticks.dates("created_at", "day").count()
+
+    if ticks_recorded == 0:
+        avg_score = 0.0
+    else:
+        agg = week_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+        avg_score = (agg["total"] or 0.0) / agg["n"]
+
+    prev_ticks = Tick.objects.filter(student=child, created_at__gte=prev_start_dt, created_at__lt=start_dt)
+    prev_count = prev_ticks.count()
+    if prev_count == 0:
+        prev_avg_score = 0.0
+        score_delta = 0.0
+    else:
+        prev_agg = prev_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+        prev_avg_score = (prev_agg["total"] or 0.0) / prev_agg["n"]
+        score_delta = avg_score - prev_avg_score if ticks_recorded else 0.0
+
+    weak_chapters: list[dict] = []
+    strong_chapters: list[dict] = []
+    subjects_active: list[str] = []
+
+    if ticks_recorded > 0:
+        chapter_rows = (
+            week_ticks.values(
+                "question_subpart__question__chapter_id",
+                "question_subpart__question__chapter__name",
+            )
+            .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+            .filter(tick_count__gte=MIN_TICKS_FOR_PARENT_CHAPTER)
+        )
+
+        chapters: list[dict] = []
+        for row in chapter_rows:
+            chapter_id = row["question_subpart__question__chapter_id"]
+            if chapter_id is None:
+                continue
+            chapters.append(
+                {
+                    "chapter_id": chapter_id,
+                    "chapter_name": row["question_subpart__question__chapter__name"],
+                    "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                    "tick_count": row["tick_count"],
+                }
+            )
+
+        by_score = sorted(chapters, key=lambda c: c["avg_score"])
+        weak_chapters = [c for c in by_score if c["avg_score"] < STRUGGLE_THRESHOLD][:PARENT_TOP_CHAPTERS]
+        strong_chapters = [c for c in reversed(by_score) if c["avg_score"] >= RESOLVED_THRESHOLD][:PARENT_TOP_CHAPTERS]
+
+        subjects_active = sorted(
+            {
+                name
+                for name in week_ticks.values_list("question_subpart__question__subject__name", flat=True).distinct()
+                if name
+            }
+        )
+
+    last_tick = Tick.objects.filter(student=child).order_by("-created_at").values_list("created_at", flat=True).first()
+    if last_tick is None:
+        days_since_last_tick = None
+    else:
+        days_since_last_tick = max(0, (timezone.now() - last_tick).days)
+
+    return {
+        "child_name": child.full_name if hasattr(child, "full_name") else child.username,
+        "grade_level": int(getattr(child, "grade", None) or 8),
+        "ticks_recorded": ticks_recorded,
+        "active_days": active_days,
+        "avg_score": round(avg_score, 4),
+        "prev_avg_score": round(prev_avg_score, 4),
+        "score_delta": round(score_delta, 4),
+        "weak_chapters": weak_chapters,
+        "strong_chapters": strong_chapters,
+        "subjects_active": subjects_active,
+        "days_since_last_tick": days_since_last_tick,
+    }
+
+
+def build_home_activities(stats: dict) -> list[dict]:
+    """
+    Suggest concrete at-home activities for the parent, derived from the weak
+    chapters in the weekly stats. Heuristic — no LLM call needed.
+    """
+    activities: list[dict] = []
+    for chapter in stats.get("weak_chapters", [])[:MAX_HOME_ACTIVITIES]:
+        name = chapter.get("chapter_name", "this chapter")
+        activities.append(
+            {
+                "title": f"Practise {name} together",
+                "description": (
+                    f"Spend 15 minutes working through 3–5 questions on {name} with your child. "
+                    f"Ask them to explain each step out loud — teaching it back helps the concept stick."
+                ),
+                "chapter_name": name,
+            }
+        )
+
+    if not activities and stats.get("strong_chapters"):
+        top = stats["strong_chapters"][0].get("chapter_name", "their strongest chapter")
+        activities.append(
+            {
+                "title": f"Celebrate progress in {top}",
+                "description": (
+                    f"Your child is doing well in {top}. Ask them to teach you one idea from it — "
+                    f"this builds their confidence and reinforces what they have learned."
+                ),
+                "chapter_name": top,
+            }
+        )
+    return activities
+
+
+def build_parent_alerts(stats: dict) -> list[dict]:
+    """Compute parent alerts purely from the stats snapshot — no LLM call."""
+    from openshiksha.apps.ai.models import ParentAlertSeverity
+
+    alerts: list[dict] = []
+
+    days_since = stats.get("days_since_last_tick")
+    if days_since is None:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.ATTENTION,
+                "label": "No practice yet",
+                "detail": "Your child has not attempted any questions yet. Encourage them to start with one short set.",
+            }
+        )
+    elif days_since >= INACTIVITY_ALERT_DAYS:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.ATTENTION,
+                "label": f"Inactive for {days_since} days",
+                "detail": "Your child has not practised in over a week. A short daily routine helps build momentum.",
+            }
+        )
+
+    if stats.get("score_delta", 0.0) <= -SCORE_DROP_ALERT_THRESHOLD and stats.get("ticks_recorded", 0) > 0:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.URGENT,
+                "label": "Sharp drop in scores",
+                "detail": (
+                    f"Average dropped by {abs(stats['score_delta']):.0%} vs last week. "
+                    f"It may help to revisit the weakest chapter together."
+                ),
+            }
+        )
+
+    severe = [c for c in stats.get("weak_chapters", []) if c.get("avg_score", 1.0) < SEVERE_SCORE_THRESHOLD]
+    if severe:
+        names = ", ".join(c["chapter_name"] for c in severe[:2])
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.URGENT,
+                "label": "Struggling badly in key chapters",
+                "detail": f"Below 40% in: {names}. Consider asking the teacher for additional support.",
+            }
+        )
+
+    if stats.get("score_delta", 0.0) >= SCORE_DROP_ALERT_THRESHOLD and stats.get("ticks_recorded", 0) > 0:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.INFO,
+                "label": "Strong improvement this week",
+                "detail": (
+                    f"Average rose by {stats['score_delta']:.0%} vs last week — recognise the effort with your child."
+                ),
+            }
+        )
+
+    return alerts

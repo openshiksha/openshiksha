@@ -22,6 +22,8 @@ import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
 import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
 import { QuestionBankPage } from './features/teacher/QuestionBankPage';
 import { ParentDashboard } from './features/parent/ParentDashboard';
+import { ParentInsightsPage } from './features/parent/ParentInsightsPage';
+import { ParentInsightsLandingPage } from './features/parent/ParentInsightsLandingPage';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { ClassroomManagePage } from './features/admin/ClassroomManagePage';
 import { UserRole } from './types/index';
@@ -232,6 +234,28 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <ParentDashboard />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/parent/insights"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.PARENT]}>
+              <AppShell>
+                <ParentInsightsLandingPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/parent/insights/:childId"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.PARENT]}>
+              <AppShell>
+                <ParentInsightsPage />
               </AppShell>
             </ProtectedRoute>
           }

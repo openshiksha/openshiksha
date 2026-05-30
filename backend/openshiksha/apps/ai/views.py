@@ -29,6 +29,7 @@ from .models import (
     LearningPath,
     LearningPathStatus,
     LearningPathStep,
+    ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
     SpacedRepetitionEntry,
@@ -45,11 +46,13 @@ from .serializers import (
     GeneratedQuestionDraftSerializer,
     GenerateExplanationSerializer,
     GenerateHintsSerializer,
+    GenerateParentSummarySerializer,
     GenerateQuestionsRequestSerializer,
     HintSequenceSerializer,
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
+    ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
     SpacedRepetitionEntrySerializer,
@@ -69,6 +72,7 @@ from .tasks import (
     generate_class_insights_for_subject_room,
     generate_daily_practice_plan,
     generate_explanation_for_subpart,
+    generate_parent_progress_summary,
     generate_weekly_class_report,
     rebuild_learning_path,
     refresh_recommendations_for_student,
@@ -1129,3 +1133,95 @@ class StudentMisconceptionViewSet(ReadOnlyModelViewSet):
             submission_id=d.get("submission_id"),
         )
         return Response({"detail": "Misconception diagnosis queued."}, status=status.HTTP_202_ACCEPTED)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ParentProgressSummaryViewSet(ReadOnlyModelViewSet):
+    """
+    AI-generated weekly progress summaries for parents — parent-only.
+
+    list:     GET  /api/v1/ai/parent-summaries/                  — summaries for all this parent's children
+              GET  /api/v1/ai/parent-summaries/?child=<id>       — summaries for one child
+    retrieve: GET  /api/v1/ai/parent-summaries/{id}/             — single summary
+    latest:   GET  /api/v1/ai/parent-summaries/latest/?child=<id>
+                                                                 — most recent summary for one child
+    generate: POST /api/v1/ai/parent-summaries/generate/         — queue summary generation
+                  body: {child_id, week_start?, language?}
+
+    A parent only ever sees summaries about children linked via User.children.
+    """
+
+    serializer_class = ParentProgressSummarySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.PARENT:
+            return ParentProgressSummary.objects.none()
+
+        qs = ParentProgressSummary.objects.select_related("child").filter(parent=user)
+
+        if child_id := self.request.query_params.get("child"):
+            qs = qs.filter(child_id=child_id)
+
+        return qs.order_by("-week_start")
+
+    @action(detail=False, methods=["get"])
+    def latest(self, request):
+        """Return the most recent summary for one child."""
+        if request.user.role != UserRole.PARENT:
+            return Response(
+                {"detail": "Only parents have progress summaries."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        child_id = request.query_params.get("child")
+        if not child_id:
+            return Response(
+                {"detail": "child query param is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        summary = self.get_queryset().filter(child_id=child_id).first()
+        if summary is None:
+            return Response(
+                {"detail": "No summary yet. Generate one via POST /ai/parent-summaries/generate/."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(self.get_serializer(summary).data)
+
+    @action(detail=False, methods=["post"])
+    def generate(self, request):
+        """Queue async generation of a weekly summary for one of the parent's children."""
+        if request.user.role != UserRole.PARENT:
+            return Response(
+                {"detail": "Only parents can generate parent summaries."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = GenerateParentSummarySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        child_id = serializer.validated_data["child_id"]
+        if not request.user.children.filter(pk=child_id).exists():
+            return Response(
+                {"detail": "This child is not linked to your account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        week_start = serializer.validated_data.get("week_start")
+        language = serializer.validated_data.get("language", "en")
+        generate_parent_progress_summary.delay(
+            request.user.pk,
+            child_id,
+            week_start.isoformat() if week_start else None,
+            language,
+        )
+        return Response(
+            {"detail": "Parent progress summary generation queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )

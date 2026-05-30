@@ -10,6 +10,7 @@ from .models import (
     LearningGap,
     LearningPath,
     LearningPathStep,
+    ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
     SpacedRepetitionEntry,
@@ -408,3 +409,53 @@ class DiagnoseMisconceptionSerializer(serializers.Serializer):
     student_answer = serializers.JSONField()
     submission_id = serializers.IntegerField(required=False, allow_null=True)
     grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard Serializers
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ParentProgressSummarySerializer(serializers.ModelSerializer):
+    """Parent-facing weekly progress narrative + alerts + suggested activities."""
+
+    child_username = serializers.CharField(source="child.username", read_only=True)
+    child_name = serializers.SerializerMethodField()
+    has_urgent_alert = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = ParentProgressSummary
+        fields = [
+            "id",
+            "parent",
+            "child",
+            "child_username",
+            "child_name",
+            "week_start",
+            "week_end",
+            "summary_text",
+            "language",
+            "ticks_recorded",
+            "active_days",
+            "avg_score",
+            "score_delta",
+            "weak_chapters",
+            "strong_chapters",
+            "home_activities",
+            "alerts",
+            "has_urgent_alert",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+    def get_child_name(self, obj):
+        return obj.child.full_name if hasattr(obj.child, "full_name") else obj.child.username
+
+
+class GenerateParentSummarySerializer(serializers.Serializer):
+    """Request body for queuing a parent progress summary generation."""
+
+    child_id = serializers.IntegerField()
+    week_start = serializers.DateField(required=False, allow_null=True)
+    language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")

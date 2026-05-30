@@ -959,3 +959,129 @@ def diagnose_misconception(
     logger.warning("diagnose_misconception: no LLM provider available — returning stub")
     stub = _stub_misconception()
     return {**stub, "model": "stub", "input_tokens": 0, "output_tokens": 0}
+
+
+# ─────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard
+# ─────────────────────────────────────────────────────────────
+
+PARENT_SUMMARY_MAX_TOKENS = 450
+
+
+def _build_parent_summary_prompt(stats: dict, language: str) -> str:
+    def _chapter_list(chapters: list[dict]) -> str:
+        if not chapters:
+            return "none"
+        return "; ".join(f"{c['chapter_name']} ({c['avg_score']:.0%})" for c in chapters)
+
+    child_name = stats.get("child_name", "your child")
+    grade_level = int(stats.get("grade_level", 8))
+    subjects = ", ".join(stats.get("subjects_active", [])) or "no subjects this week"
+
+    delta = stats.get("score_delta", 0.0)
+    if delta > 0:
+        trend_line = f"- Compared to last week: improved by {delta:.0%}."
+    elif delta < 0:
+        trend_line = f"- Compared to last week: dropped by {abs(delta):.0%}."
+    else:
+        trend_line = "- Compared to last week: roughly the same."
+
+    lang_instruction = "\n\nRespond in Hindi (Devanagari script)." if language == "hi" else ""
+
+    return (
+        f"You are an assistant writing a weekly progress note for the PARENT of "
+        f"a Grade {grade_level} student named {child_name}.\n\n"
+        f"This week's data for the child:\n"
+        f"- Days practised: {stats.get('active_days', 0)}\n"
+        f"- Questions attempted: {stats.get('ticks_recorded', 0)}\n"
+        f"- Subjects practised: {subjects}\n"
+        f"- Average score: {stats.get('avg_score', 0.0):.0%}\n"
+        f"{trend_line}\n"
+        f"- Chapters where the child struggled: {_chapter_list(stats.get('weak_chapters', []))}\n"
+        f"- Chapters where the child did well: {_chapter_list(stats.get('strong_chapters', []))}\n\n"
+        f"Write a short note (3–5 sentences) for the parent that:\n"
+        f"- Uses plain, friendly language a non-teacher parent will understand.\n"
+        f"- Refers to the child by name.\n"
+        f"- Opens with effort and overall trend (improving, steady, or slipping).\n"
+        f"- Names one specific chapter to celebrate and one that needs attention.\n"
+        f"- Ends with one concrete suggestion the parent can do at home this week.\n"
+        f"- Do NOT use markdown or bullet points. Avoid jargon."
+        f"{lang_instruction}\n\n"
+        f"Note:"
+    )
+
+
+def _stub_parent_summary(stats: dict) -> str:
+    name = stats.get("child_name", "Your child")
+    ticks = stats.get("ticks_recorded", 0)
+    if ticks == 0:
+        return (
+            f"{name} did not practise this week. A short daily routine — even 10 minutes — "
+            f"makes a big difference. Encourage them to start with one easy chapter to build momentum."
+        )
+
+    parts = [
+        f"{name} practised on {stats.get('active_days', 0)} day(s) this week, "
+        f"attempting {ticks} questions at an average score of {stats.get('avg_score', 0.0):.0%}."
+    ]
+    delta = stats.get("score_delta", 0.0)
+    if delta > 0.05:
+        parts.append(f"That is up {delta:.0%} from last week — great momentum.")
+    elif delta < -0.05:
+        parts.append(f"That is down {abs(delta):.0%} from last week, so this week deserves a closer look.")
+
+    if stats.get("strong_chapters"):
+        names = ", ".join(c["chapter_name"] for c in stats["strong_chapters"])
+        parts.append(f"{name} is doing well in {names}.")
+    if stats.get("weak_chapters"):
+        names = ", ".join(c["chapter_name"] for c in stats["weak_chapters"])
+        parts.append(
+            f"Spending 15 minutes on {names} together this week — even a few practice questions — would help a lot."
+        )
+    return " ".join(parts)
+
+
+def generate_parent_summary(stats: dict, language: str = "en") -> dict:
+    """
+    Generate a plain-language weekly progress narrative for a parent about
+    one child. Uses the same provider cascade as generate_class_summary.
+
+    Always returns a usable narrative — the stub composes a deterministic note
+    when no LLM provider is available.
+
+    Returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_parent_summary_prompt(stats, language)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_parent_summary: using Anthropic Claude")
+            return _call_anthropic_text(prompt, anthropic_key, PARENT_SUMMARY_MAX_TOKENS)
+        except Exception:
+            logger.exception("generate_parent_summary: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_parent_summary: using Google Gemma 4")
+            return _call_google_gemma(prompt, google_key)
+        except Exception:
+            logger.exception("generate_parent_summary: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_parent_summary: using Ollama at %s", ollama_url)
+            return _call_ollama(prompt, ollama_url)
+        except Exception:
+            logger.exception("generate_parent_summary: Ollama failed, falling back to stub")
+
+    logger.warning("generate_parent_summary: no LLM provider available — returning stub")
+    return {
+        "text": _stub_parent_summary(stats),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }

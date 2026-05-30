@@ -9,6 +9,7 @@ from .views import (
     KnowledgeNodeViewSet,
     LearningGapViewSet,
     LearningPathViewSet,
+    ParentProgressSummaryViewSet,
     PerformancePredictionViewSet,
     PracticePlanViewSet,
     SpacedRepetitionViewSet,
@@ -42,5 +43,7 @@ router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-rep
 # Intelligent Hint System
 router.register("hints", HintSequenceViewSet, basename="hint-sequence")
 router.register("misconceptions", StudentMisconceptionViewSet, basename="misconception")
+# Parent Intelligence Dashboard (parent-only)
+router.register("parent-summaries", ParentProgressSummaryViewSet, basename="parent-summary")
 
 urlpatterns = router.urls

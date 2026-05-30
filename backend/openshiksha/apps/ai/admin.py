@@ -8,6 +8,7 @@ from .models import (
     LearningGap,
     LearningPath,
     LearningPathStep,
+    ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
     SpacedRepetitionEntry,
@@ -274,3 +275,34 @@ class StudentMisconceptionAdmin(admin.ModelAdmin):
     search_fields = ["student__username", "student__email", "misconception_label", "diagnosis_text"]
     readonly_fields = ["detected_at", "input_tokens", "output_tokens", "model_used"]
     list_select_related = ["student", "question_subpart", "submission"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(ParentProgressSummary)
+class ParentProgressSummaryAdmin(admin.ModelAdmin):
+    list_display = [
+        "parent",
+        "child",
+        "week_start",
+        "week_end",
+        "ticks_recorded",
+        "active_days",
+        "avg_score",
+        "score_delta",
+        "model_used",
+        "generated_at",
+    ]
+    list_filter = ["week_start", "language", "model_used"]
+    search_fields = [
+        "parent__username",
+        "parent__email",
+        "child__username",
+        "child__email",
+        "summary_text",
+    ]
+    readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
+    list_select_related = ["parent", "child"]

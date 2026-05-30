@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useChildren } from './useChildren';
 import { useChildProficiency } from './useChildProficiency';
 import { useChildAssignments } from './useChildAssignments';
@@ -230,13 +231,21 @@ export const ParentDashboard = () => {
 
       {selectedChild && (
         <>
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {selectedChild.first_name || selectedChild.username}'s Overview
-            </h2>
-            {selectedChild.grade != null && (
-              <p className="text-sm text-gray-500">Grade {selectedChild.grade}</p>
-            )}
+          <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {selectedChild.first_name || selectedChild.username}'s Overview
+              </h2>
+              {selectedChild.grade != null && (
+                <p className="text-sm text-gray-500">Grade {selectedChild.grade}</p>
+              )}
+            </div>
+            <Link
+              to={`/parent/insights/${selectedChild.id}`}
+              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+            >
+              View Insights →
+            </Link>
           </div>
 
           {/* Tab switcher */}

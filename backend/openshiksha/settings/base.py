@@ -186,6 +186,12 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=6, minute=0),
         "kwargs": {"window_hours": 24},
     },
+    "weekly-parent-summaries": {
+        "task": "openshiksha.apps.ai.tasks.enqueue_weekly_parent_summaries",
+        # Monday 07:00 (Asia/Kolkata). Generates and emails last week's progress
+        # summary to every parent for each of their children.
+        "schedule": crontab(hour=7, minute=0, day_of_week="monday"),
+    },
 }
 
 # Redis Configuration

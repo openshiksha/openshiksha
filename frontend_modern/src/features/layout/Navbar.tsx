@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { Logo } from '@/shared/ui';
 import { UserRole } from '@/types/index';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -12,11 +13,11 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  [UserRole.STUDENT]: 'bg-blue-100 text-blue-700',
-  [UserRole.TEACHER]: 'bg-green-100 text-green-700',
-  [UserRole.PARENT]: 'bg-purple-100 text-purple-700',
-  [UserRole.ADMIN]: 'bg-red-100 text-red-700',
-  [UserRole.OPEN_STUDENT]: 'bg-blue-100 text-blue-700',
+  [UserRole.STUDENT]: 'bg-brand-100 text-brand-800',
+  [UserRole.TEACHER]: 'bg-emerald-100 text-emerald-800',
+  [UserRole.PARENT]: 'bg-amber-100 text-amber-800',
+  [UserRole.ADMIN]: 'bg-rose-100 text-rose-800',
+  [UserRole.OPEN_STUDENT]: 'bg-brand-100 text-brand-800',
 };
 
 export const Navbar = () => {
@@ -49,20 +50,18 @@ export const Navbar = () => {
   const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20">
+    <nav className="bg-white/90 backdrop-blur border-b border-ink-100 sticky top-0 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand + Desktop nav links */}
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xs font-bold">OS</span>
-              </div>
-              <span className="font-semibold text-gray-900 hidden sm:block">OpenShiksha</span>
+            <Link to="/" className="flex items-center" aria-label="OpenShiksha home">
+              <Logo size="sm" className="hidden sm:inline-flex" />
+              <Logo size="sm" variant="mark" className="sm:hidden" />
             </Link>
 
             {/* Desktop nav — hidden on mobile */}
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-5">
               {isStudent && (
                 <>
                   <NavLink to="/student" active={location.pathname === '/student'}>
@@ -114,15 +113,15 @@ export const Navbar = () => {
               <div className="relative hidden sm:block" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen((v) => !v)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-ink-50 transition-colors"
                 >
-                  <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <span className="text-indigo-700 text-xs font-bold">
+                  <div className="w-7 h-7 bg-brand-100 rounded-full flex items-center justify-center">
+                    <span className="text-brand-700 text-xs font-bold">
                       {(user.first_name?.[0] ?? user.username[0]).toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-sm text-gray-700">{user.first_name || user.username}</span>
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="text-sm text-ink-700">{user.first_name || user.username}</span>
+                  <svg className="w-4 h-4 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -235,10 +234,10 @@ interface NavLinkProps {
 const NavLink = ({ to, active, children }: NavLinkProps) => (
   <Link
     to={to}
-    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+    className={`px-1 py-2 text-sm font-medium transition-colors ${
       active
-        ? 'bg-indigo-50 text-indigo-700'
-        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+        ? 'chalk-underline text-ink-900'
+        : 'text-ink-500 hover:text-ink-900'
     }`}
   >
     {children}

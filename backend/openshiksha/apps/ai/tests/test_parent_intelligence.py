@@ -702,3 +702,122 @@ def test_api_generate_summary_student_forbidden(api_client, setup):
 def test_api_unauthenticated_forbidden(api_client):
     resp = api_client.get("/api/v1/ai/parent-summaries/")
     assert resp.status_code == 401
+
+
+# ─────────────────────────────────────────────────────────────
+# Weekly email digest + Monday batch
+# ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_sends(setup, summary):
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    parent = setup["parent"]
+    parent.email = "parent@example.com"
+    parent.save()
+    summary.alerts = [{"severity": "urgent", "label": "Sharp drop", "detail": "Down 20% vs last week."}]
+    summary.home_activities = [{"title": "Practise Long Division together", "description": "15 minutes."}]
+    summary.save()
+
+    with patch("openshiksha.apps.ai.emails.send_mail") as mock_send:
+        sent = notify_parent_weekly_summary(parent, setup["child"], summary)
+
+    assert sent is True
+    mock_send.assert_called_once()
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs["recipient_list"] == ["parent@example.com"]
+    assert "Aanya" in kwargs["subject"]
+    # Narrative, the urgent alert, and the home activity all appear in the body.
+    assert "Aanya did well this week." in kwargs["message"]
+    assert "Sharp drop" in kwargs["message"]
+    assert "Practise Long Division together" in kwargs["message"]
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_skips_without_email(setup, summary):
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    setup["parent"].email = ""
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.emails.send_mail") as mock_send:
+        sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is False
+    mock_send.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_swallows_smtp_error(setup, summary):
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.emails.send_mail", side_effect=Exception("SMTP down")):
+        sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is False  # error logged, not raised
+
+
+@pytest.mark.django_db
+def test_generate_parent_summary_task_sends_email_when_requested(setup):
+    from openshiksha.apps.ai.tasks import generate_parent_progress_summary
+
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.llm_client.generate_parent_summary", return_value=MOCK_SUMMARY):
+        with patch("openshiksha.apps.ai.emails.send_mail") as mock_send:
+            result = generate_parent_progress_summary(setup["parent"].pk, setup["child"].pk, send_email=True)
+
+    assert result["emailed"] is True
+    mock_send.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_generate_parent_summary_task_no_email_by_default(setup):
+    from openshiksha.apps.ai.tasks import generate_parent_progress_summary
+
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.llm_client.generate_parent_summary", return_value=MOCK_SUMMARY):
+        with patch("openshiksha.apps.ai.emails.send_mail") as mock_send:
+            result = generate_parent_progress_summary(setup["parent"].pk, setup["child"].pk)
+
+    assert result["emailed"] is False
+    mock_send.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_enqueue_weekly_parent_summaries_fans_out_per_pair(setup):
+    from openshiksha.apps.ai.tasks import enqueue_weekly_parent_summaries
+
+    expected_week = (monday_this_week() - timedelta(days=7)).isoformat()
+
+    with patch("openshiksha.apps.ai.tasks.generate_parent_progress_summary.delay") as mock_delay:
+        result = enqueue_weekly_parent_summaries()
+
+    # The fixture links exactly one (parent, child) pair; other_parent has no children.
+    assert result["pairs"] == 1
+    assert result["enqueued"] == 1
+    assert result["week_start"] == expected_week
+    mock_delay.assert_called_once_with(
+        setup["parent"].pk,
+        setup["child"].pk,
+        week_start_iso=expected_week,
+        send_email=True,
+    )
+
+
+@pytest.mark.django_db
+def test_enqueue_weekly_parent_summaries_snaps_explicit_week_to_monday(setup):
+    from openshiksha.apps.ai.tasks import enqueue_weekly_parent_summaries
+
+    with patch("openshiksha.apps.ai.tasks.generate_parent_progress_summary.delay") as mock_delay:
+        result = enqueue_weekly_parent_summaries(week_start_iso="2026-05-27")  # a Wednesday
+
+    assert result["week_start"] == "2026-05-25"  # snapped back to Monday
+    assert mock_delay.call_args.kwargs["week_start_iso"] == "2026-05-25"

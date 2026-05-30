@@ -961,6 +961,7 @@ def generate_parent_progress_summary(
     child_id: int,
     week_start_iso: str | None = None,
     language: str = "en",
+    send_email: bool = False,
 ) -> dict:
     """
     Generate (or refresh) the AI weekly progress summary a parent sees for one child.
@@ -974,7 +975,11 @@ def generate_parent_progress_summary(
     Idempotent: re-running for the same (parent, child, week_start) overwrites
     the existing summary in place.
 
-    Returns {"summary_id": int, "week_start": str, "ticks_recorded": int}
+    If ``send_email`` is True, the parent is emailed the narrative after the
+    summary is persisted (used by the Monday-morning weekly batch). Email failures
+    are swallowed inside the helper and never fail the task.
+
+    Returns {"summary_id": int, "week_start": str, "ticks_recorded": int, "emailed": bool}
     """
     try:
         from datetime import date, timedelta
@@ -1031,18 +1036,26 @@ def generate_parent_progress_summary(
             },
         )
 
+        emailed = False
+        if send_email:
+            from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+            emailed = notify_parent_weekly_summary(parent, child, summary)
+
         logger.info(
-            "generate_parent_progress_summary: parent=%d child=%d week=%s ticks=%d alerts=%d",
+            "generate_parent_progress_summary: parent=%d child=%d week=%s ticks=%d alerts=%d emailed=%s",
             parent_id,
             child_id,
             ws.isoformat(),
             stats["ticks_recorded"],
             len(alerts),
+            emailed,
         )
         return {
             "summary_id": summary.pk,
             "week_start": ws.isoformat(),
             "ticks_recorded": stats["ticks_recorded"],
+            "emailed": emailed,
         }
 
     except ValueError:
@@ -1054,3 +1067,56 @@ def generate_parent_progress_summary(
             child_id,
         )
         raise self.retry(exc=exc)
+
+
+@shared_task
+def enqueue_weekly_parent_summaries(week_start_iso: str | None = None) -> dict:
+    """
+    Monday-morning batch: generate and email last week's progress summary for
+    every linked (parent, child) pair.
+
+    Runs on a Celery beat schedule (see CELERY_BEAT_SCHEDULE). Fans out one
+    ``generate_parent_progress_summary`` task per pair with ``send_email=True`` so
+    each generation + email retries independently and a slow LLM call for one
+    child never blocks the others.
+
+    Defaults to the Monday of *last* week (the just-completed week) — on Monday
+    morning the current week has no activity yet. Pass ``week_start_iso`` to
+    override (it is snapped to that week's Monday downstream).
+
+    Returns {"pairs": int, "enqueued": int}.
+    """
+    from datetime import date, timedelta
+
+    from django.utils import timezone
+
+    from openshiksha.apps.core.models import User, UserRole
+
+    if week_start_iso is None:
+        today = timezone.localdate()
+        this_monday = today - timedelta(days=today.weekday())
+        week_start_iso = (this_monday - timedelta(days=7)).isoformat()
+    else:
+        ws = date.fromisoformat(week_start_iso)
+        week_start_iso = (ws - timedelta(days=ws.weekday())).isoformat()
+
+    pairs = 0
+    enqueued = 0
+    for parent in User.objects.filter(role=UserRole.PARENT).prefetch_related("children"):
+        for child in parent.children.all():
+            pairs += 1
+            generate_parent_progress_summary.delay(
+                parent.pk,
+                child.pk,
+                week_start_iso=week_start_iso,
+                send_email=True,
+            )
+            enqueued += 1
+
+    logger.info(
+        "enqueue_weekly_parent_summaries: week=%s pairs=%d enqueued=%d",
+        week_start_iso,
+        pairs,
+        enqueued,
+    )
+    return {"pairs": pairs, "enqueued": enqueued, "week_start": week_start_iso}

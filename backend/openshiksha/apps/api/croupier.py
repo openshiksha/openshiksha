@@ -32,6 +32,7 @@ import math
 import operator as _op
 import random
 import re
+from typing import Any, Callable
 
 # Keys assigned by position after shuffling
 _POSITION_KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"]
@@ -206,7 +207,8 @@ def substitute_variables_for_student(
 
 # ── Safe expression evaluator (for correct_answer evaluation at grading time) ──
 
-_SAFE_BIN_OPS = {
+# Explicit annotations so mypy sees dict-dispatch values as callable.
+_SAFE_BIN_OPS: dict[type, Callable[[Any, Any], Any]] = {
     ast.Add: _op.add,
     ast.Sub: _op.sub,
     ast.Mult: _op.mul,
@@ -215,10 +217,10 @@ _SAFE_BIN_OPS = {
     ast.Mod: _op.mod,
     ast.FloorDiv: _op.floordiv,
 }
-_SAFE_UNARY_OPS = {ast.USub: _op.neg, ast.UAdd: _op.pos}
+_SAFE_UNARY_OPS: dict[type, Callable[[Any], Any]] = {ast.USub: _op.neg, ast.UAdd: _op.pos}
 
 # Named constants Cabinet authors reference directly.
-_SAFE_CONSTS = {
+_SAFE_CONSTS: dict[str, float] = {
     "pi_val": math.pi,
     "e_val": math.e,
 }
@@ -233,7 +235,7 @@ def _trunc(x, n=0):
 # Safe function calls. ``Decimal`` is a no-op pass-through because modern is
 # float-native (legacy used decimal.Decimal for arbitrary precision; the small
 # rounding differences are immaterial for student-facing display).
-_SAFE_FUNCS = {
+_SAFE_FUNCS: dict[str, Callable[..., Any]] = {
     "trunc": _trunc,
     "round": round,
     "abs": abs,

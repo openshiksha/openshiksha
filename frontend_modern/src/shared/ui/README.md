@@ -30,10 +30,12 @@ new screens from these, not from raw Tailwind. Full plan:
 | `Button` | Actions — `variant: 'brand' \| 'ghost'`, `size: 'sm' \| 'md' \| 'lg'`. |
 | `Card` | The warm `.os-card` surface (`padded`). |
 | `Badge` | Status pill — `tone: 'brand' \| 'neutral' \| 'success' \| 'attention' \| 'urgent'`. |
+| `RichContent` | Sanitised HTML + KaTeX renderer (`text`, `variant`). Use for any question/option/solution/hint content from the API. |
+| `Skeleton` | Branded loading placeholder (`w`, `h`, `rounded`). Warm `ink-100` pulse. |
 
 ## Wanted next (see backlog `M1-06`)
 
-`Input`, `Stat`, `SectionHeading`, `Skeleton`, `EmptyState` (keyhole motif),
+`Input`, `Stat`, `SectionHeading`, `EmptyState` (keyhole motif),
 `ProgressRing` ("unlock" mastery).
 
 ## Adding a component

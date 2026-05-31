@@ -146,7 +146,7 @@ Ledger). Split any item that won't fit one session.
 - [x] `M1-04` Seed `ui/` library (Logo, Button, Card, Badge) + conventions README.
 - [x] `M1-05` `/design` living showcase route.
 - [ ] `M1-06` Add `Input`, `Badge` (severity variants), `Stat`, `SectionHeading`,
-  `Skeleton`, `EmptyState` primitives to `ui/` + showcase.
+  `Skeleton` *(shipped 2026-05-30)*, `EmptyState` primitives to `ui/` + showcase.
 
 ### M2 — Global shell  *(every page inherits this — do first)*
 - [x] `M2-01` Reskin **App Shell** (`AppShell` + `Navbar`): real `<Logo/>`, warm
@@ -170,11 +170,12 @@ Ledger). Split any item that won't fit one session.
 > visual — but they are what "fully featured" means and gate real classroom use.
 > If this milestone grows, graduate it to its own initiative.
 
-- [ ] `M7-01` **Question content rendering — LaTeX + HTML.** Question/subpart text,
-  options, and worked solutions ship as HTML containing LaTeX (`\(…\)`, `$…$`,
-  `\over`, `\sqrt`, `\sqrt 3\over 2`). Today `QuestionCard` prints them as **raw
-  text**. Render sanitised HTML + KaTeX (the stack already has `katex` +
-  `react-katex`). Must cover inline + block math, MCQ options, and solutions.
+- [x] `M7-01` **Question content rendering — LaTeX + HTML.** Shipped 2026-05-30.
+  New `shared/ui/RichContent` primitive: DOMPurify-sanitised HTML + KaTeX over
+  `$…$` / `\(…\)` (inline) and `$$…$$` / `\[…\]` (block). Wired into
+  `QuestionCard` (question text, MCQ options, hints, worked solutions), the SRS
+  drill (via `QuestionCard`), and the teacher `CreateQuestionPage` live
+  preview. Showcased on `/design`.
 - [ ] `M7-02` **Question variable substitution ("widgets").** Legacy/Cabinet
   questions embed templated variables — `{4*j}`, `{12*j}`, `{j*29}` — that must be
   computed into concrete per-attempt values (the legacy "croupier"/variable
@@ -263,3 +264,4 @@ Record the improvement in the ledger's "Hardening" column so the gains are visib
 |---|---|---|---|---|
 | 2026-05-30 | M1-01…05 foundation scaffold | _(this branch)_ | Established token-only rule; retained `primary` for un-migrated pages | Legacy logo orange sampled to `#FF6F00`; pairing Fraunces+Inter gives the "professional but warm" read. Shell (`M2-01`) is the right next step — it's global. |
 | 2026-05-30 | M2-01 shell, M3-01 login, M3-04 home page | _(this branch)_ | Verified in real Docker stack; logo links home everywhere | Reviewing as `student_demo` exposed `M7` (question HTML/LaTeX/variables render raw — see `screenshots/questions-broken-before.png`). Windows Docker bind-mount doesn't always hot-reload Vite — `restart frontend` to pick up late edits. Backlog grew an `M7` functional-parity milestone; this is now the highest-value work after the shell. |
+| 2026-05-30 | M7-01 question HTML+LaTeX rendering, M1-06 partial (`Skeleton`) | `feat/2026-05-30-question-rich-content` | Extracted shared `RichContent` primitive; deleted duplicate `renderMixedContent` from `QuestionCard` + `CreateQuestionPage`; added `prose-osh` brand prose styles; `Skeleton` primitive shipped and swapped into the SRS drill loading state. | Splitting the renderer into `renderRichContent.ts` (pure) and `RichContent.tsx` (component) kept fast-refresh's "component-only exports" rule happy. KaTeX warns about "quirks mode" inside happy-dom test env (harmless — the template-element-walk path doesn't ship a doctype); production browsers are fine. `M7-02` (variable substitution) is the next pull. |

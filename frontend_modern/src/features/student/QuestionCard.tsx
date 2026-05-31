@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
 import type { Question, QuestionSubpart, MCQOption, AIHint } from '@/types/index';
+import { RichContent } from '@/shared/ui';
 import { useHints } from './useHints';
 
 interface QuestionCardProps {
@@ -10,58 +9,6 @@ interface QuestionCardProps {
   answers: Record<string, string>;
   onAnswerChange: (subpartId: number, value: string) => void;
   isSubmitted: boolean;
-}
-
-/**
- * Render mixed LaTeX/plain-text content.
- * Supports $$...$$ (block math) and $...$ (inline math) delimiters.
- */
-function renderMixedContent(text: string): React.ReactNode[] {
-  if (!text) return [];
-
-  const nodes: React.ReactNode[] = [];
-  // Match $$...$$ first (block), then $...$ (inline)
-  const pattern = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    // Plain text before this match
-    if (match.index > lastIndex) {
-      nodes.push(
-        <span key={`text-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>
-      );
-    }
-
-    const raw = match[0];
-    const isBlock = raw.startsWith('$$');
-    const expr = isBlock ? raw.slice(2, -2) : raw.slice(1, -1);
-
-    try {
-      const html = katex.renderToString(expr, {
-        throwOnError: false,
-        displayMode: isBlock,
-      });
-      nodes.push(
-        <span
-          key={`math-${match.index}`}
-          dangerouslySetInnerHTML={{ __html: html }}
-          className={isBlock ? 'block my-2' : 'inline'}
-        />
-      );
-    } catch {
-      nodes.push(<span key={`math-${match.index}`}>{raw}</span>);
-    }
-
-    lastIndex = match.index + raw.length;
-  }
-
-  // Remaining plain text
-  if (lastIndex < text.length) {
-    nodes.push(<span key={`text-end`}>{text.slice(lastIndex)}</span>);
-  }
-
-  return nodes;
 }
 
 /**
@@ -95,7 +42,7 @@ function CollapsibleReveal({
       </button>
       {open && (
         <div className={`mt-2 rounded-lg border p-3 text-sm text-gray-800 leading-relaxed ${styles.box}`}>
-          {renderMixedContent(content)}
+          <RichContent text={content} variant="block" />
         </div>
       )}
     </div>
@@ -156,7 +103,7 @@ function AIHintPanel({ subpartId }: { subpartId: number }) {
           className="mt-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-gray-800 leading-relaxed"
         >
           <span className="mr-1 font-medium text-amber-700">Hint {hint.level}:</span>
-          {renderMixedContent(hint.text)}
+          <RichContent text={hint.text} />
         </div>
       ))}
 
@@ -209,7 +156,7 @@ function SubpartInput({ subpart, questionType, value, onChange, isSubmitted }: S
             />
             <span className="text-sm text-gray-800">
               <strong className="mr-1">{opt.key}.</strong>
-              {renderMixedContent(opt.text)}
+              <RichContent text={opt.text} />
             </span>
           </label>
         ))}
@@ -248,7 +195,7 @@ function SubpartInput({ subpart, questionType, value, onChange, isSubmitted }: S
             />
             <span className="text-sm text-gray-800">
               <strong className="mr-1">{opt.key}.</strong>
-              {renderMixedContent(opt.text)}
+              <RichContent text={opt.text} />
             </span>
           </label>
         ))}
@@ -330,9 +277,11 @@ export const QuestionCard = ({
             )}
 
             {subpart.question_text ? (
-              <div className="text-sm text-gray-800 leading-relaxed">
-                {renderMixedContent(subpart.question_text)}
-              </div>
+              <RichContent
+                text={subpart.question_text}
+                variant="block"
+                className="text-sm text-gray-800"
+              />
             ) : (
               <p className="text-sm text-gray-400 italic">No question text available.</p>
             )}

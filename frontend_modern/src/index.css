@@ -104,6 +104,48 @@
     mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
   }
 
+  /* Rich question/solution prose — warm body text with brand links, used by the
+     `RichContent` primitive that renders sanitised HTML + KaTeX. */
+  .prose-osh {
+    @apply text-ink-700 leading-relaxed;
+  }
+  .prose-osh p {
+    @apply my-2 first:mt-0 last:mb-0;
+  }
+  .prose-osh strong,
+  .prose-osh b {
+    @apply font-semibold text-ink-900;
+  }
+  .prose-osh em,
+  .prose-osh i {
+    @apply italic;
+  }
+  .prose-osh a {
+    @apply text-brand-600 underline decoration-brand-300 hover:text-brand-700;
+  }
+  .prose-osh code {
+    @apply px-1 py-0.5 rounded bg-ink-50 text-ink-800 text-[0.9em];
+  }
+  .prose-osh ul {
+    @apply list-disc pl-5 my-2;
+  }
+  .prose-osh ol {
+    @apply list-decimal pl-5 my-2;
+  }
+  .prose-osh img {
+    @apply inline-block max-w-full rounded border border-ink-100 my-2;
+  }
+  .prose-osh table {
+    @apply my-2 border-collapse;
+  }
+  .prose-osh td,
+  .prose-osh th {
+    @apply border border-ink-100 px-2 py-1 text-left;
+  }
+  .prose-osh .katex-display {
+    @apply my-3;
+  }
+
   /* Chalkboard panel — the legacy blackboard heritage. Use sparingly (auth hero,
      dividers). Warm near-black with a faint chalk-dust texture. */
   .bg-chalkboard {

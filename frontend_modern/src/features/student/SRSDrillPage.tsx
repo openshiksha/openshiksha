@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Skeleton } from '@/shared/ui';
 import { QuestionCard } from './QuestionCard';
 import { useMarkReviewed, useSRSDrill, type SRSReviewResult } from './useSRSDrill';
 
@@ -44,10 +45,15 @@ export const SRSDrillPage = () => {
 
   if (isLoading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-gray-500">
-          <div className="h-10 w-10 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-          <p className="text-sm">Loading your review session…</p>
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
+        <Skeleton w="w-1/2" h="h-6" />
+        <Skeleton w="w-1/3" h="h-4" />
+        <div className="os-card p-6 space-y-3 mt-4">
+          <Skeleton w="w-3/4" h="h-4" />
+          <Skeleton w="w-full" h="h-4" />
+          <Skeleton w="w-5/6" h="h-4" />
+          <Skeleton w="w-full" h="h-10" rounded="rounded-lg" />
+          <Skeleton w="w-full" h="h-10" rounded="rounded-lg" />
         </div>
       </div>
     );

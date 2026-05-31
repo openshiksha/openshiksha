@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
+import { RichContent } from '@/shared/ui';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useChapters } from './useChapters';
 import { useCreateQuestion } from './useCreateQuestion';
@@ -122,38 +121,14 @@ const VariablePreview = ({
 };
 
 // ---------------------------------------------------------------------------
-// KaTeX preview
+// Live preview — RichContent renders the same HTML + LaTeX the student will see.
 // ---------------------------------------------------------------------------
 
 function renderPreview(text: string): React.ReactNode {
-  if (!text) return <span className="text-gray-400">Type question text above to see preview...</span>;
-  const pattern = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
-  const nodes: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(<span key={`t-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>);
-    }
-    const raw = match[0];
-    const isBlock = raw.startsWith('$$');
-    const expr = isBlock ? raw.slice(2, -2) : raw.slice(1, -1);
-    try {
-      const html = katex.renderToString(expr, { throwOnError: false, displayMode: isBlock });
-      nodes.push(
-        <span
-          key={`m-${match.index}`}
-          dangerouslySetInnerHTML={{ __html: html }}
-          className={isBlock ? 'block my-1' : 'inline'}
-        />
-      );
-    } catch {
-      nodes.push(<span key={`m-${match.index}`}>{raw}</span>);
-    }
-    lastIndex = match.index + raw.length;
+  if (!text) {
+    return <span className="text-gray-400">Type question text above to see preview...</span>;
   }
-  if (lastIndex < text.length) nodes.push(<span key="t-end">{text.slice(lastIndex)}</span>);
-  return <>{nodes}</>;
+  return <RichContent text={text} variant="block" />;
 }
 
 // ---------------------------------------------------------------------------

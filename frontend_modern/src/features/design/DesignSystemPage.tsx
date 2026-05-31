@@ -1,4 +1,4 @@
-import { Logo, Button, Card, Badge } from '@/shared/ui';
+import { Logo, Button, Card, Badge, RichContent, Skeleton } from '@/shared/ui';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`
@@ -128,6 +128,53 @@ export const DesignSystemPage = () => (
           <Badge tone="success">On track</Badge>
           <Badge tone="attention">Needs practice</Badge>
           <Badge tone="urgent">Sharp drop</Badge>
+        </Card>
+      </Section>
+
+      <Section kicker="Components" title="Rich content (HTML + LaTeX)">
+        <p className="mb-3 text-sm text-ink-500">
+          Question text, MCQ options, hints, and worked solutions all flow
+          through <code>&lt;RichContent /&gt;</code> — sanitised HTML with
+          KaTeX-rendered math. One primitive, identical output everywhere.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <p className="mb-2 text-xs uppercase tracking-widest text-ink-400">Pure LaTeX</p>
+            <RichContent
+              variant="block"
+              text={"The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$, and in block form: $$\\sqrt{3}\\over 2$$"}
+            />
+          </Card>
+          <Card>
+            <p className="mb-2 text-xs uppercase tracking-widest text-ink-400">HTML + inline math</p>
+            <RichContent
+              variant="block"
+              text={"<p>Find the value of <strong>x</strong> when \\(2x + 3 = 11\\).</p><p>Express your answer using <em>integers only</em>.</p>"}
+            />
+          </Card>
+          <Card>
+            <p className="mb-2 text-xs uppercase tracking-widest text-ink-400">Worked solution with list</p>
+            <RichContent
+              variant="block"
+              text={"<ol><li>Rearrange: \\(2x = 11 - 3\\).</li><li>Divide both sides by 2: \\(x = 4\\).</li></ol>"}
+            />
+          </Card>
+          <Card>
+            <p className="mb-2 text-xs uppercase tracking-widest text-ink-400">Sanitiser drops scripts</p>
+            <RichContent
+              variant="block"
+              text={"<script>alert(1)</script><p>Safe content: $E = mc^2$</p>"}
+            />
+          </Card>
+        </div>
+      </Section>
+
+      <Section kicker="Components" title="Skeleton (loading)">
+        <Card className="space-y-3">
+          <Skeleton w="w-1/3" h="h-5" />
+          <Skeleton w="w-full" h="h-4" />
+          <Skeleton w="w-5/6" h="h-4" />
+          <Skeleton w="w-2/3" h="h-4" />
         </Card>
       </Section>
 

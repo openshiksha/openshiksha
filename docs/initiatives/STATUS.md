@@ -8,7 +8,7 @@
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟢 Active | Foundation + shell + login + **home page** shipped & verified in Docker. Discovered question rendering (LaTeX/HTML/variables) is broken → new `M7` parity milestone. | `M7-01` — render question LaTeX + HTML (highest value); then `M4` dashboards |
+| 1 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟢 Active | Foundation + shell + login + home + **`M7-01` question HTML/LaTeX rendering** shipped. `RichContent` + `Skeleton` primitives now in `ui/`. | `M7-02` — question variable substitution (`{4*j}` widgets); then `M4` dashboards |
 
 ## Legend
 

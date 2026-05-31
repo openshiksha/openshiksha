@@ -4,6 +4,7 @@ from openshiksha.apps.core.models import QuestionType
 
 from .models import (
     ClassInsight,
+    ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
     KnowledgeNode,
@@ -459,3 +460,31 @@ class GenerateParentSummarySerializer(serializers.Serializer):
     child_id = serializers.IntegerField()
     week_start = serializers.DateField(required=False, allow_null=True)
     language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")
+
+
+class ClassMisconceptionClusterSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+
+    class Meta:
+        model = ClassMisconceptionCluster
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "misconception_label",
+            "student_count",
+            "occurrence_count",
+            "sample_diagnosis",
+            "sample_remediation_tip",
+            "window_start",
+            "last_seen",
+            "refreshed_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerMisconceptionClusterSerializer(serializers.Serializer):
+    """Request body for queuing a class misconception cluster refresh."""
+
+    subject_room_id = serializers.IntegerField()
+    lookback_days = serializers.IntegerField(required=False, min_value=1, max_value=365)

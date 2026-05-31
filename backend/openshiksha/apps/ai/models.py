@@ -1102,6 +1102,67 @@ class StudentMisconception(models.Model):
         return f"Misconception: {self.student} | subpart {self.question_subpart_id} | {self.misconception_label}"
 
 
+class ClassMisconceptionCluster(models.Model):
+    """
+    Class-level aggregation of StudentMisconception records for one SubjectRoom.
+
+    Built by grouping recent StudentMisconception rows (across the room's students)
+    by their normalised ``misconception_label`` and counting how many distinct
+    students share each pattern. Surfaces "this misunderstanding is widespread
+    in your class right now" to the teacher — the per-student data already lives
+    in StudentMisconception; this cluster is a teacher-facing rollup.
+
+    One row per (subject_room, normalised_label). Refreshing replaces the row
+    in place — the table is a snapshot, not history.
+    """
+
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="misconception_clusters",
+    )
+    misconception_label = models.CharField(
+        max_length=120,
+        help_text="The shared, short misconception label (e.g. 'sign error on subtraction').",
+    )
+    student_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Distinct students in the room exhibiting this misconception in the window.",
+    )
+    occurrence_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Total StudentMisconception rows matched (one student may contribute several).",
+    )
+    sample_diagnosis = models.TextField(
+        blank=True,
+        default="",
+        help_text="A representative diagnosis line copied from one of the underlying records.",
+    )
+    sample_remediation_tip = models.TextField(
+        blank=True,
+        default="",
+        help_text="A representative remediation tip copied from one of the underlying records.",
+    )
+    window_start = models.DateTimeField(
+        help_text="Start of the lookback window used to build this cluster.",
+    )
+    last_seen = models.DateTimeField(
+        help_text="Most recent detected_at across the underlying StudentMisconception rows.",
+    )
+    refreshed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_class_misconception_clusters"
+        unique_together = [["subject_room", "misconception_label"]]
+        indexes = [
+            models.Index(fields=["subject_room", "-student_count"]),
+        ]
+        ordering = ["-student_count", "-last_seen"]
+
+    def __str__(self):
+        return f"ClassCluster: room {self.subject_room_id} | {self.misconception_label} ({self.student_count})"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Parent Intelligence Dashboard
 # ─────────────────────────────────────────────────────────────────────────────

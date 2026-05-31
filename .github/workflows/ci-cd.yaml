@@ -186,8 +186,16 @@ jobs:
               run: npm run lint
             - name: Type check (TypeScript)
               run: npm run type-check
-            - name: Run tests (Vitest)
-              run: npm test -- --run
+            - name: Run tests (Vitest) with coverage
+              # Thresholds enforced via test.coverage.thresholds in vite.config.ts.
+              run: npm test -- --run --coverage
+            - name: Upload frontend coverage report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                name: frontend-coverage-report
+                path: frontend_modern/coverage
+                retention-days: 14
             - name: Build
               run: npm run build
 

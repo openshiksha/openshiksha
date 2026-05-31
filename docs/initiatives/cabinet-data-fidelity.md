@@ -1,4 +1,4 @@
-# Cabinet Data Fidelity — Top Initiative (M7-03 → M7-08)
+# Cabinet Data Fidelity — Top Initiative (M7-03 → M7-09)
 
 > **Status (2026-05-30 audit)**: 644 imported questions, 1734 subparts. After
 > the M7-02 substitution + image fix, the content *substitutes* correctly,
@@ -115,6 +115,77 @@ This is the single highest-leverage initiative on the board.
 
 **Tests**: assert the report goes from N>0 to 0 (or a stable allowlisted set) on the full cabinet bank.
 
+### M7-09 — Chapter & subject name inference (no mapping required)
+
+**Problem**: The cabinet on-disk layout encodes only legacy MySQL **IDs**
+for subject and chapter (e.g. `questions/containers/CBSE/openshiksha/8/12/46/...`).
+There is no name in the source data. Without a `--mapping` file, the
+importer creates placeholder taxonomy like `Imported Subject 12` and
+`Imported Chapter 46` — accurate IDs, useless names. Subjects/chapters
+visible to students therefore read as numeric placeholders.
+
+Audit on 2026-05-30 (44 imported subjects/chapters, no mapping file
+shipped):
+
+```
+$ SELECT COUNT(*) FROM subjects WHERE name LIKE 'Imported Subject %';   -- 4
+$ SELECT COUNT(*) FROM chapters WHERE name LIKE 'Imported Chapter %';   -- 51
+```
+
+55 placeholder names in the live taxonomy.
+
+**Fix** — inference pipeline that runs once after import:
+
+1. **Content-driven inference (primary signal).** For each placeholder
+   chapter, gather (a) the question tags already attached to its
+   questions (concept tags like `polynomials`, `linear-equations`,
+   `acids-bases` are often present from the cabinet metadata); (b) the
+   most-frequent salient noun phrases in `question_text` /
+   `solution_text` after stripping LaTeX and stopwords; (c) the
+   chapter's standard + subject (already known from the path).
+2. **CBSE NCERT cross-reference (corroborating signal).** Ship a
+   canonical chapter list per `(standard, subject)` derived from the
+   NCERT table-of-contents (e.g. CBSE Class 8 Maths chapters: Rational
+   Numbers, Linear Equations in One Variable, Understanding
+   Quadrilaterals, …). One small JSON file checked into the repo:
+   `backend/openshiksha/apps/core/data/ncert_toc.json`.
+3. **LLM disambiguation (last resort, optional).** When (1) + (2) yield
+   multiple candidates of similar strength, call the existing Claude
+   API integration with a short prompt: `"Standard 8 Maths. Sample
+   questions: <three samples>. Which of these NCERT chapter names is
+   the best fit? <candidate list>. Reply with the exact chapter name."`
+   Inexpensive (≤10 tokens out per chapter) and only fires on the few
+   ambiguous chapters that the deterministic pass couldn't pick.
+
+**Where it lives**:
+- New management command `infer_taxonomy_names` (separate from the
+  importer; importer stays deterministic + idempotent).
+- `--dry-run` prints the proposed rename map; `--apply` writes it.
+- Re-runnable: skips chapters whose name no longer matches the
+  `Imported Chapter %` placeholder pattern, so human-curated renames
+  are never overwritten.
+- Writes a JSON audit log to
+  `backend/openshiksha/apps/core/data/inferred_taxonomy_<date>.json`
+  so renames are traceable.
+
+**Tests**:
+- Pure unit test for the content-keyword extractor (a fixture chapter
+  whose questions are clearly about `polynomials` resolves to
+  "Polynomials").
+- NCERT cross-reference test: given 8th Maths and `linear-equations`
+  keyword, the matching CBSE name "Linear Equations in One Variable"
+  is selected.
+- End-to-end on the seeded DB: 0 `Imported Chapter %` placeholders
+  remaining after `infer_taxonomy_names --apply`.
+
+**Not in scope** for this sub-initiative:
+- Translating the chapter name into Hindi (separate i18n work).
+- Re-ordering chapters in the curriculum sequence (that's a different
+  schema concern — `Chapter.order` already exists and can be set in a
+  follow-up).
+- Mapping legacy MySQL IDs to a static dictionary; the inference is
+  the deliverable.
+
 ---
 
 ## D. Cross-cutting Definition of Done
@@ -123,6 +194,8 @@ This is the single highest-leverage initiative on the board.
 - No raw HTML tags or `\begin{}` syntax visible to students.
 - Every available cabinet image is attached (target: ≥500 of the 700+ on disk).
 - Every cabinet question_id maps to exactly one modern Question.
+- **Zero `Imported Subject %` / `Imported Chapter %` placeholders in the
+  live taxonomy** — every chapter has a recognisable CBSE name.
 - M7-02's substitution metric stays at 0 leaks; no regression on the 620
   backend test suite.
 - One change doc per sub-initiative, link from this file.
@@ -140,6 +213,7 @@ This is the single highest-leverage initiative on the board.
 | 4 | **M7-06** — Inline-image extraction | Pure quality lift; no model change |
 | 5 | **M7-07** — Shared stem | Cosmetic but visible; small migration |
 | 6 | **M7-08** — Expression coverage triage | Long tail; do last when the metric is observable |
+| 7 | **M7-09** — Chapter & subject name inference (NCERT + content) | Cosmetic but pervasive; replaces 55 placeholder names visible to teachers, students, parents |
 
 Each is one PR. Land in order; the next session's daily plan picks the
 top-most unfinished sub-initiative.
@@ -148,7 +222,7 @@ top-most unfinished sub-initiative.
 
 ## F. Out of scope (deferred until this initiative closes)
 
-- M7-09 Filter/search/sort on Browse, Question Bank, assignment lists.
+- M7-10 Filter/search/sort on Browse, Question Bank, assignment lists.
 - M4-01 Student Dashboard in V2 language.
 - M1-06 Rest of the V2 primitives (`Input`, severity `Badge`, `Stat`, `SectionHeading`, `EmptyState`).
 - Teacher AI Assistant (auto-assignment, open-ended grading).

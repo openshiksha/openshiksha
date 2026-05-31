@@ -28,8 +28,11 @@ Example:
 
 import ast
 import hashlib
+import math
 import operator as _op
 import random
+import re
+from typing import Any, Callable
 
 # Keys assigned by position after shuffling
 _POSITION_KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"]
@@ -129,11 +132,50 @@ def sample_variable_values(
     return values
 
 
+# ── Token substitution (supports {{var}} AND {{<expression>}}) ──────────────
+
+_TOKEN_RE = re.compile(r"\{\{([^{}]+)\}\}")
+
+
+def _format_value(value) -> str:
+    """Render an evaluated value as a string suitable for student-facing text."""
+    if isinstance(value, bool):  # bool is a subclass of int — handle first
+        return str(value)
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        # Trim trailing zeros so 6.0000 -> 6, 3.1400 -> 3.14, 28.2743 -> 28.2743
+        return f"{value:.4f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
 def substitute_variables(text: str, variable_values: dict) -> str:
-    """Replace {{var}} tokens in text with their sampled values."""
-    for name, val in variable_values.items():
-        text = text.replace(f"{{{{{name}}}}}", str(val))
-    return text
+    """
+    Replace every ``{{...}}`` token in ``text`` with its evaluated value.
+
+    - A bare identifier (``{{j}}``) maps directly to ``variable_values[j]``.
+    - Anything else (``{{j*2}}``, ``{{trunc(pi_val*r*r, 2)}}``) is parsed and
+      evaluated via the safe AST evaluator with the sampled values in scope.
+    - A token that fails to evaluate is left intact rather than raising, so a
+      single bad expression never blanks an entire question.
+
+    Empty / None text returns unchanged.
+    """
+    if not text:
+        return text or ""
+
+    def _repl(match: "re.Match[str]") -> str:
+        expr = match.group(1).strip()
+        # Fast path: bare identifier with a sampled value.
+        if expr.isidentifier() and expr in variable_values:
+            return _format_value(variable_values[expr])
+        # General path: evaluate as an expression.
+        try:
+            return _format_value(_eval_expression(expr, variable_values))
+        except Exception:
+            return match.group(0)
+
+    return _TOKEN_RE.sub(_repl, text)
 
 
 def substitute_variables_for_student(
@@ -165,36 +207,95 @@ def substitute_variables_for_student(
 
 # ── Safe expression evaluator (for correct_answer evaluation at grading time) ──
 
-_SAFE_OPS = {
+# Explicit annotations so mypy sees dict-dispatch values as callable.
+_SAFE_BIN_OPS: dict[type, Callable[[Any, Any], Any]] = {
     ast.Add: _op.add,
     ast.Sub: _op.sub,
     ast.Mult: _op.mul,
     ast.Div: _op.truediv,
     ast.Pow: _op.pow,
-    ast.USub: _op.neg,
-    ast.UAdd: _op.pos,
+    ast.Mod: _op.mod,
+    ast.FloorDiv: _op.floordiv,
+}
+_SAFE_UNARY_OPS: dict[type, Callable[[Any], Any]] = {ast.USub: _op.neg, ast.UAdd: _op.pos}
+
+# Named constants Cabinet authors reference directly.
+_SAFE_CONSTS: dict[str, float] = {
+    "pi_val": math.pi,
+    "e_val": math.e,
 }
 
 
-def _eval_ast_node(node):
+def _trunc(x, n=0):
+    """Truncate toward zero to ``n`` decimal places (matches legacy `trunc`)."""
+    factor = 10 ** int(n)
+    return math.trunc(float(x) * factor) / factor
+
+
+# Safe function calls. ``Decimal`` is a no-op pass-through because modern is
+# float-native (legacy used decimal.Decimal for arbitrary precision; the small
+# rounding differences are immaterial for student-facing display).
+_SAFE_FUNCS: dict[str, Callable[..., Any]] = {
+    "trunc": _trunc,
+    "round": round,
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "sqrt": math.sqrt,
+    "floor": math.floor,
+    "ceil": math.ceil,
+    "Decimal": float,
+    "int": int,
+    "float": float,
+    "pow": pow,
+}
+
+
+def _eval_ast_node(node, variable_values: dict | None = None):
+    """Recursively evaluate an AST node against the supplied variable scope."""
+    variable_values = variable_values or {}
+
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
-    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPS:
-        return _SAFE_OPS[type(node.op)](_eval_ast_node(node.left), _eval_ast_node(node.right))
-    if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_OPS:
-        return _SAFE_OPS[type(node.op)](_eval_ast_node(node.operand))
+    if isinstance(node, ast.Name):
+        if node.id in variable_values:
+            return variable_values[node.id]
+        if node.id in _SAFE_CONSTS:
+            return _SAFE_CONSTS[node.id]
+        raise ValueError(f"unknown identifier {node.id!r}")
+    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_BIN_OPS:
+        return _SAFE_BIN_OPS[type(node.op)](
+            _eval_ast_node(node.left, variable_values),
+            _eval_ast_node(node.right, variable_values),
+        )
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_UNARY_OPS:
+        return _SAFE_UNARY_OPS[type(node.op)](_eval_ast_node(node.operand, variable_values))
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _SAFE_FUNCS:
+        args = [_eval_ast_node(a, variable_values) for a in node.args]
+        kwargs = {kw.arg: _eval_ast_node(kw.value, variable_values) for kw in node.keywords if kw.arg}
+        return _SAFE_FUNCS[node.func.id](*args, **kwargs)
+
     raise ValueError(f"Unsafe or unsupported expression node: {type(node).__name__}")
+
+
+def _eval_expression(expr: str, variable_values: dict):
+    """Parse and evaluate a raw expression string against ``variable_values``."""
+    tree = ast.parse(expr, mode="eval")
+    return _eval_ast_node(tree.body, variable_values)
 
 
 def safe_eval_expr(expr: str, variable_values: dict) -> float:
     """
     Safely evaluate an arithmetic expression string with variable substitution.
 
-    e.g. safe_eval_expr("({{c}} - {{b}}) / {{a}}", {"a": 3, "b": 5, "c": 20}) -> 5.0
+    Accepts both ``{{var}}`` style tokens and bare ``var`` references — the
+    former are interpolated via ``substitute_variables`` first, the latter
+    resolved at AST eval time. Beyond ``+ - * / ** % //`` (and unary +/-) the
+    evaluator also accepts an allowlist of math helpers:
+    ``trunc, round, abs, min, max, sqrt, floor, ceil, Decimal, int, float, pow``
+    and constants ``pi_val, e_val`` (matches Cabinet author syntax).
 
-    Uses ast.parse — does NOT use eval(). Only supports +, -, *, /, **, unary -.
-    Raises ValueError for unsupported operations or malformed expressions.
+    Raises ValueError for anything outside the allowlist.
     """
     interpolated = substitute_variables(expr, variable_values)
-    tree = ast.parse(interpolated, mode="eval")
-    return float(_eval_ast_node(tree.body))
+    return float(_eval_expression(interpolated, variable_values))

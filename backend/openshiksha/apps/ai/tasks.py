@@ -1120,3 +1120,65 @@ def enqueue_weekly_parent_summaries(week_start_iso: str | None = None) -> dict:
         enqueued,
     )
     return {"pairs": pairs, "enqueued": enqueued, "week_start": week_start_iso}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Misconception Insights
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def refresh_class_misconception_clusters(
+    self,
+    subject_room_id: int,
+    lookback_days: int | None = None,
+) -> dict:
+    """
+    Rebuild ClassMisconceptionCluster rows for one SubjectRoom.
+
+    Clusters are a snapshot, not history: existing rows for the room are deleted
+    and replaced with whatever the clustering pass produces this run. This keeps
+    the teacher dashboard reflecting the current state — stale clusters whose
+    underlying misconceptions have aged out of the lookback window correctly
+    disappear.
+
+    Returns ``{"created": int, "deleted": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import CLUSTER_LOOKBACK_DAYS, cluster_misconceptions_for_subject_room
+        from openshiksha.apps.ai.models import ClassMisconceptionCluster
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.get(pk=subject_room_id)
+        window_days = lookback_days if lookback_days is not None else CLUSTER_LOOKBACK_DAYS
+
+        clusters, window_start = cluster_misconceptions_for_subject_room(subject_room, lookback_days=window_days)
+
+        deleted, _ = ClassMisconceptionCluster.objects.filter(subject_room=subject_room).delete()
+
+        rows = [
+            ClassMisconceptionCluster(
+                subject_room=subject_room,
+                misconception_label=c["misconception_label"],
+                student_count=c["student_count"],
+                occurrence_count=c["occurrence_count"],
+                sample_diagnosis=c["sample_diagnosis"],
+                sample_remediation_tip=c["sample_remediation_tip"],
+                window_start=window_start,
+                last_seen=c["last_seen"],
+            )
+            for c in clusters
+        ]
+        ClassMisconceptionCluster.objects.bulk_create(rows)
+
+        logger.info(
+            "refresh_class_misconception_clusters: room=%d created=%d deleted=%d",
+            subject_room_id,
+            len(rows),
+            deleted,
+        )
+        return {"created": len(rows), "deleted": deleted}
+
+    except Exception as exc:
+        logger.exception("refresh_class_misconception_clusters failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)

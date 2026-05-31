@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     ClassInsight,
+    ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
     KnowledgeNode,
@@ -306,3 +307,19 @@ class ParentProgressSummaryAdmin(admin.ModelAdmin):
     ]
     readonly_fields = ["generated_at", "input_tokens", "output_tokens", "model_used"]
     list_select_related = ["parent", "child"]
+
+
+@admin.register(ClassMisconceptionCluster)
+class ClassMisconceptionClusterAdmin(admin.ModelAdmin):
+    list_display = [
+        "subject_room",
+        "misconception_label",
+        "student_count",
+        "occurrence_count",
+        "last_seen",
+        "refreshed_at",
+    ]
+    list_filter = ["subject_room__subject"]
+    search_fields = ["misconception_label", "subject_room__subject__name"]
+    readonly_fields = ["refreshed_at", "window_start", "last_seen"]
+    list_select_related = ["subject_room__subject"]

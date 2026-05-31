@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AnalysisTriggerViewSet,
     ClassInsightViewSet,
+    ClassMisconceptionClusterViewSet,
     ContentRecommendationViewSet,
     GenerateQuestionsViewSet,
     HintSequenceViewSet,
@@ -43,6 +44,7 @@ router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-rep
 # Intelligent Hint System
 router.register("hints", HintSequenceViewSet, basename="hint-sequence")
 router.register("misconceptions", StudentMisconceptionViewSet, basename="misconception")
+router.register("misconception-clusters", ClassMisconceptionClusterViewSet, basename="misconception-cluster")
 # Parent Intelligence Dashboard (parent-only)
 router.register("parent-summaries", ParentProgressSummaryViewSet, basename="parent-summary")
 

@@ -22,6 +22,7 @@ from openshiksha.apps.core.models import Chapter, SubjectRoom, UserRole
 
 from .models import (
     ClassInsight,
+    ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
     KnowledgeNode,
@@ -40,6 +41,7 @@ from .models import (
 )
 from .serializers import (
     ClassInsightSerializer,
+    ClassMisconceptionClusterSerializer,
     CompleteStepSerializer,
     ContentRecommendationSerializer,
     DiagnoseMisconceptionSerializer,
@@ -61,6 +63,7 @@ from .serializers import (
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
+    TriggerMisconceptionClusterSerializer,
     TriggerRecommendationsSerializer,
     TriggerWeeklyReportSerializer,
     WeeklyClassReportSerializer,
@@ -75,6 +78,7 @@ from .tasks import (
     generate_parent_progress_summary,
     generate_weekly_class_report,
     rebuild_learning_path,
+    refresh_class_misconception_clusters,
     refresh_recommendations_for_student,
 )
 
@@ -1223,5 +1227,69 @@ class ParentProgressSummaryViewSet(ReadOnlyModelViewSet):
         )
         return Response(
             {"detail": "Parent progress summary generation queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Misconception Insights — teacher-only
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ClassMisconceptionClusterViewSet(ReadOnlyModelViewSet):
+    """
+    Class-level misconception clusters for a teacher's SubjectRooms.
+
+    list:     GET  /api/v1/ai/misconception-clusters/                    — all clusters across teacher's rooms
+              GET  /api/v1/ai/misconception-clusters/?subject_room=<id>  — filter by room
+    retrieve: GET  /api/v1/ai/misconception-clusters/{id}/
+    refresh:  POST /api/v1/ai/misconception-clusters/refresh/            — queue async recompute
+                  body: {subject_room_id, lookback_days?}
+
+    Teachers only ever see clusters for SubjectRooms they teach. The underlying
+    per-student StudentMisconception rows already have their own permission
+    boundary; this endpoint is the aggregated teacher view.
+    """
+
+    serializer_class = ClassMisconceptionClusterSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return ClassMisconceptionCluster.objects.none()
+
+        qs = ClassMisconceptionCluster.objects.select_related(
+            "subject_room__subject",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+
+        return qs
+
+    @action(detail=False, methods=["post"], url_path="refresh")
+    def refresh(self, request):
+        """Queue async recomputation of clusters for a SubjectRoom the teacher owns."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can refresh class misconception clusters."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TriggerMisconceptionClusterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room = get_object_or_404(SubjectRoom, pk=serializer.validated_data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lookback_days = serializer.validated_data.get("lookback_days")
+        refresh_class_misconception_clusters.delay(subject_room.pk, lookback_days)
+        return Response(
+            {"detail": "Class misconception cluster refresh queued."},
             status=status.HTTP_202_ACCEPTED,
         )

@@ -4,7 +4,7 @@
 > The per-day `docs/daily-plans/*.md` files are point-in-time snapshots; this
 > file is the living tracker. Update it whenever a PR merges.
 
-**Last updated:** 2026-05-30 (after PR #109)
+**Last updated:** 2026-05-30 (after class misconception insights branch)
 
 ---
 
@@ -14,12 +14,10 @@ In priority order. Nothing below is started unless noted.
 
 | # | Task | Type | Notes |
 |---|------|------|-------|
-| 1 | **Celery beat for Monday parent-summary auto-generation** | Backend | The task `generate_parent_progress_summary` exists and is tested, but is **not** in `CELERY_BEAT_SCHEDULE` ([`settings/base.py`](../backend/openshiksha/settings/base.py) currently schedules only `send-due-date-reminders`). Trivial beat entry — add a Monday-morning crontab. |
-| 2 | **Monday-morning email of last-week parent summary** | Backend / Email | Pairs with #1. Extends the existing email pipeline (`apps/.../emails.py`); send each parent their child's narrative when the weekly summary is generated. |
-| 3 | **P8 — operational bulk Cabinet import run** | Ops | The importer (`import_cabinet_questions`) shipped in PR #100. This is the *operational* run: clone `openshiksha-cabinet`, run the importer with a mapping file against real content. |
-| 4 | **Phase 2 — UI rebuild** | Frontend | Design-system pass to Linear/Vercel-quality polish; bottom tab bar on mobile. Large, follows the feature build-out. |
-| 5 | **Teacher AI Assistant (broader)** | AI | Weekly class reports already shipped (PR #95). Remaining: auto-assignment generation, open-ended/free-text grading. Future. |
-| 6 | **i18n toggle (`en` / `hi`) on parent insights** | Frontend | The parent-summary API already accepts `language`; expose a header toggle once a global language switcher lands. |
+| 1 | **P8 — operational bulk Cabinet import run** | Ops | The importer (`import_cabinet_questions`) shipped in PR #100. This is the *operational* run: clone `openshiksha-cabinet`, run the importer with a mapping file against real content. |
+| 2 | **Phase 2 — UI rebuild** | Frontend | Design-system pass to Linear/Vercel-quality polish; bottom tab bar on mobile. Large, follows the feature build-out. |
+| 3 | **Teacher AI Assistant (broader)** | AI | Weekly class reports + class misconception insights shipped (PR #95, this PR). Remaining: auto-assignment generation, open-ended/free-text grading; teacher-facing dashboard card surfacing the cluster API. Future. |
+| 4 | **i18n toggle (`en` / `hi`) on parent insights** | Frontend | The parent-summary API already accepts `language`; expose a header toggle once a global language switcher lands. |
 
 ---
 
@@ -38,6 +36,8 @@ Grouped by area. PR numbers in parentheses; P-codes are the cycle's priority lab
 - Intelligent Hint System — progressive hints + misconception detection (#102)
 - **Parent Intelligence Dashboard — backend** (model, analytics, LLM cascade, viewset, Celery task) (#107)
 - **Parent Intelligence Dashboard — frontend** (`/parent/insights` narrative + alerts + home activities) (#109)
+- Weekly parent-summary email + Monday Celery beat (`enqueue_weekly_parent_summaries` + `notify_parent_weekly_summary`) (commit a8faf034)
+- **Class Misconception Insights** — class-level aggregation of `StudentMisconception` rows into ranked clusters for teachers (this PR)
 
 ### Platform foundation
 - Question Bank + Assignment Pipeline models and REST API (#54)

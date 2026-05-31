@@ -20,6 +20,8 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from openshiksha.apps.core.models import SubjectRoom, User
 
 # Minimum ticks required before we consider the data meaningful
@@ -836,3 +838,123 @@ def build_parent_alerts(stats: dict) -> list[dict]:
         )
 
     return alerts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Misconception Insights
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Default lookback window for clustering — recent enough to be actionable,
+# wide enough to capture a misconception that surfaced across multiple sessions.
+CLUSTER_LOOKBACK_DAYS = 30
+
+# A misconception only "counts" as a class-level cluster once at least this many
+# distinct students share it. One student stumbling is just one student.
+CLUSTER_MIN_STUDENTS = 2
+
+
+def _normalise_misconception_label(label: str) -> str:
+    """Normalise a free-text misconception label so near-duplicates merge.
+
+    Lowercases, collapses whitespace, strips trailing punctuation. We deliberately
+    keep this conservative — semantic clustering is a future upgrade; the labels
+    the LLM produces today already overlap enough that case/whitespace folding
+    collapses most duplicates.
+    """
+    if not label:
+        return ""
+    cleaned = " ".join(label.strip().lower().split())
+    return cleaned.rstrip(".!?,;:")
+
+
+def cluster_misconceptions_for_subject_room(
+    subject_room: "SubjectRoom",
+    lookback_days: int = CLUSTER_LOOKBACK_DAYS,
+) -> tuple[list[dict], "datetime"]:
+    """Aggregate recent StudentMisconception rows for a SubjectRoom into clusters.
+
+    Looks at misconceptions detected in the last ``lookback_days`` for students
+    enrolled in the room and groups them by normalised label. Clusters with
+    fewer than ``CLUSTER_MIN_STUDENTS`` distinct students are dropped — a single
+    student's wrong answer isn't a class-level signal.
+
+    Returns ``(clusters, window_start)``. Each cluster dict shape::
+
+        {
+            "misconception_label": str,    # normalised, lowercase
+            "student_count": int,          # distinct students
+            "occurrence_count": int,       # total rows
+            "sample_diagnosis": str,       # representative diagnosis line
+            "sample_remediation_tip": str, # representative remediation tip
+            "last_seen": datetime,         # most recent detected_at in this cluster
+        }
+
+    Sorted by ``student_count`` desc, then ``last_seen`` desc.
+    """
+    from openshiksha.apps.ai.models import StudentMisconception
+
+    window_start = timezone.now() - timedelta(days=lookback_days)
+    student_ids = list(subject_room.students.values_list("pk", flat=True))
+    if not student_ids:
+        return [], window_start
+
+    qs = (
+        StudentMisconception.objects.filter(
+            student_id__in=student_ids,
+            detected_at__gte=window_start,
+        )
+        .only(
+            "student_id",
+            "misconception_label",
+            "diagnosis_text",
+            "remediation_tip",
+            "detected_at",
+        )
+        .order_by("-detected_at")
+    )
+
+    buckets: dict[str, dict] = {}
+    for m in qs:
+        key = _normalise_misconception_label(m.misconception_label)
+        if not key:
+            continue
+        bucket = buckets.setdefault(
+            key,
+            {
+                "misconception_label": key,
+                "student_ids": set(),
+                "occurrence_count": 0,
+                "sample_diagnosis": "",
+                "sample_remediation_tip": "",
+                "last_seen": m.detected_at,
+            },
+        )
+        bucket["student_ids"].add(m.student_id)
+        bucket["occurrence_count"] += 1
+        # Because qs is ordered detected_at DESC, the first record we see is the
+        # newest — keep its prose as the representative sample.
+        if not bucket["sample_diagnosis"] and m.diagnosis_text:
+            bucket["sample_diagnosis"] = m.diagnosis_text
+        if not bucket["sample_remediation_tip"] and m.remediation_tip:
+            bucket["sample_remediation_tip"] = m.remediation_tip
+        if m.detected_at > bucket["last_seen"]:
+            bucket["last_seen"] = m.detected_at
+
+    clusters = []
+    for bucket in buckets.values():
+        count = len(bucket["student_ids"])
+        if count < CLUSTER_MIN_STUDENTS:
+            continue
+        clusters.append(
+            {
+                "misconception_label": bucket["misconception_label"],
+                "student_count": count,
+                "occurrence_count": bucket["occurrence_count"],
+                "sample_diagnosis": bucket["sample_diagnosis"],
+                "sample_remediation_tip": bucket["sample_remediation_tip"],
+                "last_seen": bucket["last_seen"],
+            }
+        )
+
+    clusters.sort(key=lambda c: (-c["student_count"], -c["last_seen"].timestamp()))
+    return clusters, window_start

@@ -6,7 +6,12 @@ All tests are pure unit tests — no DB access required.
 
 import pytest
 
-from openshiksha.apps.api.croupier import safe_eval_expr, sample_variable_values, substitute_variables_for_student
+from openshiksha.apps.api.croupier import (
+    safe_eval_expr,
+    sample_variable_values,
+    substitute_variables,
+    substitute_variables_for_student,
+)
 from openshiksha.apps.core.tasks import _grade_subpart
 
 CONSTRAINTS = {
@@ -81,6 +86,61 @@ class TestSafeEvalExpr:
     def test_safe_eval_constant(self):
         """A plain number string evaluates correctly (no variable tokens)."""
         assert safe_eval_expr("3.5", {}) == pytest.approx(3.5)
+
+    # ── 2026-05-30: extended allowlist for Cabinet author syntax ────────────
+
+    def test_safe_eval_trunc(self):
+        """trunc(x, n) truncates toward zero to n decimal places."""
+        assert safe_eval_expr("trunc(pi_val * {{r}} * {{r}}, 2)", {"r": 3}) == pytest.approx(28.27)
+
+    def test_safe_eval_pi_val_constant(self):
+        """pi_val is allowlisted as math.pi."""
+        assert safe_eval_expr("pi_val", {}) == pytest.approx(3.141592653589793)
+
+    def test_safe_eval_decimal_pass_through(self):
+        """Decimal(x) is a no-op pass-through in modern (float-native)."""
+        assert safe_eval_expr("Decimal({{j}}) * 3 / 4", {"j": 8}) == pytest.approx(6.0)
+
+    def test_safe_eval_sqrt(self):
+        assert safe_eval_expr("sqrt({{a}})", {"a": 16}) == pytest.approx(4.0)
+
+    def test_safe_eval_rejects_unknown_function(self):
+        """Any function not in the allowlist still raises (no eval() risk)."""
+        with pytest.raises(ValueError):
+            safe_eval_expr("__import__('os')", {})
+
+
+class TestSubstituteVariablesExpressionTokens:
+    """The 2026-05-30 expansion: substitute_variables also evaluates {{<expr>}} tokens."""
+
+    def test_bare_identifier_substitution(self):
+        assert substitute_variables("r = {{k}}", {"k": 4}) == "r = 4"
+
+    def test_arithmetic_expression(self):
+        assert substitute_variables("total = {{j + k + k}}cm", {"j": 3, "k": 4}) == "total = 11cm"
+
+    def test_multiplication_expression(self):
+        assert substitute_variables("diameter = {{2*k}}cm", {"k": 5}) == "diameter = 10cm"
+
+    def test_trunc_with_pi(self):
+        # 2 * pi * 3 * 3 = 56.5486677..., truncated to 2dp = 56.54
+        result = substitute_variables("\\({{trunc(2*pi_val*k*k, 2)}}\\)", {"k": 3})
+        assert result == "\\(56.54\\)"
+
+    def test_unknown_variable_left_intact(self):
+        """A token referencing a missing variable is left as-is rather than crashing."""
+        assert substitute_variables("{{nope}}", {}) == "{{nope}}"
+
+    def test_unsupported_expression_left_intact(self):
+        """Anything outside the allowlist falls back to the original token."""
+        assert substitute_variables("{{os.system('rm -rf /')}}", {}) == "{{os.system('rm -rf /')}}"
+
+    def test_empty_text(self):
+        assert substitute_variables("", {"k": 4}) == ""
+        assert substitute_variables(None, {"k": 4}) == ""
+
+    def test_no_constraints_returns_unchanged_text(self):
+        assert substitute_variables("Plain text, no tokens.", {}) == "Plain text, no tokens."
 
 
 class TestSubstituteVariablesForStudent:

@@ -139,7 +139,11 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
         fields = ["id", "index", "tags", "question_text", "options", "image_url", "solution_text", "hint_text"]
 
     def to_representation(self, instance):
-        from openshiksha.apps.api.croupier import shuffle_options_for_student, substitute_variables_for_student
+        from openshiksha.apps.api.croupier import (
+            shuffle_options_for_student,
+            substitute_variables,
+            substitute_variables_for_student,
+        )
 
         data = super().to_representation(instance)
 
@@ -155,7 +159,7 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
 
         # Phase 2: Variable substitution (numeric/fill_blank with {{var}} tokens)
         if instance.variable_constraints:
-            subst_text, subst_options, _ = substitute_variables_for_student(
+            subst_text, subst_options, sampled_values = substitute_variables_for_student(
                 data["question_text"],
                 data.get("options"),
                 instance.variable_constraints,
@@ -165,6 +169,15 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
             data["question_text"] = subst_text
             if subst_options is not None:
                 data["options"] = subst_options
+
+            # Solutions & hints share the body's per-student sampled values so
+            # the worked-out steps reference the same numbers the student sees
+            # in the question. ``solution_text`` is only present in the payload
+            # when ``include_solutions`` is set above; guard accordingly.
+            if "solution_text" in data:
+                data["solution_text"] = substitute_variables(data["solution_text"], sampled_values)
+            if "hint_text" in data:
+                data["hint_text"] = substitute_variables(data["hint_text"], sampled_values)
 
         # Phase 1: MCQ option shuffling (applied after variable substitution)
         options = data.get("options")

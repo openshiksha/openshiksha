@@ -30,8 +30,17 @@ class TestTokenConversion:
     def test_simple_variable_token(self):
         assert convert_tokens("_{a}_ + _{b}_") == "{{a}} + {{b}}"
 
-    def test_expression_token_keeps_inner_braces(self):
-        assert convert_tokens("_{{a + b}}_") == "{a + b}"
+    def test_expression_token_becomes_modern_double_brace(self):
+        # 2026-05-30 fix: previous behaviour emitted "{a + b}" (single braces),
+        # which modern croupier didn't recognise; now emits modern "{{a + b}}".
+        assert convert_tokens("_{{a + b}}_") == "{{a + b}}"
+
+    def test_expression_token_with_multiplication(self):
+        # The witness case from Q652: "_{{2*k}}_" -> "{{2*k}}".
+        assert convert_tokens("_{{2*k}}_") == "{{2*k}}"
+
+    def test_expression_token_with_function(self):
+        assert convert_tokens("_{{trunc(pi_val*r*r, 2)}}_") == "{{trunc(pi_val*r*r, 2)}}"
 
     def test_non_identifier_left_untouched(self):
         # A literal "_{1}_" is not a valid identifier and must not be rewritten.
@@ -168,3 +177,18 @@ class TestImportCommand:
             "import_cabinet_questions", source=SOURCE, mapping=MAPPING, limit=2, stdout=StringIO(), stderr=StringIO()
         )
         assert Question.objects.count() == 2
+
+    def test_image_url_set_when_sibling_file_present(self):
+        """A sibling <subpart>.png file under raw/.../<chapter>/ is attached as a raw.githubusercontent.com URL."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1001")
+        assert sp.image_url.startswith(
+            "https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/questions/raw/"
+        )
+        assert sp.image_url.endswith("/2001.png")
+
+    def test_image_url_empty_when_no_sibling_file(self):
+        """A subpart with no sibling image file keeps image_url empty (the default)."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1003")
+        assert sp.image_url == ""

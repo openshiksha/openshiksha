@@ -63,13 +63,40 @@ _OPTION_KEYS = [chr(ord("A") + i) for i in range(26)]
 
 DEFAULT_CONSTRAINT = {"min": 1, "max": 9, "integer": True}
 
+# Image extensions Cabinet uses (PNG dominates; JPG/SVG occasionally).
+_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg")
+
+# Public raw URL for the cabinet repo; raw.githubusercontent.com serves directly.
+_CABINET_RAW_BASE = "https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/questions/raw"
+
+
+def _find_subpart_image(raw_dir, sp_id) -> "tuple[str, str] | None":
+    """
+    Locate the image (if any) belonging to a cabinet subpart.
+
+    Cabinet stores images two ways depending on the chapter:
+      - sibling file:  ``raw/<...>/<chapter>/<sp_id>.png``
+      - img/ subdir:   ``raw/<...>/<chapter>/img/<sp_id>.png``
+
+    Returns ``(relative_subpath, ext)`` on success so the caller can build the
+    raw.githubusercontent.com URL, or ``None`` if no image exists.
+    """
+    for ext in _IMAGE_EXTS:
+        sibling = raw_dir / f"{sp_id}{ext}"
+        if sibling.is_file():
+            return (f"{sp_id}{ext}", ext.lstrip("."))
+        nested = raw_dir / "img" / f"{sp_id}{ext}"
+        if nested.is_file():
+            return (f"img/{sp_id}{ext}", ext.lstrip("."))
+    return None
+
 
 # ─────────────────────────────────────────────────────────────
 # Pure conversion helpers (unit-tested in test_import_cabinet.py)
 # ─────────────────────────────────────────────────────────────
 
-# _{{expr}}_  ->  {{expr}}   (expression token: keep inner braces)
-_EXPR_TOKEN = re.compile(r"_\{(\{[^{}]+\})\}_")
+# _{{expr}}_  ->  {{expr}}   (expression token: capture the inner expression and re-wrap in {{...}})
+_EXPR_TOKEN = re.compile(r"_\{\{([^{}]+)\}\}_")
 # _{name}_  ->  {{name}}     (variable token: valid identifier only)
 _VAR_TOKEN = re.compile(r"_\{([a-zA-Z_]\w*)\}_")
 # pow(a, b) -> (a)**(b)      (innermost first; applied repeatedly for nesting)
@@ -77,10 +104,15 @@ _POW_CALL = re.compile(r"pow\(\s*([^(),]+?)\s*,\s*([^(),]+?)\s*\)")
 
 
 def convert_tokens(text: str) -> str:
-    """Rewrite legacy ``_{x}_`` / ``_{{expr}}_`` substitution tokens to ``{{...}}``."""
+    """Rewrite legacy ``_{x}_`` / ``_{{expr}}_`` substitution tokens to ``{{...}}``.
+
+    Modern croupier matches only the ``{{...}}`` form; the previous
+    implementation emitted ``{...}`` (single braces) for expression tokens,
+    so they leaked to the rendered output. Fixed 2026-05-30.
+    """
     if not text:
         return text or ""
-    text = _EXPR_TOKEN.sub(r"\1", text)
+    text = _EXPR_TOKEN.sub(r"{{\1}}", text)
     text = _VAR_TOKEN.sub(r"{{\1}}", text)
     return text
 
@@ -261,7 +293,7 @@ class Command(BaseCommand):
         limit = options.get("limit")
         dry_run = options.get("dry_run", False)
 
-        stats = {"imported": 0, "updated": 0, "skipped": 0, "subjects": 0, "chapters": 0}
+        stats = {"imported": 0, "updated": 0, "skipped": 0, "subjects": 0, "chapters": 0, "images": 0}
         container_files = sorted(containers_dir.rglob("*.json"))
 
         if dry_run:
@@ -344,7 +376,21 @@ class Command(BaseCommand):
         for index, sp_id in enumerate(subpart_ids):
             sp_path = ids["raw_dir"] / f"{sp_id}.json"
             with open(sp_path, encoding="utf-8") as fh:
-                converted.append(convert_subpart(json.load(fh), index))
+                fields = convert_subpart(json.load(fh), index)
+
+            # Image discovery — attach a raw.githubusercontent.com URL if a
+            # matching image file lives in the chapter's raw directory (either
+            # as a sibling of the JSON or under an `img/` subdirectory).
+            found = _find_subpart_image(ids["raw_dir"], sp_id)
+            if found:
+                rel_path, _ext = found
+                fields["image_url"] = (
+                    f"{_CABINET_RAW_BASE}/{ids['board']}/{ids['school']}/{ids['standard']}/"
+                    f"{ids['subject_id']}/{ids['chapter_id']}/{rel_path}"
+                )
+                stats["images"] = stats.get("images", 0) + 1
+
+            converted.append(fields)
 
         q_type = converted[0]["_question_type"]
         standard, subject, chapter = self._resolve_taxonomy(ids, mapping, stats)
@@ -378,6 +424,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"{prefix}imported={stats['imported']} updated={stats['updated']} "
                 f"skipped={stats['skipped']} "
-                f"new_subjects={stats['subjects']} new_chapters={stats['chapters']}"
+                f"new_subjects={stats['subjects']} new_chapters={stats['chapters']} "
+                f"images={stats.get('images', 0)}"
             )
         )

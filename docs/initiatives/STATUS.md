@@ -4,11 +4,12 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short — one row per initiative.
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-05-31
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟢 Active | Foundation + shell + login + home + **`M7-01` question HTML/LaTeX rendering** shipped. `RichContent` + `Skeleton` primitives now in `ui/`. | `M7-02` — question variable substitution (`{4*j}` widgets); then `M4` dashboards |
+| 1 | [Cabinet Data Fidelity](cabinet-data-fidelity.md) (M7-03→M7-09) | 🟢 Active | M7-01 RichContent (#114) + M7-02 substitution/images (#115) shipped. Structural fidelity still open: subpart widgets, `\begin{}` envs, tag collisions, stems, placeholder names. | Batch of 5: M7-04, M7-09, M7-07, M7-05, M7-03 — see [2026-05-31-plan-2](../daily-plans/2026-05-31-plan-2.md) |
+| 2 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟡 Paused | Foundation + shell + login + home shipped. Paused behind Cabinet Data Fidelity per 2026-05-30 user direction. | `M4` dashboards / M7-10 filter-sort, after fidelity closes |
 
 ## Legend
 

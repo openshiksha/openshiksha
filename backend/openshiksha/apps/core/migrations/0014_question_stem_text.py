@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0012_user_email_reminders_opt_out_assignmentreminder"),
+        ("core", "0013_cabinet_tag_path"),
     ]
 
     operations = [

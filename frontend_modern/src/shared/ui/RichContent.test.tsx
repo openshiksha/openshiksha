@@ -67,6 +67,52 @@ describe('renderRichContent', () => {
     expect(html).toContain('class="katex"');
   });
 
+  it('renders an un-delimited \\begin{array}…\\end{array} environment as block math', () => {
+    const fixture =
+      'Consider the table \\begin{array}{c|lcr} a & b & c & d \\\\ \\hline 1 & 2 & 3 & 4 \\end{array} above.';
+    const html = renderRichContent(fixture);
+    expect(html).toContain('katex-display');
+    expect(html).not.toContain('\\begin{array}');
+    expect(html).not.toContain('\\end{array}');
+  });
+
+  it('treats the env as a single math chunk even when it contains inner $-like chars', () => {
+    // The `&` separators and `\\` row breaks must not be partially eaten by the
+    // `$…$` delimiter regex — the env wraps the whole region.
+    const fixture = 'X \\begin{array}{cc} \\$1 & 2 \\\\ 3 & 4 \\end{array} Y';
+    const html = renderRichContent(fixture);
+    expect(html).toContain('katex-display');
+    // No raw begin/end tokens leak as text.
+    expect(html).not.toMatch(/\\begin\{array\}/);
+    expect(html).not.toMatch(/\\end\{array\}/);
+  });
+
+  it('does not crash on a truncated \\begin{ with no matching \\end', () => {
+    expect(() =>
+      renderRichContent('Truncated: \\begin{array}{c} 1 & 2 with no closer.')
+    ).not.toThrow();
+    const html = renderRichContent('Truncated: \\begin{array}{c} 1 & 2 with no closer.');
+    // The bare tokens stay as escaped text (no katex render); important is no crash.
+    expect(html).toContain('Truncated');
+  });
+
+  it('renders nested HTML wrapping inline LaTeX (the Cabinet `<div>…\\(…\\)…</div>` case)', () => {
+    const html = renderRichContent('<div>Value is \\(2x+3\\) here.</div>');
+    expect(html).toContain('<div>');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('\\(2x+3\\)');
+  });
+
+  it('renders an HTML <table> alongside inline KaTeX without leaking either', () => {
+    const fixture =
+      '<table><tr><td>Salary</td><td>$\\frac{a}{b}$</td></tr></table>';
+    const html = renderRichContent(fixture);
+    expect(html).toContain('<table>');
+    expect(html).toContain('<td>Salary</td>');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('$\\frac');
+  });
+
   it('renders a Cabinet-style fragment with HTML + inline LaTeX', () => {
     const fixture =
       '<p>Find <strong>x</strong> such that \\(2x + 3 = 11\\).</p>' +

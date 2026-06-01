@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AnalysisTriggerViewSet,
+    AssignmentDraftViewSet,
     ClassInsightViewSet,
     ClassMisconceptionClusterViewSet,
     ContentRecommendationViewSet,
@@ -47,5 +48,7 @@ router.register("misconceptions", StudentMisconceptionViewSet, basename="misconc
 router.register("misconception-clusters", ClassMisconceptionClusterViewSet, basename="misconception-cluster")
 # Parent Intelligence Dashboard (parent-only)
 router.register("parent-summaries", ParentProgressSummaryViewSet, basename="parent-summary")
+# Teacher AI Assistant — Auto-Drafted Assignments (teacher-only)
+router.register("assignment-drafts", AssignmentDraftViewSet, basename="assignment-draft")
 
 urlpatterns = router.urls

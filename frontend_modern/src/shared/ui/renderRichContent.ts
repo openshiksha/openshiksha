@@ -22,11 +22,19 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ['href', 'src', 'alt', 'width', 'height', 'title', 'class', 'colspan', 'rowspan'];
 
-const DELIMITERS: Array<{ re: RegExp; block: boolean }> = [
-  { re: /\$\$([\s\S]+?)\$\$/g, block: true },
-  { re: /\\\[([\s\S]+?)\\\]/g, block: true },
-  { re: /\\\(([\s\S]+?)\\\)/g, block: false },
-  { re: /(?<!\$)\$([^$\n]+?)\$(?!\$)/g, block: false },
+// `exprGroup: 0` means feed the entire match to KaTeX (used for un-delimited
+// `\begin{X}…\end{X}` environments where the begin/end tokens are part of the
+// LaTeX source). `exprGroup: 1` strips the surrounding delimiter.
+const DELIMITERS: Array<{ re: RegExp; block: boolean; exprGroup: 0 | 1 }> = [
+  // Un-delimited LaTeX environments — listed first so an env embedded in a
+  // paragraph wins over any inner `$…$` partial matches.
+  // Non-greedy `[\s\S]*?` + back-reference to the opening name; Cabinet
+  // environments don't nest so this is safe across the corpus.
+  { re: /\\begin\{([a-zA-Z*]+)\}[\s\S]*?\\end\{\1\}/g, block: true, exprGroup: 0 },
+  { re: /\$\$([\s\S]+?)\$\$/g, block: true, exprGroup: 1 },
+  { re: /\\\[([\s\S]+?)\\\]/g, block: true, exprGroup: 1 },
+  { re: /\\\(([\s\S]+?)\\\)/g, block: false, exprGroup: 1 },
+  { re: /(?<!\$)\$([^$\n]+?)\$(?!\$)/g, block: false, exprGroup: 1 },
 ];
 
 interface MathHit {
@@ -38,11 +46,12 @@ interface MathHit {
 
 function findMath(source: string): MathHit[] {
   const hits: MathHit[] = [];
-  for (const { re, block } of DELIMITERS) {
+  for (const { re, block, exprGroup } of DELIMITERS) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(source)) !== null) {
-      hits.push({ start: m.index, end: m.index + m[0].length, expr: m[1], block });
+      const expr = exprGroup === 0 ? m[0] : m[1];
+      hits.push({ start: m.index, end: m.index + m[0].length, expr, block });
     }
   }
   hits.sort((a, b) => a.start - b.start);

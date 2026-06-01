@@ -446,8 +446,14 @@ class Command(BaseCommand):
         if stem_text:
             stats["stems"] = stats.get("stems", 0) + 1
 
+        # M7-05: the cabinet tag must be unique per *imported* question, not per
+        # raw cabinet question_id. Several chapters share the same numeric
+        # question_id (1.json appears in dozens of chapter folders), so the
+        # legacy `cabinet:<id>` tag collapsed 33 distinct questions into one.
+        # Scope the tag by chapter PK to restore identity.
         cabinet_tag, _ = QuestionTag.objects.get_or_create(
-            name=f"cabinet:{ids['question_id']}", defaults={"tag_type": "special"}
+            name=f"cabinet:c{chapter.id}:q{ids['question_id']}",
+            defaults={"tag_type": "special"},
         )
 
         existing = Question.objects.filter(tags=cabinet_tag).first()

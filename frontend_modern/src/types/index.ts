@@ -115,6 +115,8 @@ export interface Question {
   question_type: 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric';
   question_type_display?: string;
   difficulty: number;
+  /** Optional shared stem rendered once above the subparts (M7-07). */
+  stem_text?: string;
   tags: QuestionTag[];
   subparts: QuestionSubpart[];
   is_active: boolean;

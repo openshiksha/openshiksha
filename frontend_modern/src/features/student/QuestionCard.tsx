@@ -253,6 +253,12 @@ export const QuestionCard = ({
         </span>
       </div>
 
+      {question.stem_text && (
+        <div className="mb-4 rounded-lg bg-ink-50 border border-ink-100 p-3 text-sm leading-relaxed text-ink-900">
+          <RichContent text={question.stem_text} variant="block" />
+        </div>
+      )}
+
       {question.subparts.map((subpart, i) => {
         const value = answers[String(subpart.id)] ?? '';
         const isAnswered = value.trim().length > 0;

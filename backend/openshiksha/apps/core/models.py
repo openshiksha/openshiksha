@@ -389,6 +389,16 @@ class Question(models.Model):
         help_text="Difficulty level: 1=easiest, 5=hardest",
     )
     is_active = models.BooleanField(default=True)
+    stem_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Optional shared stem rendered once above the subpart list. "
+            "Cabinet compound questions share a leading paragraph; the importer "
+            "lifts it here so each subpart's question_text holds only the per-part "
+            "prompt. Hand-authored questions leave this blank."
+        ),
+    )
     created_by = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,

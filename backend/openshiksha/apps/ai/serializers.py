@@ -3,6 +3,7 @@ from rest_framework import serializers
 from openshiksha.apps.core.models import QuestionType
 
 from .models import (
+    AssignmentDraft,
     ClassInsight,
     ClassMisconceptionCluster,
     ContentRecommendation,
@@ -488,3 +489,51 @@ class TriggerMisconceptionClusterSerializer(serializers.Serializer):
 
     subject_room_id = serializers.IntegerField()
     lookback_days = serializers.IntegerField(required=False, min_value=1, max_value=365)
+
+
+class AssignmentDraftSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+    question_count = serializers.IntegerField(read_only=True)
+    is_actionable = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = AssignmentDraft
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "status",
+            "title",
+            "rationale_text",
+            "target_difficulty",
+            "requested_size",
+            "target_chapters",
+            "selected_questions",
+            "question_count",
+            "estimated_minutes",
+            "is_actionable",
+            "approved_problem_set",
+            "approved_assignment",
+            "model_used",
+            "error_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateAssignmentDraftSerializer(serializers.Serializer):
+    """Request body for queuing an AI assignment draft."""
+
+    subject_room_id = serializers.IntegerField()
+    size = serializers.IntegerField(required=False, min_value=1, max_value=20)
+    target_difficulty = serializers.IntegerField(required=False, min_value=1, max_value=5)
+
+
+class ApproveAssignmentDraftSerializer(serializers.Serializer):
+    """Request body for approving a draft into a real Assignment."""
+
+    due_at = serializers.DateTimeField()
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)

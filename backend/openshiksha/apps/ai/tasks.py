@@ -1182,3 +1182,90 @@ def refresh_class_misconception_clusters(
     except Exception as exc:
         logger.exception("refresh_class_misconception_clusters failed: room=%d", subject_room_id)
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def build_assignment_draft(self, draft_id: int) -> dict:
+    """
+    Populate a pending AssignmentDraft with selected questions + a rationale.
+
+    The draft row is created synchronously (status=pending) when the teacher hits
+    the endpoint; this task does the heavy lifting: it ranks the class's weak
+    chapters from Tick data, selects targeting questions from the bank, generates
+    a plain-language rationale via the LLM cascade, and flips the draft to
+    ``ready`` (or ``failed`` with a human-readable reason if nothing could be
+    built — e.g. no recent practice data, or no fresh questions in the bank).
+
+    Idempotent: re-running rebuilds the draft in place. A draft that's already
+    been approved or dismissed is left untouched.
+
+    Returns ``{"draft_id": int, "status": str, "question_count": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import build_assignment_draft as build_draft
+        from openshiksha.apps.ai.llm_client import generate_draft_rationale
+        from openshiksha.apps.ai.models import AssignmentDraft, AssignmentDraftStatus
+
+        draft = AssignmentDraft.objects.select_related(
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+        ).get(pk=draft_id)
+
+        # Don't clobber a draft the teacher has already acted on.
+        if draft.status in (AssignmentDraftStatus.APPROVED, AssignmentDraftStatus.DISMISSED):
+            return {"draft_id": draft.pk, "status": draft.status, "question_count": draft.question_count}
+
+        result = build_draft(
+            draft.subject_room,
+            size=draft.requested_size,
+            target_difficulty=draft.target_difficulty,
+        )
+
+        if result["error"]:
+            draft.status = AssignmentDraftStatus.FAILED
+            draft.error_detail = result["error"]
+            draft.target_chapters = result["target_chapters"]
+            draft.save(update_fields=["status", "error_detail", "target_chapters", "updated_at"])
+            logger.info("build_assignment_draft: draft=%d failed (%s)", draft_id, result["error"])
+            return {"draft_id": draft.pk, "status": draft.status, "question_count": 0}
+
+        standard_number = getattr(draft.subject_room.classroom.standard, "number", 8)
+        rationale = generate_draft_rationale(
+            subject_name=draft.subject_room.subject.name,
+            standard_number=standard_number,
+            target_chapters=result["target_chapters"],
+            question_count=len(result["selected_questions"]),
+        )
+
+        draft.status = AssignmentDraftStatus.READY
+        draft.title = result["title"]
+        draft.rationale_text = rationale["text"]
+        draft.target_chapters = result["target_chapters"]
+        draft.selected_questions = result["selected_questions"]
+        draft.estimated_minutes = result["estimated_minutes"]
+        draft.model_used = rationale["model"]
+        draft.input_tokens = rationale["input_tokens"]
+        draft.output_tokens = rationale["output_tokens"]
+        draft.error_detail = ""
+        draft.save()
+
+        logger.info(
+            "build_assignment_draft: draft=%d ready questions=%d chapters=%d",
+            draft_id,
+            len(result["selected_questions"]),
+            len(result["target_chapters"]),
+        )
+        return {
+            "draft_id": draft.pk,
+            "status": draft.status,
+            "question_count": draft.question_count,
+        }
+
+    except Exception as exc:
+        logger.exception("build_assignment_draft failed: draft=%d", draft_id)
+        raise self.retry(exc=exc)

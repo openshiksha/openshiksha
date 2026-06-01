@@ -10,6 +10,8 @@ Permission rules:
 - TriggerAnalysis: any authenticated user can trigger for a room they're associated with.
 """
 
+from django.db import transaction
+from django.db.models import Max
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -18,9 +20,11 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, ViewSet
 
 from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
-from openshiksha.apps.core.models import Chapter, SubjectRoom, UserRole
+from openshiksha.apps.core.models import Assignment, Chapter, ProblemSet, Question, SubjectRoom, UserRole
 
 from .models import (
+    AssignmentDraft,
+    AssignmentDraftStatus,
     ClassInsight,
     ClassMisconceptionCluster,
     ContentRecommendation,
@@ -40,11 +44,14 @@ from .models import (
     WeeklyClassReport,
 )
 from .serializers import (
+    ApproveAssignmentDraftSerializer,
+    AssignmentDraftSerializer,
     ClassInsightSerializer,
     ClassMisconceptionClusterSerializer,
     CompleteStepSerializer,
     ContentRecommendationSerializer,
     DiagnoseMisconceptionSerializer,
+    GenerateAssignmentDraftSerializer,
     GeneratedQuestionDraftSerializer,
     GenerateExplanationSerializer,
     GenerateHintsSerializer,
@@ -70,6 +77,7 @@ from .serializers import (
 )
 from .tasks import (
     analyze_student_subject_room,
+    build_assignment_draft,
     complete_learning_path_step,
     diagnose_misconception_for_subpart,
     generate_class_insights_for_subject_room,
@@ -1293,3 +1301,187 @@ class ClassMisconceptionClusterViewSet(ReadOnlyModelViewSet):
             {"detail": "Class misconception cluster refresh queued."},
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Auto-Drafted Assignments
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AssignmentDraftViewSet(ReadOnlyModelViewSet):
+    """
+    AI-assembled draft assignments targeting class weaknesses — teacher-only.
+
+    list:     GET  /api/v1/ai/assignment-drafts/                    — drafts for teacher's rooms
+              GET  /api/v1/ai/assignment-drafts/?subject_room=<id>  — filter by room
+              GET  /api/v1/ai/assignment-drafts/?status=ready       — filter by status
+    retrieve: GET  /api/v1/ai/assignment-drafts/{id}/
+    generate: POST /api/v1/ai/assignment-drafts/generate/           — queue draft generation
+                  body: {subject_room_id, size?, target_difficulty?}
+    approve:  POST /api/v1/ai/assignment-drafts/{id}/approve/        — materialise into an Assignment
+                  body: {due_at, title?}
+    dismiss:  POST /api/v1/ai/assignment-drafts/{id}/dismiss/        — discard the draft
+
+    A teacher only ever sees and acts on drafts for SubjectRooms they teach.
+    Generating a draft creates a `pending` row immediately and returns it; the
+    selection + rationale are filled in asynchronously (poll until status=ready).
+    """
+
+    serializer_class = AssignmentDraftSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return AssignmentDraft.objects.none()
+
+        qs = AssignmentDraft.objects.select_related(
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+            "subject_room__classroom__school",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+        if status_filter := self.request.query_params.get("status"):
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+    @action(detail=False, methods=["post"])
+    def generate(self, request):
+        """Create a pending draft and queue its async assembly."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can generate assignment drafts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = GenerateAssignmentDraftSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room = get_object_or_404(SubjectRoom, pk=serializer.validated_data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        draft = AssignmentDraft.objects.create(
+            subject_room=subject_room,
+            requested_by=request.user,
+            status=AssignmentDraftStatus.PENDING,
+            requested_size=serializer.validated_data.get("size", 8),
+            target_difficulty=serializer.validated_data.get("target_difficulty", 2),
+        )
+        build_assignment_draft.delay(draft.pk)
+
+        return Response(
+            self.get_serializer(draft).data,
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Materialise a ready draft into a real ProblemSet + Assignment."""
+        draft = self.get_object()  # already scoped to the teacher's rooms
+
+        if draft.status != AssignmentDraftStatus.READY:
+            return Response(
+                {"detail": f"Only a draft that is ready for review can be approved (status={draft.status})."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = ApproveAssignmentDraftSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        question_ids = [q["question_id"] for q in draft.selected_questions]
+        questions = list(Question.objects.filter(id__in=question_ids, is_active=True))
+        if not questions:
+            return Response(
+                {"detail": "None of the draft's questions are still active. Regenerate the draft."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        subject_room = draft.subject_room
+        classroom = subject_room.classroom
+        # Anchor the ProblemSet on the weakest targeted chapter; questions may span
+        # several chapters but ProblemSet carries a single chapter for categorisation.
+        primary_chapter_id = (
+            draft.target_chapters[0]["chapter_id"] if draft.target_chapters else questions[0].chapter_id
+        )
+        primary_chapter = get_object_or_404(Chapter, pk=primary_chapter_id)
+
+        title = serializer.validated_data.get("title") or draft.title or f"Practice: {primary_chapter.name}"
+
+        with transaction.atomic():
+            next_number = (
+                ProblemSet.objects.filter(
+                    school=classroom.school,
+                    standard=classroom.standard,
+                    subject=subject_room.subject,
+                    chapter=primary_chapter,
+                ).aggregate(m=Max("number"))["m"]
+                or 0
+            ) + 1
+
+            problem_set = ProblemSet.objects.create(
+                school=classroom.school,
+                standard=classroom.standard,
+                subject=subject_room.subject,
+                chapter=primary_chapter,
+                title=title,
+                description=draft.rationale_text,
+                number=next_number,
+                estimated_minutes=draft.estimated_minutes or None,
+                created_by=request.user,
+            )
+            problem_set.questions.set(questions)
+
+            assignment_number = (
+                Assignment.objects.filter(
+                    subject_room=subject_room,
+                    problem_set=problem_set,
+                ).aggregate(
+                    m=Max("number")
+                )["m"]
+                or 0
+            ) + 1
+            assignment = Assignment.objects.create(
+                subject_room=subject_room,
+                problem_set=problem_set,
+                assigned_by=request.user,
+                due_at=serializer.validated_data["due_at"],
+                number=assignment_number,
+            )
+
+            draft.status = AssignmentDraftStatus.APPROVED
+            draft.approved_problem_set = problem_set
+            draft.approved_assignment = assignment
+            draft.title = title
+            draft.save(
+                update_fields=[
+                    "status",
+                    "approved_problem_set",
+                    "approved_assignment",
+                    "title",
+                    "updated_at",
+                ]
+            )
+
+        return Response(self.get_serializer(draft).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        """Discard a draft the teacher does not want to use."""
+        draft = self.get_object()
+
+        if draft.status == AssignmentDraftStatus.APPROVED:
+            return Response(
+                {"detail": "An approved draft cannot be dismissed."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        draft.status = AssignmentDraftStatus.DISMISSED
+        draft.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(draft).data)

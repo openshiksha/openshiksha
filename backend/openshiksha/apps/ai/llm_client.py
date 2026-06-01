@@ -636,6 +636,103 @@ def generate_class_summary(
 
 
 # ─────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Rationale
+# ─────────────────────────────────────────────────────────────
+
+DRAFT_RATIONALE_MAX_TOKENS = 250
+
+
+def _build_draft_rationale_prompt(
+    subject_name: str,
+    standard_number: int,
+    target_chapters: list[dict],
+    question_count: int,
+) -> str:
+    chapters = (
+        "; ".join(f"{c['chapter_name']} (class avg {c['avg_score']:.0%})" for c in target_chapters)
+        if target_chapters
+        else "none identified"
+    )
+    return (
+        f"You are helping a school teacher of Standard {standard_number} {subject_name} "
+        f"review an auto-generated practice assignment.\n\n"
+        f"The assignment has {question_count} questions chosen to target the chapters "
+        f"the class is currently weakest on: {chapters}.\n\n"
+        f"Write a short note (2–4 sentences) for the teacher that:\n"
+        f"- Explains which weaknesses this assignment is meant to address.\n"
+        f"- Reassures them it focuses on recent struggle areas.\n"
+        f"- Ends by inviting them to review and adjust before assigning.\n"
+        f"- Uses a warm, professional tone. Do NOT use markdown or bullet points.\n\n"
+        f"Note:"
+    )
+
+
+def _stub_draft_rationale(target_chapters: list[dict], question_count: int) -> str:
+    if not target_chapters:
+        return (
+            f"This draft of {question_count} questions is ready for your review. "
+            f"Adjust the selection as needed before assigning it to your class."
+        )
+    names = ", ".join(c["chapter_name"] for c in target_chapters)
+    return (
+        f"This draft gathers {question_count} questions focused on {names}, "
+        f"the chapters your class has scored lowest on recently. "
+        f"Review the selection and adjust it before assigning."
+    )
+
+
+def generate_draft_rationale(
+    subject_name: str,
+    standard_number: int,
+    target_chapters: list[dict],
+    question_count: int,
+) -> dict:
+    """
+    Generate a plain-language rationale for an auto-drafted assignment.
+
+    Uses the same provider cascade as the other generators and always returns a
+    usable note — the stub composes a deterministic sentence from the targeted
+    chapters when no LLM provider is configured.
+
+    Returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_draft_rationale_prompt(subject_name, standard_number, target_chapters, question_count)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_draft_rationale: using Anthropic Claude")
+            return _call_anthropic_text(prompt, anthropic_key, DRAFT_RATIONALE_MAX_TOKENS)
+        except Exception:
+            logger.exception("generate_draft_rationale: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_draft_rationale: using Google Gemma 4")
+            return _call_google_gemma(prompt, google_key)
+        except Exception:
+            logger.exception("generate_draft_rationale: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_draft_rationale: using Ollama at %s", ollama_url)
+            return _call_ollama(prompt, ollama_url)
+        except Exception:
+            logger.exception("generate_draft_rationale: Ollama failed, falling back to stub")
+
+    logger.warning("generate_draft_rationale: no LLM provider available — returning stub")
+    return {
+        "text": _stub_draft_rationale(target_chapters, question_count),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
 # Intelligent Hint System
 # ─────────────────────────────────────────────────────────────
 

@@ -572,6 +572,260 @@ def compute_weekly_class_stats(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Builder
+# ─────────────────────────────────────────────────────────────────────────────
+
+# How far back to look at Tick data when ranking class weakness for a draft
+ASSIGNMENT_DRAFT_LOOKBACK_DAYS = 45
+# Default / cap on the number of questions a draft contains
+ASSIGNMENT_DRAFT_DEFAULT_SIZE = 8
+ASSIGNMENT_DRAFT_MAX_SIZE = 20
+# How many weak chapters a single draft spreads across
+ASSIGNMENT_DRAFT_TOP_CHAPTERS = 4
+# Minimum ticks in a chapter before its class average is trustworthy
+MIN_TICKS_FOR_DRAFT_CHAPTER = 3
+# Skip questions that were assigned to this room within the last N days
+RECENT_ASSIGNMENT_WINDOW_DAYS = 60
+# Fallback per-question time estimate when nothing better is available
+DEFAULT_MINUTES_PER_QUESTION = 3
+
+
+def rank_weak_chapters_for_room(
+    subject_room: "SubjectRoom",
+    lookback_days: int = ASSIGNMENT_DRAFT_LOOKBACK_DAYS,
+    limit: int = ASSIGNMENT_DRAFT_TOP_CHAPTERS,
+) -> list[dict]:
+    """
+    Rank the chapters a SubjectRoom is weakest on over a recent window.
+
+    Aggregates every Tick in the room within ``lookback_days`` by chapter and
+    returns the lowest-scoring chapters first. Struggling chapters (avg below
+    STRUGGLE_THRESHOLD) are preferred; if the class isn't struggling anywhere we
+    still return the weakest chapters so the teacher always gets a usable draft.
+
+    Each entry: {"chapter_id", "chapter_name", "avg_score", "tick_count"}.
+    """
+    from openshiksha.apps.edge.models import Tick
+
+    since = timezone.now() - timedelta(days=lookback_days)
+    rows = (
+        Tick.objects.filter(subject_room=subject_room, created_at__gte=since)
+        .values(
+            "question_subpart__question__chapter_id",
+            "question_subpart__question__chapter__name",
+        )
+        .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+        .filter(tick_count__gte=MIN_TICKS_FOR_DRAFT_CHAPTER)
+    )
+
+    chapters = []
+    for row in rows:
+        chapter_id = row["question_subpart__question__chapter_id"]
+        if chapter_id is None:
+            continue
+        chapters.append(
+            {
+                "chapter_id": chapter_id,
+                "chapter_name": row["question_subpart__question__chapter__name"],
+                "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                "tick_count": row["tick_count"],
+            }
+        )
+
+    chapters.sort(key=lambda c: (c["avg_score"], -c["tick_count"]))
+    struggling = [c for c in chapters if c["avg_score"] < STRUGGLE_THRESHOLD]
+    ranked = struggling or chapters
+    return ranked[:limit]
+
+
+def _recent_question_ids_for_room(subject_room: "SubjectRoom") -> set[int]:
+    """Question IDs already assigned to this room within the recency window."""
+    from openshiksha.apps.core.models import Assignment
+
+    since = timezone.now() - timedelta(days=RECENT_ASSIGNMENT_WINDOW_DAYS)
+    return set(
+        Assignment.objects.filter(subject_room=subject_room, assigned_at__gte=since).values_list(
+            "problem_set__questions__id", flat=True
+        )
+    )
+
+
+def _allocate_per_chapter(num_chapters: int, size: int) -> list[int]:
+    """
+    Split ``size`` question slots across ``num_chapters`` weakest-first.
+
+    The weakest chapter gets the extra slots when size isn't divisible, so a
+    draft leans toward where the class struggles most.
+    """
+    if num_chapters <= 0:
+        return []
+    base = size // num_chapters
+    remainder = size % num_chapters
+    return [base + (1 if i < remainder else 0) for i in range(num_chapters)]
+
+
+def _question_preview(question) -> str:
+    """Short plain-text preview of a question's first subpart prompt."""
+    first = question.subparts.order_by("index").first()
+    text = (first.question_text if first else "") or ""
+    text = " ".join(text.split())
+    return text[:140]
+
+
+def build_assignment_draft(
+    subject_room: "SubjectRoom",
+    size: int = ASSIGNMENT_DRAFT_DEFAULT_SIZE,
+    target_difficulty: int = 2,
+) -> dict:
+    """
+    Deterministically assemble a draft assignment targeting class weaknesses.
+
+    Ranks the room's weakest chapters, then fills ``size`` slots with active
+    questions from those chapters (within the room's standard + subject), nearest
+    the requested difficulty first and skipping items assigned to the room
+    recently. No LLM is used here — the result is reproducible and offline-safe.
+
+    Returns:
+        {
+            "target_chapters": [...],
+            "selected_questions": [...],   # ordered, with per-item reason
+            "estimated_minutes": int,
+            "title": str,
+            "error": str | None,           # set when nothing could be built
+        }
+    """
+    size = max(1, min(size, ASSIGNMENT_DRAFT_MAX_SIZE))
+    target_difficulty = max(1, min(target_difficulty, 5))
+
+    weak_chapters = rank_weak_chapters_for_room(subject_room)
+    if not weak_chapters:
+        return {
+            "target_chapters": [],
+            "selected_questions": [],
+            "estimated_minutes": 0,
+            "title": "",
+            "error": "Not enough recent practice data to identify weak chapters for this class.",
+        }
+
+    standard = subject_room.classroom.standard
+    subject = subject_room.subject
+    used_ids = _recent_question_ids_for_room(subject_room)
+
+    allocation = _allocate_per_chapter(len(weak_chapters), size)
+    selected: list[dict] = []
+    chosen_ids: set[int] = set()
+
+    # First pass: honour the per-chapter allocation.
+    for chapter, want in zip(weak_chapters, allocation):
+        if want <= 0:
+            continue
+        picks = _pick_questions_for_chapter(
+            standard,
+            subject,
+            chapter["chapter_id"],
+            target_difficulty,
+            want,
+            exclude=used_ids | chosen_ids,
+        )
+        for q in picks:
+            chosen_ids.add(q["question_id"])
+            q["reason"] = (
+                f"Targets {chapter['chapter_name']}, where the class is averaging " f"{chapter['avg_score']:.0%}."
+            )
+            selected.append(q)
+
+    # Second pass: backfill any shortfall (a chapter ran out of fresh questions)
+    # from the remaining weak chapters, weakest first.
+    if len(selected) < size:
+        for chapter in weak_chapters:
+            if len(selected) >= size:
+                break
+            picks = _pick_questions_for_chapter(
+                standard,
+                subject,
+                chapter["chapter_id"],
+                target_difficulty,
+                size - len(selected),
+                exclude=used_ids | chosen_ids,
+            )
+            for q in picks:
+                chosen_ids.add(q["question_id"])
+                q["reason"] = (
+                    f"Extra practice on {chapter['chapter_name']} " f"(class average {chapter['avg_score']:.0%})."
+                )
+                selected.append(q)
+
+    if not selected:
+        return {
+            "target_chapters": weak_chapters,
+            "selected_questions": [],
+            "estimated_minutes": 0,
+            "title": "",
+            "error": (
+                "The weakest chapters have no unused questions in the bank. "
+                "Add questions or generate some with AI first."
+            ),
+        }
+
+    estimated_minutes = sum(q["estimated_minutes"] for q in selected)
+    for q in selected:
+        q.pop("estimated_minutes", None)
+
+    weakest_name = weak_chapters[0]["chapter_name"]
+    title = f"Practice: {weakest_name}"
+    if len({q["chapter_id"] for q in selected}) > 1:
+        title = f"Targeted practice — {subject.name}"
+
+    return {
+        "target_chapters": weak_chapters,
+        "selected_questions": selected,
+        "estimated_minutes": estimated_minutes,
+        "title": title,
+        "error": None,
+    }
+
+
+def _pick_questions_for_chapter(
+    standard,
+    subject,
+    chapter_id: int,
+    target_difficulty: int,
+    want: int,
+    exclude: set[int],
+) -> list[dict]:
+    """Pick up to ``want`` active questions for a chapter, nearest difficulty first."""
+    from openshiksha.apps.core.models import Question
+
+    candidates = list(
+        Question.objects.filter(
+            standard=standard,
+            subject=subject,
+            chapter_id=chapter_id,
+            is_active=True,
+        )
+        .exclude(id__in=exclude)
+        .prefetch_related("subparts")
+    )
+    # Closest to the requested difficulty first; id as a deterministic tiebreaker.
+    candidates.sort(key=lambda q: (abs(q.difficulty - target_difficulty), q.pk))
+
+    out = []
+    for q in candidates[:want]:
+        out.append(
+            {
+                "question_id": q.pk,
+                "chapter_id": chapter_id,
+                "chapter_name": q.chapter.name,
+                "difficulty": q.difficulty,
+                "question_type": q.question_type,
+                "preview": _question_preview(q),
+                "estimated_minutes": DEFAULT_MINUTES_PER_QUESTION,
+            }
+        )
+    return out
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

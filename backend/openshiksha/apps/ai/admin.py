@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    AssignmentDraft,
     ClassInsight,
     ClassMisconceptionCluster,
     ContentRecommendation,
@@ -323,3 +324,36 @@ class ClassMisconceptionClusterAdmin(admin.ModelAdmin):
     search_fields = ["misconception_label", "subject_room__subject__name"]
     readonly_fields = ["refreshed_at", "window_start", "last_seen"]
     list_select_related = ["subject_room__subject"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(AssignmentDraft)
+class AssignmentDraftAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "subject_room",
+        "requested_by",
+        "status",
+        "question_count",
+        "target_difficulty",
+        "estimated_minutes",
+        "created_at",
+    ]
+    list_filter = ["status", "subject_room__subject"]
+    search_fields = ["title", "rationale_text", "subject_room__subject__name"]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "target_chapters",
+        "selected_questions",
+        "approved_problem_set",
+        "approved_assignment",
+    ]
+    list_select_related = ["subject_room__subject", "requested_by"]

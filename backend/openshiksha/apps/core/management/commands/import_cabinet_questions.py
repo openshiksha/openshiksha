@@ -256,6 +256,53 @@ def convert_subpart(data: dict, index: int) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# Shared stem extraction (M7-07)
+# ─────────────────────────────────────────────────────────────
+
+
+def _split_leading_paragraph(text: str) -> "tuple[str, str]":
+    """Return (leading paragraph, remainder).
+
+    A "paragraph" is either an HTML `<p>…</p>` block (Cabinet's most common
+    shape) or everything before the first double newline. If neither is
+    present, returns ("", text).
+    """
+    if not text:
+        return "", ""
+    stripped = text.lstrip()
+    # HTML <p>...</p> at the start.
+    if stripped.startswith("<p>"):
+        end = stripped.find("</p>")
+        if end != -1:
+            head = stripped[: end + len("</p>")]
+            tail = stripped[end + len("</p>") :].lstrip()
+            return head, tail
+    # Double newline split.
+    parts = text.split("\n\n", 1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].lstrip()
+    return "", text
+
+
+def _lift_shared_stem(converted_subparts: list[dict]) -> str:
+    """If every subpart's `question_text` starts with the same paragraph, lift
+    it out and strip it from each subpart. Mutates `converted_subparts` in
+    place. Returns the lifted stem (or empty string when there's none)."""
+    if len(converted_subparts) < 2:
+        return ""
+    heads_tails = [_split_leading_paragraph(sp.get("question_text", "")) for sp in converted_subparts]
+    heads = [h for h, _ in heads_tails]
+    if not heads[0] or any(h != heads[0] for h in heads):
+        return ""
+    # Require a stem of at least 20 chars to avoid lifting tiny labels.
+    if len(heads[0].strip()) < 20:
+        return ""
+    for sp, (_h, tail) in zip(converted_subparts, heads_tails):
+        sp["question_text"] = tail
+    return heads[0]
+
+
+# ─────────────────────────────────────────────────────────────
 # Command
 # ─────────────────────────────────────────────────────────────
 
@@ -395,6 +442,10 @@ class Command(BaseCommand):
         q_type = converted[0]["_question_type"]
         standard, subject, chapter = self._resolve_taxonomy(ids, mapping, stats)
 
+        stem_text = _lift_shared_stem(converted) if len(converted) > 1 else ""
+        if stem_text:
+            stats["stems"] = stats.get("stems", 0) + 1
+
         # M7-05: the cabinet tag must be unique per *imported* question, not per
         # raw cabinet question_id. Several chapters share the same numeric
         # question_id (1.json appears in dozens of chapter folders), so the
@@ -413,6 +464,7 @@ class Command(BaseCommand):
         question.subject = subject
         question.chapter = chapter
         question.question_type = q_type
+        question.stem_text = stem_text
         question.save()
         question.tags.add(cabinet_tag)
 
@@ -431,6 +483,6 @@ class Command(BaseCommand):
                 f"{prefix}imported={stats['imported']} updated={stats['updated']} "
                 f"skipped={stats['skipped']} "
                 f"new_subjects={stats['subjects']} new_chapters={stats['chapters']} "
-                f"images={stats.get('images', 0)}"
+                f"images={stats.get('images', 0)} stems={stats.get('stems', 0)}"
             )
         )

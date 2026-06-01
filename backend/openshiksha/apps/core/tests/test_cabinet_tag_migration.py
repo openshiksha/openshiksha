@@ -2,31 +2,18 @@
 
 The migration module name starts with a digit (`0013_cabinet_tag_path`) which
 Python's import system rejects. We test the data-rewrite logic via Django's
-`migration_executor` running the migration against a real test DB instead of
-importing the functions directly.
+`migration_executor` running the migration against a real test DB.
+
+We must use **historical models** (via the executor's project_state) for any
+ORM work at the PREVIOUS migration state — the live ORM may include columns
+(e.g. `Question.stem_text` from migration 0014) that don't exist at the
+PREVIOUS state's schema, which would make `objects.create()` fail.
 """
 
 import pytest
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-
-from openshiksha.apps.core.models import Chapter, Question, QuestionTag, QuestionType, Standard, Subject
-
-
-def _make_chapter(name, std_num=9, subject_name="Mathematics"):
-    standard, _ = Standard.objects.get_or_create(number=std_num)
-    subject, _ = Subject.objects.get_or_create(name=subject_name)
-    return Chapter.objects.create(name=name, subject=subject, standard=standard)
-
-
-def _make_question(chapter):
-    return Question.objects.create(
-        standard=chapter.standard,
-        subject=chapter.subject,
-        chapter=chapter,
-        question_type=QuestionType.NUMERIC,
-    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -39,39 +26,68 @@ class TestCabinetTagPathMigration:
     def _migrate_to(self, migration):
         executor = MigrationExecutor(connection)
         executor.migrate([migration])
-        # The migration framework caches the project state; reset it for clean
-        # subsequent operations.
         executor.loader.build_graph()
+        return executor
+
+    def _historical_models(self, executor, migration):
+        """Return apps registry frozen at the given migration's post-apply state."""
+        state = executor.loader.project_state(nodes=[migration])
+        return state.apps
+
+    def _seed_legacy_tag(self, executor, tag_name="cabinet:1001"):
+        """Create chapter + question + legacy-named tag at PREVIOUS state.
+
+        Returns (chapter_id, tag_id) so the caller can re-query via the live
+        QuestionTag ORM after migrating forward (the column set on QuestionTag
+        is stable across this migration).
+        """
+        apps = self._historical_models(executor, self.PREVIOUS)
+        Standard = apps.get_model("core", "Standard")
+        Subject = apps.get_model("core", "Subject")
+        Chapter = apps.get_model("core", "Chapter")
+        Question = apps.get_model("core", "Question")
+        QuestionTag = apps.get_model("core", "QuestionTag")
+
+        standard, _ = Standard.objects.get_or_create(number=9)
+        subject, _ = Subject.objects.get_or_create(name="Mathematics")
+        chapter = Chapter.objects.create(name="Polynomials", subject=subject, standard=standard)
+        question = Question.objects.create(
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="numeric",
+        )
+        tag = QuestionTag.objects.create(name=tag_name, tag_type="special")
+        question.tags.add(tag)
+        return chapter.id, tag.id
+
+    def _tag_name(self, tag_id):
+        """Look up the tag name via raw SQL — works at any migration state."""
+        with connection.cursor() as cur:
+            cur.execute("SELECT name FROM question_tags WHERE id = %s", [tag_id])
+            row = cur.fetchone()
+        return row[0] if row else None
 
     def test_forward_rewrites_legacy_tag_with_chapter_scope(self):
-        # Set up: state at PREVIOUS migration with a legacy-named tag.
-        self._migrate_to(self.PREVIOUS)
-        chapter = _make_chapter("Polynomials")
-        question = _make_question(chapter)
-        tag = QuestionTag.objects.create(name="cabinet:1001", tag_type="special")
-        question.tags.add(tag)
+        executor = self._migrate_to(self.PREVIOUS)
+        chapter_id, tag_id = self._seed_legacy_tag(executor)
 
-        # Apply target migration.
         self._migrate_to(self.TARGET)
-        tag.refresh_from_db()
-        assert tag.name == f"cabinet:c{chapter.id}:q1001"
+        assert self._tag_name(tag_id) == f"cabinet:c{chapter_id}:q1001"
 
     def test_reverse_round_trip(self):
-        self._migrate_to(self.PREVIOUS)
-        chapter = _make_chapter("Polynomials")
-        question = _make_question(chapter)
-        tag = QuestionTag.objects.create(name="cabinet:1001", tag_type="special")
-        question.tags.add(tag)
+        executor = self._migrate_to(self.PREVIOUS)
+        _chapter_id, tag_id = self._seed_legacy_tag(executor)
 
         self._migrate_to(self.TARGET)
         self._migrate_to(self.PREVIOUS)
-        tag.refresh_from_db()
-        assert tag.name == "cabinet:1001"
+        assert self._tag_name(tag_id) == "cabinet:1001"
 
     def test_orphan_legacy_tag_left_alone(self):
-        self._migrate_to(self.PREVIOUS)
+        executor = self._migrate_to(self.PREVIOUS)
+        apps = self._historical_models(executor, self.PREVIOUS)
+        QuestionTag = apps.get_model("core", "QuestionTag")
         tag = QuestionTag.objects.create(name="cabinet:9999", tag_type="special")
 
         self._migrate_to(self.TARGET)
-        tag.refresh_from_db()
-        assert tag.name == "cabinet:9999"
+        assert self._tag_name(tag.id) == "cabinet:9999"

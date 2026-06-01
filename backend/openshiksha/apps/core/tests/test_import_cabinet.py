@@ -162,13 +162,13 @@ class TestImportCommand:
 
     def test_solution_and_hint_imported(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
-        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1004")
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1004")
         assert sp.solution_text
         assert sp.hint_text
 
     def test_tokens_converted_in_content(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
-        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1001")
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1001")
         assert "{{a}}" in sp.question_text
         assert "_{a}_" not in sp.question_text
 
@@ -181,7 +181,7 @@ class TestImportCommand:
     def test_image_url_set_when_sibling_file_present(self):
         """A sibling <subpart>.png file under raw/.../<chapter>/ is attached as a raw.githubusercontent.com URL."""
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
-        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1001")
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1001")
         assert sp.image_url.startswith(
             "https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/questions/raw/"
         )
@@ -190,5 +190,18 @@ class TestImportCommand:
     def test_image_url_empty_when_no_sibling_file(self):
         """A subpart with no sibling image file keeps image_url empty (the default)."""
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
-        sp = QuestionSubpart.objects.get(question__tags__name="cabinet:1003")
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1003")
         assert sp.image_url == ""
+
+    def test_tags_are_chapter_scoped(self):
+        """M7-05: tag must include the chapter PK so question_ids reused across
+        chapters (e.g. `1.json` in many chapter folders) don't collapse."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        from openshiksha.apps.core.models import QuestionTag
+
+        cabinet_tags = QuestionTag.objects.filter(name__startswith="cabinet:")
+        for tag in cabinet_tags:
+            # New form: cabinet:c<chapter_id>:q<question_id>
+            assert ":c" in tag.name and ":q" in tag.name, tag.name
+            # Each tag should be attached to exactly one Question.
+            assert tag.questions.count() == 1

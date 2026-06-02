@@ -10,6 +10,8 @@ from .models import (
     LearningGap,
     LearningPath,
     LearningPathStep,
+    OpenResponseGrade,
+    OpenResponseRubric,
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
@@ -357,3 +359,48 @@ class AssignmentDraftAdmin(admin.ModelAdmin):
         "approved_assignment",
     ]
     list_select_related = ["subject_room__subject", "requested_by"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Open-Ended Response Grading Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(OpenResponseRubric)
+class OpenResponseRubricAdmin(admin.ModelAdmin):
+    list_display = ["id", "subpart", "max_marks", "created_by", "updated_at"]
+    search_fields = ["subpart__question_text", "model_answer"]
+    readonly_fields = ["created_at", "updated_at"]
+    list_select_related = ["subpart__question", "created_by"]
+
+
+@admin.register(OpenResponseGrade)
+class OpenResponseGradeAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "student",
+        "subpart",
+        "subject_room",
+        "status",
+        "suggested_score",
+        "final_score",
+        "max_marks",
+        "confidence",
+        "model_used",
+        "created_at",
+    ]
+    list_filter = ["status", "model_used", "subject_room__subject"]
+    search_fields = ["student__username", "student__email", "response_text", "feedback"]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+        "reviewed_at",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "suggested_score",
+        "feedback",
+        "criterion_scores",
+        "confidence",
+    ]
+    list_select_related = ["student", "subpart__question", "subject_room__subject"]

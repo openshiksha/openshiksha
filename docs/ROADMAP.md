@@ -16,7 +16,7 @@ In priority order. Nothing below is started unless noted.
 |---|------|------|-------|
 | 1 | **P8 — operational bulk Cabinet import run** | Ops | The importer (`import_cabinet_questions`) shipped in PR #100. This is the *operational* run: clone `openshiksha-cabinet`, run the importer with a mapping file against real content. |
 | 2 | **Phase 2 — UI rebuild** | Frontend | Design-system pass to Linear/Vercel-quality polish; bottom tab bar on mobile. Large, follows the feature build-out. |
-| 3 | **Teacher AI Assistant (broader)** | AI | Weekly class reports + class misconception insights shipped (PR #95, this PR). Remaining: auto-assignment generation, open-ended/free-text grading; teacher-facing dashboard card surfacing the cluster API. Future. |
+| 3 | **Teacher AI Assistant (broader)** | AI | Weekly class reports (#95), class misconception insights, auto-assignment drafts, and open-ended/free-text grading (this PR) shipped. Remaining: teacher-facing dashboard cards surfacing these (cluster API, open-grade review queue). Future. |
 | 4 | **i18n toggle (`en` / `hi`) on parent insights** | Frontend | The parent-summary API already accepts `language`; expose a header toggle once a global language switcher lands. |
 
 ---
@@ -37,7 +37,9 @@ Grouped by area. PR numbers in parentheses; P-codes are the cycle's priority lab
 - **Parent Intelligence Dashboard — backend** (model, analytics, LLM cascade, viewset, Celery task) (#107)
 - **Parent Intelligence Dashboard — frontend** (`/parent/insights` narrative + alerts + home activities) (#109)
 - Weekly parent-summary email + Monday Celery beat (`enqueue_weekly_parent_summaries` + `notify_parent_weekly_summary`) (commit a8faf034)
-- **Class Misconception Insights** — class-level aggregation of `StudentMisconception` rows into ranked clusters for teachers (this PR)
+- **Class Misconception Insights** — class-level aggregation of `StudentMisconception` rows into ranked clusters for teachers
+- **AI Assignment Draft Builder** — auto-assembled draft assignments targeting class weaknesses (#119 area)
+- **AI-Assisted Open-Ended Response Grading** — `SHORT_ANSWER` type + rubric + LLM-suggested score/feedback with teacher review (this PR)
 
 ### Platform foundation
 - Question Bank + Assignment Pipeline models and REST API (#54)

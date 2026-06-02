@@ -340,6 +340,7 @@ class QuestionType(models.TextChoices):
     MATCHING = "matching", "Matching"
     MULTI_SELECT = "multi_select", "Multi Select"
     NUMERIC = "numeric", "Numeric Answer"
+    SHORT_ANSWER = "short_answer", "Short Answer"
 
 
 class Question(models.Model):

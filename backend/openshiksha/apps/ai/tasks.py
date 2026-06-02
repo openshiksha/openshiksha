@@ -1269,3 +1269,83 @@ def build_assignment_draft(self, draft_id: int) -> dict:
     except Exception as exc:
         logger.exception("build_assignment_draft failed: draft=%d", draft_id)
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def grade_open_response(self, grade_id: int) -> dict:
+    """
+    Produce an AI-suggested grade for a pending OpenResponseGrade.
+
+    The grade row is created synchronously (status=pending) when a response is
+    submitted; this task does the LLM work: it loads the subpart's rubric (model
+    answer + criteria), asks the provider cascade for a score + feedback, writes
+    the suggestion back, and flips the row to ``ai_graded`` for teacher review.
+    On any failure it records ``error_detail`` and sets status ``failed`` rather
+    than leaving the row stuck in ``pending``.
+
+    Idempotent: re-running re-grades in place. A row the teacher has already
+    reviewed is left untouched.
+
+    Returns ``{"grade_id": int, "status": str, "suggested_score": float|None}``.
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import grade_open_response as run_grade
+        from openshiksha.apps.ai.models import OpenResponseGrade, OpenResponseGradeStatus
+
+        grade = OpenResponseGrade.objects.select_related(
+            "subpart__question__standard",
+            "student",
+        ).get(pk=grade_id)
+
+        # Never clobber a teacher's final decision.
+        if grade.status == OpenResponseGradeStatus.REVIEWED:
+            return {"grade_id": grade.pk, "status": grade.status, "suggested_score": grade.suggested_score}
+
+        subpart = grade.subpart
+        rubric = getattr(subpart, "open_response_rubric", None)
+        model_answer = rubric.model_answer if rubric else ""
+        criteria = rubric.criteria if rubric else []
+        max_marks = grade.max_marks or (rubric.max_marks if rubric else 5)
+        grade_level = getattr(subpart.question.standard, "number", 8) or 8
+
+        result = run_grade(
+            question_text=subpart.question_text or "",
+            model_answer=model_answer,
+            criteria=criteria,
+            response_text=grade.response_text,
+            max_marks=max_marks,
+            grade_level=grade_level,
+        )
+
+        grade.suggested_score = result["score"]
+        grade.feedback = result["feedback"]
+        grade.confidence = result["confidence"]
+        grade.criterion_scores = result["criterion_scores"]
+        grade.max_marks = max_marks
+        grade.model_used = result["model"]
+        grade.input_tokens = result["input_tokens"]
+        grade.output_tokens = result["output_tokens"]
+        grade.status = OpenResponseGradeStatus.AI_GRADED
+        grade.error_detail = ""
+        grade.save()
+
+        logger.info(
+            "grade_open_response: grade=%d scored %.2f/%d via %s",
+            grade_id,
+            result["score"],
+            max_marks,
+            result["model"],
+        )
+        return {"grade_id": grade.pk, "status": grade.status, "suggested_score": grade.suggested_score}
+
+    except Exception as exc:
+        logger.exception("grade_open_response failed: grade=%d", grade_id)
+        try:
+            from openshiksha.apps.ai.models import OpenResponseGrade, OpenResponseGradeStatus
+
+            OpenResponseGrade.objects.filter(pk=grade_id).exclude(status=OpenResponseGradeStatus.REVIEWED).update(
+                status=OpenResponseGradeStatus.FAILED, error_detail=str(exc)[:500]
+            )
+        except Exception:
+            logger.exception("grade_open_response: could not mark grade=%d failed", grade_id)
+        raise self.retry(exc=exc)

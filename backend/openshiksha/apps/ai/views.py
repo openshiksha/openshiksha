@@ -13,14 +13,24 @@ Permission rules:
 from django.db import transaction
 from django.db.models import Max
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ReadOnlyModelViewSet, ViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
 from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
-from openshiksha.apps.core.models import Assignment, Chapter, ProblemSet, Question, SubjectRoom, UserRole
+from openshiksha.apps.core.models import (
+    Assignment,
+    Chapter,
+    ProblemSet,
+    Question,
+    QuestionSubpart,
+    SubjectRoom,
+    User,
+    UserRole,
+)
 
 from .models import (
     AssignmentDraft,
@@ -34,6 +44,9 @@ from .models import (
     LearningPath,
     LearningPathStatus,
     LearningPathStep,
+    OpenResponseGrade,
+    OpenResponseGradeStatus,
+    OpenResponseRubric,
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
@@ -61,12 +74,16 @@ from .serializers import (
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
+    OpenResponseGradeSerializer,
+    OpenResponseRubricSerializer,
     ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
+    ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
     StudentMisconceptionSerializer,
+    SubmitOpenResponseSerializer,
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
@@ -85,6 +102,7 @@ from .tasks import (
     generate_explanation_for_subpart,
     generate_parent_progress_summary,
     generate_weekly_class_report,
+    grade_open_response,
     rebuild_learning_path,
     refresh_class_misconception_clusters,
     refresh_recommendations_for_student,
@@ -1485,3 +1503,173 @@ class AssignmentDraftViewSet(ReadOnlyModelViewSet):
         draft.status = AssignmentDraftStatus.DISMISSED
         draft.save(update_fields=["status", "updated_at"])
         return Response(self.get_serializer(draft).data)
+
+
+class OpenResponseRubricViewSet(ModelViewSet):
+    """
+    Grading rubrics for short-answer subparts — teacher-only CRUD.
+
+    list:     GET    /api/v1/ai/open-rubrics/                  — rubrics the teacher authored
+              GET    /api/v1/ai/open-rubrics/?subpart=<id>     — filter by subpart
+    create:   POST   /api/v1/ai/open-rubrics/                  — {subpart, max_marks, model_answer, criteria}
+    update:   PATCH  /api/v1/ai/open-rubrics/{id}/
+    destroy:  DELETE /api/v1/ai/open-rubrics/{id}/
+
+    A teacher may only attach a rubric to a subpart of a SHORT_ANSWER question.
+    """
+
+    serializer_class = OpenResponseRubricSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return OpenResponseRubric.objects.none()
+        qs = OpenResponseRubric.objects.select_related("subpart__question").filter(created_by=user)
+        if subpart_id := self.request.query_params.get("subpart"):
+            qs = qs.filter(subpart_id=subpart_id)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can author grading rubrics."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+
+class OpenResponseGradeViewSet(ReadOnlyModelViewSet):
+    """
+    AI-assisted grading of students' free-text answers — teacher-only.
+
+    list:     GET  /api/v1/ai/open-grades/                       — grades for the teacher's rooms
+              GET  /api/v1/ai/open-grades/?subject_room=<id>      — filter by room
+              GET  /api/v1/ai/open-grades/?status=ai_graded       — filter by status
+              GET  /api/v1/ai/open-grades/?student=<id>           — filter by student
+    retrieve: GET  /api/v1/ai/open-grades/{id}/
+    submit:   POST /api/v1/ai/open-grades/submit/                 — record a response + queue AI grading
+                  body: {subpart_id, student_id, subject_room_id, response_text, assignment_id?}
+    regrade:  POST /api/v1/ai/open-grades/{id}/regrade/           — re-run the AI grader
+    review:   POST /api/v1/ai/open-grades/{id}/review/            — set final_score and finalise
+                  body: {final_score, teacher_comment?}
+
+    The teacher always has the final say: ``review`` writes ``final_score`` and
+    flips the row to ``reviewed``. Until then ``effective_score`` reflects the
+    AI's suggestion so dashboards have a number to show.
+    """
+
+    serializer_class = OpenResponseGradeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return OpenResponseGrade.objects.none()
+
+        qs = OpenResponseGrade.objects.select_related(
+            "subpart__question",
+            "student",
+            "subject_room__subject",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+        if status_filter := self.request.query_params.get("status"):
+            qs = qs.filter(status=status_filter)
+        if student_id := self.request.query_params.get("student"):
+            qs = qs.filter(student_id=student_id)
+        return qs
+
+    @action(detail=False, methods=["post"])
+    def submit(self, request):
+        """Record a student's free-text answer and queue AI grading."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can submit responses for AI grading."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = SubmitOpenResponseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        subject_room = get_object_or_404(SubjectRoom, pk=data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        subpart = get_object_or_404(QuestionSubpart, pk=data["subpart_id"])
+        student = get_object_or_404(User, pk=data["student_id"])
+
+        rubric = getattr(subpart, "open_response_rubric", None)
+        max_marks = rubric.max_marks if rubric else 5
+
+        assignment = None
+        if data.get("assignment_id"):
+            assignment = get_object_or_404(Assignment, pk=data["assignment_id"])
+
+        grade = OpenResponseGrade.objects.create(
+            subpart=subpart,
+            student=student,
+            subject_room=subject_room,
+            assignment=assignment,
+            response_text=data["response_text"],
+            max_marks=max_marks,
+            status=OpenResponseGradeStatus.PENDING,
+        )
+        grade_open_response.delay(grade.pk)
+
+        return Response(self.get_serializer(grade).data, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=True, methods=["post"])
+    def regrade(self, request, pk=None):
+        """Re-run the AI grader for a response (e.g. after editing its rubric)."""
+        grade = self.get_object()  # scoped to the teacher's rooms
+        if grade.status == OpenResponseGradeStatus.REVIEWED:
+            return Response(
+                {"detail": "A reviewed grade cannot be re-graded. It has been finalised."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        grade.status = OpenResponseGradeStatus.PENDING
+        grade.error_detail = ""
+        grade.save(update_fields=["status", "error_detail", "updated_at"])
+        grade_open_response.delay(grade.pk)
+        return Response(self.get_serializer(grade).data, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        """Teacher finalises the grade, accepting or overriding the AI's score."""
+        grade = self.get_object()
+
+        serializer = ReviewOpenResponseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        final_score = serializer.validated_data["final_score"]
+
+        if final_score > grade.max_marks:
+            return Response(
+                {"detail": f"final_score cannot exceed the maximum of {grade.max_marks} marks."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        grade.final_score = final_score
+        grade.teacher_comment = serializer.validated_data.get("teacher_comment", "")
+        grade.reviewed_by = request.user
+        grade.reviewed_at = timezone.now()
+        grade.status = OpenResponseGradeStatus.REVIEWED
+        grade.save(
+            update_fields=[
+                "final_score",
+                "teacher_comment",
+                "reviewed_by",
+                "reviewed_at",
+                "status",
+                "updated_at",
+            ]
+        )
+        return Response(self.get_serializer(grade).data)

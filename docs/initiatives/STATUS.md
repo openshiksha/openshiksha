@@ -4,12 +4,12 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short — one row per initiative.
 
-**Last updated:** 2026-06-01
+**Last updated:** 2026-06-02
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Cabinet Data Fidelity](cabinet-data-fidelity.md) (M7-03/06/08) | 🟢 Active | M7-04 envs, M7-05 tag-collision, M7-07 stem, M7-09 taxonomy all shipped 2026-05-31. Remaining: per-subpart widget type, inline images, expression coverage. | Closing batch of 5: M7-08, M7-06, M7-03a/b, fidelity-audit guard — see [2026-06-01-plan](../daily-plans/2026-06-01-plan.md) |
-| 2 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟡 Paused | Foundation + shell + login + home shipped. Paused behind Cabinet Data Fidelity per 2026-05-30 user direction. | `M4` dashboards / M7-10 filter-sort, after fidelity closes |
+| 1 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟢 Active | Foundation + shell + login + home shipped. Unblocked now that Cabinet Data Fidelity is done. | `M4` dashboards / M7-10 filter-sort |
+| — | [Cabinet Data Fidelity](cabinet-data-fidelity.md) (M7-03/06/08) | ✅ Done | Closing batch shipped (M7-08, M7-06, M7-03a/b, fidelity-audit guard) + proper taxonomy names baked into the importer. `audit_cabinet_fidelity --strict` is **green on the real 646-question corpus** (0 wrong-widget, 0 token leaks, 0 placeholders, every id→1 Q). Residuals: image count 138 (<500, follow-up) and the additive **M7-11 interactive widget** (in progress). | — |
 
 ## Legend
 

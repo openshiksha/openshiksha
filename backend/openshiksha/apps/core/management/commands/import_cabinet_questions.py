@@ -31,13 +31,16 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from openshiksha.apps.api.croupier import _SAFE_CONSTS, _SAFE_FUNCS
 from openshiksha.apps.core.models import (
     Chapter,
     Question,
@@ -303,6 +306,63 @@ def _lift_shared_stem(converted_subparts: list[dict]) -> str:
 
 
 # ─────────────────────────────────────────────────────────────
+# Expression coverage scan (M7-08)
+# ─────────────────────────────────────────────────────────────
+
+# Same token pattern as the runtime substituter (croupier._TOKEN_RE) — kept
+# here as a local copy so the scanner doesn't depend on a private name.
+_TOKEN_RE = re.compile(r"\{\{([^{}]+)\}\}")
+
+
+def _iter_expressions(subpart_fields: dict):
+    """Yield every ``{{...}}`` inner expression from a converted subpart.
+
+    Walks ``question_text``, ``solution_text``, ``hint_text``, each option's
+    ``text``, and the ``correct_answer.answer`` string(s). Bare-identifier
+    tokens are included — they're still names the scanner must classify.
+    """
+    for field in ("question_text", "solution_text", "hint_text"):
+        for m in _TOKEN_RE.finditer(subpart_fields.get(field) or ""):
+            yield m.group(1).strip()
+    for opt in subpart_fields.get("options") or []:
+        for m in _TOKEN_RE.finditer(opt.get("text") or ""):
+            yield m.group(1).strip()
+    correct = (subpart_fields.get("correct_answer") or {}).get("answer")
+    if isinstance(correct, str):
+        for m in _TOKEN_RE.finditer(correct):
+            yield m.group(1).strip()
+    elif isinstance(correct, list):
+        # multi_select: each entry is a key string, but defensive in case
+        # an expression token ever leaks in.
+        for entry in correct:
+            if isinstance(entry, str):
+                for m in _TOKEN_RE.finditer(entry):
+                    yield m.group(1).strip()
+
+
+def _collect_unknown_names(expr: str, declared_vars: set[str]) -> list[str]:
+    """Parse ``expr`` and return any ``ast.Name`` ids that are neither a
+    declared variable, an allowlisted constant, nor an allowlisted function.
+
+    A malformed expression yields an empty list — the caller already reports
+    such tokens separately as un-substituted.
+    """
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return []
+    unknown: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            name = node.id
+            if name in declared_vars or name in _SAFE_CONSTS or name in _SAFE_FUNCS:
+                continue
+            # Dunder names are never safe — surface them loudly.
+            unknown.append(name)
+    return unknown
+
+
+# ─────────────────────────────────────────────────────────────
 # Command
 # ─────────────────────────────────────────────────────────────
 
@@ -328,6 +388,16 @@ class Command(BaseCommand):
             action="store_true",
             help="Parse and convert everything but write nothing to the DB.",
         )
+        parser.add_argument(
+            "--report-unknowns",
+            action="store_true",
+            help=(
+                "Read-only scan: walk every {{...}} token across all subparts, "
+                "report identifiers not declared as sampled variables and not in "
+                "the croupier allowlist (_SAFE_CONSTS / _SAFE_FUNCS), then exit. "
+                "Writes nothing to the DB."
+            ),
+        )
 
     def handle(self, *args, **options):
         source = Path(options["source"])
@@ -339,6 +409,10 @@ class Command(BaseCommand):
         mapping = self._load_mapping(options.get("mapping"))
         limit = options.get("limit")
         dry_run = options.get("dry_run", False)
+
+        if options.get("report_unknowns"):
+            self._report_unknowns(containers_dir, raw_dir, limit)
+            return
 
         stats = {"imported": 0, "updated": 0, "skipped": 0, "subjects": 0, "chapters": 0, "images": 0}
         container_files = sorted(containers_dir.rglob("*.json"))
@@ -475,6 +549,50 @@ class Command(BaseCommand):
             QuestionSubpart.objects.create(question=question, **fields)
 
         return status
+
+    def _report_unknowns(self, containers_dir: Path, raw_root: Path, limit: int | None) -> None:
+        """M7-08: scan every cabinet token expression, surface un-allowlisted names.
+
+        Read-only, no DB writes. Skips containers that fail to parse — the
+        regular import already reports those as conversion errors.
+        """
+        counts: Counter[str] = Counter()
+        examples: dict[str, str] = {}
+        scanned = 0
+        skipped = 0
+
+        container_files = sorted(containers_dir.rglob("*.json"))
+        for container_path in container_files:
+            if limit is not None and scanned >= limit:
+                break
+            try:
+                ids = self._parse_path_ids(container_path, raw_root)
+                with open(container_path, encoding="utf-8") as fh:
+                    container = json.load(fh)
+                for index, sp_id in enumerate(container.get("subparts") or []):
+                    sp_path = ids["raw_dir"] / f"{sp_id}.json"
+                    with open(sp_path, encoding="utf-8") as fh:
+                        fields = convert_subpart(json.load(fh), index)
+                    declared = set((fields.get("variable_constraints") or {}).keys())
+                    for expr in _iter_expressions(fields):
+                        for name in _collect_unknown_names(expr, declared):
+                            counts[name] += 1
+                            examples.setdefault(name, expr)
+                scanned += 1
+            except Exception as exc:  # noqa: BLE001 — same tolerance as the import path
+                skipped += 1
+                self.stderr.write(self.style.WARNING(f"skip {container_path.name}: {exc}"))
+
+        self.stdout.write(f"scanned containers: {scanned}  skipped: {skipped}")
+        if not counts:
+            self.stdout.write(self.style.SUCCESS("no unknown identifiers — every token resolves."))
+            return
+
+        self.stdout.write(self.style.WARNING(f"unknown identifiers ({len(counts)} distinct):"))
+        # Sort by frequency desc, then name asc so the worst offenders surface first.
+        for name, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+            self.stdout.write(f"  {name:<24} {count:>6}   e.g. {{{{ {examples[name]} }}}}")
+        self.stdout.write(f"total occurrences: {sum(counts.values())}")
 
     def _report(self, stats: dict, dry_run: bool) -> None:
         prefix = "[DRY RUN] " if dry_run else ""

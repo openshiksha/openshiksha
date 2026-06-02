@@ -32,6 +32,7 @@ import math
 import operator as _op
 import random
 import re
+from fractions import Fraction
 from typing import Any, Callable
 
 # Keys assigned by position after shuffling
@@ -219,10 +220,15 @@ _SAFE_BIN_OPS: dict[type, Callable[[Any, Any], Any]] = {
 }
 _SAFE_UNARY_OPS: dict[type, Callable[[Any], Any]] = {ast.USub: _op.neg, ast.UAdd: _op.pos}
 
-# Named constants Cabinet authors reference directly.
+# Named constants Cabinet authors reference directly. ``pi`` / ``e`` aliases
+# match Python's ``math`` module convention; ``pi_val`` / ``e_val`` are the
+# original Cabinet author names. Both surface forms map to the same value so
+# either spelling evaluates safely.
 _SAFE_CONSTS: dict[str, float] = {
     "pi_val": math.pi,
     "e_val": math.e,
+    "pi": math.pi,
+    "e": math.e,
 }
 
 
@@ -248,6 +254,30 @@ _SAFE_FUNCS: dict[str, Callable[..., Any]] = {
     "int": int,
     "float": float,
     "pow": pow,
+    # M7-08: additional pure math helpers Cabinet authors reference.
+    "gcd": math.gcd,
+    "lcm": math.lcm,
+    "factorial": math.factorial,
+    "degrees": math.degrees,
+    "radians": math.radians,
+    "sin": math.sin,
+    "cos": math.cos,
+    "tan": math.tan,
+    "asin": math.asin,
+    "acos": math.acos,
+    "atan": math.atan,
+    "atan2": math.atan2,
+    "log": math.log,
+    "ln": math.log,  # Cabinet authors write `ln` for natural log.
+    "log10": math.log10,
+    "log2": math.log2,
+    "exp": math.exp,
+    # Pure, deterministic value constructors Cabinet expressions rely on:
+    # `Fraction(p, q)` for exact rationals and `str(...)` inside the legacy
+    # `Decimal(str(x))` idiom (Decimal is aliased to float). Both are
+    # side-effect-free and safe to expose to the AST evaluator.
+    "Fraction": Fraction,
+    "str": str,
 }
 
 

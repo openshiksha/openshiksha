@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test-setup.ts'],
+    // Vitest runs unit tests only — Playwright owns e2e/ (see playwright.config.ts).
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },

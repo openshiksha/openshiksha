@@ -515,11 +515,12 @@ class Command(BaseCommand):
         cabinet chapter_ids are reused across standards/subjects) or a flat
         ``"<chapter_id>"`` (legacy / test fixtures); both are honoured.
         """
-        if path is None:
-            path = _DEFAULT_TAXONOMY_PATH if _DEFAULT_TAXONOMY_PATH.is_file() else None
-        if path is None:
+        source: "str | Path | None" = path
+        if source is None and _DEFAULT_TAXONOMY_PATH.is_file():
+            source = _DEFAULT_TAXONOMY_PATH
+        if source is None:
             return {"subjects": {}, "chapters": {}}
-        with open(path, encoding="utf-8") as fh:
+        with open(source, encoding="utf-8") as fh:
             data = json.load(fh)
         return {"subjects": data.get("subjects", {}), "chapters": data.get("chapters", {})}
 

@@ -1,0 +1,7 @@
+{
+  "subpart_index": 0,
+  "type": 1,
+  "content": {"text": "Pick the prime: "},
+  "options": {"correct": {"text": "7"}, "incorrect": [{"text": "8"}, {"text": "9"}]},
+  "variable_constraints": {}
+}

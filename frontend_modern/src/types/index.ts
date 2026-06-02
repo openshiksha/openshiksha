@@ -78,9 +78,17 @@ export interface MCQOption {
   text: string;
 }
 
+/** Answer types a single subpart can have (mirrors backend QuestionType). */
+export type SubpartType = 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric' | 'short_answer';
+
 export interface QuestionSubpart {
   id: number;
   index: number;
+  /**
+   * Per-subpart answer type (M7-03). Blank ('') for hand-authored rows that
+   * predate the field — callers fall back to the parent Question.question_type.
+   */
+  subpart_type?: SubpartType | '';
   tags: QuestionTag[];
   question_text: string;
   options: MCQOption[] | null;
@@ -112,7 +120,8 @@ export interface Question {
   subject_name?: string;
   chapter: number;
   chapter_name?: string;
-  question_type: 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric';
+  /** 'compound' = subparts have heterogeneous types (M7-03). */
+  question_type: SubpartType | 'compound';
   question_type_display?: string;
   difficulty: number;
   /** Optional shared stem rendered once above the subparts (M7-07). */

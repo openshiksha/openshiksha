@@ -75,8 +75,11 @@ def grade_submission(self, submission_id: int) -> dict:
 
         attempted += 1
         student_answer = answers[answer_key]
+        # M7-03: grade on the per-subpart type, falling back to the question
+        # type for hand-authored rows that predate subpart_type.
+        grading_type = subpart.subpart_type or subpart.question.question_type
         mark = _grade_subpart(
-            subpart.question.question_type,
+            grading_type,
             student_answer,
             subpart.correct_answer,
             student_id=student_id,

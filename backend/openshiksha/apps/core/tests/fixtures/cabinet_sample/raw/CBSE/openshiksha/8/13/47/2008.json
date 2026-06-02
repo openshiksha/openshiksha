@@ -1,0 +1,7 @@
+{
+  "subpart_index": 1,
+  "type": 3,
+  "content": {"text": "Compute 2+2"},
+  "answer": {"value": "4"},
+  "variable_constraints": {}
+}

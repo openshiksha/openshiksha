@@ -341,6 +341,9 @@ class QuestionType(models.TextChoices):
     MULTI_SELECT = "multi_select", "Multi Select"
     NUMERIC = "numeric", "Numeric Answer"
     SHORT_ANSWER = "short_answer", "Short Answer"
+    # M7-03: summary type for a Question whose subparts have heterogeneous types.
+    # Only ever set on Question.question_type — never on a single subpart.
+    COMPOUND = "compound", "Compound (mixed subpart types)"
 
 
 class Question(models.Model):
@@ -435,6 +438,18 @@ class QuestionSubpart(models.Model):
         related_name="subparts",
     )
     index = models.PositiveIntegerField(help_text="Order within question (0-indexed)")
+    subpart_type = models.CharField(
+        max_length=20,
+        choices=QuestionType.choices,
+        blank=True,
+        default="",
+        help_text=(
+            "Per-subpart answer type (mcq / numeric / fill_blank / …). Cabinet "
+            "stored type per subpart; the modern flat Question.question_type lost "
+            "it. The grader and the student widget dispatch on this, falling back "
+            "to the parent Question.question_type when blank (hand-authored rows)."
+        ),
+    )
     tags = models.ManyToManyField(QuestionTag, blank=True, related_name="subparts")
     question_text = models.TextField(
         blank=True,

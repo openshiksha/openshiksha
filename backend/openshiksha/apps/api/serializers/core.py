@@ -109,6 +109,7 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "index",
+            "subpart_type",
             "tags",
             "question_text",
             "options",
@@ -136,7 +137,17 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options", "image_url", "solution_text", "hint_text"]
+        fields = [
+            "id",
+            "index",
+            "subpart_type",
+            "tags",
+            "question_text",
+            "options",
+            "image_url",
+            "solution_text",
+            "hint_text",
+        ]
 
     def to_representation(self, instance):
         from openshiksha.apps.api.croupier import (
@@ -248,6 +259,7 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
         model = QuestionSubpart
         fields = [
             "index",
+            "subpart_type",
             "question_text",
             "options",
             "correct_answer",
@@ -256,6 +268,7 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
             "hint_text",
         ]
         extra_kwargs = {
+            "subpart_type": {"required": False},
             "solution_text": {"required": False},
             "hint_text": {"required": False},
         }

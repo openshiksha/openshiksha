@@ -186,6 +186,38 @@ $ SELECT COUNT(*) FROM chapters WHERE name LIKE 'Imported Chapter %';   -- 51
 - Mapping legacy MySQL IDs to a static dictionary; the inference is
   the deliverable.
 
+### M7-11 — Interactive-widget support (sandboxed) — *additive, not in original DoD*
+
+**Problem**: Exactly **one** source question embeds an interactive widget — the
+Class 11 Physics Thermodynamics piston/First-Law simulation
+(`questions/raw/1/1/11/3/44/22.json`): SVG + inline jQuery `<script>` with a heat
+slider (toggles fire/ice) and press-and-hold piston arrows driving a live
+`ΔU = ΔQ − ΔW` readout. The M7-04 DOMPurify path correctly strips the `<script>`,
+**silently killing the interactivity**. (18 other questions use *static* `<svg>`
+diagrams that already survive sanitisation — those need no work.)
+
+**Fix** (full spec in the 2026-06-01 daily plan, items 6a/6b):
+- **6a (backend):** importer detects `<script>`/`on*=` handlers, stores the raw
+  HTML in a new `QuestionSubpart.interactive_html` behind an `is_interactive`
+  flag, and keeps a sanitised, script-free fallback in `question_text`. The raw
+  field is **never** rendered into the app DOM directly.
+- **6b (frontend):** an `InteractiveWidget` host renders flagged subparts in a
+  sandboxed iframe (`sandbox="allow-scripts"`, **never** `allow-same-origin`) with
+  jQuery/jQuery-UI in the srcdoc and image/variable tokens resolved before
+  injection.
+
+> **⚠️ Build 6b's sandbox host for reuse, not as a throwaway.** It is the **seed**
+> for the [Interactive Widgets Framework](interactive-widgets-framework.md)
+> initiative (IW-1 hardens this exact host into the reusable widget runtime;
+> the thermo sim becomes the framework's first registry widget in IW-2). Keep the
+> host/iframe boundary and the host↔widget message shape clean and generic so it
+> can graduate into `@os/widget-sdk` later instead of being rewritten.
+
+**Scope note**: M7-11 is **additive** — it introduces a new content class that was
+not part of this initiative's original Definition of Done. If it slips it does
+**not** block declaring Cabinet Data Fidelity complete (the items below close on
+the original 644-question content). Track it as the immediate follow-on.
+
 ---
 
 ## D. Cross-cutting Definition of Done

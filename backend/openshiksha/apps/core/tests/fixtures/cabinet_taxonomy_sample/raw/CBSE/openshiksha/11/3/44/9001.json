@@ -1,0 +1,7 @@
+{
+  "subpart_index": 0,
+  "type": 3,
+  "content": {"text": "Compute the change in internal energy."},
+  "answer": {"value": "_{{- k + j}}_"},
+  "variable_constraints": {}
+}

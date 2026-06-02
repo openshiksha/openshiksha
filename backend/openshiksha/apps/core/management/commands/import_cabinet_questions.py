@@ -66,6 +66,10 @@ _OPTION_KEYS = [chr(ord("A") + i) for i in range(26)]
 
 DEFAULT_CONSTRAINT = {"min": 1, "max": 9, "integer": True}
 
+# Bundled curated subject/chapter names — used as the default mapping so a plain
+# import produces proper taxonomy (not "Imported Subject/Chapter N" placeholders).
+_DEFAULT_TAXONOMY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "cabinet_taxonomy.json"
+
 # Image extensions Cabinet uses (PNG dominates; JPG/SVG occasionally).
 _IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg")
 
@@ -501,9 +505,22 @@ class Command(BaseCommand):
     # ── helpers ──────────────────────────────────────────────────────────────
 
     def _load_mapping(self, path: str | None) -> dict:
-        if not path:
+        """Load the ID→name mapping.
+
+        With ``--mapping`` the given file is used as-is. Without it, the bundled
+        curated ``data/cabinet_taxonomy.json`` is used by default so a plain
+        import names subjects/chapters properly instead of leaving
+        ``Imported Subject/Chapter N`` placeholders. Chapter keys may be either
+        the composite ``"<standard>:<subject_id>:<chapter_id>"`` form (preferred —
+        cabinet chapter_ids are reused across standards/subjects) or a flat
+        ``"<chapter_id>"`` (legacy / test fixtures); both are honoured.
+        """
+        source: "str | Path | None" = path
+        if source is None and _DEFAULT_TAXONOMY_PATH.is_file():
+            source = _DEFAULT_TAXONOMY_PATH
+        if source is None:
             return {"subjects": {}, "chapters": {}}
-        with open(path, encoding="utf-8") as fh:
+        with open(source, encoding="utf-8") as fh:
             data = json.load(fh)
         return {"subjects": data.get("subjects", {}), "chapters": data.get("chapters", {})}
 
@@ -533,7 +550,17 @@ class Command(BaseCommand):
         if s_created:
             stats["subjects"] += 1
 
-        chapter_name = mapping["chapters"].get(str(ids["chapter_id"]), f"Imported Chapter {ids['chapter_id']}")
+        # Chapter ids are reused across standards/subjects (e.g. chapter 44 is
+        # Physics-Thermo for subject 3 but Chemistry-Thermo for subject 4), so
+        # prefer the composite key; fall back to the flat chapter_id, then to a
+        # placeholder.
+        chapters = mapping["chapters"]
+        composite_key = f"{ids['standard']}:{ids['subject_id']}:{ids['chapter_id']}"
+        chapter_name = (
+            chapters.get(composite_key)
+            or chapters.get(str(ids["chapter_id"]))
+            or f"Imported Chapter {ids['chapter_id']}"
+        )
         chapter, c_created = Chapter.objects.get_or_create(subject=subject, standard=standard, name=chapter_name)
         if c_created:
             stats["chapters"] += 1

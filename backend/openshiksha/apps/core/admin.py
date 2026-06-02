@@ -105,6 +105,7 @@ class QuestionSubpartInline(admin.TabularInline):
     extra = 1
     fields = [
         "index",
+        "subpart_type",
         "question_text",
         "image_url",
         "options",

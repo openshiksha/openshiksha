@@ -191,8 +191,8 @@ class TestImportCommand:
     def test_malformed_question_skipped(self):
         out, err = StringIO(), StringIO()
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=err)
-        # 5 valid questions import; the type-99 one is skipped.
-        assert Question.objects.count() == 5
+        # 6 valid questions import; the type-99 one is skipped.
+        assert Question.objects.count() == 6
         assert "skip" in err.getvalue()
 
     def test_idempotent_reimport(self):
@@ -200,7 +200,7 @@ class TestImportCommand:
             call_command(
                 "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
             )
-        assert Question.objects.count() == 5
+        assert Question.objects.count() == 6
 
     def test_solution_and_hint_imported(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
@@ -243,6 +243,30 @@ class TestImportCommand:
         assert "#{organ.png}#" not in sp.question_text
         assert '<img src="https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/' in sp.question_text
         assert sp.question_text.rstrip().endswith('alt="organ.png">')
+
+    def test_subpart_type_set_per_subpart(self):
+        """M7-03: every imported subpart carries its own type from the cabinet
+        `type`, not the parent question's flat type."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        assert not QuestionSubpart.objects.filter(subpart_type="").exists()
+        # Q1001 is cabinet type 1 → mcq.
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1001")
+        assert sp.subpart_type == "mcq"
+
+    def test_compound_question_flagged(self):
+        """M7-03: a question with heterogeneous subpart types (mcq + numeric)
+        gets question_type == 'compound', while each subpart keeps its own type."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        q = Question.objects.get(tags__name__endswith=":q1007")
+        assert q.question_type == "compound"
+        types = sorted(sp.subpart_type for sp in q.subparts.all())
+        assert types == ["mcq", "numeric"]
+
+    def test_homogeneous_question_not_compound(self):
+        """A single-type question keeps that type as its summary."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        q = Question.objects.get(tags__name__endswith=":q1001")
+        assert q.question_type == "mcq"
 
     def test_tags_are_chapter_scoped(self):
         """M7-05: tag must include the chapter PK so question_ids reused across

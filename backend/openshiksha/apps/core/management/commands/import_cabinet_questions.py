@@ -300,6 +300,7 @@ def convert_subpart(data: dict, index: int) -> dict:
 
     return {
         "index": index,
+        "subpart_type": q_type.value,  # M7-03: per-subpart type, from the cabinet `type`.
         "question_text": question_text,
         "options": options,
         "correct_answer": correct_answer,
@@ -505,7 +506,14 @@ class Command(BaseCommand):
 
             converted.append(fields)
 
-        q_type = converted[0]["_question_type"]
+        # M7-03: the question summary type is the unanimous subpart type, or
+        # "compound" when the subparts are heterogeneous.
+        subpart_types = {f["_question_type"].value for f in converted}
+        if len(subpart_types) == 1:
+            q_type = next(iter(subpart_types))
+        else:
+            q_type = QuestionType.COMPOUND.value
+            stats["compound"] = stats.get("compound", 0) + 1
         standard, subject, chapter = self._resolve_taxonomy(ids, mapping, stats)
 
         stem_text = _lift_shared_stem(converted) if len(converted) > 1 else ""
@@ -550,6 +558,6 @@ class Command(BaseCommand):
                 f"skipped={stats['skipped']} "
                 f"new_subjects={stats['subjects']} new_chapters={stats['chapters']} "
                 f"images={stats.get('images', 0)} stems={stats.get('stems', 0)} "
-                f"inline_images={stats.get('inline_images', 0)}"
+                f"inline_images={stats.get('inline_images', 0)} compound={stats.get('compound', 0)}"
             )
         )

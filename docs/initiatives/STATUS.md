@@ -23,6 +23,11 @@
 These are candidate long-horizon goals. Promote one to its own doc when it
 becomes the right next bet.
 
+- **[Interactive Widgets Framework](interactive-widgets-framework.md)** —
+  ⚪ written up. A registry + sandboxed runtime + authoring UX so new interactive
+  educational widgets (the thermo piston sim and successors) are easy to build and
+  safe to render. Seeded by Cabinet Data Fidelity's M7-11 sandbox primitive;
+  promote once that ships.
 - **Mobile shell** — bottom tab bar, route-level mobile layouts, PWA install.
 - **AI tutor surface** — student-facing conversational help over the existing
   hint + explanation backends.

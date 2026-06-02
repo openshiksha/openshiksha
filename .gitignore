@@ -29,6 +29,9 @@ frontend_modern/.turbo/
 frontend_modern/coverage/
 frontend_modern/.nyc_output/
 frontend_modern/.cache/
+frontend_modern/test-results/
+frontend_modern/playwright-report/
+frontend_modern/playwright/.cache/
 
 # Backend (Python / Django)
 backend/__pycache__/

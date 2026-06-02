@@ -11,6 +11,8 @@ from .views import (
     KnowledgeNodeViewSet,
     LearningGapViewSet,
     LearningPathViewSet,
+    OpenResponseGradeViewSet,
+    OpenResponseRubricViewSet,
     ParentProgressSummaryViewSet,
     PerformancePredictionViewSet,
     PracticePlanViewSet,
@@ -50,5 +52,8 @@ router.register("misconception-clusters", ClassMisconceptionClusterViewSet, base
 router.register("parent-summaries", ParentProgressSummaryViewSet, basename="parent-summary")
 # Teacher AI Assistant — Auto-Drafted Assignments (teacher-only)
 router.register("assignment-drafts", AssignmentDraftViewSet, basename="assignment-draft")
+# Teacher AI Assistant — Open-Ended Response Grading (teacher-only)
+router.register("open-rubrics", OpenResponseRubricViewSet, basename="open-response-rubric")
+router.register("open-grades", OpenResponseGradeViewSet, basename="open-response-grade")
 
 urlpatterns = router.urls

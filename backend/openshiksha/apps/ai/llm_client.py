@@ -1182,3 +1182,208 @@ def generate_parent_summary(stats: dict, language: str = "en") -> dict:
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Open-Ended Response Grading
+# ─────────────────────────────────────────────────────────────
+
+OPEN_GRADE_MAX_TOKENS = 600
+
+_OPEN_GRADE_TOOL = {
+    "name": "save_grade",
+    "description": "Save the suggested grade for a student's free-text answer.",
+    "input_schema": {
+        "type": "object",
+        "required": ["score", "feedback", "confidence"],
+        "properties": {
+            "score": {
+                "type": "number",
+                "description": "Marks awarded, between 0 and the stated maximum.",
+            },
+            "feedback": {
+                "type": "string",
+                "description": "Brief, encouraging feedback for the student (2-4 sentences).",
+            },
+            "confidence": {
+                "type": "number",
+                "description": "Your confidence in this score from 0 to 1.",
+            },
+            "criterion_scores": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["label", "awarded", "max"],
+                    "properties": {
+                        "label": {"type": "string"},
+                        "awarded": {"type": "number"},
+                        "max": {"type": "number"},
+                        "comment": {"type": "string"},
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+def _build_open_grade_prompt(
+    question_text: str,
+    model_answer: str,
+    criteria: list[dict],
+    response_text: str,
+    max_marks: int,
+    grade_level: int,
+) -> str:
+    tier = _grade_tier(grade_level)
+    model_block = f"Model answer:\n{model_answer}\n\n" if model_answer else ""
+    if criteria:
+        crit_lines = "\n".join(
+            f"- {c.get('label', 'point')} ({c.get('marks', 0)} marks): {c.get('description', '')}".rstrip()
+            for c in criteria
+        )
+        criteria_block = (
+            f"Marking rubric (award per point, partial credit allowed):\n{crit_lines}\n\n"
+            f"Return a criterion_scores entry for each rubric point.\n\n"
+        )
+    else:
+        criteria_block = ""
+    return (
+        f"You are a fair, supportive teacher grading a short written answer from a "
+        f"student in {tier}\n\n"
+        f"Question: {question_text}\n\n"
+        f"{model_block}"
+        f"{criteria_block}"
+        f"Student's answer:\n{response_text}\n\n"
+        f"Grade the answer out of {max_marks} marks. Reward correct ideas even if the "
+        f"wording differs from the model answer; do not penalise spelling or phrasing. "
+        f"Award partial credit where the student is partly right. Keep feedback "
+        f"encouraging and specific about what to improve.\n\n"
+        f"Call save_grade with your result."
+    )
+
+
+def _keyword_overlap_score(model_answer: str, response_text: str, max_marks: int) -> float:
+    """Deterministic stub: fraction of model-answer keywords present in the response."""
+    import re
+
+    def _keywords(text: str) -> set[str]:
+        return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 3}
+
+    model_kw = _keywords(model_answer)
+    if not model_kw:
+        # No model answer to compare against — neutral half credit, low confidence.
+        return round(max_marks * 0.5, 2)
+    response_kw = _keywords(response_text)
+    overlap = len(model_kw & response_kw) / len(model_kw)
+    return round(max_marks * overlap, 2)
+
+
+def _stub_open_grade(model_answer: str, response_text: str, max_marks: int) -> dict:
+    score = _keyword_overlap_score(model_answer, response_text, max_marks)
+    if score >= max_marks * 0.75:
+        feedback = "Strong answer — it covers the key ideas. Review the model answer to polish the details."
+    elif score >= max_marks * 0.4:
+        feedback = "A reasonable attempt that captures some key points. Revisit the chapter to fill the gaps."
+    else:
+        feedback = "This answer misses several key ideas. Re-read the worked example and try explaining it again."
+    return {
+        "score": score,
+        "feedback": feedback,
+        "confidence": 0.3,  # heuristic — flag for teacher review
+        "criterion_scores": [],
+    }
+
+
+def _shape_open_grade(data: dict, max_marks: int, model: str, in_tok: int, out_tok: int) -> dict:
+    try:
+        score = float(data.get("score", 0))
+    except (TypeError, ValueError):
+        score = 0.0
+    score = max(0.0, min(score, float(max_marks)))
+    try:
+        confidence = float(data.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
+    confidence = max(0.0, min(confidence, 1.0))
+    raw_criteria = data.get("criterion_scores")
+    criterion_scores = raw_criteria if isinstance(raw_criteria, list) else []
+    return {
+        "score": round(score, 2),
+        "feedback": str(data.get("feedback", "")).strip(),
+        "confidence": round(confidence, 2),
+        "criterion_scores": criterion_scores,
+        "model": model,
+        "input_tokens": in_tok,
+        "output_tokens": out_tok,
+    }
+
+
+def grade_open_response(
+    question_text: str,
+    model_answer: str,
+    criteria: list[dict],
+    response_text: str,
+    max_marks: int = 5,
+    grade_level: int = 8,
+) -> dict:
+    """
+    Suggest a grade for a student's free-text answer.
+
+    Uses the standard provider cascade (Claude tool-use → Gemma/Ollama JSON →
+    deterministic keyword-overlap stub) so it always returns a usable suggestion
+    even with no LLM provider configured. The teacher reviews and can override.
+
+    Returns:
+        {"score": float, "feedback": str, "confidence": float,
+         "criterion_scores": list, "model": str,
+         "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_open_grade_prompt(question_text, model_answer, criteria, response_text, max_marks, grade_level)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _OPEN_GRADE_TOOL, OPEN_GRADE_MAX_TOKENS)
+            if result:
+                return _shape_open_grade(
+                    result["data"], max_marks, result["model"], result["input_tokens"], result["output_tokens"]
+                )
+        except Exception:
+            logger.exception("grade_open_response: Anthropic failed, trying next provider")
+
+    json_hint = (
+        "\n\nRespond ONLY with JSON: "
+        '{"score": number, "feedback": "...", "confidence": number, '
+        '"criterion_scores": [{"label": "...", "awarded": number, "max": number, "comment": "..."}]}'
+    )
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            import json as _json
+
+            res = _call_google_gemma(prompt + json_hint, google_key)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return _shape_open_grade(
+                _json.loads(text), max_marks, res["model"], res["input_tokens"], res["output_tokens"]
+            )
+        except Exception:
+            logger.exception("grade_open_response: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            import json as _json
+
+            res = _call_ollama(prompt + json_hint, ollama_url)
+            text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
+            return _shape_open_grade(
+                _json.loads(text), max_marks, res["model"], res["input_tokens"], res["output_tokens"]
+            )
+        except Exception:
+            logger.exception("grade_open_response: Ollama failed, falling back to stub")
+
+    logger.warning("grade_open_response: no LLM provider available — returning stub")
+    stub = _stub_open_grade(model_answer, response_text, max_marks)
+    return {**stub, "model": "stub", "input_tokens": 0, "output_tokens": 0}

@@ -1440,3 +1440,212 @@ class AssignmentDraft(models.Model):
     def is_actionable(self) -> bool:
         """True when the teacher can still approve or dismiss this draft."""
         return self.status == AssignmentDraftStatus.READY
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Open-Ended Response Grading
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class OpenResponseRubric(models.Model):
+    """
+    A grading rubric a teacher attaches to a short-answer (open-ended) subpart.
+
+    Multiple-choice and numeric answers grade themselves by string/float
+    comparison, but free-text answers do not — a student can be fully right while
+    phrasing things completely differently from any stored key. This model gives
+    the AI grader (and the teacher) the context it needs to score fairly:
+
+    - ``model_answer`` is the ideal response the AI compares against.
+    - ``criteria`` is an optional analytic breakdown — a list of marking points,
+      each worth some marks — so the AI can award partial credit transparently
+      and the teacher can see *why* a score was suggested.
+
+    One rubric per subpart (the subpart's ``question_text`` supplies the prompt).
+    Without a rubric the grader still works, falling back to ``model_answer`` only
+    or, failing that, a keyword-overlap heuristic.
+    """
+
+    subpart = models.OneToOneField(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="open_response_rubric",
+        help_text="The short-answer subpart this rubric grades.",
+    )
+    max_marks = models.PositiveSmallIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+        help_text="Total marks an answer can earn.",
+    )
+    model_answer = models.TextField(
+        blank=True,
+        default="",
+        help_text="The ideal/expected answer the AI grades responses against.",
+    )
+    criteria = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Optional analytic rubric points: "
+            '[{"label": "...", "description": "...", "marks": 2}]. '
+            "Marks should sum to max_marks; the grader awards per-point credit."
+        ),
+    )
+    created_by = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="open_response_rubrics_created",
+        limit_choices_to={"role": "teacher"},
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_open_response_rubrics"
+        indexes = [
+            models.Index(fields=["subpart"]),
+        ]
+
+    def __str__(self):
+        return f"Rubric for subpart #{self.subpart_id} ({self.max_marks} marks)"
+
+
+class OpenResponseGradeStatus(models.TextChoices):
+    PENDING = "pending", "Awaiting AI grading"
+    AI_GRADED = "ai_graded", "AI-graded, awaiting teacher review"
+    REVIEWED = "reviewed", "Teacher-reviewed (final)"
+    FAILED = "failed", "Grading failed"
+
+
+class OpenResponseGrade(models.Model):
+    """
+    A single student's free-text answer plus its AI-suggested grade.
+
+    The flow is **AI-assisted**, never fully automatic: the LLM cascade
+    (Claude → Gemma → Ollama → heuristic stub) proposes a score, plain-language
+    feedback, and an optional per-criterion breakdown; the teacher then reviews
+    and can accept or override it. ``effective_score`` resolves to the teacher's
+    ``final_score`` once reviewed, otherwise the AI's ``suggested_score`` — so the
+    record is always usable while keeping the human firmly in the loop.
+
+    The response is captured independently of the core grading pipeline (short
+    answers auto-grade to 0 there), keeping this feature self-contained: a
+    response can be entered by the teacher or fed in from any future submission
+    integration. ``subject_room`` scopes ownership to the teacher who teaches it.
+    """
+
+    subpart = models.ForeignKey(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="open_response_grades",
+    )
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="open_response_grades",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="open_response_grades",
+        help_text="Room this response belongs to — scopes teacher ownership.",
+    )
+    assignment = models.ForeignKey(
+        "core.Assignment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="open_response_grades",
+    )
+
+    response_text = models.TextField(
+        help_text="The student's free-text answer being graded.",
+    )
+
+    status = models.CharField(
+        max_length=10,
+        choices=OpenResponseGradeStatus.choices,
+        default=OpenResponseGradeStatus.PENDING,
+    )
+
+    # ── AI-suggested grade ────────────────────────────────────────────────────
+    max_marks = models.PositiveSmallIntegerField(
+        default=5,
+        help_text="Snapshot of the rubric's max marks at grading time.",
+    )
+    suggested_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="AI-suggested marks (0..max_marks). Null until graded.",
+    )
+    feedback = models.TextField(
+        blank=True,
+        default="",
+        help_text="AI plain-language feedback for the student.",
+    )
+    criterion_scores = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Per-criterion award: [{"label", "awarded", "max", "comment"}].',
+    )
+    confidence = models.FloatField(
+        null=True,
+        blank=True,
+        validators=FRACTION_VALIDATOR,
+        help_text="AI confidence in its suggested score (0..1).",
+    )
+
+    # ── Teacher review ────────────────────────────────────────────────────────
+    final_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Teacher's final marks. Set on review; overrides suggested_score.",
+    )
+    teacher_comment = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional teacher note added during review.",
+    )
+    reviewed_by = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="open_response_grades_reviewed",
+        limit_choices_to={"role": "teacher"},
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    model_used = models.CharField(max_length=60, default="stub")
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    error_detail = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_open_response_grades"
+        indexes = [
+            models.Index(fields=["subject_room", "status"]),
+            models.Index(fields=["student", "-created_at"]),
+            models.Index(fields=["subpart", "student"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"OpenResponseGrade #{self.pk} | {self.student} | subpart {self.subpart_id} | {self.status}"
+
+    @property
+    def effective_score(self) -> float | None:
+        """The score that counts: teacher's final if reviewed, else the AI's."""
+        if self.final_score is not None:
+            return self.final_score
+        return self.suggested_score
+
+    @property
+    def is_reviewed(self) -> bool:
+        return self.status == OpenResponseGradeStatus.REVIEWED

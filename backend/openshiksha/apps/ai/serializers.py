@@ -12,6 +12,8 @@ from .models import (
     LearningGap,
     LearningPath,
     LearningPathStep,
+    OpenResponseGrade,
+    OpenResponseRubric,
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
@@ -537,3 +539,85 @@ class ApproveAssignmentDraftSerializer(serializers.Serializer):
 
     due_at = serializers.DateTimeField()
     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Open-Ended Response Grading
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class OpenResponseRubricSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="subpart.question_text", read_only=True)
+
+    class Meta:
+        model = OpenResponseRubric
+        fields = [
+            "id",
+            "subpart",
+            "question_text",
+            "max_marks",
+            "model_answer",
+            "criteria",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+
+class OpenResponseGradeSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.get_full_name", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    question_text = serializers.CharField(source="subpart.question_text", read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    effective_score = serializers.FloatField(read_only=True)
+    is_reviewed = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = OpenResponseGrade
+        fields = [
+            "id",
+            "subpart",
+            "question_text",
+            "student",
+            "student_name",
+            "student_username",
+            "subject_room",
+            "subject_name",
+            "assignment",
+            "response_text",
+            "status",
+            "max_marks",
+            "suggested_score",
+            "feedback",
+            "criterion_scores",
+            "confidence",
+            "final_score",
+            "teacher_comment",
+            "reviewed_by",
+            "reviewed_at",
+            "effective_score",
+            "is_reviewed",
+            "model_used",
+            "error_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class SubmitOpenResponseSerializer(serializers.Serializer):
+    """Request body for recording a student's free-text answer for AI grading."""
+
+    subpart_id = serializers.IntegerField()
+    student_id = serializers.IntegerField()
+    subject_room_id = serializers.IntegerField()
+    assignment_id = serializers.IntegerField(required=False, allow_null=True)
+    response_text = serializers.CharField()
+
+
+class ReviewOpenResponseSerializer(serializers.Serializer):
+    """Request body for a teacher finalising an AI-suggested grade."""
+
+    final_score = serializers.FloatField(min_value=0)
+    teacher_comment = serializers.CharField(required=False, allow_blank=True)

@@ -70,6 +70,61 @@ _IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg")
 _CABINET_RAW_BASE = "https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/questions/raw"
 
 
+# Cabinet's inline-image mechanisms inside HTML question/solution/hint bodies:
+#   - `#{8.gif}#` token (the actual format used by authors), and
+#   - a relative `<img src="x.png">` (defensive — none exist in the current bank
+#     but the rewrite is correct if any are added later).
+# Both resolve to an absolute raw.githubusercontent.com URL so the content is
+# self-hosted with no Cabinet microservice. Absolute http(s) srcs are untouched.
+_INLINE_IMG_TOKEN = re.compile(r"#\{([^{}#]+)\}#")
+_REL_IMG_SRC = re.compile(r'(<img\b[^>]*?\bsrc=")(?!https?://)([^"]+)(")', re.IGNORECASE)
+
+
+def _resolve_inline_filename(raw_dir, filename: str) -> "str | None":
+    """Return the chapter-relative subpath for an inline image filename, or None.
+
+    Mirrors ``_find_subpart_image``: checks a sibling of the JSON first, then the
+    ``img/`` subdirectory (Cabinet's two storage conventions).
+    """
+    if (raw_dir / filename).is_file():
+        return filename
+    if (raw_dir / "img" / filename).is_file():
+        return f"img/{filename}"
+    return None
+
+
+def rewrite_inline_images(text: str, raw_dir, chapter_base: str) -> str:
+    """Rewrite Cabinet inline image references to absolute raw-GitHub ``<img>`` tags.
+
+    - ``#{name.ext}#`` token  → ``<img src="<abs>" alt="name.ext">``
+    - relative ``<img src="x">`` → absolute ``<img src="<abs>">``
+
+    ``chapter_base`` is the raw URL prefix up to the chapter directory. A
+    reference that can't be resolved on disk is left untouched (so the importer
+    never invents a broken URL; the fidelity audit can flag the residual).
+    """
+    if not text:
+        return text or ""
+
+    def _token(m: "re.Match[str]") -> str:
+        fn = m.group(1).strip()
+        rel = _resolve_inline_filename(raw_dir, fn)
+        if rel is None:
+            return m.group(0)
+        return f'<img src="{chapter_base}/{rel}" alt="{fn}">'
+
+    def _relsrc(m: "re.Match[str]") -> str:
+        fn = m.group(2).strip()
+        rel = _resolve_inline_filename(raw_dir, fn)
+        if rel is None:
+            return m.group(0)
+        return f"{m.group(1)}{chapter_base}/{rel}{m.group(3)}"
+
+    text = _INLINE_IMG_TOKEN.sub(_token, text)
+    text = _REL_IMG_SRC.sub(_relsrc, text)
+    return text
+
+
 def _find_subpart_image(raw_dir, sp_id) -> "tuple[str, str] | None":
     """
     Locate the image (if any) belonging to a cabinet subpart.
@@ -419,11 +474,25 @@ class Command(BaseCommand):
         if not subpart_ids:
             raise ValueError("container has no subparts")
 
+        # Raw URL prefix up to this chapter's directory (M7-06 inline images).
+        chapter_base = (
+            f"{_CABINET_RAW_BASE}/{ids['board']}/{ids['school']}/{ids['standard']}/"
+            f"{ids['subject_id']}/{ids['chapter_id']}"
+        )
+
         converted = []
         for index, sp_id in enumerate(subpart_ids):
             sp_path = ids["raw_dir"] / f"{sp_id}.json"
             with open(sp_path, encoding="utf-8") as fh:
                 fields = convert_subpart(json.load(fh), index)
+
+            # M7-06: rewrite inline image references (`#{name}#` tokens / relative
+            # `<img src>`) embedded in the HTML body to absolute raw-GitHub URLs.
+            for field in ("question_text", "solution_text", "hint_text"):
+                rewritten = rewrite_inline_images(fields.get(field, ""), ids["raw_dir"], chapter_base)
+                if rewritten != fields.get(field, ""):
+                    stats["inline_images"] = stats.get("inline_images", 0) + 1
+                fields[field] = rewritten
 
             # Image discovery — attach a raw.githubusercontent.com URL if a
             # matching image file lives in the chapter's raw directory (either
@@ -431,10 +500,7 @@ class Command(BaseCommand):
             found = _find_subpart_image(ids["raw_dir"], sp_id)
             if found:
                 rel_path, _ext = found
-                fields["image_url"] = (
-                    f"{_CABINET_RAW_BASE}/{ids['board']}/{ids['school']}/{ids['standard']}/"
-                    f"{ids['subject_id']}/{ids['chapter_id']}/{rel_path}"
-                )
+                fields["image_url"] = f"{chapter_base}/{rel_path}"
                 stats["images"] = stats.get("images", 0) + 1
 
             converted.append(fields)
@@ -483,6 +549,7 @@ class Command(BaseCommand):
                 f"{prefix}imported={stats['imported']} updated={stats['updated']} "
                 f"skipped={stats['skipped']} "
                 f"new_subjects={stats['subjects']} new_chapters={stats['chapters']} "
-                f"images={stats.get('images', 0)} stems={stats.get('stems', 0)}"
+                f"images={stats.get('images', 0)} stems={stats.get('stems', 0)} "
+                f"inline_images={stats.get('inline_images', 0)}"
             )
         )

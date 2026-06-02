@@ -22,6 +22,24 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ['href', 'src', 'alt', 'width', 'height', 'title', 'class', 'colspan', 'rowspan'];
 
+// M7-06: only http(s) image sources survive. Cabinet inline `<img>` paths are
+// rewritten to absolute raw.githubusercontent.com URLs at import time, so any
+// non-http(s) `src` (relative leftovers, `data:` SVG payloads, `javascript:`)
+// is an XSS vector or a guaranteed broken image — drop the attribute entirely.
+// Registered once at module load; DOMPurify hooks are process-global.
+const HTTP_SRC = /^https?:\/\//i;
+let imgSrcHookRegistered = false;
+function ensureImgSrcHook(): void {
+  if (imgSrcHookRegistered) return;
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.nodeName === 'IMG' && node.hasAttribute('src')) {
+      const src = node.getAttribute('src') ?? '';
+      if (!HTTP_SRC.test(src)) node.removeAttribute('src');
+    }
+  });
+  imgSrcHookRegistered = true;
+}
+
 // `exprGroup: 0` means feed the entire match to KaTeX (used for un-delimited
 // `\begin{X}…\end{X}` environments where the begin/end tokens are part of the
 // LaTeX source). `exprGroup: 1` strips the surrounding delimiter.
@@ -120,6 +138,7 @@ function injectMath(fragment: DocumentFragment): string {
 export function renderRichContent(text: string): string {
   if (!text) return '';
 
+  ensureImgSrcHook();
   const cleanHtml = DOMPurify.sanitize(text, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,

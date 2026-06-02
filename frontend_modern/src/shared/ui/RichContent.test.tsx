@@ -42,6 +42,29 @@ describe('renderRichContent', () => {
     expect(html).not.toContain('javascript:');
   });
 
+  // M7-06: only http(s) image srcs survive; everything else has its src dropped.
+  it('keeps https image src untouched', () => {
+    const html = renderRichContent('<img src="https://cdn.example/x.png" alt="x" />');
+    expect(html).toContain('src="https://cdn.example/x.png"');
+  });
+
+  it('keeps http image src untouched', () => {
+    const html = renderRichContent('<img src="http://cdn.example/x.png" alt="x" />');
+    expect(html).toContain('src="http://cdn.example/x.png"');
+  });
+
+  it('drops a relative image src (would resolve wrong / never set by importer)', () => {
+    const html = renderRichContent('<img src="diagram.png" alt="x" />');
+    expect(html).not.toContain('src="diagram.png"');
+  });
+
+  it('drops a data: image src (SVG XSS vector)', () => {
+    const html = renderRichContent(
+      '<img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=" alt="x" />'
+    );
+    expect(html).not.toContain('data:image');
+  });
+
   it('keeps allowlisted tags (strong, em, sup, sub, img, ul/li, table)', () => {
     const html = renderRichContent(
       '<p><strong>A</strong> <em>b</em> H<sub>2</sub>O x<sup>2</sup></p>' +

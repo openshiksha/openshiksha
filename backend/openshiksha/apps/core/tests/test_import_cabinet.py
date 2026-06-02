@@ -15,6 +15,7 @@ from openshiksha.apps.core.management.commands.import_cabinet_questions import (
     convert_pow,
     convert_subpart,
     convert_tokens,
+    rewrite_inline_images,
 )
 from openshiksha.apps.core.models import Chapter, Question, QuestionSubpart, Subject
 
@@ -125,6 +126,47 @@ class TestSubpartConversion:
         assert out["correct_answer"] == {"type": "fill_blank", "answer": "mitochondria"}
 
 
+class TestInlineImageRewrite:
+    """M7-06: `rewrite_inline_images` resolves Cabinet inline references against
+    the chapter raw dir and rewrites them to absolute raw-GitHub `<img>` tags."""
+
+    BASE = "https://cdn.example/raw/CBSE/openshiksha/8/13/47"
+
+    def _raw_dir(self, tmp_path, *, sibling=None, nested=None):
+        if sibling:
+            (tmp_path / sibling).write_text("x")
+        if nested:
+            (tmp_path / "img").mkdir(exist_ok=True)
+            (tmp_path / "img" / nested).write_text("x")
+        return tmp_path
+
+    def test_token_resolves_to_img_subdir(self, tmp_path):
+        raw = self._raw_dir(tmp_path, nested="d.png")
+        out = rewrite_inline_images("see #{d.png}# here", raw, self.BASE)
+        assert out == f'see <img src="{self.BASE}/img/d.png" alt="d.png"> here'
+
+    def test_token_resolves_to_sibling(self, tmp_path):
+        raw = self._raw_dir(tmp_path, sibling="d.png")
+        out = rewrite_inline_images("#{d.png}#", raw, self.BASE)
+        assert out == f'<img src="{self.BASE}/d.png" alt="d.png">'
+
+    def test_unresolvable_token_left_untouched(self, tmp_path):
+        out = rewrite_inline_images("#{missing.png}#", tmp_path, self.BASE)
+        assert out == "#{missing.png}#"
+
+    def test_relative_img_src_rewritten(self, tmp_path):
+        raw = self._raw_dir(tmp_path, nested="d.png")
+        out = rewrite_inline_images('<img src="d.png">', raw, self.BASE)
+        assert out == f'<img src="{self.BASE}/img/d.png">'
+
+    def test_absolute_img_src_untouched(self, tmp_path):
+        out = rewrite_inline_images('<img src="https://x/y.png">', tmp_path, self.BASE)
+        assert out == '<img src="https://x/y.png">'
+
+    def test_empty_text(self, tmp_path):
+        assert rewrite_inline_images("", tmp_path, self.BASE) == ""
+
+
 # ── Management command (DB) ──────────────────────────────────────────────────
 
 
@@ -149,8 +191,8 @@ class TestImportCommand:
     def test_malformed_question_skipped(self):
         out, err = StringIO(), StringIO()
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=err)
-        # 4 valid questions import; the type-99 one is skipped.
-        assert Question.objects.count() == 4
+        # 5 valid questions import; the type-99 one is skipped.
+        assert Question.objects.count() == 5
         assert "skip" in err.getvalue()
 
     def test_idempotent_reimport(self):
@@ -158,7 +200,7 @@ class TestImportCommand:
             call_command(
                 "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
             )
-        assert Question.objects.count() == 4
+        assert Question.objects.count() == 5
 
     def test_solution_and_hint_imported(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
@@ -192,6 +234,15 @@ class TestImportCommand:
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
         sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1003")
         assert sp.image_url == ""
+
+    def test_inline_image_token_rewritten_to_absolute_img(self):
+        """M7-06: a `#{name}#` inline-image token in the HTML body becomes an
+        absolute raw.githubusercontent.com `<img>` tag."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1006")
+        assert "#{organ.png}#" not in sp.question_text
+        assert '<img src="https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/' in sp.question_text
+        assert sp.question_text.rstrip().endswith('alt="organ.png">')
 
     def test_tags_are_chapter_scoped(self):
         """M7-05: tag must include the chapter PK so question_ids reused across

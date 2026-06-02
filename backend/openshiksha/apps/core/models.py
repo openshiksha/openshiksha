@@ -492,6 +492,28 @@ class QuestionSubpart(models.Model):
         default="",
         help_text=("Progressive hint shown to struggling students. " "Populated by Cabinet import or teacher."),
     )
+    is_interactive = models.BooleanField(
+        default=False,
+        help_text=(
+            "True when this subpart carries an authored interactive widget "
+            "(embedded <script>/event handlers). The widget HTML lives in "
+            "interactive_html and is rendered ONLY inside a sandboxed iframe "
+            "(M7-11). question_text holds a safe, script-free fallback."
+        ),
+    )
+    interactive_html = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Raw authored widget HTML (may contain <script>). SECURITY: stored "
+            "raw on purpose — NEVER render this into the app DOM or via "
+            "dangerouslySetInnerHTML. It is delivered ONLY to a sandboxed "
+            '<iframe sandbox="allow-scripts"> (no allow-same-origin) so the '
+            "script cannot reach app cookies/storage/DOM. {{var}} tokens are "
+            "substituted per student by the serializer; image tokens are "
+            "resolved to absolute URLs at import."
+        ),
+    )
 
     class Meta:
         db_table = "question_subparts"

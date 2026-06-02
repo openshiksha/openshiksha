@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Question, QuestionSubpart, MCQOption, AIHint, SubpartType } from '@/types/index';
-import { RichContent } from '@/shared/ui';
+import { RichContent, InteractiveWidget } from '@/shared/ui';
 import { useHints } from './useHints';
 
 interface QuestionCardProps {
@@ -284,7 +284,15 @@ export const QuestionCard = ({
               </div>
             )}
 
-            {subpart.question_text ? (
+            {subpart.is_interactive && subpart.interactive_html ? (
+              // M7-11: authored interactive widget runs in a sandboxed iframe;
+              // falls back to the sanitised prompt if the widget HTML is absent.
+              <InteractiveWidget
+                html={subpart.interactive_html}
+                fallbackText={subpart.question_text}
+                className="text-sm text-gray-800"
+              />
+            ) : subpart.question_text ? (
               <RichContent
                 text={subpart.question_text}
                 variant="block"

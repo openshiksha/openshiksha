@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { Question, QuestionSubpart, MCQOption, AIHint } from '@/types/index';
+import type { Question, QuestionSubpart, MCQOption, AIHint, SubpartType } from '@/types/index';
 import { RichContent } from '@/shared/ui';
 import { useHints } from './useHints';
 
@@ -126,14 +126,16 @@ function AIHintPanel({ subpartId }: { subpartId: number }) {
 
 interface SubpartInputProps {
   subpart: QuestionSubpart;
-  questionType: Question['question_type'];
+  /** Effective answer type for this subpart (subpart_type, falling back to the
+   *  question's type). Drives which input widget renders. */
+  widgetType: SubpartType | 'compound';
   value: string;
   onChange: (value: string) => void;
   isSubmitted: boolean;
 }
 
-function SubpartInput({ subpart, questionType, value, onChange, isSubmitted }: SubpartInputProps) {
-  if (questionType === 'mcq' && subpart.options) {
+function SubpartInput({ subpart, widgetType, value, onChange, isSubmitted }: SubpartInputProps) {
+  if (widgetType === 'mcq' && subpart.options) {
     return (
       <div className="space-y-2 mt-3">
         {subpart.options.map((opt: MCQOption) => (
@@ -164,7 +166,7 @@ function SubpartInput({ subpart, questionType, value, onChange, isSubmitted }: S
     );
   }
 
-  if (questionType === 'multi_select' && subpart.options) {
+  if (widgetType === 'multi_select' && subpart.options) {
     const selected = value ? value.split(',') : [];
     const toggle = (key: string) => {
       if (isSubmitted) return;
@@ -203,7 +205,7 @@ function SubpartInput({ subpart, questionType, value, onChange, isSubmitted }: S
     );
   }
 
-  if (questionType === 'numeric') {
+  if (widgetType === 'numeric') {
     return (
       <input
         type="number"
@@ -294,7 +296,7 @@ export const QuestionCard = ({
 
             <SubpartInput
               subpart={subpart}
-              questionType={question.question_type}
+              widgetType={subpart.subpart_type || question.question_type}
               value={value}
               onChange={(val) => handleChange(subpart.id, val)}
               isSubmitted={isSubmitted}

@@ -15,7 +15,9 @@ from openshiksha.apps.core.management.commands.import_cabinet_questions import (
     convert_pow,
     convert_subpart,
     convert_tokens,
+    is_interactive_html,
     rewrite_inline_images,
+    strip_interactive,
 )
 from openshiksha.apps.core.models import Chapter, Question, QuestionSubpart, Subject
 
@@ -167,6 +169,45 @@ class TestInlineImageRewrite:
         assert rewrite_inline_images("", tmp_path, self.BASE) == ""
 
 
+class TestInteractiveDetection:
+    """M7-11: detect authored interactive widgets and produce a safe fallback."""
+
+    def test_detects_script(self):
+        assert is_interactive_html("<p>hi</p><script>x()</script>") is True
+
+    def test_detects_event_handler(self):
+        assert is_interactive_html('<button onclick="go()">x</button>') is True
+
+    def test_static_svg_not_interactive(self):
+        assert is_interactive_html("<svg><rect/></svg><p>diagram</p>") is False
+
+    def test_empty_not_interactive(self):
+        assert is_interactive_html("") is False
+
+    def test_strip_removes_script_and_handlers(self):
+        out = strip_interactive('<p>a</p><script>evil()</script><b onclick="x()">c</b>')
+        assert "<script" not in out
+        assert "onclick" not in out
+        assert "<p>a</p>" in out
+
+    def test_convert_subpart_flags_interactive(self):
+        out = convert_subpart(
+            {"type": 3, "content": {"text": "v=_{j}_<script>var x=_{j}_;</script>"}, "answer": {"value": "_{j}_"}},
+            0,
+        )
+        assert out["is_interactive"] is True
+        # interactive_html keeps the script and has tokens converted to {{j}}.
+        assert "<script>" in out["interactive_html"]
+        assert "{{j}}" in out["interactive_html"]
+        # question_text fallback has NO script.
+        assert "<script" not in out["question_text"]
+
+    def test_convert_subpart_normal_not_interactive(self):
+        out = convert_subpart({"type": 4, "content": {"text": "plain"}, "answer": "x"}, 0)
+        assert out["is_interactive"] is False
+        assert out["interactive_html"] == ""
+
+
 # ── Management command (DB) ──────────────────────────────────────────────────
 
 
@@ -191,8 +232,8 @@ class TestImportCommand:
     def test_malformed_question_skipped(self):
         out, err = StringIO(), StringIO()
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=err)
-        # 6 valid questions import; the type-99 one is skipped.
-        assert Question.objects.count() == 6
+        # 7 valid questions import; the type-99 one is skipped.
+        assert Question.objects.count() == 7
         assert "skip" in err.getvalue()
 
     def test_idempotent_reimport(self):
@@ -200,7 +241,7 @@ class TestImportCommand:
             call_command(
                 "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
             )
-        assert Question.objects.count() == 6
+        assert Question.objects.count() == 7
 
     def test_solution_and_hint_imported(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
@@ -267,6 +308,25 @@ class TestImportCommand:
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
         q = Question.objects.get(tags__name__endswith=":q1001")
         assert q.question_type == "mcq"
+
+    def test_interactive_subpart_preserved(self):
+        """M7-11: the interactive fixture (Q1008) imports with is_interactive=True,
+        the raw <script> kept in interactive_html with image tokens resolved to a
+        bare URL, and a script-free question_text fallback."""
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1008")
+        assert sp.is_interactive is True
+        assert "<script>" in sp.interactive_html
+        assert "<script" not in sp.question_text  # fallback is sanitised
+        # #{diagram.png}# resolved to a bare raw-GitHub URL (no <img> wrapper, no token).
+        assert "#{diagram.png}#" not in sp.interactive_html
+        assert "https://raw.githubusercontent.com/openshiksha/openshiksha-cabinet/HEAD/" in sp.interactive_html
+
+    def test_normal_subpart_not_interactive(self):
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
+        sp = QuestionSubpart.objects.get(question__tags__name__endswith=":q1001")
+        assert sp.is_interactive is False
+        assert sp.interactive_html == ""
 
     def test_tags_are_chapter_scoped(self):
         """M7-05: tag must include the chapter PK so question_ids reused across

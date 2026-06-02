@@ -1,0 +1,7 @@
+{
+  "subpart_index": 0,
+  "type": 3,
+  "content": {"text": "<svg width='100'></svg><p>Move the slider; base value is _{j}_.</p><img src='#{diagram.png}#'/><script>var base=_{j}_; document.title='ready';</script>"},
+  "answer": {"value": "_{j}_"},
+  "variable_constraints": {"j": {"range": {"include": [[1, 5]]}}}
+}

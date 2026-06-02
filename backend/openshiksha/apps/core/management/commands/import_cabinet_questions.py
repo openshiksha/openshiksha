@@ -128,6 +128,51 @@ def rewrite_inline_images(text: str, raw_dir, chapter_base: str) -> str:
     return text
 
 
+# M7-11: an authored interactive widget is detected by an embedded <script> or
+# an inline event handler (on*=). Static <svg> diagrams have neither and stay on
+# the normal sanitised path.
+_INTERACTIVE_RE = re.compile(r"<script\b|\bon[a-z]+\s*=", re.IGNORECASE)
+_SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+_EVENT_HANDLER_RE = re.compile(r"""\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+
+
+def is_interactive_html(text: str) -> bool:
+    """True when ``text`` carries an authored interactive widget (script/handler)."""
+    return bool(text) and bool(_INTERACTIVE_RE.search(text))
+
+
+def strip_interactive(text: str) -> str:
+    """Remove <script> blocks and inline event handlers — the safe fallback that
+    goes into ``question_text``. (DOMPurify strips these again at render; storing
+    a clean copy keeps the raw widget HTML out of the normal render path.)"""
+    if not text:
+        return text or ""
+    text = _SCRIPT_BLOCK_RE.sub("", text)
+    text = _EVENT_HANDLER_RE.sub("", text)
+    return text
+
+
+def resolve_inline_image_urls(text: str, raw_dir, chapter_base: str) -> str:
+    """Replace ``#{name.ext}#`` tokens with the **bare** absolute raw-GitHub URL.
+
+    Unlike ``rewrite_inline_images`` (which emits ``<img>`` tags for prose), this
+    leaves the URL bare because in interactive widgets the token appears inside
+    JS string literals / attribute values (e.g. ``attr('src','#{8.gif}#')``).
+    Unresolvable tokens are left untouched.
+    """
+    if not text:
+        return text or ""
+
+    def _token(m: "re.Match[str]") -> str:
+        fn = m.group(1).strip()
+        rel = _resolve_inline_filename(raw_dir, fn)
+        if rel is None:
+            return m.group(0)
+        return f"{chapter_base}/{rel}"
+
+    return _INLINE_IMG_TOKEN.sub(_token, text)
+
+
 def _find_subpart_image(raw_dir, sp_id) -> "tuple[str, str] | None":
     """
     Locate the image (if any) belonging to a cabinet subpart.
@@ -285,7 +330,20 @@ def convert_subpart(data: dict, index: int) -> dict:
         raise ValueError(f"unknown cabinet type {cabinet_type!r}")
     q_type = CABINET_TYPE_MAP[cabinet_type]
 
-    question_text = convert_expression(str((data.get("content") or {}).get("text", "")))
+    raw_content = str((data.get("content") or {}).get("text", ""))
+    # M7-11: an authored interactive widget (embedded <script>/event handlers) is
+    # preserved verbatim for the sandboxed iframe renderer; question_text holds a
+    # script-free fallback. Variable tokens are converted to {{var}} (the
+    # serializer substitutes them per student); image #{...}# tokens stay raw here
+    # and are resolved to bare URLs by the caller (which knows the chapter dir).
+    interactive = is_interactive_html(raw_content)
+    if interactive:
+        interactive_html = convert_tokens(raw_content)
+        question_text = convert_expression(strip_interactive(raw_content))
+    else:
+        interactive_html = ""
+        question_text = convert_expression(raw_content)
+
     solution_text = convert_expression(str((data.get("solution") or {}).get("text", "")))
     hint_text = convert_expression(str((data.get("hint") or {}).get("text", "")))
     variable_constraints = convert_all_constraints(data.get("variable_constraints"))
@@ -310,6 +368,8 @@ def convert_subpart(data: dict, index: int) -> dict:
         "variable_constraints": variable_constraints,
         "solution_text": solution_text,
         "hint_text": hint_text,
+        "is_interactive": interactive,
+        "interactive_html": interactive_html,
         "_question_type": q_type,
     }
 
@@ -569,6 +629,14 @@ class Command(BaseCommand):
                     stats["inline_images"] = stats.get("inline_images", 0) + 1
                 fields[field] = rewritten
 
+            # M7-11: resolve #{img}# tokens inside the preserved interactive HTML
+            # to BARE URLs (they sit inside JS/attribute contexts, not prose).
+            if fields.get("is_interactive"):
+                fields["interactive_html"] = resolve_inline_image_urls(
+                    fields.get("interactive_html", ""), ids["raw_dir"], chapter_base
+                )
+                stats["interactive"] = stats.get("interactive", 0) + 1
+
             # Image discovery — attach a raw.githubusercontent.com URL if a
             # matching image file lives in the chapter's raw directory (either
             # as a sibling of the JSON or under an `img/` subdirectory).
@@ -676,6 +744,7 @@ class Command(BaseCommand):
                 f"skipped={stats['skipped']} "
                 f"new_subjects={stats['subjects']} new_chapters={stats['chapters']} "
                 f"images={stats.get('images', 0)} stems={stats.get('stems', 0)} "
-                f"inline_images={stats.get('inline_images', 0)} compound={stats.get('compound', 0)}"
+                f"inline_images={stats.get('inline_images', 0)} compound={stats.get('compound', 0)} "
+                f"interactive={stats.get('interactive', 0)}"
             )
         )

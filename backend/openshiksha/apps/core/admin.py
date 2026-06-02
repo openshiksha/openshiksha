@@ -113,6 +113,8 @@ class QuestionSubpartInline(admin.TabularInline):
         "variable_constraints",
         "solution_text",
         "hint_text",
+        "is_interactive",
+        "interactive_html",
         "tags",
     ]
     filter_horizontal = ["tags"]

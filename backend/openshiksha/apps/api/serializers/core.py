@@ -147,6 +147,8 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
             "image_url",
             "solution_text",
             "hint_text",
+            "is_interactive",
+            "interactive_html",
         ]
 
     def to_representation(self, instance):
@@ -180,6 +182,11 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
             data["question_text"] = subst_text
             if subst_options is not None:
                 data["options"] = subst_options
+
+            # M7-11: substitute the same per-student values into the interactive
+            # widget HTML so the sandboxed iframe shows this student's numbers.
+            if data.get("interactive_html"):
+                data["interactive_html"] = substitute_variables(data["interactive_html"], sampled_values)
 
             # Solutions & hints share the body's per-student sampled values so
             # the worked-out steps reference the same numbers the student sees

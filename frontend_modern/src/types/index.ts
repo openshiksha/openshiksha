@@ -95,6 +95,14 @@ export interface QuestionSubpart {
   image_url?: string;
   solution_text?: string;
   hint_text?: string;
+  /** M7-11: true when this subpart has an authored interactive widget. */
+  is_interactive?: boolean;
+  /**
+   * Resolved widget HTML (script + markup) for the sandboxed iframe. Only
+   * present when is_interactive. SECURITY: render ONLY via InteractiveWidget's
+   * sandboxed iframe — never through dangerouslySetInnerHTML / RichContent.
+   */
+  interactive_html?: string;
 }
 
 export interface AIHint {

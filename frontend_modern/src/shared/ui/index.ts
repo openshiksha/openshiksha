@@ -8,4 +8,6 @@ export { Badge } from './Badge';
 export { RichContent } from './RichContent';
 export type { RichContentProps } from './RichContent';
 export { renderRichContent } from './renderRichContent';
+export { InteractiveWidget } from './InteractiveWidget';
+export type { InteractiveWidgetProps } from './InteractiveWidget';
 export { Skeleton } from './Skeleton';

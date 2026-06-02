@@ -1,4 +1,4 @@
-import { Logo, Button, Card, Badge, RichContent, Skeleton } from '@/shared/ui';
+import { Logo, Button, Card, Badge, RichContent, InteractiveWidget, Skeleton } from '@/shared/ui';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`
@@ -167,6 +167,28 @@ export const DesignSystemPage = () => (
             />
           </Card>
         </div>
+      </Section>
+
+      <Section kicker="Components" title="Interactive widget (sandboxed)">
+        <p className="mb-3 text-sm text-ink-500">
+          Authored interactive questions (M7-11) run their embedded scripts in a
+          <code>&lt;iframe sandbox=&quot;allow-scripts&quot;&gt;</code> with{' '}
+          <strong>no</strong> <code>allow-same-origin</code> — so the script
+          can&apos;t reach the app&apos;s cookies, storage, or DOM. Tokens are
+          resolved server-side before delivery.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={160}
+            html={
+              '<p>Drag the slider — the readout updates live (runs inside the sandbox):</p>' +
+              '<input id="r" type="range" min="0" max="10" value="3" />' +
+              '<p>Value: <b id="out">3</b></p>' +
+              '<script>var r=document.getElementById("r"),o=document.getElementById("out");' +
+              'r.addEventListener("input",function(){o.textContent=r.value;});</script>'
+            }
+          />
+        </Card>
       </Section>
 
       <Section kicker="Components" title="Skeleton (loading)">

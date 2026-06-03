@@ -181,9 +181,7 @@ class Command(BaseCommand):
         # get_or_create uses only (school, standard, subject, chapter,
         # question_type, difficulty) — a lookup that matches cabinet-imported
         # questions sharing those same attributes.
-        tag_seed_demo, _ = QuestionTag.objects.get_or_create(
-            name="seed-demo", defaults={"tag_type": "source"}
-        )
+        tag_seed_demo, _ = QuestionTag.objects.get_or_create(name="seed-demo", defaults={"tag_type": "source"})
         stale_qs = Question.objects.filter(tags=tag_seed_demo)
         stale_count = stale_qs.count()
         stale_qs.delete()

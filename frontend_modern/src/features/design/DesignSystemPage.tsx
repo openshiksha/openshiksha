@@ -1,4 +1,19 @@
-import { Logo, Button, Card, Badge, RichContent, InteractiveWidget, Skeleton, LoadingSpinner } from '@/shared/ui';
+import {
+  Logo,
+  Button,
+  Card,
+  Badge,
+  RichContent,
+  InteractiveWidget,
+  Skeleton,
+  LoadingSpinner,
+  Input,
+  Textarea,
+  Select,
+  Stat,
+  SectionHeading,
+  EmptyState,
+} from '@/shared/ui';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`
@@ -189,6 +204,53 @@ export const DesignSystemPage = () => (
             }
           />
         </Card>
+      </Section>
+
+      <Section kicker="Components" title="Form inputs">
+        <Card className="grid gap-4 sm:grid-cols-2">
+          <Input label="Full name" placeholder="Aanya Sharma" />
+          <Input
+            label="School email"
+            type="email"
+            placeholder="you@school.edu"
+            hint="We only use this to send progress digests."
+          />
+          <Input label="Roll number" defaultValue="07-A" disabled />
+          <Input label="Phone" placeholder="+91" error="Enter a valid 10-digit number." />
+          <Select label="Board" defaultValue="CBSE">
+            <option value="CBSE">CBSE</option>
+            <option value="ICSE">ICSE</option>
+            <option value="STATE">State board</option>
+          </Select>
+          <Textarea label="Notes" placeholder="Anything we should know?" rows={3} />
+        </Card>
+      </Section>
+
+      <Section kicker="Components" title="Stats (KPI block)">
+        <Card className="grid gap-6 sm:grid-cols-3">
+          <Stat label="Current streak" value="14d" delta="+2 days" tone="success" hint="Personal best" />
+          <Stat label="Mastery" value="84%" delta="+6%" tone="brand" />
+          <Stat label="Due" value="3" hint="of 5 assignments" />
+        </Card>
+      </Section>
+
+      <Section kicker="Components" title="Section heading">
+        <Card className="space-y-6">
+          <SectionHeading eyebrow="Today" title="Practice queue" description="Pick something to work on right now." action={<a href="#" className="text-sm font-semibold text-brand-700 hover:text-brand-800">View all</a>} />
+          <div className="border-t border-ink-100" />
+          <SectionHeading title="Recent activity" />
+        </Card>
+      </Section>
+
+      <Section kicker="Components" title="Empty state">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <EmptyState
+            title="No assignments yet"
+            description="Your teacher hasn't assigned anything yet — but you can keep practicing."
+            action={<Button>Browse practice</Button>}
+          />
+          <EmptyState title="No streak yet" description="Answer one question today to start the chain." />
+        </div>
       </Section>
 
       <Section kicker="Components" title="Skeleton (loading)">

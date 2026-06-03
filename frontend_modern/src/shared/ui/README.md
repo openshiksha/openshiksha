@@ -32,11 +32,15 @@ new screens from these, not from raw Tailwind. Full plan:
 | `Badge` | Status pill — `tone: 'brand' \| 'neutral' \| 'success' \| 'attention' \| 'urgent'`. |
 | `RichContent` | Sanitised HTML + KaTeX renderer (`text`, `variant`). Use for any question/option/solution/hint content from the API. |
 | `Skeleton` | Branded loading placeholder (`w`, `h`, `rounded`). Warm `ink-100` pulse. |
+| `Input` / `Textarea` / `Select` | Form fields with brand chrome — `label`, `hint`, `error`, `leftIcon`. ARIA wired. |
+| `Stat` | KPI block — big display-font `value`, small label, optional trend `delta` + `tone`. |
+| `SectionHeading` | Section title in `font-display` — optional `eyebrow`, `description`, right-aligned `action`. |
+| `EmptyState` | "Nothing here yet" surface — keyhole glyph, headline, body, optional primary action. |
 
-## Wanted next (see backlog `M1-06`)
+## Wanted next
 
-`Input`, `Stat`, `SectionHeading`, `EmptyState` (keyhole motif),
-`ProgressRing` ("unlock" mastery).
+`ProgressRing` ("unlock" mastery), `LoadingSpinner` (keyhole-derived),
+`ErrorBoundary`/404 fallback.
 
 ## Adding a component
 

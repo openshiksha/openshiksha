@@ -13,3 +13,7 @@ export type { InteractiveWidgetProps } from './InteractiveWidget';
 export { Skeleton } from './Skeleton';
 export { LoadingSpinner } from './LoadingSpinner';
 export { ErrorBoundary } from './ErrorBoundary';
+export { Input, Textarea, Select } from './Input';
+export { Stat } from './Stat';
+export { SectionHeading } from './SectionHeading';
+export { EmptyState } from './EmptyState';

@@ -1774,5 +1774,6 @@ class InterventionSuggestion(models.Model):
         A severe gap starts at 4, moderate at 3, mild at 2; each additional gap
         beyond the first nudges it up, capped at 5.
         """
-        base = {GapSeverity.SEVERE: 4, GapSeverity.MODERATE: 3}.get(severity, 2)
+        base_by_severity: dict[str, int] = {GapSeverity.SEVERE: 4, GapSeverity.MODERATE: 3}
+        base = base_by_severity.get(severity, 2)
         return max(1, min(5, base + max(0, gap_count - 1)))

@@ -1,232 +1,273 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuestionList } from './useQuestionList';
 import { useSubjects } from './useSubjects';
 import { useProblemSets } from './useProblemSets';
 import { useAddQuestionToProblemSet } from './useAddQuestionToProblemSet';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { previewFromQuestionText } from './previewFromQuestionText';
+import { QuestionPreviewPanel } from './QuestionPreviewPanel';
+import { difficultyStars, typeLabel, typeTone } from './questionPreviewMeta';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  LoadingSpinner,
+  SectionHeading,
+  Select,
+  Skeleton,
+} from '@/shared/ui';
 import type { Question } from '@/types/index';
 
-const TYPE_BADGE: Record<string, string> = {
-  mcq: 'bg-indigo-100 text-indigo-800',
-  numeric: 'bg-green-100 text-green-800',
-  fill_blank: 'bg-amber-100 text-amber-800',
-  multi_select: 'bg-purple-100 text-purple-800',
-  matching: 'bg-pink-100 text-pink-800',
+// ── Row ─────────────────────────────────────────────────────────────────────
+
+const QuestionRow = ({
+  question,
+  focused,
+  onFocus,
+  onEdit,
+}: {
+  question: Question;
+  focused: boolean;
+  onFocus: () => void;
+  onEdit: () => void;
+}) => {
+  const previewText = previewFromQuestionText(question.subparts[0]?.question_text);
+  const visibleTags = question.tags.slice(0, 3);
+  const extraTags = question.tags.length - 3;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onFocus}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFocus();
+        }
+      }}
+      className={[
+        'group flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-all',
+        focused
+          ? 'bg-brand-50 ring-1 ring-brand-300 shadow-soft'
+          : 'ring-1 ring-transparent hover:bg-ink-50 hover:ring-ink-100',
+      ].join(' ')}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-sm text-ink-800">{previewText}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <Badge tone={typeTone(question.question_type)}>{typeLabel(question.question_type)}</Badge>
+          <span className="text-xs tracking-wider text-amber-500" title={`Difficulty ${question.difficulty}/5`}>
+            {difficultyStars(question.difficulty)}
+          </span>
+          <span className="text-xs text-ink-400">
+            {question.subject_name ?? `Subject ${question.subject}`}
+          </span>
+        </div>
+        {question.tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {visibleTags.map((t) => (
+              <span
+                key={t.id}
+                className="rounded-md bg-ink-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-600"
+              >
+                {t.name}
+              </span>
+            ))}
+            {extraTags > 0 && (
+              <span className="text-[10px] text-ink-400">+{extraTags}</span>
+            )}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        className="mt-1 shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-ink-400 opacity-0 transition-opacity hover:bg-ink-100 hover:text-ink-700 group-hover:opacity-100"
+      >
+        Edit
+      </button>
+    </div>
+  );
 };
 
-const DifficultyDots = ({ difficulty }: { difficulty: number }) => (
-  <span className="flex items-center gap-0.5">
-    {Array.from({ length: 5 }, (_, i) => (
-      <span
-        key={i}
-        className={`inline-block w-2 h-2 rounded-full ${i < difficulty ? 'bg-indigo-500' : 'bg-gray-200'}`}
-      />
-    ))}
-  </span>
-);
+// ── Add-to-set sidesheet (replaces the modal) ───────────────────────────────
 
-// ---------------------------------------------------------------------------
-// Add-to-problem-set modal
-// ---------------------------------------------------------------------------
-
-interface AddToProblemSetModalProps {
-  questionId: number;
-  questionSubject: number;
+const AddToProblemSetSheet = ({
+  question,
+  onClose,
+}: {
+  question: Question;
   onClose: () => void;
-}
-
-const AddToProblemSetModal = ({ questionId, questionSubject, onClose }: AddToProblemSetModalProps) => {
+}) => {
   const [selectedPsId, setSelectedPsId] = useState<number | null>(null);
-  const { data: problemSets, isLoading } = useProblemSets(questionSubject);
+  const { data: problemSets, isLoading } = useProblemSets(question.subject);
   const addQuestion = useAddQuestionToProblemSet();
   const [success, setSuccess] = useState(false);
+
+  // Lock body scroll while sheet is open
+  useEffect(() => {
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
 
   const handleAdd = () => {
     if (!selectedPsId) return;
     addQuestion.mutate(
-      { problemSetId: selectedPsId, questionId },
-      {
-        onSuccess: () => setSuccess(true),
-      }
+      { problemSetId: selectedPsId, questionId: question.id },
+      { onSuccess: () => setSuccess(true) },
     );
   };
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex justify-end bg-ink-900/40 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xl w-full max-w-sm p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Add to Problem Set</h3>
-
-        {success ? (
-          <div className="text-center py-4">
-            <p className="text-green-700 font-medium mb-4">Question added!</p>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
-            >
-              Done
-            </button>
+      <div className="flex h-full w-full max-w-md flex-col bg-paper shadow-lift">
+        <div className="flex items-center justify-between border-b border-ink-100 px-6 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
+              Add to set
+            </p>
+            <h3 className="font-display text-lg font-semibold text-ink-900">
+              Question #{question.id}
+            </h3>
           </div>
-        ) : (
-          <>
-            {isLoading ? (
-              <div className="flex justify-center py-6"><LoadingSpinner size="md" /></div>
-            ) : !problemSets || problemSets.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4 text-center">
-                No problem sets for this subject yet.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto mb-4">
-                {problemSets.map((ps) => (
-                  <label
-                    key={ps.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedPsId === ps.id
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-indigo-300'
-                    }`}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-800"
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {success ? (
+            <EmptyState
+              title="Added!"
+              description="The question is now in the problem set."
+              action={
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Button onClick={onClose}>Done</Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setSuccess(false);
+                      setSelectedPsId(null);
+                    }}
                   >
-                    <input
-                      type="radio"
-                      name="problem_set"
-                      value={ps.id}
-                      checked={selectedPsId === ps.id}
-                      onChange={() => setSelectedPsId(ps.id)}
-                      className="accent-indigo-600"
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{ps.title}</p>
-                      <p className="text-xs text-gray-500">{ps.question_count} questions</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAdd}
-                disabled={!selectedPsId || addQuestion.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {addQuestion.isPending && <LoadingSpinner size="sm" />}
-                Add
-              </button>
+                    Add to another
+                  </Button>
+                </div>
+              }
+            />
+          ) : isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
             </div>
+          ) : !problemSets || problemSets.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-ink-200 bg-white p-6 text-center">
+              <p className="text-sm text-ink-600">
+                No problem sets in{' '}
+                <strong className="text-ink-800">
+                  {question.subject_name ?? 'this subject'}
+                </strong>{' '}
+                yet.
+              </p>
+              <Button size="sm" className="mt-3" onClick={onClose}>
+                Build one →
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {problemSets.map((ps) => (
+                <label
+                  key={ps.id}
+                  className={[
+                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                    selectedPsId === ps.id
+                      ? 'border-brand-300 bg-brand-50'
+                      : 'border-ink-100 bg-white hover:border-ink-200',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="problem_set"
+                    value={ps.id}
+                    checked={selectedPsId === ps.id}
+                    onChange={() => setSelectedPsId(ps.id)}
+                    className="mt-1 h-4 w-4 border-ink-300 text-brand-600 focus:ring-2 focus:ring-brand-500"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink-900">{ps.title}</p>
+                    <p className="text-xs text-ink-500">{ps.chapter_name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge tone="brand">
+                        {ps.question_count} {ps.question_count === 1 ? 'question' : 'questions'}
+                      </Badge>
+                      {ps.estimated_minutes && (
+                        <span className="text-xs text-ink-500">~{ps.estimated_minutes} min</span>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
+        {!success && (
+          <div className="flex items-center justify-end gap-2 border-t border-ink-100 bg-white px-6 py-4">
             {addQuestion.isError && (
-              <p className="text-xs text-red-500 mt-2">Failed to add. Please try again.</p>
+              <p className="mr-auto text-xs font-medium text-rose-600">
+                Failed to add. Please try again.
+              </p>
             )}
-          </>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleAdd} disabled={!selectedPsId || addQuestion.isPending}>
+              {addQuestion.isPending && <LoadingSpinner size="sm" />}
+              Add
+            </Button>
+          </div>
         )}
       </div>
     </div>
   );
 };
 
-// ---------------------------------------------------------------------------
-// Question card
-// ---------------------------------------------------------------------------
-
-const QuestionCard = ({
-  question,
-  onAddToSet,
-  onEdit,
-}: {
-  question: Question;
-  onAddToSet: (q: Question) => void;
-  onEdit: (q: Question) => void;
-}) => {
-  const firstSubpart = question.subparts[0];
-  const previewText = firstSubpart?.question_text ?? '—';
-  const preview = previewText.slice(0, 120);
-  const truncated = previewText.length > 120;
-  const visibleTags = question.tags.slice(0, 3);
-  const extraTags = question.tags.length - 3;
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all">
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[question.question_type] ?? 'bg-gray-100 text-gray-700'}`}
-          >
-            {question.question_type_display ?? question.question_type}
-          </span>
-          <DifficultyDots difficulty={question.difficulty} />
-        </div>
-        <span className="text-xs text-gray-400 shrink-0">#{question.id}</span>
-      </div>
-
-      <p className="text-xs text-gray-500 mb-2">
-        {question.subject_name ?? `Subject ${question.subject}`}
-        {' · '}
-        {question.chapter_name ?? `Chapter ${question.chapter}`}
-      </p>
-
-      <p className="text-xs font-mono text-gray-800 leading-relaxed mb-3 line-clamp-2">
-        {preview}{truncated ? '…' : ''}
-      </p>
-
-      {question.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {visibleTags.map((t) => (
-            <span key={t.id} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-              {t.name}
-            </span>
-          ))}
-          {extraTags > 0 && (
-            <span className="text-xs text-gray-400">+{extraTags} more</span>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-2 pt-2 border-t border-gray-100">
-        <button
-          onClick={() => onAddToSet(question)}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-        >
-          + Add to problem set
-        </button>
-        <span className="text-gray-200">|</span>
-        <button
-          onClick={() => onEdit(question)}
-          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          Edit
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Main page
-// ---------------------------------------------------------------------------
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export const QuestionBankPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<number | undefined>();
-  const [selectedDifficulty, setSelectedDifficulty] = useState<number | undefined>();
+  const [selectedSubject, setSelectedSubject] = useState<number | ''>('');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<number | ''>('');
+  const [focusedQuestionId, setFocusedQuestionId] = useState<number | null>(null);
   const [modalQuestion, setModalQuestion] = useState<Question | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: subjects } = useSubjects();
   const { data: questions, isLoading } = useQuestionList({
     search: debouncedSearch || undefined,
-    subject: selectedSubject,
-    difficulty: selectedDifficulty,
+    subject: selectedSubject !== '' ? (selectedSubject as number) : undefined,
+    difficulty: selectedDifficulty !== '' ? (selectedDifficulty as number) : undefined,
   });
 
   const handleSearchChange = (value: string) => {
@@ -235,112 +276,183 @@ export const QuestionBankPage = () => {
     debounceRef.current = setTimeout(() => setDebouncedSearch(value), 300);
   };
 
-  const hasFilters = !!(search || selectedSubject || selectedDifficulty);
+  const hasFilters =
+    !!search || selectedSubject !== '' || selectedDifficulty !== '';
 
   const clearFilters = () => {
     setSearch('');
     setDebouncedSearch('');
-    setSelectedSubject(undefined);
-    setSelectedDifficulty(undefined);
+    setSelectedSubject('');
+    setSelectedDifficulty('');
   };
 
+  const focusedQuestion = useMemo(
+    () => questions?.find((q) => q.id === focusedQuestionId) ?? null,
+    [questions, focusedQuestionId],
+  );
+
+  // Auto-focus the first question when results land + nothing is focused yet
+  useEffect(() => {
+    if (focusedQuestionId === null && questions && questions.length > 0) {
+      setFocusedQuestionId(questions[0].id);
+    }
+    if (
+      focusedQuestionId !== null &&
+      questions &&
+      !questions.some((q) => q.id === focusedQuestionId)
+    ) {
+      setFocusedQuestionId(questions[0]?.id ?? null);
+    }
+  }, [questions, focusedQuestionId]);
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Question Bank</h1>
-          <p className="text-sm text-gray-500 mt-1">Browse and reuse questions across your assignments.</p>
-        </div>
-        <button
-          onClick={() => navigate('/teacher/questions/new')}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shrink-0"
-        >
-          + Create Question
-        </button>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
+      {/* Header */}
+      <SectionHeading
+        as="h1"
+        eyebrow="Authoring"
+        title="Question Bank"
+        description="Browse and reuse questions across your assignments. Click a question to preview exactly how students will see it."
+        action={
+          <Button onClick={() => navigate('/teacher/questions/new')}>+ Create Question</Button>
+        }
+      />
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search by subject or chapter name…"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="flex-1 min-w-48 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <select
-          value={selectedSubject ?? ''}
-          onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">All subjects</option>
-          {(subjects ?? []).map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        <select
-          value={selectedDifficulty ?? ''}
-          onChange={(e) => setSelectedDifficulty(e.target.value ? Number(e.target.value) : undefined)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">All difficulties</option>
-          {[1, 2, 3, 4, 5].map((d) => (
-            <option key={d} value={d}>Difficulty {d}</option>
-          ))}
-        </select>
-        {hasFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700 px-2 transition-colors"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : !questions || questions.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-gray-500 font-medium">No questions found</p>
-          <p className="text-sm text-gray-400 mt-1">
-            {hasFilters
-              ? 'Try adjusting your filters.'
-              : 'Create your first question to build the bank.'}
-          </p>
-          {!hasFilters && (
-            <button
-              onClick={() => navigate('/teacher/questions/new')}
-              className="mt-3 text-sm text-indigo-600 hover:underline"
-            >
-              Create a question →
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <p className="text-xs text-gray-400 mb-3">
-            {questions.length} question{questions.length !== 1 ? 's' : ''}
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {questions.map((q) => (
-              <QuestionCard
-                key={q.id}
-                question={q}
-                onAddToSet={(question) => setModalQuestion(question)}
-                onEdit={(question) => navigate(`/teacher/questions/${question.id}/edit`)}
-              />
-            ))}
+      {/* Two-pane: filters + list (left) · preview (right) */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        {/* List column */}
+        <Card className="!p-0 lg:col-span-5 xl:col-span-4">
+          {/* Filter bar */}
+          <div className="space-y-3 border-b border-ink-100 px-5 py-4">
+            <Input
+              placeholder="Search question text, subject, chapter…"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              leftIcon={
+                <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M11 11l4 4" strokeLinecap="round" />
+                </svg>
+              }
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={selectedSubject}
+                onChange={(e) =>
+                  setSelectedSubject(e.target.value ? Number(e.target.value) : '')
+                }
+              >
+                <option value="">All subjects</option>
+                {(subjects ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={selectedDifficulty}
+                onChange={(e) =>
+                  setSelectedDifficulty(e.target.value ? Number(e.target.value) : '')
+                }
+              >
+                <option value="">Any difficulty</option>
+                {[1, 2, 3, 4, 5].map((d) => (
+                  <option key={d} value={d}>
+                    {'★'.repeat(d)} ({d}/5)
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs font-medium text-ink-500 hover:text-ink-800"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
-        </>
-      )}
+
+          {/* Results */}
+          <div className="px-2 py-2">
+            {isLoading ? (
+              <div className="space-y-2 px-1">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : !questions || questions.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-ink-500">No questions found</p>
+                <p className="mt-1 text-xs text-ink-400">
+                  {hasFilters ? 'Try adjusting filters.' : 'Author your first question.'}
+                </p>
+                {!hasFilters && (
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => navigate('/teacher/questions/new')}
+                  >
+                    Create a question →
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className="px-3 pt-1 pb-2 text-xs text-ink-400">
+                  {questions.length} question{questions.length !== 1 ? 's' : ''}
+                </p>
+                <div className="max-h-[40rem] space-y-1.5 overflow-y-auto pr-1">
+                  {questions.map((q) => (
+                    <QuestionRow
+                      key={q.id}
+                      question={q}
+                      focused={focusedQuestionId === q.id}
+                      onFocus={() => setFocusedQuestionId(q.id)}
+                      onEdit={() => navigate(`/teacher/questions/${q.id}/edit`)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* Preview column */}
+        <div className="lg:col-span-7 xl:col-span-8">
+          <QuestionPreviewPanel
+            question={focusedQuestion}
+            emptyTitle="Pick a question to preview"
+            emptyDescription="Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all."
+            footer={
+              focusedQuestion ? (
+                <>
+                  <p className="text-xs text-ink-500">
+                    Reuse this question in any of your problem sets.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/teacher/questions/${focusedQuestion.id}/edit`)}
+                    >
+                      Edit
+                    </Button>
+                    <Button size="sm" onClick={() => setModalQuestion(focusedQuestion)}>
+                      + Add to problem set
+                    </Button>
+                  </div>
+                </>
+              ) : null
+            }
+          />
+        </div>
+      </div>
 
       {modalQuestion && (
-        <AddToProblemSetModal
-          questionId={modalQuestion.id}
-          questionSubject={modalQuestion.subject}
+        <AddToProblemSetSheet
+          question={modalQuestion}
           onClose={() => setModalQuestion(null)}
         />
       )}

@@ -73,8 +73,10 @@ Established in the kickoff session (2026-05-30):
   Fraunces headings, and seed component classes (`.btn-brand`, `.btn-ghost`,
   `.os-card`, `.input-brand`, `.chalk-underline`, `.bg-paper`, `.bg-chalkboard`).
 - **Seed component library** — `frontend_modern/src/shared/ui/`: `Logo`,
-  `Button`, `Card`, `Badge`, a barrel `index.ts`, and a **conventions
-  `README.md`** every session must follow when adding components.
+  `Button`, `Card`, `Badge`, `Skeleton`, `RichContent` + `renderRichContent`,
+  `InteractiveWidget`, `Input`/`Textarea`/`Select`, `Stat`, `SectionHeading`,
+  `EmptyState`, `LoadingSpinner`, `ErrorBoundary` — barrel `index.ts` + conventions
+  `README.md` every session must follow.
 - **Living showcase** — route `/design` (`features/design/DesignSystemPage.tsx`)
   renders the tokens + every `ui/` component. **Every new primitive must be added
   here** — this is how we keep the system visible and prevent drift.

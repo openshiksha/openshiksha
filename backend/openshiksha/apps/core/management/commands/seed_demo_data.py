@@ -2,7 +2,11 @@
 Management command: seed_demo_data
 
 Creates a full demo school with real LaTeX question content.
-Idempotent — safe to run multiple times (uses get_or_create throughout).
+Idempotent — safe to run multiple times.
+
+Questions are namespaced with the ``seed-demo`` QuestionTag so they can be
+found and replaced on each run without colliding with cabinet-imported questions
+that share the same (standard, subject, chapter, type, difficulty) tuple.
 
 Usage:
     python manage.py seed_demo_data
@@ -111,6 +115,48 @@ class Command(BaseCommand):
         )
         self._log(created, "Student", "student@demo.openshiksha.org")
 
+        parent, created = User.objects.get_or_create(
+            username="parent_demo",
+            defaults={
+                "email": "parent@demo.openshiksha.org",
+                "first_name": "Meena",
+                "last_name": "Verma",
+                "role": UserRole.PARENT,
+                "school": school,
+                "password": make_password(DEMO_PASSWORD),
+            },
+        )
+        if created or not parent.children.filter(pk=student.pk).exists():
+            parent.children.add(student)
+        self._log(created, "Parent", "parent@demo.openshiksha.org")
+
+        _admin, created = User.objects.get_or_create(
+            username="admin_demo",
+            defaults={
+                "email": "admin@demo.openshiksha.org",
+                "first_name": "Rakesh",
+                "last_name": "Iyer",
+                "role": UserRole.ADMIN,
+                "school": school,
+                "is_staff": True,
+                "password": make_password(DEMO_PASSWORD),
+            },
+        )
+        self._log(created, "Admin", "admin@demo.openshiksha.org")
+
+        _open_student, created = User.objects.get_or_create(
+            username="openstudent_demo",
+            defaults={
+                "email": "open@demo.openshiksha.org",
+                "first_name": "Sara",
+                "last_name": "Khan",
+                "role": UserRole.OPEN_STUDENT,
+                "grade": 9,
+                "password": make_password(DEMO_PASSWORD),
+            },
+        )
+        self._log(created, "OpenStudent", "open@demo.openshiksha.org")
+
         # ── SubjectRoom ────────────────────────────────────────────────────────
         subject_room, created = SubjectRoom.objects.get_or_create(
             classroom=classroom,
@@ -129,6 +175,18 @@ class Command(BaseCommand):
         tag_quadratic, _ = QuestionTag.objects.get_or_create(
             name="quadratic-equations", defaults={"tag_type": "concept"}
         )
+        # ``seed-demo`` is the idempotency namespace: we delete any previously
+        # seeded questions (tagged seed-demo) and recreate them fresh.  This
+        # avoids the MultipleObjectsReturned error that occurs when
+        # get_or_create uses only (school, standard, subject, chapter,
+        # question_type, difficulty) — a lookup that matches cabinet-imported
+        # questions sharing those same attributes.
+        tag_seed_demo, _ = QuestionTag.objects.get_or_create(name="seed-demo", defaults={"tag_type": "source"})
+        stale_qs = Question.objects.filter(tags=tag_seed_demo)
+        stale_count = stale_qs.count()
+        stale_qs.delete()
+        if stale_count:
+            self.stdout.write(f"  [~] Removed {stale_count} stale demo question(s) for re-seed")
 
         # ── Questions with LaTeX content ───────────────────────────────────────
         questions_data = [
@@ -184,40 +242,31 @@ class Command(BaseCommand):
         ]
 
         created_questions = []
-        for i, qdata in enumerate(questions_data):
-            question, q_created = Question.objects.get_or_create(
+        for qdata in questions_data:
+            # Always create fresh — stale seed-demo questions were deleted above.
+            question = Question.objects.create(
                 school=None,
                 standard=standard,
                 subject=subject,
                 chapter=chapter,
                 question_type=qdata["question_type"],
                 difficulty=qdata["difficulty"],
-                defaults={"is_active": True},
+                is_active=True,
             )
-            if q_created:
-                question.tags.add(tag_algebra, tag_quadratic)
+            question.tags.add(tag_algebra, tag_quadratic, tag_seed_demo)
 
-            subpart, _ = QuestionSubpart.objects.get_or_create(
+            QuestionSubpart.objects.create(
                 question=question,
                 index=0,
-                defaults={
-                    "question_text": qdata["question_text"],
-                    "options": qdata["options"],
-                    "correct_answer": qdata["correct_answer"],
-                    "variable_constraints": qdata.get("variable_constraints"),
-                },
+                subpart_type=qdata["question_type"],
+                question_text=qdata["question_text"],
+                options=qdata["options"],
+                correct_answer=qdata["correct_answer"],
+                variable_constraints=qdata.get("variable_constraints"),
             )
-            # Update text/options even if subpart already existed (allows re-seeding content)
-            if not _:
-                subpart.question_text = qdata["question_text"]
-                subpart.options = qdata["options"]
-                subpart.correct_answer = qdata["correct_answer"]
-                subpart.variable_constraints = qdata.get("variable_constraints")
-                subpart.save(update_fields=["question_text", "options", "correct_answer", "variable_constraints"])
-
             created_questions.append(question)
 
-        self.stdout.write(f"  [+] {len(created_questions)} questions with LaTeX content")
+        self.stdout.write(f"  [+] {len(created_questions)} demo questions created")
 
         # ── ProblemSet ─────────────────────────────────────────────────────────
         problem_set, created = ProblemSet.objects.get_or_create(
@@ -250,8 +299,11 @@ class Command(BaseCommand):
 
         # ── Summary ────────────────────────────────────────────────────────────
         self.stdout.write("\nDemo ready! Log in at http://localhost:5173")
-        self.stdout.write(f"  Student:  student@demo.openshiksha.org / {DEMO_PASSWORD}")
-        self.stdout.write(f"  Teacher:  teacher@demo.openshiksha.org / {DEMO_PASSWORD}")
+        self.stdout.write(f"  student_demo       / {DEMO_PASSWORD}  (student)")
+        self.stdout.write(f"  teacher_demo       / {DEMO_PASSWORD}  (teacher)")
+        self.stdout.write(f"  parent_demo        / {DEMO_PASSWORD}  (parent — linked to student_demo)")
+        self.stdout.write(f"  admin_demo         / {DEMO_PASSWORD}  (school admin)")
+        self.stdout.write(f"  openstudent_demo   / {DEMO_PASSWORD}  (open student)")
         self.stdout.write("")
 
     def _log(self, created: bool, label: str, name: str) -> None:

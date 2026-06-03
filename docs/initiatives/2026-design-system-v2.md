@@ -141,25 +141,28 @@ Established in the kickoff session (2026-05-30):
 Each increment ≈ one PR. **Pull the top unblocked item.** `[x]` = shipped (see
 Ledger). Split any item that won't fit one session.
 
-### M1 — Foundation  *(mostly done in kickoff)*
+### M1 — Foundation  *(✅ complete)*
 - [x] `M1-01` Brand assets + favicon + fonts wired into `index.html`.
 - [x] `M1-02` Token system in `tailwind.config.js` (brand, ink, shadows, motion).
 - [x] `M1-03` Brand CSS layer in `index.css` (base + seed component classes).
 - [x] `M1-04` Seed `ui/` library (Logo, Button, Card, Badge) + conventions README.
 - [x] `M1-05` `/design` living showcase route.
-- [ ] `M1-06` Add `Input`, `Badge` (severity variants), `Stat`, `SectionHeading`,
-  `Skeleton` *(shipped 2026-05-30)*, `EmptyState` primitives to `ui/` + showcase.
+- [x] `M1-06` `Input`/`Textarea`/`Select`, `Stat`, `SectionHeading`, `EmptyState`
+  primitives shipped 2026-06-02; `Skeleton` shipped 2026-05-30; `Badge` severity
+  tones live since kickoff. All exported from `ui/index.ts` + rendered on `/design`.
 
 ### M2 — Global shell  *(every page inherits this — do first)*
 - [x] `M2-01` Reskin **App Shell** (`AppShell` + `Navbar`): real `<Logo/>`, warm
   paper background, brand active-nav (chalk underline), warm user menu.
 - [ ] `M2-02` Mobile nav polish: brand hamburger sheet, role chips, safe-area.
-- [ ] `M2-03` Global states: branded `LoadingSpinner`, 404/NotFound, error
-  boundary fallback, toast style.
+- [x] `M2-03` Global states: branded `LoadingSpinner`, `NotFoundPage` (404 route),
+  `ErrorBoundary` shipped 2026-06-02. Toast theming deferred (no toast lib
+  currently wired — add when first needed).
 
 ### M3 — Auth & marketing  *(first impression; self-contained, low-risk)*
 - [x] `M3-01` **Login** → chalkboard-left / paper-right brand layout (flagship).
-- [ ] `M3-02` Register + Register-school + Register-open in the new language.
+- [x] `M3-02` Register + Register-school + Register-open migrated to the V2
+  chalkboard/paper layout 2026-06-02, using new `ui/Input`.
 - [ ] `M3-03` Public **Enquire** page (prospective schools) — credible + warm.
 - [x] `M3-04` **Home page** at `/` — legacy-inspired (chalkboard hero →
   Practice/Evaluate/Analyse → mission + teacher photo → "Start now" → features),
@@ -178,33 +181,46 @@ Ledger). Split any item that won't fit one session.
   `QuestionCard` (question text, MCQ options, hints, worked solutions), the SRS
   drill (via `QuestionCard`), and the teacher `CreateQuestionPage` live
   preview. Showcased on `/design`.
-- [ ] `M7-02` **Question variable substitution ("widgets").** Legacy/Cabinet
-  questions embed templated variables — `{4*j}`, `{12*j}`, `{j*29}` — that must be
-  computed into concrete per-attempt values (the legacy "croupier"/variable
-  system). Today they render as raw `{…}`. Decide where realisation happens
-  (backend realises per attempt vs. frontend) and implement so students see real
-  numbers. Investigate the legacy interactive-widget question types and port any
-  still in use.
+- [x] `M7-02` **Question variable substitution ("widgets").** Backend engine
+  (`croupier.py`: `sample_variable_values`, `substitute_variables`,
+  `substitute_variables_for_student`) was already complete and wired into
+  `QuestionSubpartStudentSerializer` — but `QuestionViewSet.get_serializer_class`
+  returned the teacher-safe `QuestionSerializer` for *every* role, so students
+  hitting `/student/browse/practice/<chapter>` saw raw `{{k}} {{j}} {{l}}` tokens.
+  Fixed 2026-06-02 (#140) by role-switching the viewset to return
+  `QuestionWithSubpartsStudentSerializer` for STUDENT/OPEN_STUDENT on list+retrieve.
+  Tokens now substitute deterministically per `(student_id, subpart_id)`; 4 new
+  regression tests; 777 backend tests passing.
 - [ ] `M7-03` **List-page filtering / search / sort actually works.** Browse,
   Question Bank, assignment lists etc. have filter/search controls that don't
   filter. Wire them to the API query params (or client-side) so they work, with
   branded controls.
 - [ ] `M7-04` **Feature-parity audit vs. legacy.** Walk the legacy app surface by
   surface; log every capability the modern frontend is missing into this backlog.
-- [ ] `M7-05` **Fix `seed_demo_data` idempotency.** `Question.get_or_create`
-  matches multiple rows (`MultipleObjectsReturned`) on re-seed; make the demo
-  seed reliably re-runnable so reviewers always have clean question data.
+- [x] `M7-05` **`seed_demo_data` idempotency.** Fixed 2026-06-02 (#141) — the
+  command was crashing with `MultipleObjectsReturned` on any DB with cabinet
+  imports because `Question.get_or_create(school, standard, subject, chapter,
+  type, difficulty)` matched multiple imported rows. Now uses a `seed-demo`
+  `QuestionTag` as an idempotency namespace: stale `seed-demo`-tagged questions
+  are deleted and recreated fresh each run, never touching cabinet/teacher
+  content. **Bonus**: command now creates all 5 demo accounts (`parent_demo`,
+  `admin_demo`, `openstudent_demo` in addition to the original student/teacher)
+  and links `parent_demo → student_demo` so every role works on a fresh stack.
 
 ### M4 — Product surfaces  *(one screen = one increment; highest daily use first)*
-- [ ] `M4-01` Student Dashboard
+- [x] `M4-01` **Student Dashboard** migrated to V2 brand 2026-06-02.
 - [ ] `M4-02` Parent Dashboard + **Parent Insights** (align with the shipped
   `AlertsPanel`/`HomeActivitiesPanel` styling)
-- [ ] `M4-03` Teacher Dashboard
+- [x] `M4-03` **Teacher Dashboard** migrated to V2 brand 2026-06-02.
 - [ ] `M4-04` Admin Dashboard + Classroom manage
-- [ ] `M4-05` Assignment detail (student) + SRS drill
-- [ ] `M4-06` Proficiency + Learning Path + Browse
-- [ ] `M4-07` Teacher authoring (Create question / problem-set / assignment, Question bank)
-- [ ] `M4-08` Profile / settings
+- [ ] `M4-05` Assignment detail (student) + SRS drill + `QuestionCard` /
+  `AssignmentCard` / `AssignmentList`
+- [ ] `M4-06` Proficiency + Learning Path + Browse + Browse-Practice +
+  `DueForReviewPanel` / `RecommendationsPanel` / `VideosPanel` / `StreakBadge`
+- [ ] `M4-07` Teacher authoring (Create question / problem-set / assignment,
+  Question bank, `ClassHealthPanel` / `WeeklyReportPanel` /
+  `ClassroomCodeWidget` / `TeacherAssignmentDetailPage`)
+- [ ] `M4-08` Profile / settings (`shared/ProfilePage.tsx`)
 
 ### M5 — Mobile & responsive pass
 - [ ] `M5-01` Bottom tab bar for primary roles on mobile.
@@ -267,3 +283,10 @@ Record the improvement in the ledger's "Hardening" column so the gains are visib
 | 2026-05-30 | M1-01…05 foundation scaffold | _(this branch)_ | Established token-only rule; retained `primary` for un-migrated pages | Legacy logo orange sampled to `#FF6F00`; pairing Fraunces+Inter gives the "professional but warm" read. Shell (`M2-01`) is the right next step — it's global. |
 | 2026-05-30 | M2-01 shell, M3-01 login, M3-04 home page | _(this branch)_ | Verified in real Docker stack; logo links home everywhere | Reviewing as `student_demo` exposed `M7` (question HTML/LaTeX/variables render raw — see `screenshots/questions-broken-before.png`). Windows Docker bind-mount doesn't always hot-reload Vite — `restart frontend` to pick up late edits. Backlog grew an `M7` functional-parity milestone; this is now the highest-value work after the shell. |
 | 2026-05-30 | M7-01 question HTML+LaTeX rendering, M1-06 partial (`Skeleton`) | `feat/2026-05-30-question-rich-content` | Extracted shared `RichContent` primitive; deleted duplicate `renderMixedContent` from `QuestionCard` + `CreateQuestionPage`; added `prose-osh` brand prose styles; `Skeleton` primitive shipped and swapped into the SRS drill loading state. | Splitting the renderer into `renderRichContent.ts` (pure) and `RichContent.tsx` (component) kept fast-refresh's "component-only exports" rule happy. KaTeX warns about "quirks mode" inside happy-dom test env (harmless — the template-element-walk path doesn't ship a doctype); production browsers are fine. `M7-02` (variable substitution) is the next pull. |
+| 2026-06-02 | M1-06 finish primitives (`Input`/`Textarea`/`Select`, `Stat`, `SectionHeading`, `EmptyState`) | #135 | Every M1-06 primitive added to `ui/index.ts` and rendered on `/design`. | Wrote the input chrome as a base `.input-brand` CSS class so `Input`/`Textarea`/`Select` share one focus-ring/error-state implementation. All M4 page migrations now compose these instead of hand-rolling form fields. |
+| 2026-06-02 | M2-03 global states — `LoadingSpinner` (keyhole motif), `NotFoundPage`, `ErrorBoundary` | #136 | Branded full-screen fallbacks; reduced-motion honoured on spinner. | No toast lib currently wired into the app — deferred toast theming until first real use rather than adding a dependency speculatively. |
+| 2026-06-02 | M3-02 register flow → V2 (Register, Register-school, Register-open) | #137 | All three pages share the Login chalkboard/paper layout; using new `ui/Input`. | Reusing the Login layout keeps "first impression" coherent — every unauthenticated surface now reads as the same product. |
+| 2026-06-02 | M4-01 Student Dashboard → V2 | #138 | All `indigo`/`gray-50` removed from the dashboard's own JSX + empty/enrolment state; uses `Stat`, `SectionHeading`, `EmptyState`, `.os-card`. | Child panels (`DueForReviewPanel`, `RecommendationsPanel`, `AssignmentCard`, `StreakBadge`) intentionally left for M4-06 so this PR stays atomic. |
+| 2026-06-02 | M4-03 Teacher Dashboard → V2 | #139 | Same treatment for Teacher Dashboard + container chrome of its panels. | `InterventionsPanel` (merged same day) was already token-clean, so only its host needed restyling. |
+| 2026-06-02 | M7-02 variable substitution endpoint fix | #140 | 4 new regression tests; `BrowsePracticePage` stale `LoadingSpinner` import fixed in the same PR; `scripts/init_db.sql` added (Docker auto-creates it as a dir when missing, crashing postgres init). | The substitution engine was *already complete* — the bug was a single missing role-switch in `QuestionViewSet.get_serializer_class`. The SRS drill and assignment detail used the correct serializer; only the browse endpoint was wrong. Cheap fix, huge user-facing impact (no more raw `{{k}}` tokens for students). |
+| 2026-06-02 | M7-05 seed_demo_data idempotency | #141 | `seed-demo` `QuestionTag` namespace; all 5 demo accounts now created by the command + `parent_demo → student_demo` linkage. | Tag-namespaced delete/recreate is cleaner than tightening `get_or_create` keys — works regardless of what other questions share the same (chapter, type, difficulty) combo, and is fully scoped (can never touch cabinet content). Same pattern fits future "demo content reset" needs. |

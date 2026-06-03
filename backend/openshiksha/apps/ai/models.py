@@ -1649,3 +1649,130 @@ class OpenResponseGrade(models.Model):
     @property
     def is_reviewed(self) -> bool:
         return self.status == OpenResponseGradeStatus.REVIEWED
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class InterventionStatus(models.TextChoices):
+    OPEN = "open", "Open (needs attention)"
+    ACKNOWLEDGED = "acknowledged", "Acknowledged by teacher"
+    DISMISSED = "dismissed", "Dismissed by teacher"
+    RESOLVED = "resolved", "Resolved (student recovered)"
+
+
+class InterventionSuggestion(models.Model):
+    """
+    An AI-generated, per-student intervention strategy for a teacher.
+
+    Where ``LearningGap`` and ``StudentMisconception`` capture *what* a student
+    is weak on, this model answers the teacher's next question — *"what do I do
+    about it?"*. For each struggling student in a SubjectRoom it bundles the
+    student's open learning gaps and most common misconceptions into a snapshot,
+    then asks the LLM cascade (Claude → Gemma → Ollama → deterministic stub) to
+    write a short, concrete intervention plan the teacher can act on this week.
+
+    The snapshot (focus chapters, misconception labels, average score, gap count)
+    is stored alongside the narrative so the card renders fully even when no LLM
+    provider is configured (the stub composes a usable plan from the snapshot)
+    and so the reasoning behind the plan stays auditable.
+
+    ``priority`` (1–5, higher = more urgent) is derived deterministically from the
+    severity and breadth of the gaps so the teacher's list sorts worst-first.
+
+    One row per (subject_room, student); regenerating overwrites in place. A
+    teacher can acknowledge, dismiss, or mark a suggestion resolved; a refresh
+    that finds the student has recovered auto-resolves an open suggestion.
+    """
+
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="intervention_suggestions",
+    )
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="intervention_suggestions",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+
+    status = models.CharField(
+        max_length=12,
+        choices=InterventionStatus.choices,
+        default=InterventionStatus.OPEN,
+    )
+    priority = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="1–5, higher = more urgent. Derived from gap severity and breadth.",
+    )
+    severity = models.CharField(
+        max_length=10,
+        choices=GapSeverity.choices,
+        help_text="Worst gap severity contributing to this suggestion.",
+    )
+
+    strategy_text = models.TextField(
+        help_text="AI-generated plain-language intervention plan for the teacher.",
+    )
+
+    # ── Snapshot of the evidence behind the suggestion ────────────────────────
+    avg_score = models.FloatField(
+        default=0.0,
+        validators=FRACTION_VALIDATOR,
+        help_text="Mean of the student's open-gap chapter scores (0.0–1.0).",
+    )
+    gap_count = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Number of open learning gaps this student has in the room.",
+    )
+    focus_chapters = models.JSONField(
+        default=list,
+        help_text='Weakest chapters: [{"chapter_id", "chapter_name", "avg_score", "severity"}].',
+    )
+    misconception_labels = models.JSONField(
+        default=list,
+        help_text='Most common misconceptions: [{"label", "count"}].',
+    )
+
+    acknowledged_by = models.ForeignKey(
+        "core.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="interventions_acknowledged",
+        limit_choices_to={"role": "teacher"},
+    )
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    model_used = models.CharField(max_length=60, default="stub")
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+
+    generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_intervention_suggestions"
+        unique_together = [["subject_room", "student"]]
+        indexes = [
+            models.Index(fields=["subject_room", "status", "-priority"]),
+            models.Index(fields=["student", "status"]),
+        ]
+        ordering = ["-priority", "avg_score"]
+
+    def __str__(self):
+        return f"Intervention: {self.student} | {self.subject_room} | P{self.priority} ({self.status})"
+
+    @staticmethod
+    def priority_for(severity: str, gap_count: int) -> int:
+        """
+        Map severity + breadth to a 1–5 urgency score.
+
+        A severe gap starts at 4, moderate at 3, mild at 2; each additional gap
+        beyond the first nudges it up, capped at 5.
+        """
+        base = {GapSeverity.SEVERE: 4, GapSeverity.MODERATE: 3}.get(severity, 2)
+        return max(1, min(5, base + max(0, gap_count - 1)))

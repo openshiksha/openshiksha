@@ -1349,3 +1349,96 @@ def grade_open_response(self, grade_id: int) -> dict:
         except Exception:
             logger.exception("grade_open_response: could not mark grade=%d failed", grade_id)
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestion Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_interventions_for_subject_room(self, subject_room_id: int) -> dict:
+    """
+    Generate (or refresh) AI intervention suggestions for a SubjectRoom.
+
+    For each student with at least one open ``LearningGap`` in the room, builds an
+    evidence snapshot (weak chapters + recurring misconceptions), asks the LLM
+    cascade for a short intervention plan, and upserts an ``InterventionSuggestion``
+    on (subject_room, student). A teacher's acknowledge/dismiss/resolve decision is
+    preserved across refreshes — only the strategy and snapshot are updated.
+
+    Students who previously had an open suggestion but no longer have any open gaps
+    are auto-resolved, so the teacher's list self-cleans as students recover.
+
+    Idempotent. Returns
+    ``{"subject_room_id": int, "generated": int, "auto_resolved": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import compute_interventions_for_subject_room
+        from openshiksha.apps.ai.llm_client import generate_intervention_plan
+        from openshiksha.apps.ai.models import InterventionStatus, InterventionSuggestion
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.select_related(
+            "subject",
+            "classroom__standard",
+        ).get(pk=subject_room_id)
+
+        snapshots = compute_interventions_for_subject_room(subject_room)
+        standard_number = getattr(subject_room.classroom.standard, "number", 8) or 8
+
+        generated_ids: list[int] = []
+        for snap in snapshots:
+            result = generate_intervention_plan(
+                stats=snap,
+                subject_name=subject_room.subject.name,
+                standard_number=standard_number,
+            )
+            obj, _ = InterventionSuggestion.objects.update_or_create(
+                subject_room=subject_room,
+                student_id=snap["student_id"],
+                defaults={
+                    "priority": snap["priority"],
+                    "severity": snap["severity"],
+                    "avg_score": snap["avg_score"],
+                    "gap_count": snap["gap_count"],
+                    "focus_chapters": snap["focus_chapters"],
+                    "misconception_labels": snap["misconception_labels"],
+                    "strategy_text": result["text"],
+                    "model_used": result["model"],
+                    "input_tokens": result["input_tokens"],
+                    "output_tokens": result["output_tokens"],
+                },
+            )
+            # A refresh on a student who had recovered then regressed re-opens the card.
+            if obj.status == InterventionStatus.RESOLVED:
+                obj.status = InterventionStatus.OPEN
+                obj.save(update_fields=["status"])
+            generated_ids.append(obj.pk)
+
+        # Auto-resolve open/acknowledged suggestions for students who no longer
+        # appear in the snapshot (their gaps closed).
+        auto_resolved = (
+            InterventionSuggestion.objects.filter(
+                subject_room=subject_room,
+                status__in=[InterventionStatus.OPEN, InterventionStatus.ACKNOWLEDGED],
+            )
+            .exclude(pk__in=generated_ids)
+            .update(status=InterventionStatus.RESOLVED)
+        )
+
+        logger.info(
+            "generate_interventions_for_subject_room: room=%d generated=%d auto_resolved=%d",
+            subject_room_id,
+            len(generated_ids),
+            auto_resolved,
+        )
+        return {
+            "subject_room_id": subject_room_id,
+            "generated": len(generated_ids),
+            "auto_resolved": auto_resolved,
+        }
+
+    except Exception as exc:
+        logger.exception("generate_interventions_for_subject_room failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)

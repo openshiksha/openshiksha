@@ -6,6 +6,7 @@ from .models import (
     ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
+    InterventionSuggestion,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -404,3 +405,40 @@ class OpenResponseGradeAdmin(admin.ModelAdmin):
         "confidence",
     ]
     list_select_related = ["student", "subpart__question", "subject_room__subject"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestion Admin
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@admin.register(InterventionSuggestion)
+class InterventionSuggestionAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "student",
+        "subject_room",
+        "status",
+        "priority",
+        "severity",
+        "avg_score",
+        "gap_count",
+        "model_used",
+        "generated_at",
+    ]
+    list_filter = ["status", "severity", "subject_room__subject"]
+    search_fields = ["student__username", "student__email", "strategy_text"]
+    readonly_fields = [
+        "generated_at",
+        "acknowledged_at",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "focus_chapters",
+        "misconception_labels",
+        "avg_score",
+        "gap_count",
+        "priority",
+        "severity",
+    ]
+    list_select_related = ["student", "subject_room__subject"]

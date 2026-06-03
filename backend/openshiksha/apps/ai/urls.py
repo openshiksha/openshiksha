@@ -8,6 +8,7 @@ from .views import (
     ContentRecommendationViewSet,
     GenerateQuestionsViewSet,
     HintSequenceViewSet,
+    InterventionSuggestionViewSet,
     KnowledgeNodeViewSet,
     LearningGapViewSet,
     LearningPathViewSet,
@@ -55,5 +56,7 @@ router.register("assignment-drafts", AssignmentDraftViewSet, basename="assignmen
 # Teacher AI Assistant — Open-Ended Response Grading (teacher-only)
 router.register("open-rubrics", OpenResponseRubricViewSet, basename="open-response-rubric")
 router.register("open-grades", OpenResponseGradeViewSet, basename="open-response-grade")
+# Teacher AI Assistant — Intervention Suggestions (teacher-only)
+router.register("interventions", InterventionSuggestionViewSet, basename="intervention-suggestion")
 
 urlpatterns = router.urls

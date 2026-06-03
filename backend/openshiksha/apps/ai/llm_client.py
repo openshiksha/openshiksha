@@ -2,10 +2,22 @@
 LLM client for AI-generated explanations.
 
 Provider cascade (first available wins):
-  1. Anthropic Claude   — set ANTHROPIC_API_KEY
-  2. Google Gemma 4     — set GOOGLE_AI_API_KEY (Google AI Studio free tier)
-  3. Ollama (Gemma)     — set OLLAMA_BASE_URL or run Ollama at localhost:11434
-  4. Stub               — plain text fallback for dev/test with no keys
+  1. Anthropic Claude     — set ANTHROPIC_API_KEY
+  2. Google AI Studio     — set GOOGLE_AI_API_KEY (free tier)
+                            override model with GOOGLE_AI_MODEL (default gemini-2.5-flash)
+  3. Ollama (local)       — set OLLAMA_BASE_URL, or run Ollama at localhost:11434
+                            override model with OLLAMA_MODEL (default gemma3:4b)
+  4. Stub                 — plain text fallback for dev/test with no keys
+
+Free-tier model note (as of 2026-06):
+  - ``gemini-2.5-flash`` works on Google AI Studio's free tier with generous
+    daily quota — this is the safe default.
+  - ``gemini-2.0-flash`` requires billing even though the docs imply otherwise;
+    a brand-new free-tier key returns ``RESOURCE_EXHAUSTED`` on the first call.
+  - The previous default ``gemma-4-it`` does **not exist** as a model name —
+    the real Gemma 4 models on AI Studio are ``gemma-4-26b-a4b-it`` and
+    ``gemma-4-31b-it`` (slower and less reliable than Gemini Flash for our
+    use cases).
 
 Grade calibration tiers:
   1–6  (primary):  very simple words, short sentences, real-world analogies
@@ -24,10 +36,22 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 CLAUDE_MODEL = "claude-sonnet-4-6"
-GEMMA_MODEL = "gemma-4-it"  # Gemma 4 instruction-tuned via Google AI Studio
-OLLAMA_MODEL = "gemma3:4b"  # fallback if Gemma 4 not in local Ollama cache
+# Google AI Studio default. Env-overridable via GOOGLE_AI_MODEL so a deployment
+# can pin to a different free-tier-eligible Gemini/Gemma model without code
+# changes. The default must work on the AI Studio free tier with no billing.
+GOOGLE_AI_DEFAULT_MODEL = "gemini-2.5-flash"
+# Local Ollama default. Env-overridable via OLLAMA_MODEL.
+OLLAMA_DEFAULT_MODEL = "gemma3:4b"
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
 MAX_TOKENS = 300
+
+
+def _google_ai_model() -> str:
+    return os.environ.get("GOOGLE_AI_MODEL", "") or GOOGLE_AI_DEFAULT_MODEL
+
+
+def _ollama_model() -> str:
+    return os.environ.get("OLLAMA_MODEL", "") or OLLAMA_DEFAULT_MODEL
 
 
 # ─────────────────────────────────────────────────────────────
@@ -113,14 +137,19 @@ def _call_anthropic(prompt: str, api_key: str) -> dict:
     }
 
 
-def _call_google_gemma(prompt: str, api_key: str) -> dict:
-    """Call Gemma 4 via Google AI Studio (free tier)."""
+def _call_google_ai_studio(prompt: str, api_key: str) -> dict:
+    """Call a Google AI Studio model (default: gemini-2.5-flash, free tier).
+
+    Reads the active model from GOOGLE_AI_MODEL env var (or the default).
+    Works for both Gemini and Gemma family — same SDK, same endpoint.
+    """
     from google import genai
     from google.genai import types
 
+    model = _google_ai_model()
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=GEMMA_MODEL,
+        model=model,
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=MAX_TOKENS,
@@ -134,7 +163,7 @@ def _call_google_gemma(prompt: str, api_key: str) -> dict:
     output_tokens = getattr(usage, "candidates_token_count", 0) or 0
     return {
         "text": text,
-        "model": GEMMA_MODEL,
+        "model": model,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
     }
@@ -144,9 +173,10 @@ def _call_ollama(prompt: str, base_url: str) -> dict:
     """Call a local Ollama instance (on-device, zero cost)."""
     import httpx
 
+    model = _ollama_model()
     url = f"{base_url.rstrip('/')}/api/generate"
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": model,
         "prompt": prompt,
         "stream": False,
         "options": {"num_predict": MAX_TOKENS, "temperature": 0.7},
@@ -157,7 +187,7 @@ def _call_ollama(prompt: str, base_url: str) -> dict:
     text = data.get("response", "").strip()
     return {
         "text": text,
-        "model": f"ollama/{OLLAMA_MODEL}",
+        "model": f"ollama/{model}",
         "input_tokens": data.get("prompt_eval_count", 0),
         "output_tokens": data.get("eval_count", 0),
     }
@@ -193,7 +223,7 @@ def generate_explanation(
 
     Provider cascade (first available wins):
       1. Anthropic Claude  — ANTHROPIC_API_KEY env var
-      2. Google Gemma 4    — GOOGLE_AI_API_KEY env var (free tier)
+      2. Google AI Studio    — GOOGLE_AI_API_KEY env var (free tier)
       3. Ollama (local)    — OLLAMA_BASE_URL env var, or localhost:11434
       4. Stub              — plain text, no LLM call
 
@@ -219,14 +249,14 @@ def generate_explanation(
         except Exception:
             logger.exception("generate_explanation: Anthropic call failed, trying next provider")
 
-    # 2. Google Gemma 4 (free tier via Google AI Studio)
+    # 2. Google AI Studio (free tier via Google AI Studio)
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_explanation: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_explanation: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_explanation: Google Gemma call failed, trying next provider")
+            logger.exception("generate_explanation: Google AI Studio call failed, trying next provider")
 
     # 3. Ollama (on-device, zero cost)
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
@@ -400,7 +430,7 @@ def _call_anthropic_generate_questions(prompt: str, api_key: str) -> list[dict]:
 
 
 def _call_google_generate_questions(prompt: str, api_key: str) -> list[dict]:
-    """Fallback: ask Gemma to return JSON and parse it."""
+    """Fallback: ask the Google AI Studio model to return JSON and parse it."""
     import json as _json
 
     from google import genai
@@ -412,7 +442,7 @@ def _call_google_generate_questions(prompt: str, api_key: str) -> list[dict]:
     )
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=GEMMA_MODEL,
+        model=_google_ai_model(),
         contents=json_prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=QUESTION_GEN_MAX_TOKENS,
@@ -431,7 +461,7 @@ def _call_ollama_generate_questions(prompt: str, base_url: str) -> list[dict]:
 
     json_prompt = prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects."
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": _ollama_model(),
         "prompt": json_prompt,
         "stream": False,
         "options": {"num_predict": QUESTION_GEN_MAX_TOKENS, "temperature": 0.8},
@@ -502,10 +532,10 @@ def generate_questions(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_questions: using Google Gemma 4")
+            logger.debug("generate_questions: using Google AI Studio")
             return _call_google_generate_questions(prompt, google_key)
         except Exception:
-            logger.exception("generate_questions: Google Gemma failed, trying next provider")
+            logger.exception("generate_questions: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -613,10 +643,10 @@ def generate_class_summary(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_class_summary: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_class_summary: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_class_summary: Google Gemma failed, trying next provider")
+            logger.exception("generate_class_summary: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -710,10 +740,10 @@ def generate_draft_rationale(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_draft_rationale: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_draft_rationale: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_draft_rationale: Google Gemma failed, trying next provider")
+            logger.exception("generate_draft_rationale: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -917,7 +947,7 @@ def generate_hint_sequence(
             json_prompt = (
                 prompt + "\n\nRespond ONLY with a JSON array like " '[{"level": 1, "text": "..."}], no markdown fences.'
             )
-            res = _call_google_gemma(json_prompt, google_key)
+            res = _call_google_ai_studio(json_prompt, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return {
                 "hints": _parse_hints(_json.loads(text), num_hints),
@@ -926,7 +956,7 @@ def generate_hint_sequence(
                 "output_tokens": res["output_tokens"],
             }
         except Exception:
-            logger.exception("generate_hint_sequence: Google Gemma failed, trying next provider")
+            logger.exception("generate_hint_sequence: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1032,11 +1062,11 @@ def diagnose_misconception(
                 prompt + "\n\nRespond ONLY with JSON: "
                 '{"misconception_label": "...", "diagnosis": "...", "remediation": "..."}'
             )
-            res = _call_google_gemma(json_prompt, google_key)
+            res = _call_google_ai_studio(json_prompt, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return _shape(_json.loads(text), res["model"], res["input_tokens"], res["output_tokens"])
         except Exception:
-            logger.exception("diagnose_misconception: Google Gemma failed, trying next provider")
+            logger.exception("diagnose_misconception: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1162,10 +1192,10 @@ def generate_parent_summary(stats: dict, language: str = "en") -> dict:
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_parent_summary: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_parent_summary: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_parent_summary: Google Gemma failed, trying next provider")
+            logger.exception("generate_parent_summary: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1363,13 +1393,13 @@ def grade_open_response(
         try:
             import json as _json
 
-            res = _call_google_gemma(prompt + json_hint, google_key)
+            res = _call_google_ai_studio(prompt + json_hint, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return _shape_open_grade(
                 _json.loads(text), max_marks, res["model"], res["input_tokens"], res["output_tokens"]
             )
         except Exception:
-            logger.exception("grade_open_response: Google Gemma failed, trying next provider")
+            logger.exception("grade_open_response: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1483,10 +1513,10 @@ def generate_intervention_plan(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_intervention_plan: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_intervention_plan: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_intervention_plan: Google Gemma failed, trying next provider")
+            logger.exception("generate_intervention_plan: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):

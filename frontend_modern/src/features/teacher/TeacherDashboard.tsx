@@ -6,6 +6,7 @@ import { WeeklyReportPanel } from './WeeklyReportPanel';
 import { InterventionsPanel } from './InterventionsPanel';
 import { ClassroomCodeWidget } from './ClassroomCodeWidget';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { Button, Card, EmptyState, SectionHeading, Stat } from '@/shared/ui';
 import type { Assignment } from '@/types/index';
 
 const isOverdue = (dueAt: string) => new Date(dueAt) < new Date();
@@ -18,36 +19,37 @@ const AssignmentRow = ({ assignment }: { assignment: Assignment }) => {
   const dueDate = new Date(due_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
   return (
-    <div
-      className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:border-indigo-300 transition-colors"
+    <button
+      type="button"
       onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
+      className="os-card w-full p-4 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{problem_set.title}</p>
-          <p className="text-sm text-gray-500 mt-0.5">{subject_room_display}</p>
+          <p className="truncate font-semibold text-ink-900">{problem_set.title}</p>
+          <p className="mt-0.5 text-sm text-ink-500">{subject_room_display}</p>
         </div>
-        <div className="text-right shrink-0">
-          <p className={`text-xs font-medium ${overdue ? 'text-red-500' : 'text-gray-500'}`}>
+        <div className="shrink-0 text-right">
+          <p className={`text-xs font-medium ${overdue ? 'text-rose-600' : 'text-ink-500'}`}>
             {overdue ? 'Overdue' : `Due ${dueDate}`}
           </p>
-          <p className="text-sm font-medium text-gray-700 mt-0.5">
+          <p className="mt-0.5 text-sm font-medium text-ink-700">
             {submission_count}/{student_count} submitted
           </p>
           {average_score !== null && (
-            <p className="text-xs text-gray-500">Avg: {Math.round(average_score * 100)}%</p>
+            <p className="text-xs text-ink-500">Avg: {Math.round(average_score * 100)}%</p>
           )}
         </div>
       </div>
       <div className="mt-3">
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-1.5 overflow-hidden rounded-full bg-ink-100">
           <div
-            className="h-full bg-indigo-500 rounded-full transition-all"
+            className="h-full rounded-full bg-brand-500 transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -56,63 +58,69 @@ export const TeacherDashboard = () => {
   const { data: subjectRooms, isLoading: roomsLoading } = useSubjectRooms();
   const { data: assignments, isLoading: assignmentsLoading } = useTeacherAssignments();
 
+  const totalStudents = (subjectRooms ?? []).reduce((sum, r) => sum + r.student_count, 0);
+  const openCount = (assignments ?? []).filter((a) => !isOverdue(a.due_at)).length;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teacher Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your subject rooms and assignments.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="font-display text-3xl font-semibold text-ink-900">Teacher dashboard</h1>
+          <p className="mt-1 text-sm text-ink-500">
+            Manage your subject rooms and assignments.
+          </p>
         </div>
-        <div className="flex gap-2 flex-wrap justify-end">
-          <button
-            onClick={() => navigate('/teacher/questions/new')}
-            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            + New Question
-          </button>
-          <button
-            onClick={() => navigate('/teacher/problem-sets/new')}
-            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            + Problem Set
-          </button>
-          <button
-            onClick={() => navigate('/teacher/assignments/new')}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-          >
-            + New Assignment
-          </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/questions/new')}>
+            + New question
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/problem-sets/new')}>
+            + Problem set
+          </Button>
+          <Button size="sm" onClick={() => navigate('/teacher/assignments/new')}>
+            + New assignment
+          </Button>
         </div>
       </div>
 
+      {/* Headline stats */}
+      {(subjectRooms?.length ?? 0) > 0 && (
+        <Card className="grid grid-cols-2 gap-6 sm:grid-cols-3">
+          <Stat label="Subject rooms" value={subjectRooms?.length ?? 0} />
+          <Stat label="Students" value={totalStudents} />
+          <Stat label="Open assignments" value={openCount} />
+        </Card>
+      )}
+
       {/* Subject Rooms */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Subject Rooms</h2>
+      <section className="space-y-3">
+        <SectionHeading title="Subject rooms" as="h2" />
         {roomsLoading ? (
           <div className="flex items-center justify-center py-8">
             <LoadingSpinner size="lg" />
           </div>
         ) : !subjectRooms || subjectRooms.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-white rounded-xl border border-gray-200">
-            <p className="text-sm">No subject rooms yet. Ask an admin to assign you to a classroom.</p>
-          </div>
+          <EmptyState
+            title="No subject rooms yet"
+            description="Ask an admin to assign you to a classroom."
+          />
         ) : (
           <div className="space-y-3">
             {subjectRooms.map((room) => (
-              <div key={room.id} className="bg-white rounded-xl border border-gray-200 p-5">
+              <Card key={room.id} padded={false} className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">{room.subject_name}</p>
-                    <p className="text-sm text-gray-500">{room.classroom_display}</p>
+                    <p className="font-semibold text-ink-900">{room.subject_name}</p>
+                    <p className="text-sm text-ink-500">{room.classroom_display}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-700">
+                    <p className="text-sm font-medium text-ink-700">
                       {room.student_count} student{room.student_count !== 1 ? 's' : ''}
                     </p>
                     <button
                       onClick={() => navigate('/teacher/assignments/new')}
-                      className="text-xs text-indigo-600 hover:underline mt-0.5"
+                      className="mt-0.5 text-xs font-semibold text-brand-700 hover:text-brand-800"
                     >
                       Assign problem set
                     </button>
@@ -125,29 +133,29 @@ export const TeacherDashboard = () => {
                   classroomId={room.classroom}
                   classroomName={room.classroom_display}
                 />
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </section>
 
       {/* Assignments */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Assignments</h2>
+      <section className="space-y-3">
+        <SectionHeading title="Assignments" as="h2" />
         {assignmentsLoading ? (
           <div className="flex items-center justify-center py-8">
             <LoadingSpinner size="lg" />
           </div>
         ) : !assignments || assignments.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-white rounded-xl border border-gray-200">
-            <p className="text-sm">No assignments yet.</p>
-            <button
-              onClick={() => navigate('/teacher/assignments/new')}
-              className="mt-2 text-sm text-indigo-600 hover:underline"
-            >
-              Create your first assignment
-            </button>
-          </div>
+          <EmptyState
+            title="No assignments yet"
+            description="Create your first assignment to start tracking submissions."
+            action={
+              <Button onClick={() => navigate('/teacher/assignments/new')}>
+                Create assignment
+              </Button>
+            }
+          />
         ) : (
           <div className="space-y-3">
             {assignments.map((a) => (

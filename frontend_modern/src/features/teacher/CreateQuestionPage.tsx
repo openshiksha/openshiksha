@@ -1,13 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { RichContent } from '@/shared/ui';
+import { LoadingSpinner, RichContent } from '@/shared/ui';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useChapters } from './useChapters';
 import { useCreateQuestion } from './useCreateQuestion';
 import { useUpdateQuestion } from './useUpdateQuestion';
 import { useQuestion } from './useQuestion';
 import { useGenerateQuestions } from './useGenerateQuestions';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type {
   MCQOption,
   QuestionSubpartWrite,

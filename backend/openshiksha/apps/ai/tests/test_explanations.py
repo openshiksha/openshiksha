@@ -276,9 +276,9 @@ def test_llm_client_google_gemma_path(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     monkeypatch.setenv("GOOGLE_AI_API_KEY", "fake-google-key")
 
-    mock_result = {"text": "Gemma says: correct!", "model": "gemma-4-it", "input_tokens": 80, "output_tokens": 20}
+    mock_result = {"text": "Gemma says: correct!", "model": "gemini-2.5-flash", "input_tokens": 80, "output_tokens": 20}
 
-    with patch("openshiksha.apps.ai.llm_client._call_google_gemma", return_value=mock_result) as mock_google:
+    with patch("openshiksha.apps.ai.llm_client._call_google_ai_studio", return_value=mock_result) as mock_google:
         from openshiksha.apps.ai import llm_client
 
         result = llm_client.generate_explanation(
@@ -291,7 +291,7 @@ def test_llm_client_google_gemma_path(monkeypatch):
         )
 
     mock_google.assert_called_once()
-    assert result["model"] == "gemma-4-it"
+    assert result["model"] == "gemini-2.5-flash"
     assert result["text"] == "Gemma says: correct!"
 
 

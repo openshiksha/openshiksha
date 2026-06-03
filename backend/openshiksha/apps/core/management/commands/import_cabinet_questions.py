@@ -685,7 +685,40 @@ class Command(BaseCommand):
             stats["compound"] = stats.get("compound", 0) + 1
         standard, subject, chapter = self._resolve_taxonomy(ids, mapping, stats)
 
-        stem_text = _lift_shared_stem(converted) if len(converted) > 1 else ""
+        # Stem extraction. Priority:
+        #   1. Container-level `content.text` (+ optional `content.img`) — the
+        #      cabinet's *authoritative* question prompt for compound questions
+        #      whose subparts are sub-questions ("Graph 1", "Graph 2", "Graph 3"
+        #      under "For the given graphs find the number of zeros in each
+        #      case"). 38% of containers carry this field; without lifting it,
+        #      students see only the sub-labels and not the actual question.
+        #   2. Fallback: subparts that share an identical leading paragraph
+        #      (M7-07). Used when the container has no explicit content.
+        container_content = container.get("content") or {}
+        container_stem = ""
+        if isinstance(container_content, dict):
+            raw_stem = (container_content.get("text") or "").strip()
+            if raw_stem:
+                # Rewrite inline images and resolve `#{name}#` tokens in the
+                # stem just like we do for subpart bodies (M7-06).
+                container_stem = rewrite_inline_images(raw_stem, ids["raw_dir"], chapter_base)
+            # Container can also carry its own diagram (content.img) — render
+            # it as a trailing <img> in the stem so the picture stays attached
+            # to the question prompt, not orphaned on a subpart.
+            container_img = container_content.get("img")
+            if container_img:
+                img_url = (
+                    container_img
+                    if str(container_img).startswith(("http://", "https://"))
+                    else f"{chapter_base}/img/{container_img}"
+                )
+                img_tag = f'<p><img src="{img_url}" alt=""></p>'
+                container_stem = (container_stem + img_tag).strip() if container_stem else img_tag
+
+        if container_stem:
+            stem_text = container_stem
+        else:
+            stem_text = _lift_shared_stem(converted) if len(converted) > 1 else ""
         if stem_text:
             stats["stems"] = stats.get("stems", 0) + 1
 

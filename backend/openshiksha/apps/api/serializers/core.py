@@ -206,7 +206,14 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
 
 
 class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
-    """Question serializer using the student-safe subpart serializer."""
+    """Question serializer using the student-safe subpart serializer.
+
+    Substitutes ``{{var}}`` tokens in ``stem_text`` for authenticated students
+    using the first subpart's per-student seeded values. This keeps stem
+    numbers consistent with the body of the question the student is solving,
+    and is a no-op for stems that don't reference variables (the dominant
+    case in cabinet content).
+    """
 
     subparts = QuestionSubpartStudentSerializer(many=True, read_only=True)
     tags = QuestionTagSerializer(many=True, read_only=True)
@@ -228,6 +235,31 @@ class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
+
+    def to_representation(self, instance):
+        from openshiksha.apps.api.croupier import sample_variable_values, substitute_variables
+
+        data = super().to_representation(instance)
+        stem = data.get("stem_text")
+        if not stem or "{{" not in stem:
+            return data
+
+        request = self.context.get("request")
+        if not (request and request.user.is_authenticated):
+            return data
+
+        # Stems can reference variables shared with their subparts (e.g. a
+        # cabinet container whose prompt mentions a quantity that subparts then
+        # ask about). We seed off the first subpart so the stem's numbers
+        # match the first subpart the student sees — deterministic per
+        # (student_id, subpart_id) and zero-cost when no variables are set.
+        first = instance.subparts.order_by("index").first()
+        if first and first.variable_constraints:
+            values = sample_variable_values(
+                first.variable_constraints, request.user.id, first.id
+            )
+            data["stem_text"] = substitute_variables(stem, values)
+        return data
 
 
 class QuestionSerializer(serializers.ModelSerializer):

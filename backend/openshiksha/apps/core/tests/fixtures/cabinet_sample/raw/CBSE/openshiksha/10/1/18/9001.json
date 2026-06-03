@@ -1,0 +1,9 @@
+{
+  "subpart_index": 0,
+  "type": 3,
+  "content": {"text": "<div>Graph 1</div>"},
+  "answer": {"value": 2},
+  "variable_constraints": {},
+  "solution": {"text": "Two zeroes — two x-axis crossings."},
+  "hint": null
+}

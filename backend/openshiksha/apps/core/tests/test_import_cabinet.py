@@ -232,8 +232,8 @@ class TestImportCommand:
     def test_malformed_question_skipped(self):
         out, err = StringIO(), StringIO()
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=err)
-        # 7 valid questions import; the type-99 one is skipped.
-        assert Question.objects.count() == 7
+        # 8 valid containers import; the type-99 one is skipped.
+        assert Question.objects.count() == 8
         assert "skip" in err.getvalue()
 
     def test_idempotent_reimport(self):
@@ -241,7 +241,7 @@ class TestImportCommand:
             call_command(
                 "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
             )
-        assert Question.objects.count() == 7
+        assert Question.objects.count() == 8
 
     def test_solution_and_hint_imported(self):
         call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
@@ -340,3 +340,47 @@ class TestImportCommand:
             assert ":c" in tag.name and ":q" in tag.name, tag.name
             # Each tag should be attached to exactly one Question.
             assert tag.questions.count() == 1
+
+    def test_container_content_text_lifted_into_stem(self):
+        """The container's `content.text` field is the authoritative question
+        prompt for compound questions (e.g. "For the given graphs find the
+        number of zeros in each case"). 38% of cabinet containers carry it,
+        and before this fix the importer silently dropped it — leaving
+        students with only the sub-labels ("Graph 1", "Graph 2", "Graph 3")
+        and no actual question. This regression test pins it down."""
+        call_command(
+            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
+        )
+        q = Question.objects.get(tags__name__endswith=":q549")
+        assert (
+            "For the given graphs find the number of zeros in each case" in q.stem_text
+        ), q.stem_text
+        # Subpart bodies are untouched — the stem doesn't get duplicated into them.
+        first_sp = q.subparts.order_by("index").first()
+        assert "number of zeros" not in (first_sp.question_text or "")
+
+    def test_container_content_img_attached_to_stem(self):
+        """When the container has `content.img`, the importer renders it as a
+        trailing <img> tag inside the stem so the picture stays attached to
+        the question prompt rather than orphaned on a subpart."""
+        call_command(
+            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
+        )
+        q = Question.objects.get(tags__name__endswith=":q549")
+        assert "<img" in q.stem_text and 'src="' in q.stem_text
+        # Image URL points at the chapter's img/ subdirectory on the cabinet repo.
+        assert "img/4.png" in q.stem_text
+
+    def test_stems_stat_includes_container_lifts(self):
+        """The `stems=` line in the importer report counts container-lifted
+        stems too, not just the M7-07 shared-paragraph lifts."""
+        out = StringIO()
+        call_command(
+            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=StringIO()
+        )
+        # At minimum the q549 container-lifted stem should be counted.
+        assert "stems=" in out.getvalue()
+        # Extract the numeric value after "stems=".
+        line = next(ln for ln in out.getvalue().splitlines() if "stems=" in ln)
+        n = int(line.split("stems=")[1].split()[0])
+        assert n >= 1, line

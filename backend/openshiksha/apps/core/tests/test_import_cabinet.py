@@ -348,13 +348,9 @@ class TestImportCommand:
         and before this fix the importer silently dropped it — leaving
         students with only the sub-labels ("Graph 1", "Graph 2", "Graph 3")
         and no actual question. This regression test pins it down."""
-        call_command(
-            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
-        )
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
         q = Question.objects.get(tags__name__endswith=":q549")
-        assert (
-            "For the given graphs find the number of zeros in each case" in q.stem_text
-        ), q.stem_text
+        assert "For the given graphs find the number of zeros in each case" in q.stem_text, q.stem_text
         # Subpart bodies are untouched — the stem doesn't get duplicated into them.
         first_sp = q.subparts.order_by("index").first()
         assert "number of zeros" not in (first_sp.question_text or "")
@@ -363,9 +359,7 @@ class TestImportCommand:
         """When the container has `content.img`, the importer renders it as a
         trailing <img> tag inside the stem so the picture stays attached to
         the question prompt rather than orphaned on a subpart."""
-        call_command(
-            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO()
-        )
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=StringIO(), stderr=StringIO())
         q = Question.objects.get(tags__name__endswith=":q549")
         assert "<img" in q.stem_text and 'src="' in q.stem_text
         # Image URL points at the chapter's img/ subdirectory on the cabinet repo.
@@ -375,9 +369,7 @@ class TestImportCommand:
         """The `stems=` line in the importer report counts container-lifted
         stems too, not just the M7-07 shared-paragraph lifts."""
         out = StringIO()
-        call_command(
-            "import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=StringIO()
-        )
+        call_command("import_cabinet_questions", source=SOURCE, mapping=MAPPING, stdout=out, stderr=StringIO())
         # At minimum the q549 container-lifted stem should be counted.
         assert "stems=" in out.getvalue()
         # Extract the numeric value after "stems=".

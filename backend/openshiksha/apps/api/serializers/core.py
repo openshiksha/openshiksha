@@ -255,9 +255,7 @@ class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
         # (student_id, subpart_id) and zero-cost when no variables are set.
         first = instance.subparts.order_by("index").first()
         if first and first.variable_constraints:
-            values = sample_variable_values(
-                first.variable_constraints, request.user.id, first.id
-            )
+            values = sample_variable_values(first.variable_constraints, request.user.id, first.id)
             data["stem_text"] = substitute_variables(stem, values)
         return data
 

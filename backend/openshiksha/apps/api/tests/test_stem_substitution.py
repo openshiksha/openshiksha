@@ -33,9 +33,7 @@ def question_with_stem_vars(db):
     board = Board.objects.create(name="CBSE Stem Sub")
     standard = Standard.objects.create(number=8, description="Class 8")
     subject = Subject.objects.create(name="Maths Stem Sub")
-    chapter = Chapter.objects.create(
-        name="Linear Equations Stem", subject=subject, standard=standard, order=1
-    )
+    chapter = Chapter.objects.create(name="Linear Equations Stem", subject=subject, standard=standard, order=1)
     school = School.objects.create(name="Stem Test School", board=board)
     student = User.objects.create_user(
         username="stem_student",
@@ -106,12 +104,12 @@ def test_stem_substitution_is_deterministic(question_with_stem_vars):
     request = factory.get("/")
     request.user = question_with_stem_vars["student"]
 
-    a = QuestionWithSubpartsStudentSerializer(
-        question_with_stem_vars["question"], context={"request": request}
-    ).data["stem_text"]
-    b = QuestionWithSubpartsStudentSerializer(
-        question_with_stem_vars["question"], context={"request": request}
-    ).data["stem_text"]
+    a = QuestionWithSubpartsStudentSerializer(question_with_stem_vars["question"], context={"request": request}).data[
+        "stem_text"
+    ]
+    b = QuestionWithSubpartsStudentSerializer(question_with_stem_vars["question"], context={"request": request}).data[
+        "stem_text"
+    ]
     assert a == b
 
 
@@ -122,9 +120,7 @@ def test_stem_unchanged_when_no_variables(db):
     board = Board.objects.create(name="CBSE Stem Static")
     standard = Standard.objects.create(number=9, description="Class 9")
     subject = Subject.objects.create(name="Maths Stem Static")
-    chapter = Chapter.objects.create(
-        name="Polynomials Stem Static", subject=subject, standard=standard, order=1
-    )
+    chapter = Chapter.objects.create(name="Polynomials Stem Static", subject=subject, standard=standard, order=1)
     school = School.objects.create(name="Stem Static School", board=board)
     student = User.objects.create_user(
         username="stem_static_student",

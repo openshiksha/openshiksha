@@ -30,12 +30,8 @@ import { AdminDashboard } from './features/admin/AdminDashboard';
 import { ClassroomManagePage } from './features/admin/ClassroomManagePage';
 import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
-
-const NotFound = () => (
-  <div className="text-center py-16">
-    <h2 className="text-2xl font-semibold text-gray-700">404 - Page Not Found</h2>
-  </div>
-);
+import { ErrorBoundary } from './shared/ui';
+import { NotFoundPage } from './features/shared/NotFoundPage';
 
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -58,6 +54,7 @@ function App() {
 
   return (
     <Router>
+      <ErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -287,8 +284,9 @@ function App() {
         />
 
         <Route path="/" element={isAuthenticated ? <Navigate to={defaultPath} replace /> : <HomePage />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </ErrorBoundary>
     </Router>
   );
 }

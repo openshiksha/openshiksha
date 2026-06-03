@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button, Input } from '@/shared/ui';
+import { AuthLayout } from './AuthLayout';
 import { useRegisterSchoolMutation } from './useRegisterMutation';
 import type { AxiosError } from 'axios';
 
@@ -38,104 +40,61 @@ export const RegisterSchoolPage = () => {
     });
   };
 
+  const disabled = mutation.isPending;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4 shadow-lg">
-            <span className="text-white text-2xl font-bold">OS</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Join Your School</h1>
-          <p className="text-gray-500 mt-1 text-sm">Enter the join code from your teacher</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="First Name" id="first_name" value={form.first_name} onChange={set('first_name')} disabled={mutation.isPending} />
-                <FormField label="Last Name" id="last_name" value={form.last_name} onChange={set('last_name')} disabled={mutation.isPending} />
-              </div>
-
-              <FormField label="Username" id="username" value={form.username} onChange={set('username')} required disabled={mutation.isPending} autoComplete="username" />
-              <FormField label="Password" id="password" type="password" value={form.password} onChange={set('password')} required disabled={mutation.isPending} autoComplete="new-password" />
-              <FormField label="Email (optional)" id="email" type="email" value={form.email} onChange={set('email')} disabled={mutation.isPending} autoComplete="email" />
-
-              <div>
-                <label htmlFor="join_code" className="block text-sm font-medium text-gray-700 mb-1">
-                  Classroom Join Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="join_code"
-                  type="text"
-                  required
-                  value={form.join_code}
-                  onChange={set('join_code')}
-                  disabled={mutation.isPending}
-                  placeholder="e.g. ABC123"
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 uppercase tracking-widest font-mono placeholder-gray-400 placeholder:normal-case placeholder:tracking-normal placeholder:font-sans"
-                  maxLength={8}
-                />
-              </div>
-
-              {mutation.isError && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700" role="alert">
-                  {extractError(mutation.error)}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={mutation.isPending || !form.username || !form.password || !form.join_code}
-                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                {mutation.isPending ? 'Creating account…' : 'Create Account'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <p className="text-center text-sm text-gray-500 mt-4">
-          <Link to="/register" className="text-indigo-600 hover:text-indigo-800">
+    <AuthLayout
+      title="Join your school"
+      subtitle="Enter the join code from your teacher."
+      footer={
+        <p>
+          <Link to="/register" className="font-semibold text-brand-700 hover:text-brand-800">
             ← Back
           </Link>
           {' · '}
-          <Link to="/login" className="text-indigo-600 hover:text-indigo-800">
+          <Link to="/login" className="font-semibold text-brand-700 hover:text-brand-800">
             Sign in
           </Link>
         </p>
-      </div>
-    </div>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="First name" id="first_name" value={form.first_name} onChange={set('first_name')} disabled={disabled} />
+          <Input label="Last name" id="last_name" value={form.last_name} onChange={set('last_name')} disabled={disabled} />
+        </div>
+
+        <Input label="Username" id="username" value={form.username} onChange={set('username')} required disabled={disabled} autoComplete="username" />
+        <Input label="Password" id="password" type="password" value={form.password} onChange={set('password')} required disabled={disabled} autoComplete="new-password" />
+        <Input label="Email (optional)" id="email" type="email" value={form.email} onChange={set('email')} disabled={disabled} autoComplete="email" />
+
+        <Input
+          label="Classroom join code"
+          id="join_code"
+          value={form.join_code}
+          onChange={set('join_code')}
+          required
+          disabled={disabled}
+          placeholder="e.g. ABC123"
+          maxLength={8}
+          className="font-mono uppercase tracking-widest placeholder:font-sans placeholder:tracking-normal placeholder:normal-case"
+        />
+
+        {mutation.isError && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+            {extractError(mutation.error)}
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          size="lg"
+          disabled={disabled || !form.username || !form.password || !form.join_code}
+          className="w-full"
+        >
+          {disabled ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 };
-
-interface FormFieldProps {
-  label: string;
-  id: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: string;
-  required?: boolean;
-  disabled?: boolean;
-  autoComplete?: string;
-  placeholder?: string;
-}
-
-const FormField = ({ label, id, value, onChange, type = 'text', required, disabled, autoComplete, placeholder }: FormFieldProps) => (
-  <div>
-    <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={onChange}
-      required={required}
-      disabled={disabled}
-      autoComplete={autoComplete}
-      placeholder={placeholder}
-      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-    />
-  </div>
-);

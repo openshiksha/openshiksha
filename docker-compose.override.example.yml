@@ -1,0 +1,16 @@
+# Developer-local overrides example.
+#
+# Copy to `docker-compose.override.yml` and edit the cabinet path for your
+# machine. The real file is gitignored (it contains an absolute path).
+#
+# This bind-mounts the local clone of `openshiksha/openshiksha-cabinet` into
+# the backend container so `manage.py import_cabinet_questions --source
+# /cabinet/questions` finds it.
+
+services:
+  backend:
+    volumes:
+      # On Windows + Git Bash, set `MSYS_NO_PATHCONV=1` when invoking
+      # `docker compose exec` so the in-container `/cabinet` path isn't
+      # rewritten to `C:/Program Files/Git/cabinet`.
+      - "/absolute/path/to/openshiksha-cabinet:/cabinet:ro"

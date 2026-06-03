@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { User } from '@/types/index';
+import type { RegisterOpenRequest, RegisterResponse, RegisterSchoolRequest, User } from '@/types/index';
 
 export interface LoginRequest {
   username: string;
@@ -36,5 +36,24 @@ export const authApi = {
     } catch {
       return false;
     }
+  },
+
+  registerOpen: async (data: RegisterOpenRequest): Promise<RegisterResponse> => {
+    const response = await apiClient.post<RegisterResponse>('/auth/register/open/', data);
+    return response.data;
+  },
+
+  registerSchool: async (data: RegisterSchoolRequest): Promise<RegisterResponse> => {
+    const response = await apiClient.post<RegisterResponse>('/auth/register/school/', data);
+    return response.data;
+  },
+
+  updateProfile: async (
+    data: Partial<
+      Pick<User, 'first_name' | 'last_name' | 'email' | 'phone_number' | 'email_reminders_opt_out'>
+    >
+  ): Promise<User> => {
+    const response = await apiClient.patch<User>('/users/me/profile/', data);
+    return response.data;
   },
 };

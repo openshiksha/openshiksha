@@ -20,6 +20,8 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from openshiksha.apps.core.models import SubjectRoom, User
 
 # Minimum ticks required before we consider the data meaningful
@@ -465,6 +467,365 @@ def build_practice_plan(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Weekly Class Report (Teacher AI Assistant)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Max chapters surfaced in the weekly report's strong/struggling lists
+WEEKLY_REPORT_TOP_N = 3
+
+# Minimum ticks in a chapter before it is eligible for the weekly highlight lists
+MIN_TICKS_FOR_WEEKLY_CHAPTER = 2
+
+
+def compute_weekly_class_stats(
+    subject_room: "SubjectRoom",
+    week_start,
+    week_end,
+) -> dict:
+    """
+    Compute a deterministic statistics snapshot for a SubjectRoom over a week.
+
+    The window is [week_start 00:00, week_end 23:59:59] in the active timezone,
+    matched against Tick.created_at.
+
+    Return format:
+    {
+        "total_students": int,
+        "active_students": int,
+        "ticks_recorded": int,
+        "class_avg_score": float,          # 0.0–1.0, 0.0 when no ticks
+        "struggling_chapters": [           # up to WEEKLY_REPORT_TOP_N, weakest first
+            {"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...
+        ],
+        "strong_chapters": [               # up to WEEKLY_REPORT_TOP_N, strongest first
+            {"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...
+        ],
+    }
+    """
+    from datetime import datetime, time
+
+    from openshiksha.apps.edge.models import Tick
+
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(week_start, time.min), tz)
+    end_dt = timezone.make_aware(datetime.combine(week_end, time.max), tz)
+
+    total_students = subject_room.students.count()
+
+    week_ticks = Tick.objects.filter(
+        subject_room=subject_room,
+        created_at__gte=start_dt,
+        created_at__lte=end_dt,
+    )
+
+    ticks_recorded = week_ticks.count()
+    active_students = week_ticks.values("student_id").distinct().count()
+
+    if ticks_recorded == 0:
+        return {
+            "total_students": total_students,
+            "active_students": 0,
+            "ticks_recorded": 0,
+            "class_avg_score": 0.0,
+            "struggling_chapters": [],
+            "strong_chapters": [],
+        }
+
+    overall = week_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+    class_avg_score = (overall["total"] or 0.0) / overall["n"]
+
+    chapter_rows = (
+        week_ticks.values(
+            "question_subpart__question__chapter_id",
+            "question_subpart__question__chapter__name",
+        )
+        .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+        .filter(tick_count__gte=MIN_TICKS_FOR_WEEKLY_CHAPTER)
+    )
+
+    chapters = []
+    for row in chapter_rows:
+        chapter_id = row["question_subpart__question__chapter_id"]
+        if chapter_id is None:
+            continue
+        chapters.append(
+            {
+                "chapter_id": chapter_id,
+                "chapter_name": row["question_subpart__question__chapter__name"],
+                "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                "tick_count": row["tick_count"],
+            }
+        )
+
+    chapters_by_score = sorted(chapters, key=lambda c: c["avg_score"])
+    struggling = [c for c in chapters_by_score if c["avg_score"] < STRUGGLE_THRESHOLD][:WEEKLY_REPORT_TOP_N]
+    strong = [c for c in reversed(chapters_by_score) if c["avg_score"] >= RESOLVED_THRESHOLD][:WEEKLY_REPORT_TOP_N]
+
+    return {
+        "total_students": total_students,
+        "active_students": active_students,
+        "ticks_recorded": ticks_recorded,
+        "class_avg_score": round(class_avg_score, 4),
+        "struggling_chapters": struggling,
+        "strong_chapters": strong,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Builder
+# ─────────────────────────────────────────────────────────────────────────────
+
+# How far back to look at Tick data when ranking class weakness for a draft
+ASSIGNMENT_DRAFT_LOOKBACK_DAYS = 45
+# Default / cap on the number of questions a draft contains
+ASSIGNMENT_DRAFT_DEFAULT_SIZE = 8
+ASSIGNMENT_DRAFT_MAX_SIZE = 20
+# How many weak chapters a single draft spreads across
+ASSIGNMENT_DRAFT_TOP_CHAPTERS = 4
+# Minimum ticks in a chapter before its class average is trustworthy
+MIN_TICKS_FOR_DRAFT_CHAPTER = 3
+# Skip questions that were assigned to this room within the last N days
+RECENT_ASSIGNMENT_WINDOW_DAYS = 60
+# Fallback per-question time estimate when nothing better is available
+DEFAULT_MINUTES_PER_QUESTION = 3
+
+
+def rank_weak_chapters_for_room(
+    subject_room: "SubjectRoom",
+    lookback_days: int = ASSIGNMENT_DRAFT_LOOKBACK_DAYS,
+    limit: int = ASSIGNMENT_DRAFT_TOP_CHAPTERS,
+) -> list[dict]:
+    """
+    Rank the chapters a SubjectRoom is weakest on over a recent window.
+
+    Aggregates every Tick in the room within ``lookback_days`` by chapter and
+    returns the lowest-scoring chapters first. Struggling chapters (avg below
+    STRUGGLE_THRESHOLD) are preferred; if the class isn't struggling anywhere we
+    still return the weakest chapters so the teacher always gets a usable draft.
+
+    Each entry: {"chapter_id", "chapter_name", "avg_score", "tick_count"}.
+    """
+    from openshiksha.apps.edge.models import Tick
+
+    since = timezone.now() - timedelta(days=lookback_days)
+    rows = (
+        Tick.objects.filter(subject_room=subject_room, created_at__gte=since)
+        .values(
+            "question_subpart__question__chapter_id",
+            "question_subpart__question__chapter__name",
+        )
+        .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+        .filter(tick_count__gte=MIN_TICKS_FOR_DRAFT_CHAPTER)
+    )
+
+    chapters = []
+    for row in rows:
+        chapter_id = row["question_subpart__question__chapter_id"]
+        if chapter_id is None:
+            continue
+        chapters.append(
+            {
+                "chapter_id": chapter_id,
+                "chapter_name": row["question_subpart__question__chapter__name"],
+                "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                "tick_count": row["tick_count"],
+            }
+        )
+
+    chapters.sort(key=lambda c: (c["avg_score"], -c["tick_count"]))
+    struggling = [c for c in chapters if c["avg_score"] < STRUGGLE_THRESHOLD]
+    ranked = struggling or chapters
+    return ranked[:limit]
+
+
+def _recent_question_ids_for_room(subject_room: "SubjectRoom") -> set[int]:
+    """Question IDs already assigned to this room within the recency window."""
+    from openshiksha.apps.core.models import Assignment
+
+    since = timezone.now() - timedelta(days=RECENT_ASSIGNMENT_WINDOW_DAYS)
+    return set(
+        Assignment.objects.filter(subject_room=subject_room, assigned_at__gte=since).values_list(
+            "problem_set__questions__id", flat=True
+        )
+    )
+
+
+def _allocate_per_chapter(num_chapters: int, size: int) -> list[int]:
+    """
+    Split ``size`` question slots across ``num_chapters`` weakest-first.
+
+    The weakest chapter gets the extra slots when size isn't divisible, so a
+    draft leans toward where the class struggles most.
+    """
+    if num_chapters <= 0:
+        return []
+    base = size // num_chapters
+    remainder = size % num_chapters
+    return [base + (1 if i < remainder else 0) for i in range(num_chapters)]
+
+
+def _question_preview(question) -> str:
+    """Short plain-text preview of a question's first subpart prompt."""
+    first = question.subparts.order_by("index").first()
+    text = (first.question_text if first else "") or ""
+    text = " ".join(text.split())
+    return text[:140]
+
+
+def build_assignment_draft(
+    subject_room: "SubjectRoom",
+    size: int = ASSIGNMENT_DRAFT_DEFAULT_SIZE,
+    target_difficulty: int = 2,
+) -> dict:
+    """
+    Deterministically assemble a draft assignment targeting class weaknesses.
+
+    Ranks the room's weakest chapters, then fills ``size`` slots with active
+    questions from those chapters (within the room's standard + subject), nearest
+    the requested difficulty first and skipping items assigned to the room
+    recently. No LLM is used here — the result is reproducible and offline-safe.
+
+    Returns:
+        {
+            "target_chapters": [...],
+            "selected_questions": [...],   # ordered, with per-item reason
+            "estimated_minutes": int,
+            "title": str,
+            "error": str | None,           # set when nothing could be built
+        }
+    """
+    size = max(1, min(size, ASSIGNMENT_DRAFT_MAX_SIZE))
+    target_difficulty = max(1, min(target_difficulty, 5))
+
+    weak_chapters = rank_weak_chapters_for_room(subject_room)
+    if not weak_chapters:
+        return {
+            "target_chapters": [],
+            "selected_questions": [],
+            "estimated_minutes": 0,
+            "title": "",
+            "error": "Not enough recent practice data to identify weak chapters for this class.",
+        }
+
+    standard = subject_room.classroom.standard
+    subject = subject_room.subject
+    used_ids = _recent_question_ids_for_room(subject_room)
+
+    allocation = _allocate_per_chapter(len(weak_chapters), size)
+    selected: list[dict] = []
+    chosen_ids: set[int] = set()
+
+    # First pass: honour the per-chapter allocation.
+    for chapter, want in zip(weak_chapters, allocation):
+        if want <= 0:
+            continue
+        picks = _pick_questions_for_chapter(
+            standard,
+            subject,
+            chapter["chapter_id"],
+            target_difficulty,
+            want,
+            exclude=used_ids | chosen_ids,
+        )
+        for q in picks:
+            chosen_ids.add(q["question_id"])
+            q["reason"] = (
+                f"Targets {chapter['chapter_name']}, where the class is averaging " f"{chapter['avg_score']:.0%}."
+            )
+            selected.append(q)
+
+    # Second pass: backfill any shortfall (a chapter ran out of fresh questions)
+    # from the remaining weak chapters, weakest first.
+    if len(selected) < size:
+        for chapter in weak_chapters:
+            if len(selected) >= size:
+                break
+            picks = _pick_questions_for_chapter(
+                standard,
+                subject,
+                chapter["chapter_id"],
+                target_difficulty,
+                size - len(selected),
+                exclude=used_ids | chosen_ids,
+            )
+            for q in picks:
+                chosen_ids.add(q["question_id"])
+                q["reason"] = (
+                    f"Extra practice on {chapter['chapter_name']} " f"(class average {chapter['avg_score']:.0%})."
+                )
+                selected.append(q)
+
+    if not selected:
+        return {
+            "target_chapters": weak_chapters,
+            "selected_questions": [],
+            "estimated_minutes": 0,
+            "title": "",
+            "error": (
+                "The weakest chapters have no unused questions in the bank. "
+                "Add questions or generate some with AI first."
+            ),
+        }
+
+    estimated_minutes = sum(q["estimated_minutes"] for q in selected)
+    for q in selected:
+        q.pop("estimated_minutes", None)
+
+    weakest_name = weak_chapters[0]["chapter_name"]
+    title = f"Practice: {weakest_name}"
+    if len({q["chapter_id"] for q in selected}) > 1:
+        title = f"Targeted practice — {subject.name}"
+
+    return {
+        "target_chapters": weak_chapters,
+        "selected_questions": selected,
+        "estimated_minutes": estimated_minutes,
+        "title": title,
+        "error": None,
+    }
+
+
+def _pick_questions_for_chapter(
+    standard,
+    subject,
+    chapter_id: int,
+    target_difficulty: int,
+    want: int,
+    exclude: set[int],
+) -> list[dict]:
+    """Pick up to ``want`` active questions for a chapter, nearest difficulty first."""
+    from openshiksha.apps.core.models import Question
+
+    candidates = list(
+        Question.objects.filter(
+            standard=standard,
+            subject=subject,
+            chapter_id=chapter_id,
+            is_active=True,
+        )
+        .exclude(id__in=exclude)
+        .prefetch_related("subparts")
+    )
+    # Closest to the requested difficulty first; id as a deterministic tiebreaker.
+    candidates.sort(key=lambda q: (abs(q.difficulty - target_difficulty), q.pk))
+
+    out = []
+    for q in candidates[:want]:
+        out.append(
+            {
+                "question_id": q.pk,
+                "chapter_id": chapter_id,
+                "chapter_name": q.chapter.name,
+                "difficulty": q.difficulty,
+                "question_type": q.question_type,
+                "preview": _question_preview(q),
+                "estimated_minutes": DEFAULT_MINUTES_PER_QUESTION,
+            }
+        )
+    return out
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -476,7 +837,7 @@ def _reason_for_severity(severity: str) -> str:
         GapSeverity.MODERATE: RecommendationReason.MODERATE_GAP,
         GapSeverity.MILD: RecommendationReason.MILD_GAP,
     }
-    return mapping.get(severity, RecommendationReason.MILD_GAP)
+    return mapping.get(severity, RecommendationReason.MILD_GAP)  # type: ignore[call-overload]
 
 
 def _best_problem_set_for_chapter(
@@ -513,3 +874,452 @@ def _best_problem_set_for_chapter(
         .first()
     )
     return ps
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+PARENT_TOP_CHAPTERS = 3
+MIN_TICKS_FOR_PARENT_CHAPTER = 2
+MAX_HOME_ACTIVITIES = 3
+INACTIVITY_ALERT_DAYS = 7
+SCORE_DROP_ALERT_THRESHOLD = 0.15
+SEVERE_SCORE_THRESHOLD = 0.40
+
+
+def compute_parent_weekly_stats(child, week_start, week_end) -> dict:
+    """
+    Compute a deterministic snapshot of a child's week for parent dashboards.
+
+    Returns a dict shaped for ParentProgressSummary.* fields plus a few extras
+    consumed by the LLM prompt and stub:
+
+    {
+        "child_name": str,
+        "grade_level": int,
+        "ticks_recorded": int,
+        "active_days": int,
+        "avg_score": float,
+        "prev_avg_score": float,
+        "score_delta": float,
+        "weak_chapters": [{"chapter_id", "chapter_name", "avg_score", "tick_count"}, ...],
+        "strong_chapters": [...],
+        "subjects_active": [str, ...],
+        "days_since_last_tick": int | None,   # None when the child has never practised
+    }
+    """
+    from datetime import datetime, time, timedelta
+
+    from openshiksha.apps.edge.models import Tick
+
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(week_start, time.min), tz)
+    end_dt = timezone.make_aware(datetime.combine(week_end, time.max), tz)
+    prev_start_dt = start_dt - timedelta(days=7)
+
+    week_ticks = Tick.objects.filter(student=child, created_at__gte=start_dt, created_at__lte=end_dt)
+    ticks_recorded = week_ticks.count()
+    active_days = week_ticks.dates("created_at", "day").count()
+
+    if ticks_recorded == 0:
+        avg_score = 0.0
+    else:
+        agg = week_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+        avg_score = (agg["total"] or 0.0) / agg["n"]
+
+    prev_ticks = Tick.objects.filter(student=child, created_at__gte=prev_start_dt, created_at__lt=start_dt)
+    prev_count = prev_ticks.count()
+    if prev_count == 0:
+        prev_avg_score = 0.0
+        score_delta = 0.0
+    else:
+        prev_agg = prev_ticks.aggregate(total=Sum("mark"), n=Count("id"))
+        prev_avg_score = (prev_agg["total"] or 0.0) / prev_agg["n"]
+        score_delta = avg_score - prev_avg_score if ticks_recorded else 0.0
+
+    weak_chapters: list[dict] = []
+    strong_chapters: list[dict] = []
+    subjects_active: list[str] = []
+
+    if ticks_recorded > 0:
+        chapter_rows = (
+            week_ticks.values(
+                "question_subpart__question__chapter_id",
+                "question_subpart__question__chapter__name",
+            )
+            .annotate(total_marks=Sum("mark"), tick_count=Count("id"))
+            .filter(tick_count__gte=MIN_TICKS_FOR_PARENT_CHAPTER)
+        )
+
+        chapters: list[dict] = []
+        for row in chapter_rows:
+            chapter_id = row["question_subpart__question__chapter_id"]
+            if chapter_id is None:
+                continue
+            chapters.append(
+                {
+                    "chapter_id": chapter_id,
+                    "chapter_name": row["question_subpart__question__chapter__name"],
+                    "avg_score": round(row["total_marks"] / row["tick_count"], 4),
+                    "tick_count": row["tick_count"],
+                }
+            )
+
+        by_score = sorted(chapters, key=lambda c: c["avg_score"])
+        weak_chapters = [c for c in by_score if c["avg_score"] < STRUGGLE_THRESHOLD][:PARENT_TOP_CHAPTERS]
+        strong_chapters = [c for c in reversed(by_score) if c["avg_score"] >= RESOLVED_THRESHOLD][:PARENT_TOP_CHAPTERS]
+
+        subjects_active = sorted(
+            {
+                name
+                for name in week_ticks.values_list("question_subpart__question__subject__name", flat=True).distinct()
+                if name
+            }
+        )
+
+    last_tick = Tick.objects.filter(student=child).order_by("-created_at").values_list("created_at", flat=True).first()
+    if last_tick is None:
+        days_since_last_tick = None
+    else:
+        days_since_last_tick = max(0, (timezone.now() - last_tick).days)
+
+    return {
+        "child_name": child.full_name if hasattr(child, "full_name") else child.username,
+        "grade_level": int(getattr(child, "grade", None) or 8),
+        "ticks_recorded": ticks_recorded,
+        "active_days": active_days,
+        "avg_score": round(avg_score, 4),
+        "prev_avg_score": round(prev_avg_score, 4),
+        "score_delta": round(score_delta, 4),
+        "weak_chapters": weak_chapters,
+        "strong_chapters": strong_chapters,
+        "subjects_active": subjects_active,
+        "days_since_last_tick": days_since_last_tick,
+    }
+
+
+def build_home_activities(stats: dict) -> list[dict]:
+    """
+    Suggest concrete at-home activities for the parent, derived from the weak
+    chapters in the weekly stats. Heuristic — no LLM call needed.
+    """
+    activities: list[dict] = []
+    for chapter in stats.get("weak_chapters", [])[:MAX_HOME_ACTIVITIES]:
+        name = chapter.get("chapter_name", "this chapter")
+        activities.append(
+            {
+                "title": f"Practise {name} together",
+                "description": (
+                    f"Spend 15 minutes working through 3–5 questions on {name} with your child. "
+                    f"Ask them to explain each step out loud — teaching it back helps the concept stick."
+                ),
+                "chapter_name": name,
+            }
+        )
+
+    if not activities and stats.get("strong_chapters"):
+        top = stats["strong_chapters"][0].get("chapter_name", "their strongest chapter")
+        activities.append(
+            {
+                "title": f"Celebrate progress in {top}",
+                "description": (
+                    f"Your child is doing well in {top}. Ask them to teach you one idea from it — "
+                    f"this builds their confidence and reinforces what they have learned."
+                ),
+                "chapter_name": top,
+            }
+        )
+    return activities
+
+
+def build_parent_alerts(stats: dict) -> list[dict]:
+    """Compute parent alerts purely from the stats snapshot — no LLM call."""
+    from openshiksha.apps.ai.models import ParentAlertSeverity
+
+    alerts: list[dict] = []
+
+    days_since = stats.get("days_since_last_tick")
+    if days_since is None:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.ATTENTION,
+                "label": "No practice yet",
+                "detail": "Your child has not attempted any questions yet. Encourage them to start with one short set.",
+            }
+        )
+    elif days_since >= INACTIVITY_ALERT_DAYS:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.ATTENTION,
+                "label": f"Inactive for {days_since} days",
+                "detail": "Your child has not practised in over a week. A short daily routine helps build momentum.",
+            }
+        )
+
+    if stats.get("score_delta", 0.0) <= -SCORE_DROP_ALERT_THRESHOLD and stats.get("ticks_recorded", 0) > 0:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.URGENT,
+                "label": "Sharp drop in scores",
+                "detail": (
+                    f"Average dropped by {abs(stats['score_delta']):.0%} vs last week. "
+                    f"It may help to revisit the weakest chapter together."
+                ),
+            }
+        )
+
+    severe = [c for c in stats.get("weak_chapters", []) if c.get("avg_score", 1.0) < SEVERE_SCORE_THRESHOLD]
+    if severe:
+        names = ", ".join(c["chapter_name"] for c in severe[:2])
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.URGENT,
+                "label": "Struggling badly in key chapters",
+                "detail": f"Below 40% in: {names}. Consider asking the teacher for additional support.",
+            }
+        )
+
+    if stats.get("score_delta", 0.0) >= SCORE_DROP_ALERT_THRESHOLD and stats.get("ticks_recorded", 0) > 0:
+        alerts.append(
+            {
+                "severity": ParentAlertSeverity.INFO,
+                "label": "Strong improvement this week",
+                "detail": (
+                    f"Average rose by {stats['score_delta']:.0%} vs last week — recognise the effort with your child."
+                ),
+            }
+        )
+
+    return alerts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Misconception Insights
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Default lookback window for clustering — recent enough to be actionable,
+# wide enough to capture a misconception that surfaced across multiple sessions.
+CLUSTER_LOOKBACK_DAYS = 30
+
+# A misconception only "counts" as a class-level cluster once at least this many
+# distinct students share it. One student stumbling is just one student.
+CLUSTER_MIN_STUDENTS = 2
+
+
+def _normalise_misconception_label(label: str) -> str:
+    """Normalise a free-text misconception label so near-duplicates merge.
+
+    Lowercases, collapses whitespace, strips trailing punctuation. We deliberately
+    keep this conservative — semantic clustering is a future upgrade; the labels
+    the LLM produces today already overlap enough that case/whitespace folding
+    collapses most duplicates.
+    """
+    if not label:
+        return ""
+    cleaned = " ".join(label.strip().lower().split())
+    return cleaned.rstrip(".!?,;:")
+
+
+def cluster_misconceptions_for_subject_room(
+    subject_room: "SubjectRoom",
+    lookback_days: int = CLUSTER_LOOKBACK_DAYS,
+) -> tuple[list[dict], "datetime"]:
+    """Aggregate recent StudentMisconception rows for a SubjectRoom into clusters.
+
+    Looks at misconceptions detected in the last ``lookback_days`` for students
+    enrolled in the room and groups them by normalised label. Clusters with
+    fewer than ``CLUSTER_MIN_STUDENTS`` distinct students are dropped — a single
+    student's wrong answer isn't a class-level signal.
+
+    Returns ``(clusters, window_start)``. Each cluster dict shape::
+
+        {
+            "misconception_label": str,    # normalised, lowercase
+            "student_count": int,          # distinct students
+            "occurrence_count": int,       # total rows
+            "sample_diagnosis": str,       # representative diagnosis line
+            "sample_remediation_tip": str, # representative remediation tip
+            "last_seen": datetime,         # most recent detected_at in this cluster
+        }
+
+    Sorted by ``student_count`` desc, then ``last_seen`` desc.
+    """
+    from openshiksha.apps.ai.models import StudentMisconception
+
+    window_start = timezone.now() - timedelta(days=lookback_days)
+    student_ids = list(subject_room.students.values_list("pk", flat=True))
+    if not student_ids:
+        return [], window_start
+
+    qs = (
+        StudentMisconception.objects.filter(
+            student_id__in=student_ids,
+            detected_at__gte=window_start,
+        )
+        .only(
+            "student_id",
+            "misconception_label",
+            "diagnosis_text",
+            "remediation_tip",
+            "detected_at",
+        )
+        .order_by("-detected_at")
+    )
+
+    buckets: dict[str, dict] = {}
+    for m in qs:
+        key = _normalise_misconception_label(m.misconception_label)
+        if not key:
+            continue
+        bucket = buckets.setdefault(
+            key,
+            {
+                "misconception_label": key,
+                "student_ids": set(),
+                "occurrence_count": 0,
+                "sample_diagnosis": "",
+                "sample_remediation_tip": "",
+                "last_seen": m.detected_at,
+            },
+        )
+        bucket["student_ids"].add(m.student_id)
+        bucket["occurrence_count"] += 1
+        # Because qs is ordered detected_at DESC, the first record we see is the
+        # newest — keep its prose as the representative sample.
+        if not bucket["sample_diagnosis"] and m.diagnosis_text:
+            bucket["sample_diagnosis"] = m.diagnosis_text
+        if not bucket["sample_remediation_tip"] and m.remediation_tip:
+            bucket["sample_remediation_tip"] = m.remediation_tip
+        if m.detected_at > bucket["last_seen"]:
+            bucket["last_seen"] = m.detected_at
+
+    clusters = []
+    for bucket in buckets.values():
+        count = len(bucket["student_ids"])
+        if count < CLUSTER_MIN_STUDENTS:
+            continue
+        clusters.append(
+            {
+                "misconception_label": bucket["misconception_label"],
+                "student_count": count,
+                "occurrence_count": bucket["occurrence_count"],
+                "sample_diagnosis": bucket["sample_diagnosis"],
+                "sample_remediation_tip": bucket["sample_remediation_tip"],
+                "last_seen": bucket["last_seen"],
+            }
+        )
+
+    clusters.sort(key=lambda c: (-c["student_count"], -c["last_seen"].timestamp()))
+    return clusters, window_start
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Most weak chapters to surface per student in an intervention card
+MAX_FOCUS_CHAPTERS = 4
+
+# Most misconception labels to surface per student
+MAX_MISCONCEPTION_LABELS = 4
+
+
+def compute_interventions_for_subject_room(subject_room: "SubjectRoom") -> list[dict]:
+    """Build a per-struggling-student intervention snapshot for a SubjectRoom.
+
+    Reads the already-persisted ``LearningGap`` rows (open, in this room) and the
+    student's ``StudentMisconception`` labels — the derived signals the rest of
+    the AI suite keeps refreshed — and assembles one snapshot per student who has
+    at least one open gap. No tick re-aggregation here; this is a join over
+    existing derived data, so it is cheap and consistent with the dashboards.
+
+    Each snapshot dict shape::
+
+        {
+            "student_id": int,
+            "student_name": str,
+            "grade_level": int,
+            "avg_score": float,                # mean of the student's open-gap scores
+            "gap_count": int,
+            "severity": str,                   # worst severity among the gaps
+            "priority": int,                   # 1–5, from InterventionSuggestion.priority_for
+            "focus_chapters": [{"chapter_id", "chapter_name", "avg_score", "severity"}],
+            "misconception_labels": [{"label", "count"}],
+        }
+
+    Sorted by ``priority`` desc, then ``avg_score`` asc (worst first).
+    """
+    from openshiksha.apps.ai.models import GapSeverity, InterventionSuggestion, LearningGap, StudentMisconception
+
+    gaps = (
+        LearningGap.objects.filter(subject_room=subject_room, is_resolved=False)
+        .select_related("student", "chapter")
+        .order_by("avg_score")
+    )
+
+    # Group open gaps by student.
+    by_student: dict[int, dict] = {}
+    for gap in gaps:
+        bucket = by_student.setdefault(
+            gap.student_id,
+            {"student": gap.student, "gaps": []},
+        )
+        bucket["gaps"].append(gap)
+
+    if not by_student:
+        return []
+
+    # One DB hit for misconception labels across all affected students.
+    severity_rank = {GapSeverity.SEVERE: 3, GapSeverity.MODERATE: 2, GapSeverity.MILD: 1}
+    grade_level = getattr(getattr(subject_room.classroom, "standard", None), "number", 8) or 8
+
+    misconception_rows = StudentMisconception.objects.filter(student_id__in=by_student.keys()).values_list(
+        "student_id", "misconception_label"
+    )
+    label_counts: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for student_id, label in misconception_rows:
+        norm = _normalise_misconception_label(label)
+        if norm:
+            label_counts[student_id][norm] += 1
+
+    snapshots = []
+    for student_id, bucket in by_student.items():
+        student_gaps = bucket["gaps"]
+        scores = [g.avg_score for g in student_gaps]
+        avg_score = sum(scores) / len(scores)
+        worst = max(student_gaps, key=lambda g: severity_rank.get(g.severity, 0))
+        gap_count = len(student_gaps)
+
+        focus_chapters = [
+            {
+                "chapter_id": g.chapter_id,
+                "chapter_name": g.chapter.name,
+                "avg_score": round(g.avg_score, 3),
+                "severity": g.severity,
+            }
+            for g in sorted(student_gaps, key=lambda g: g.avg_score)[:MAX_FOCUS_CHAPTERS]
+        ]
+
+        ranked_labels = sorted(
+            label_counts.get(student_id, {}).items(),
+            key=lambda kv: (-kv[1], kv[0]),
+        )[:MAX_MISCONCEPTION_LABELS]
+        misconception_labels = [{"label": label, "count": count} for label, count in ranked_labels]
+
+        snapshots.append(
+            {
+                "student_id": student_id,
+                "student_name": bucket["student"].full_name,
+                "grade_level": grade_level,
+                "avg_score": round(avg_score, 3),
+                "gap_count": gap_count,
+                "severity": worst.severity,
+                "priority": InterventionSuggestion.priority_for(worst.severity, gap_count),
+                "focus_chapters": focus_chapters,
+                "misconception_labels": misconception_labels,
+            }
+        )
+
+    snapshots.sort(key=lambda s: (-s["priority"], s["avg_score"]))
+    return snapshots

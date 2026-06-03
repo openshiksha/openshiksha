@@ -348,3 +348,117 @@ class TestSubjectRoomPermissions:
         assert response.status_code == status.HTTP_200_OK
         assert "student_count" in response.data
         assert response.data["student_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# QuestionViewSet: content search
+# ---------------------------------------------------------------------------
+
+
+class TestQuestionContentSearch:
+    def test_search_by_subpart_text_returns_matching_question(
+        self, db, api_client, teacher, school, standard, subject, chapter
+    ):
+        """?search=photosynthesis should find a question whose subpart contains that word."""
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="fill_blank",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="The process of photosynthesis occurs in chloroplasts.",
+            correct_answer={"answer": "chloroplasts"},
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get("/api/v1/questions/", {"search": "photosynthesis"})
+
+        assert response.status_code == status.HTTP_200_OK
+        ids = [q["id"] for q in response.data["results"]]
+        assert question.id in ids
+
+    def test_search_by_tag_name_returns_matching_question(
+        self, db, api_client, teacher, school, standard, subject, chapter
+    ):
+        """?search=<tag name> should find a question with that tag."""
+        from openshiksha.apps.core.models import Question, QuestionTag
+
+        tag = QuestionTag.objects.create(name="quadratic-equations", tag_type="topic")
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="mcq",
+        )
+        question.tags.add(tag)
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get("/api/v1/questions/", {"search": "quadratic-equations"})
+
+        assert response.status_code == status.HTTP_200_OK
+        ids = [q["id"] for q in response.data["results"]]
+        assert question.id in ids
+
+
+# ---------------------------------------------------------------------------
+# Question image_url field tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestQuestionSubpartImageUrl:
+    def test_image_url_exposed_in_question_api(self, api_client, teacher, school, standard, subject, chapter):
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="mcq",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="What is H2O?",
+            correct_answer={"answer": "A"},
+            image_url="https://example.com/diagram.png",
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get(f"/api/v1/questions/{question.id}/")
+
+        assert response.status_code == 200
+        subpart = response.data["subparts"][0]
+        assert subpart["image_url"] == "https://example.com/diagram.png"
+
+    def test_image_url_default_empty_string(self, api_client, teacher, school, standard, subject, chapter):
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        question = Question.objects.create(
+            school=school,
+            standard=standard,
+            subject=subject,
+            chapter=chapter,
+            question_type="fill_blank",
+        )
+        QuestionSubpart.objects.create(
+            question=question,
+            index=0,
+            question_text="Fill in the blank.",
+            correct_answer={"answer": "water"},
+        )
+
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get(f"/api/v1/questions/{question.id}/")
+
+        assert response.status_code == 200
+        subpart = response.data["subparts"][0]
+        assert subpart["image_url"] == ""

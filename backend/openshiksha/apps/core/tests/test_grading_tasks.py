@@ -273,6 +273,43 @@ class TestGradeSubmissionTask:
 
     @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
     @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_grade_submission_dispatches_per_subpart_type(
+        self, mock_prof, mock_agg, db, assignment, student, question_mcq
+    ):
+        """M7-03: a compound question (mcq subpart + numeric subpart) grades each
+        subpart by its own ``subpart_type``, not the parent ``question_type``.
+
+        ``question_mcq.question_type`` is 'compound' here; if the grader used the
+        question type the numeric subpart would never grade as a numeric answer.
+        """
+        from openshiksha.apps.core.models import QuestionSubpart, Submission
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        question_mcq.question_type = "compound"
+        question_mcq.save(update_fields=["question_type"])
+        mcq_sp = QuestionSubpart.objects.create(
+            question=question_mcq, index=0, subpart_type="mcq", correct_answer={"type": "mcq", "answer": 2}
+        )
+        num_sp = QuestionSubpart.objects.create(
+            question=question_mcq,
+            index=1,
+            subpart_type="numeric",
+            correct_answer={"type": "numeric", "answer": "10"},
+        )
+        submission = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={str(mcq_sp.id): 2, str(num_sp.id): 10},  # both correct
+        )
+        result = grade_submission(submission.pk)
+        assert result["score"] == pytest.approx(1.0)
+        assert result["attempted"] == 2
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
     def test_grade_submission_partial_answers(self, mock_prof, mock_agg, assignment, student, subpart_a, subpart_b):
         """If student only answered one subpart, completion should be 0.5."""
         from openshiksha.apps.core.models import Submission

@@ -1,0 +1,9 @@
+{
+  "subpart_index": 0,
+  "type": 4,
+  "content": {"text": "Identify the organ shown: #{organ.png}#"},
+  "answer": "heart",
+  "variable_constraints": {},
+  "solution": {"text": "See the diagram."},
+  "hint": {"text": "It pumps blood."}
+}

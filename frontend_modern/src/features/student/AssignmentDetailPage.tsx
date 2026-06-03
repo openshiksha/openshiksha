@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAssignmentDetail } from './useAssignmentDetail';
 import { useSubmission, useCreateSubmission, usePatchSubmission } from './useSubmission';
 import { QuestionCard } from './QuestionCard';
+import { VideosPanel } from './VideosPanel';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import type { Question } from '@/types/index';
 
@@ -225,13 +226,18 @@ export const AssignmentDetailPage = () => {
         </div>
       )}
 
+      {/* Chapter videos */}
+      {assignment.problem_set.chapter?.id && (
+        <VideosPanel chapterId={assignment.problem_set.chapter.id} />
+      )}
+
       {/* Submit button */}
       {!isSubmitted && questions.length > 0 && (
         <div className="mt-8 flex justify-end">
           <button
             onClick={() => setShowConfirm(true)}
             disabled={answered === 0}
-            className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto bg-indigo-600 text-white px-6 py-3 sm:py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Submit assignment
           </button>

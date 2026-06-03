@@ -29,6 +29,10 @@ frontend_modern/.turbo/
 frontend_modern/coverage/
 frontend_modern/.nyc_output/
 frontend_modern/.cache/
+frontend_modern/test-results/
+frontend_modern/playwright-report/
+frontend_modern/playwright/.cache/
+frontend_modern/axe-report/
 
 # Backend (Python / Django)
 backend/__pycache__/
@@ -49,3 +53,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+docker-compose.override.yml
+
+backend/openshiksha/apps/core/data/inferred_taxonomy_*.json

@@ -47,8 +47,10 @@ class Tick(models.Model):
     submission = models.ForeignKey(
         "core.Submission",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="ticks",
-        help_text="The submission this tick came from",
+        help_text="The submission this tick came from. Null for SRS drill ticks.",
     )
     subject_room = models.ForeignKey(
         "core.SubjectRoom",
@@ -168,6 +170,46 @@ class StudentProficiency(models.Model):
     def calculate_score(rate: float, percentile: float) -> float:
         """Static helper to compute score without an instance."""
         return (0.7 * rate) + (0.3 * percentile)
+
+
+class StudentProficiencySnapshot(models.Model):
+    """
+    Append-only record written every time StudentProficiency is recalculated.
+
+    Never updated — always inserted. Preserves full trend history even if the
+    live StudentProficiency record is later deleted or the student moves rooms.
+    Keyed on (student, question_tag, subject_room) for simple filtering.
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="proficiency_snapshots",
+    )
+    question_tag = models.ForeignKey(
+        "core.QuestionTag",
+        on_delete=models.CASCADE,
+        related_name="proficiency_snapshots",
+    )
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="proficiency_snapshots",
+    )
+    score = models.FloatField(help_text="Snapshot of score at this point in time (0.0–1.0)")
+    recorded_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["recorded_at"]
+        indexes = [
+            models.Index(fields=["student", "question_tag", "subject_room", "recorded_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"Snapshot({self.student_id}, tag={self.question_tag_id},"
+            f" score={self.score:.2f}, at={self.recorded_at.date()})"
+        )
 
 
 class SubjectRoomProficiency(models.Model):

@@ -9,6 +9,8 @@ from rest_framework import serializers
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
+    ClassRoom,
+    ClassroomInviteCode,
     ProblemSet,
     Question,
     QuestionSubpart,
@@ -20,7 +22,7 @@ from openshiksha.apps.core.models import (
     User,
     UserRole,
 )
-from openshiksha.apps.edge.models import StudentProficiency
+from openshiksha.apps.edge.models import StudentProficiency, StudentProficiencySnapshot, SubjectRoomQuestionMistake
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -28,8 +30,46 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role"]
-        read_only_fields = ["id", "username", "email", "first_name", "last_name", "role"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "grade",
+            "phone_number",
+            "email_reminders_opt_out",
+        ]
+        read_only_fields = ["id", "username", "role", "grade"]
+
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Writeable serializer for profile fields the user may update themselves."""
+
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "phone_number", "email_reminders_opt_out"]
+
+    def validate_email(self, value):
+        if not value:
+            return value
+        qs = User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk if self.instance else None)
+        if qs.exists():
+            raise serializers.ValidationError("This email address is already in use.")
+        return value
+
+
+class ClassroomInviteCodeSerializer(serializers.ModelSerializer):
+    classroom_name = serializers.CharField(source="classroom.__str__", read_only=True)
+    classroom_id = serializers.IntegerField(source="classroom.id", read_only=True)
+
+    class Meta:
+        model = ClassroomInviteCode
+        fields = ["id", "code", "classroom_id", "classroom_name", "is_active", "expires_at", "created_at"]
+        read_only_fields = fields
 
 
 class StandardSerializer(serializers.ModelSerializer):
@@ -66,21 +106,114 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options", "correct_answer"]
+        fields = [
+            "id",
+            "index",
+            "subpart_type",
+            "tags",
+            "question_text",
+            "options",
+            "correct_answer",
+            "variable_constraints",
+            "image_url",
+            "solution_text",
+            "hint_text",
+        ]
 
 
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
-    """Student-safe subpart serializer — omits correct_answer so students cannot see answers."""
+    """
+    Student-safe subpart serializer — omits correct_answer.
+
+    For MCQ/multi_select subparts, options are shuffled deterministically
+    by (student_id, subpart_id) so each student sees a unique ordering.
+    Keys are re-assigned by display position after shuffling.
+
+    For numeric/fill_blank subparts with variable_constraints, {{var}} tokens
+    in question_text and options are substituted with per-student values (Phase 2).
+    """
 
     tags = QuestionTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = QuestionSubpart
-        fields = ["id", "index", "tags", "question_text", "options"]
+        fields = [
+            "id",
+            "index",
+            "subpart_type",
+            "tags",
+            "question_text",
+            "options",
+            "image_url",
+            "solution_text",
+            "hint_text",
+            "is_interactive",
+            "interactive_html",
+        ]
+
+    def to_representation(self, instance):
+        from openshiksha.apps.api.croupier import (
+            shuffle_options_for_student,
+            substitute_variables,
+            substitute_variables_for_student,
+        )
+
+        data = super().to_representation(instance)
+
+        # Worked solution is anti-cheat gated: only included once the student's
+        # submission has been graded (set by AssignmentViewSet context). Hints
+        # are allowed during practice, so they always pass through.
+        if not self.context.get("include_solutions"):
+            data.pop("solution_text", None)
+
+        request = self.context.get("request")
+        if not (request and request.user.is_authenticated):
+            return data
+
+        # Phase 2: Variable substitution (numeric/fill_blank with {{var}} tokens)
+        if instance.variable_constraints:
+            subst_text, subst_options, sampled_values = substitute_variables_for_student(
+                data["question_text"],
+                data.get("options"),
+                instance.variable_constraints,
+                request.user.id,
+                instance.id,
+            )
+            data["question_text"] = subst_text
+            if subst_options is not None:
+                data["options"] = subst_options
+
+            # M7-11: substitute the same per-student values into the interactive
+            # widget HTML so the sandboxed iframe shows this student's numbers.
+            if data.get("interactive_html"):
+                data["interactive_html"] = substitute_variables(data["interactive_html"], sampled_values)
+
+            # Solutions & hints share the body's per-student sampled values so
+            # the worked-out steps reference the same numbers the student sees
+            # in the question. ``solution_text`` is only present in the payload
+            # when ``include_solutions`` is set above; guard accordingly.
+            if "solution_text" in data:
+                data["solution_text"] = substitute_variables(data["solution_text"], sampled_values)
+            if "hint_text" in data:
+                data["hint_text"] = substitute_variables(data["hint_text"], sampled_values)
+
+        # Phase 1: MCQ option shuffling (applied after variable substitution)
+        options = data.get("options")
+        if options:
+            data["options"] = shuffle_options_for_student(options, request.user.id, instance.id)
+
+        return data
 
 
 class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
-    """Question serializer using the student-safe subpart serializer."""
+    """Question serializer using the student-safe subpart serializer.
+
+    Substitutes ``{{var}}`` tokens in ``stem_text`` for authenticated students
+    using the first subpart's per-student seeded values. This keeps stem
+    numbers consistent with the body of the question the student is solving,
+    and is a no-op for stems that don't reference variables (the dominant
+    case in cabinet content).
+    """
 
     subparts = QuestionSubpartStudentSerializer(many=True, read_only=True)
     tags = QuestionTagSerializer(many=True, read_only=True)
@@ -96,28 +229,59 @@ class QuestionWithSubpartsStudentSerializer(serializers.ModelSerializer):
             "question_type",
             "question_type_display",
             "difficulty",
+            "stem_text",
             "tags",
             "subparts",
             "is_active",
             "created_at",
         ]
 
+    def to_representation(self, instance):
+        from openshiksha.apps.api.croupier import sample_variable_values, substitute_variables
+
+        data = super().to_representation(instance)
+        stem = data.get("stem_text")
+        if not stem or "{{" not in stem:
+            return data
+
+        request = self.context.get("request")
+        if not (request and request.user.is_authenticated):
+            return data
+
+        # Stems can reference variables shared with their subparts (e.g. a
+        # cabinet container whose prompt mentions a quantity that subparts then
+        # ask about). We seed off the first subpart so the stem's numbers
+        # match the first subpart the student sees — deterministic per
+        # (student_id, subpart_id) and zero-cost when no variables are set.
+        first = instance.subparts.order_by("index").first()
+        if first and first.variable_constraints:
+            values = sample_variable_values(first.variable_constraints, request.user.id, first.id)
+            data["stem_text"] = substitute_variables(stem, values)
+        return data
+
 
 class QuestionSerializer(serializers.ModelSerializer):
     subparts = QuestionSubpartSerializer(many=True, read_only=True)
     tags = QuestionTagSerializer(many=True, read_only=True)
     question_type_display = serializers.CharField(source="get_question_type_display", read_only=True)
+    chapter_name = serializers.CharField(source="chapter.name", read_only=True)
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    standard_number = serializers.IntegerField(source="standard.number", read_only=True)
 
     class Meta:
         model = Question
         fields = [
             "id",
             "standard",
+            "standard_number",
             "subject",
+            "subject_name",
             "chapter",
+            "chapter_name",
             "question_type",
             "question_type_display",
             "difficulty",
+            "stem_text",
             "tags",
             "subparts",
             "is_active",
@@ -130,7 +294,21 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuestionSubpart
-        fields = ["index", "question_text", "options", "correct_answer"]
+        fields = [
+            "index",
+            "subpart_type",
+            "question_text",
+            "options",
+            "correct_answer",
+            "variable_constraints",
+            "solution_text",
+            "hint_text",
+        ]
+        extra_kwargs = {
+            "subpart_type": {"required": False},
+            "solution_text": {"required": False},
+            "hint_text": {"required": False},
+        }
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):
@@ -209,6 +387,90 @@ class SubjectRoomSerializer(serializers.ModelSerializer):
         return obj.students.count()
 
 
+class SubjectRoomAdminSerializer(serializers.ModelSerializer):
+    """Admin write/read serializer for subject rooms with school-scoped validation."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    teacher_name = serializers.CharField(source="teacher.full_name", read_only=True)
+    classroom_display = serializers.StringRelatedField(source="classroom", read_only=True)
+    student_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubjectRoom
+        fields = [
+            "id",
+            "classroom",
+            "classroom_display",
+            "subject",
+            "subject_name",
+            "teacher",
+            "teacher_name",
+            "is_active",
+            "student_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "is_active", "created_at"]
+
+    def get_student_count(self, obj) -> int:
+        return obj.students.count()
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_admin:
+            return attrs
+        if user.school_id is None:
+            raise serializers.ValidationError("Your account is not linked to a school.")
+        classroom = attrs.get("classroom") or getattr(self.instance, "classroom", None)
+        if classroom is not None and classroom.school_id != user.school_id:
+            raise serializers.ValidationError({"classroom": "Classroom must belong to your school."})
+        teacher = attrs.get("teacher") or getattr(self.instance, "teacher", None)
+        if teacher is not None and teacher.school_id != user.school_id:
+            raise serializers.ValidationError({"teacher": "Teacher must belong to your school."})
+        return attrs
+
+
+class ClassRoomSerializer(serializers.ModelSerializer):
+    """School admin serializer for classroom CRUD. School is forced server-side."""
+
+    standard_number = serializers.IntegerField(source="standard.number", read_only=True)
+    class_teacher_name = serializers.CharField(source="class_teacher.full_name", read_only=True, default=None)
+    student_count = serializers.SerializerMethodField()
+    school = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = ClassRoom
+        fields = [
+            "id",
+            "school",
+            "standard",
+            "standard_number",
+            "division",
+            "class_teacher",
+            "class_teacher_name",
+            "academic_year",
+            "is_active",
+            "student_count",
+            "created_at",
+        ]
+        read_only_fields = ["id", "school", "is_active", "created_at"]
+
+    def get_student_count(self, obj) -> int:
+        annotated = getattr(obj, "num_students", None)
+        return annotated if annotated is not None else obj.students.count()
+
+    def validate_class_teacher(self, value):
+        if value is None:
+            return value
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is not None and value.school_id != user.school_id:
+            raise serializers.ValidationError("Class teacher must belong to your school.")
+        if value.role != UserRole.TEACHER:
+            raise serializers.ValidationError("Assigned user must be a teacher.")
+        return value
+
+
 class ProblemSetSerializer(serializers.ModelSerializer):
     question_count = serializers.SerializerMethodField()
     subject_name = serializers.CharField(source="subject.name", read_only=True)
@@ -229,6 +491,8 @@ class ProblemSetSerializer(serializers.ModelSerializer):
             "question_count",
             "estimated_minutes",
             "is_active",
+            "is_remedial",
+            "source_assignment",
             "created_at",
         ]
 
@@ -264,6 +528,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     subject_room_display = serializers.StringRelatedField(source="subject_room")
     submission_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
+    child_submission_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -281,6 +546,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "completion_rate",
             "submission_count",
             "student_count",
+            "child_submission_status",
+            "target_student",
         ]
         read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
 
@@ -289,6 +556,32 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def get_student_count(self, obj) -> int:
         return obj.subject_room.students.count()
+
+    def get_child_submission_status(self, obj) -> str | None:
+        """
+        For parent role with ?student=<id>: returns 'submitted' or 'not_submitted'.
+        Returns None for all other roles — field is ignored on student/teacher responses.
+        Uses prefetched submissions when available to avoid N+1.
+        """
+        request = self.context.get("request")
+        if not request:
+            return None
+        user = request.user
+        if user.role != UserRole.PARENT:
+            return None
+        child_id = request.query_params.get("student")
+        if not child_id:
+            return None
+        try:
+            child_pk = int(child_id)
+        except (ValueError, TypeError):
+            return None
+        # Use prefetch cache if present, else fall back to query
+        if "submissions" in getattr(obj, "_prefetched_objects_cache", {}):
+            submitted = any(s.student_id == child_pk for s in obj.submissions.all())
+        else:
+            submitted = obj.submissions.filter(student_id=child_pk).exists()
+        return "submitted" if submitted else "not_submitted"
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -329,12 +622,15 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Submission
         fields = [
             "id",
             "assignment",
             "student",
+            "student_name",
             "score",
             "completion",
             "answers",
@@ -344,6 +640,9 @@ class SubmissionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["student", "score", "created_at", "updated_at"]
+
+    def get_student_name(self, obj) -> str:
+        return obj.student.get_full_name() or obj.student.username
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -368,12 +667,56 @@ class SubmissionSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class ProblemSetWriteSerializer(serializers.ModelSerializer):
+    """
+    Writable serializer for teacher problem set creation.
+
+    Accepts question_ids to link existing questions to the new problem set.
+    """
+
+    question_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Question.objects.filter(is_active=True),
+        source="questions",
+        required=False,
+    )
+    id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = ProblemSet
+        fields = [
+            "id",
+            "title",
+            "description",
+            "standard",
+            "subject",
+            "chapter",
+            "estimated_minutes",
+            "question_ids",
+            "created_at",
+        ]
+
+    def validate_question_ids(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one question is required.")
+        return value
+
+    def create(self, validated_data):
+        questions = validated_data.pop("questions", [])
+        problem_set = ProblemSet.objects.create(**validated_data)
+        if questions:
+            problem_set.questions.set(questions)
+        return problem_set
+
+
 class StudentProficiencySerializer(serializers.ModelSerializer):
     """
     Exposes a student's proficiency per question tag within a subject room.
 
     Groups naturally by subject_room → subject for frontend display.
     Score is 0.0–1.0; multiply by 100 for percentage display.
+    question_tag (integer FK) is included so the frontend can query history.
     """
 
     tag_name = serializers.CharField(source="question_tag.name", read_only=True)
@@ -385,6 +728,7 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
         model = StudentProficiency
         fields = [
             "id",
+            "question_tag",
             "tag_name",
             "tag_type",
             "subject_name",
@@ -401,3 +745,44 @@ class StudentProficiencySerializer(serializers.ModelSerializer):
     def get_classroom_display(self, obj) -> str:
         classroom = obj.subject_room.classroom
         return f"Standard {classroom.standard.number} {classroom.division}"
+
+
+class StudentProficiencySnapshotSerializer(serializers.ModelSerializer):
+    """Read-only snapshot serializer — minimal payload for sparkline trend data."""
+
+    class Meta:
+        model = StudentProficiencySnapshot
+        fields = ["id", "score", "recorded_at"]
+        read_only_fields = fields
+
+
+class QuestionMistakeSerializer(serializers.ModelSerializer):
+    """
+    Exposes a subject room's question mistake data for teachers.
+
+    Ordered by regression (highest = hardest question for that class).
+    question_text and question_type are from the first subpart of each question.
+    """
+
+    question_text = serializers.SerializerMethodField()
+    question_type = serializers.SerializerMethodField()
+    question_id = serializers.IntegerField(source="question.id", read_only=True)
+
+    class Meta:
+        model = SubjectRoomQuestionMistake
+        fields = [
+            "id",
+            "question_id",
+            "question_text",
+            "question_type",
+            "regression",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_question_text(self, obj) -> str:
+        first_subpart = obj.question.subparts.order_by("index").first()
+        return first_subpart.question_text if first_subpart else ""
+
+    def get_question_type(self, obj) -> str:
+        return obj.question.question_type

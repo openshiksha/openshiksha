@@ -1,16 +1,28 @@
 from rest_framework import serializers
 
+from openshiksha.apps.core.models import QuestionType
+
 from .models import (
+    AssignmentDraft,
     ClassInsight,
+    ClassMisconceptionCluster,
     ContentRecommendation,
+    HintSequence,
+    InterventionSuggestion,
     KnowledgeNode,
     LearningGap,
     LearningPath,
     LearningPathStep,
+    OpenResponseGrade,
+    OpenResponseRubric,
+    ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
     SpacedRepetitionEntry,
     StudentMastery,
+    StudentMisconception,
+    SubpartExplanation,
+    WeeklyClassReport,
 )
 
 
@@ -244,3 +256,420 @@ class TriggerAdaptiveSerializer(serializers.Serializer):
 
 class CompleteStepSerializer(serializers.Serializer):
     score = serializers.FloatField(min_value=0.0, max_value=1.0)
+
+
+class SubpartExplanationSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="question_subpart.question_text", read_only=True)
+    subpart_index = serializers.IntegerField(source="question_subpart.index", read_only=True)
+
+    class Meta:
+        model = SubpartExplanation
+        fields = [
+            "id",
+            "question_subpart",
+            "question_text",
+            "subpart_index",
+            "submission",
+            "student_answer",
+            "is_correct",
+            "explanation_text",
+            "language",
+            "grade_level",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateExplanationSerializer(serializers.Serializer):
+    """Request body for on-demand single-subpart explanation."""
+
+    subpart_id = serializers.IntegerField()
+    student_answer = serializers.JSONField()
+    is_correct = serializers.BooleanField()
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, default=8)
+    language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")
+
+
+class GenerateQuestionsRequestSerializer(serializers.Serializer):
+    """Request body for AI question generation."""
+
+    topic = serializers.CharField(max_length=300)
+    chapter_id = serializers.IntegerField()
+    question_type = serializers.ChoiceField(choices=[qt[0] for qt in QuestionType.choices])
+    difficulty = serializers.IntegerField(min_value=1, max_value=5, default=2)
+    count = serializers.IntegerField(min_value=1, max_value=5, default=3)
+
+
+class WeeklyClassReportSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+    participation_rate = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = WeeklyClassReport
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "week_start",
+            "week_end",
+            "summary_text",
+            "total_students",
+            "active_students",
+            "participation_rate",
+            "ticks_recorded",
+            "class_avg_score",
+            "struggling_chapters",
+            "strong_chapters",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerWeeklyReportSerializer(serializers.Serializer):
+    subject_room_id = serializers.IntegerField()
+    week_start = serializers.DateField(required=False, allow_null=True)
+
+
+class MCQOptionDraftSerializer(serializers.Serializer):
+    key = serializers.CharField(max_length=4)
+    text = serializers.CharField()
+
+
+class GeneratedQuestionDraftSerializer(serializers.Serializer):
+    """One draft question returned by the AI generation endpoint."""
+
+    question_text = serializers.CharField()
+    options = MCQOptionDraftSerializer(many=True, allow_null=True, required=False)
+    correct_answer = serializers.CharField()
+    variable_constraints = serializers.DictField(
+        child=serializers.DictField(), allow_null=True, required=False, default=None
+    )
+    suggested_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
+    solution = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System Serializers
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class HintSequenceSerializer(serializers.ModelSerializer):
+    """Student-safe hint payload — never exposes the correct answer."""
+
+    hint_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = HintSequence
+        fields = [
+            "id",
+            "question_subpart",
+            "hints",
+            "hint_count",
+            "grade_level",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateHintsSerializer(serializers.Serializer):
+    """Request body for on-demand hint generation."""
+
+    subpart_id = serializers.IntegerField()
+    num_hints = serializers.IntegerField(min_value=1, max_value=5, required=False, default=3)
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+
+
+class StudentMisconceptionSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="question_subpart.question_text", read_only=True)
+    subpart_index = serializers.IntegerField(source="question_subpart.index", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+
+    class Meta:
+        model = StudentMisconception
+        fields = [
+            "id",
+            "student",
+            "student_username",
+            "question_subpart",
+            "question_text",
+            "subpart_index",
+            "submission",
+            "student_answer",
+            "misconception_label",
+            "diagnosis_text",
+            "remediation_tip",
+            "grade_level",
+            "detected_at",
+        ]
+        read_only_fields = fields
+
+
+class DiagnoseMisconceptionSerializer(serializers.Serializer):
+    """Request body for on-demand misconception diagnosis (incorrect answers only)."""
+
+    subpart_id = serializers.IntegerField()
+    student_answer = serializers.JSONField()
+    submission_id = serializers.IntegerField(required=False, allow_null=True)
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard Serializers
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ParentProgressSummarySerializer(serializers.ModelSerializer):
+    """Parent-facing weekly progress narrative + alerts + suggested activities."""
+
+    child_username = serializers.CharField(source="child.username", read_only=True)
+    child_name = serializers.SerializerMethodField()
+    has_urgent_alert = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = ParentProgressSummary
+        fields = [
+            "id",
+            "parent",
+            "child",
+            "child_username",
+            "child_name",
+            "week_start",
+            "week_end",
+            "summary_text",
+            "language",
+            "ticks_recorded",
+            "active_days",
+            "avg_score",
+            "score_delta",
+            "weak_chapters",
+            "strong_chapters",
+            "home_activities",
+            "alerts",
+            "has_urgent_alert",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+    def get_child_name(self, obj):
+        return obj.child.full_name if hasattr(obj.child, "full_name") else obj.child.username
+
+
+class GenerateParentSummarySerializer(serializers.Serializer):
+    """Request body for queuing a parent progress summary generation."""
+
+    child_id = serializers.IntegerField()
+    week_start = serializers.DateField(required=False, allow_null=True)
+    language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")
+
+
+class ClassMisconceptionClusterSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+
+    class Meta:
+        model = ClassMisconceptionCluster
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "misconception_label",
+            "student_count",
+            "occurrence_count",
+            "sample_diagnosis",
+            "sample_remediation_tip",
+            "window_start",
+            "last_seen",
+            "refreshed_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerMisconceptionClusterSerializer(serializers.Serializer):
+    """Request body for queuing a class misconception cluster refresh."""
+
+    subject_room_id = serializers.IntegerField()
+    lookback_days = serializers.IntegerField(required=False, min_value=1, max_value=365)
+
+
+class AssignmentDraftSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+    question_count = serializers.IntegerField(read_only=True)
+    is_actionable = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = AssignmentDraft
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "status",
+            "title",
+            "rationale_text",
+            "target_difficulty",
+            "requested_size",
+            "target_chapters",
+            "selected_questions",
+            "question_count",
+            "estimated_minutes",
+            "is_actionable",
+            "approved_problem_set",
+            "approved_assignment",
+            "model_used",
+            "error_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class GenerateAssignmentDraftSerializer(serializers.Serializer):
+    """Request body for queuing an AI assignment draft."""
+
+    subject_room_id = serializers.IntegerField()
+    size = serializers.IntegerField(required=False, min_value=1, max_value=20)
+    target_difficulty = serializers.IntegerField(required=False, min_value=1, max_value=5)
+
+
+class ApproveAssignmentDraftSerializer(serializers.Serializer):
+    """Request body for approving a draft into a real Assignment."""
+
+    due_at = serializers.DateTimeField()
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Open-Ended Response Grading
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class OpenResponseRubricSerializer(serializers.ModelSerializer):
+    question_text = serializers.CharField(source="subpart.question_text", read_only=True)
+
+    class Meta:
+        model = OpenResponseRubric
+        fields = [
+            "id",
+            "subpart",
+            "question_text",
+            "max_marks",
+            "model_answer",
+            "criteria",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+
+class OpenResponseGradeSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.get_full_name", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    question_text = serializers.CharField(source="subpart.question_text", read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    effective_score = serializers.FloatField(read_only=True)
+    is_reviewed = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = OpenResponseGrade
+        fields = [
+            "id",
+            "subpart",
+            "question_text",
+            "student",
+            "student_name",
+            "student_username",
+            "subject_room",
+            "subject_name",
+            "assignment",
+            "response_text",
+            "status",
+            "max_marks",
+            "suggested_score",
+            "feedback",
+            "criterion_scores",
+            "confidence",
+            "final_score",
+            "teacher_comment",
+            "reviewed_by",
+            "reviewed_at",
+            "effective_score",
+            "is_reviewed",
+            "model_used",
+            "error_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class SubmitOpenResponseSerializer(serializers.Serializer):
+    """Request body for recording a student's free-text answer for AI grading."""
+
+    subpart_id = serializers.IntegerField()
+    student_id = serializers.IntegerField()
+    subject_room_id = serializers.IntegerField()
+    assignment_id = serializers.IntegerField(required=False, allow_null=True)
+    response_text = serializers.CharField()
+
+
+class ReviewOpenResponseSerializer(serializers.Serializer):
+    """Request body for a teacher finalising an AI-suggested grade."""
+
+    final_score = serializers.FloatField(min_value=0)
+    teacher_comment = serializers.CharField(required=False, allow_blank=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class InterventionSuggestionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+
+    class Meta:
+        model = InterventionSuggestion
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "student",
+            "student_name",
+            "student_username",
+            "status",
+            "priority",
+            "severity",
+            "strategy_text",
+            "avg_score",
+            "gap_count",
+            "focus_chapters",
+            "misconception_labels",
+            "acknowledged_by",
+            "acknowledged_at",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerInterventionsSerializer(serializers.Serializer):
+    """Request body for queuing intervention generation for a SubjectRoom."""
+
+    subject_room_id = serializers.IntegerField()
+
+
+class UpdateInterventionStatusSerializer(serializers.Serializer):
+    """Request body for a teacher changing an intervention's status."""
+
+    status = serializers.ChoiceField(
+        choices=["acknowledged", "dismissed", "resolved"],
+    )

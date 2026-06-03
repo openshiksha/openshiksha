@@ -27,9 +27,9 @@ REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = [  # noqa: F405
 ]
 
 # Logging - Less verbose in production
-LOGGING["root"]["level"] = "WARNING"  # noqa: F405
-LOGGING["loggers"]["django"]["level"] = "WARNING"  # noqa: F405
-LOGGING["loggers"]["apps"]["level"] = "INFO"  # noqa: F405
+LOGGING["root"]["level"] = "WARNING"  # noqa: F405  # type: ignore[index]
+LOGGING["loggers"]["django"]["level"] = "WARNING"  # noqa: F405  # type: ignore[index]
+LOGGING["loggers"]["apps"]["level"] = "INFO"  # noqa: F405  # type: ignore[index]
 
 # Email - Use real email backend in production
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

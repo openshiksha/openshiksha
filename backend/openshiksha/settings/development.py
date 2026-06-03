@@ -31,8 +31,8 @@ INTERNAL_IPS = [
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Logging - More verbose in development
-LOGGING["root"]["level"] = "DEBUG"  # noqa: F405
-LOGGING["loggers"]["django"]["level"] = "DEBUG"  # noqa: F405
+LOGGING["root"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
+LOGGING["loggers"]["django"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
 
 # Email - Console backend for development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

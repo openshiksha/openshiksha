@@ -47,6 +47,9 @@ INSTALLED_APPS = [
     "openshiksha.apps.cabinet",
     "openshiksha.apps.api",
     "openshiksha.apps.ai",
+    "openshiksha.apps.concierge",
+    "openshiksha.apps.lodge",
+    "openshiksha.apps.announcements",
 ]
 
 MIDDLEWARE = [
@@ -110,7 +113,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = []
+STATICFILES_DIRS: list[Path] = []
 
 # Media files
 MEDIA_URL = "/media/"
@@ -172,6 +175,25 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
+# Periodic tasks (Celery beat)
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "send-due-date-reminders": {
+        "task": "openshiksha.apps.core.tasks.send_due_date_reminders",
+        # Daily at 06:00 (CELERY_TIMEZONE = Asia/Kolkata). Reminds students about
+        # assignments due in the next 24h.
+        "schedule": crontab(hour=6, minute=0),
+        "kwargs": {"window_hours": 24},
+    },
+    "weekly-parent-summaries": {
+        "task": "openshiksha.apps.ai.tasks.enqueue_weekly_parent_summaries",
+        # Monday 07:00 (Asia/Kolkata). Generates and emails last week's progress
+        # summary to every parent for each of their children.
+        "schedule": crontab(hour=7, minute=0, day_of_week="monday"),
+    },
+}
+
 # Redis Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -189,6 +211,16 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
+# AI / LLM Configuration
+# Provider cascade for natural language explanations:
+#   1. Anthropic Claude  — set ANTHROPIC_API_KEY
+#   2. Google Gemma 4    — set GOOGLE_AI_API_KEY (free via Google AI Studio)
+#   3. Ollama (local)    — set OLLAMA_BASE_URL or run Ollama at localhost:11434
+#   4. Stub              — plain text fallback (dev/test, no keys needed)
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY", "")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
 # Email Configuration
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
@@ -196,7 +228,8 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", 25))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@openshiksha.org")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "OpenShiksha <noreply@openshiksha.edu.in>")
+EMAIL_SUBJECT_PREFIX = "[OpenShiksha] "
 
 # Logging Configuration
 # Ensure the logs directory exists (CI environments and fresh checkouts won't have it)

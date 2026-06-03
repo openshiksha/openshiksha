@@ -9,6 +9,54 @@ export interface User {
   first_name: string;
   last_name: string;
   role: UserRole;
+  grade?: number | null;
+  phone_number?: string;
+  email_reminders_opt_out?: boolean;
+}
+
+export interface ClassroomInviteCode {
+  id: number;
+  code: string;
+  classroom_id: number;
+  classroom_name: string;
+  is_active: boolean;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface BrowseChapter {
+  id: number;
+  name: string;
+  subject_id: number;
+  subject: string;
+  standard_id: number;
+  standard: number;
+  question_count: number;
+}
+
+export interface RegisterOpenRequest {
+  username: string;
+  password: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface RegisterSchoolRequest extends RegisterOpenRequest {
+  join_code: string;
+}
+
+export interface RegisterResponse {
+  access: string;
+  refresh: string;
+  user: {
+    id: number;
+    username: string;
+    role: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
 export enum UserRole {
@@ -30,22 +78,62 @@ export interface MCQOption {
   text: string;
 }
 
+/** Answer types a single subpart can have (mirrors backend QuestionType). */
+export type SubpartType = 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric' | 'short_answer';
+
 export interface QuestionSubpart {
   id: number;
   index: number;
+  /**
+   * Per-subpart answer type (M7-03). Blank ('') for hand-authored rows that
+   * predate the field — callers fall back to the parent Question.question_type.
+   */
+  subpart_type?: SubpartType | '';
   tags: QuestionTag[];
   question_text: string;
   options: MCQOption[] | null;
+  image_url?: string;
+  solution_text?: string;
+  hint_text?: string;
+  /** M7-11: true when this subpart has an authored interactive widget. */
+  is_interactive?: boolean;
+  /**
+   * Resolved widget HTML (script + markup) for the sandboxed iframe. Only
+   * present when is_interactive. SECURITY: render ONLY via InteractiveWidget's
+   * sandboxed iframe — never through dangerouslySetInnerHTML / RichContent.
+   */
+  interactive_html?: string;
+}
+
+export interface AIHint {
+  level: number;
+  text: string;
+}
+
+export interface HintSequence {
+  id: number;
+  question_subpart: number;
+  hints: AIHint[];
+  hint_count: number;
+  grade_level: number;
+  generated_at: string;
 }
 
 
 export interface Question {
   id: number;
   standard: number;
+  standard_number?: number;
   subject: number;
+  subject_name?: string;
   chapter: number;
-  question_type: 'mcq' | 'fill_blank' | 'matching' | 'multi_select' | 'numeric';
+  chapter_name?: string;
+  /** 'compound' = subparts have heterogeneous types (M7-03). */
+  question_type: SubpartType | 'compound';
+  question_type_display?: string;
   difficulty: number;
+  /** Optional shared stem rendered once above the subparts (M7-07). */
+  stem_text?: string;
   tags: QuestionTag[];
   subparts: QuestionSubpart[];
   is_active: boolean;
@@ -77,6 +165,8 @@ export interface ProblemSet {
   question_count: number;
   estimated_minutes: number | null;
   is_active: boolean;
+  is_remedial: boolean;
+  source_assignment: number | null;
 }
 
 export interface ProblemSetWithQuestions extends ProblemSet {
@@ -114,6 +204,7 @@ export interface Assignment {
   submission_count: number;
   student_count: number;
   my_submission?: Submission | null;
+  child_submission_status?: 'submitted' | 'not_submitted' | null;
 }
 
 export interface Subject {
@@ -134,6 +225,7 @@ export interface ChapterItem {
 
 export interface StudentProficiency {
   id: number;
+  question_tag: number;
   tag_name: string;
   tag_type: string;
   subject_name: string;
@@ -146,11 +238,32 @@ export interface StudentProficiency {
   updated_at: string;
 }
 
+export interface GeneratedQuestionDraft {
+  question_text: string;
+  options: MCQOption[] | null;
+  correct_answer: string;
+  variable_constraints: Record<string, { min: number; max: number; integer: boolean }> | null;
+  suggested_tags: string[];
+  solution?: string;
+}
+
+export interface GenerateQuestionsRequest {
+  topic: string;
+  chapter_id: number;
+  question_type: 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
+  difficulty: number;
+  count: number;
+}
+
 export interface QuestionSubpartWrite {
   index: number;
   question_text: string;
   options: MCQOption[] | null;
   correct_answer: Record<string, unknown>;
+  variable_constraints?: Record<string, { min: number; max: number; integer: boolean }> | null;
+  image_url?: string;
+  solution_text?: string;
+  hint_text?: string;
 }
 
 export interface QuestionCreate {

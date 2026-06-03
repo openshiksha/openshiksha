@@ -13,6 +13,8 @@ from django.db.models import Avg
 
 logger = logging.getLogger(__name__)
 
+REMEDIAL_THRESHOLD = 0.30
+
 
 @shared_task(bind=True, max_retries=3)
 def grade_submission(self, submission_id: int) -> dict:
@@ -64,6 +66,8 @@ def grade_submission(self, submission_id: int) -> dict:
     total_mark = 0.0
     ticks_to_create = []
 
+    student_id = submission.student_id
+
     for subpart in subparts:
         answer_key = str(subpart.id)
         if answer_key not in answers:
@@ -71,7 +75,18 @@ def grade_submission(self, submission_id: int) -> dict:
 
         attempted += 1
         student_answer = answers[answer_key]
-        mark = _grade_subpart(subpart.question.question_type, student_answer, subpart.correct_answer)
+        # M7-03: grade on the per-subpart type, falling back to the question
+        # type for hand-authored rows that predate subpart_type.
+        grading_type = subpart.subpart_type or subpart.question.question_type
+        mark = _grade_subpart(
+            grading_type,
+            student_answer,
+            subpart.correct_answer,
+            student_id=student_id,
+            subpart_id=subpart.id,
+            original_options=subpart.options,
+            variable_constraints=subpart.variable_constraints,
+        )
         total_mark += mark
 
         ticks_to_create.append(
@@ -95,9 +110,36 @@ def grade_submission(self, submission_id: int) -> dict:
     # Update question mistake aggregates
     _update_question_mistakes(created_ticks, subject_room.id, subpart_count_by_question)
 
+    # Email student with grading result
+    from openshiksha.apps.core.emails import notify_grading_complete
+
+    score_pct = int(submission.score * 100) if submission.score is not None else 0
+    notify_grading_complete(
+        submission.student,
+        submission.assignment.problem_set.title,
+        score_pct,
+    )
+
     # Queue downstream tasks
     _update_assignment_aggregates.delay(submission.assignment_id)
     update_proficiency.delay(submission.student_id, subject_room.id)
+
+    # Trigger AI analytics pipeline (learning gaps, recommendations, mastery, learning path)
+    from openshiksha.apps.ai.tasks import (
+        analyze_student_subject_room,
+        generate_class_insights_for_subject_room,
+        generate_explanations_for_submission,
+    )
+
+    analyze_student_subject_room.delay(submission.student_id, subject_room.id)
+    generate_class_insights_for_subject_room.delay(subject_room.id)
+
+    # Generate per-subpart AI explanations for the student
+    generate_explanations_for_submission.delay(submission_id)
+
+    # Create remedial assignment if student scored below threshold
+    if submission.score is not None and submission.score < REMEDIAL_THRESHOLD:
+        _create_remedial_assignment(submission.pk)
 
     return {
         "submission_id": submission_id,
@@ -109,10 +151,26 @@ def grade_submission(self, submission_id: int) -> dict:
     }
 
 
-def _grade_subpart(question_type: str, student_answer, correct_answer: dict) -> float:
+def _grade_subpart(
+    question_type: str,
+    student_answer,
+    correct_answer: dict,
+    student_id: int | None = None,
+    subpart_id: int | None = None,
+    original_options: list | None = None,
+    variable_constraints: dict | None = None,
+) -> float:
     """
     Grade a single subpart answer. Returns a fraction (0.0–1.0).
     Matching questions support partial credit.
+
+    For MCQ/multi_select, if student_id + subpart_id + original_options are
+    provided, the student's submitted key is reverse-mapped through the
+    Croupier shuffle back to the original storage key before comparison.
+
+    For numeric questions with variable_constraints, the correct_answer["answer"]
+    may be an expression like "({{c}} - {{b}}) / {{a}}" that is evaluated with
+    the same deterministic variable values shown to the student.
     """
     if not correct_answer or "answer" not in correct_answer:
         return 0.0
@@ -120,9 +178,31 @@ def _grade_subpart(question_type: str, student_answer, correct_answer: dict) -> 
     expected = correct_answer["answer"]
 
     if question_type in ("mcq", "fill_blank", "multi_select"):
-        return 1.0 if str(student_answer) == str(expected) else 0.0
+        answer_to_compare = str(student_answer)
+        if question_type in ("mcq", "multi_select") and student_id and subpart_id and original_options:
+            from openshiksha.apps.api.croupier import get_original_key
+
+            answer_to_compare = get_original_key(student_id, subpart_id, str(student_answer), original_options)
+        return 1.0 if answer_to_compare == str(expected) else 0.0
 
     if question_type == "numeric":
+        # Re-derive variable values and evaluate expression answers
+        if variable_constraints and student_id and subpart_id:
+            from openshiksha.apps.api.croupier import safe_eval_expr, sample_variable_values
+
+            variable_values = sample_variable_values(variable_constraints, student_id, subpart_id)
+            expected_raw = str(expected)
+            if "{{" in expected_raw:
+                try:
+                    expected_float = safe_eval_expr(expected_raw, variable_values)
+                    try:
+                        submitted_float = float(student_answer)
+                        return 1.0 if abs(submitted_float - expected_float) < 0.01 else 0.0
+                    except (TypeError, ValueError):
+                        return 0.0
+                except (ValueError, ZeroDivisionError):
+                    return 0.0
+        # Non-variable numeric: direct comparison
         try:
             return 1.0 if abs(float(student_answer) - float(expected)) < 0.001 else 0.0
         except (TypeError, ValueError):
@@ -251,10 +331,22 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
     if not profs:
         return
 
+    from openshiksha.apps.edge.models import StudentProficiencySnapshot
+
     n = len(profs)
+    snapshots_to_create = []
     for i, prof in enumerate(profs):
         percentile = i / n  # rank fraction: bottom student gets 0, top gets (n-1)/n
         prof.recalculate_score(percentile)
+        snapshots_to_create.append(
+            StudentProficiencySnapshot(
+                student_id=prof.student_id,
+                question_tag_id=prof.question_tag_id,
+                subject_room_id=prof.subject_room_id,
+                score=prof.score,
+            )
+        )
+    StudentProficiencySnapshot.objects.bulk_create(snapshots_to_create)
 
     # Update SubjectRoom aggregate
     agg = StudentProficiency.objects.filter(
@@ -269,4 +361,194 @@ def _recalculate_percentile(subject_room_id: int, tag_id: int) -> None:
             "rate": agg["avg_rate"] or 0.0,
             "score": agg["avg_score"] or 0.0,
         },
+    )
+
+
+@shared_task
+def send_due_date_reminders(window_hours: int = 24) -> dict:
+    """
+    Email students about assignments due within the next ``window_hours``.
+
+    Runs on a Celery beat schedule (see CELERY_BEAT_SCHEDULE). For each upcoming
+    assignment, reminds every enrolled student who:
+      - has an email address and has not opted out of reminders,
+      - has not already submitted the assignment, and
+      - has not already been reminded for this assignment.
+
+    Idempotency is guaranteed by an AssignmentReminder row per (assignment, student):
+    the row is created before the email is sent, so repeat runs never double-email.
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from openshiksha.apps.core.emails import notify_due_date_reminder
+    from openshiksha.apps.core.models import Assignment, AssignmentReminder, Submission, UserRole
+
+    now = timezone.now()
+    window_end = now + timedelta(hours=window_hours)
+
+    assignments = (
+        Assignment.objects.filter(
+            due_at__gt=now,
+            due_at__lte=window_end,
+            subject_room__is_active=True,
+        )
+        .select_related("problem_set", "subject_room", "target_student")
+        .prefetch_related("subject_room__students")
+    )
+
+    stats = {"assignments": 0, "reminded": 0, "skipped": 0}
+
+    for assignment in assignments:
+        stats["assignments"] += 1
+
+        if assignment.target_student_id:
+            students = [assignment.target_student] if assignment.target_student else []
+        else:
+            students = list(assignment.subject_room.students.all())
+
+        if not students:
+            continue
+
+        # Students who already submitted this assignment are not reminded.
+        submitted_ids = set(
+            Submission.objects.filter(
+                assignment=assignment,
+                student__in=students,
+                submitted_at__isnull=False,
+            ).values_list("student_id", flat=True)
+        )
+        # Students already reminded for this assignment.
+        reminded_ids = set(
+            AssignmentReminder.objects.filter(assignment=assignment).values_list("student_id", flat=True)
+        )
+
+        due_str = timezone.localtime(assignment.due_at).strftime("on %B %d at %I:%M %p")
+
+        for student in students:
+            if student.role not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+                continue
+            if student.id in submitted_ids or student.id in reminded_ids:
+                stats["skipped"] += 1
+                continue
+            if student.email_reminders_opt_out or not student.email:
+                stats["skipped"] += 1
+                continue
+
+            # Create the log first so a crash mid-send never produces a duplicate later.
+            _, created = AssignmentReminder.objects.get_or_create(assignment=assignment, student=student)
+            if not created:
+                stats["skipped"] += 1
+                continue
+
+            notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            stats["reminded"] += 1
+
+    logger.info(
+        "send_due_date_reminders: assignments=%d reminded=%d skipped=%d",
+        stats["assignments"],
+        stats["reminded"],
+        stats["skipped"],
+    )
+    return stats
+
+
+def _create_remedial_assignment(submission_id: int) -> None:
+    """
+    Create a remedial ProblemSet + Assignment for a student who scored below REMEDIAL_THRESHOLD.
+
+    Targets only the questions the student answered incorrectly.
+    Idempotent: skips if a remedial already exists for this assignment + student.
+    """
+    from datetime import timedelta
+
+    from django.db.models import Max
+    from django.utils import timezone
+
+    from openshiksha.apps.core.models import Assignment, ProblemSet, Submission
+    from openshiksha.apps.edge.models import Tick
+
+    try:
+        submission = Submission.objects.select_related(
+            "assignment__problem_set",
+            "assignment__subject_room",
+            "student",
+            "assignment__assigned_by",
+        ).get(pk=submission_id)
+    except Submission.DoesNotExist:
+        logger.error(f"_create_remedial_assignment: Submission {submission_id} not found")
+        return
+
+    orig = submission.assignment
+    orig_ps = orig.problem_set
+
+    # Idempotency: skip if a remedial already exists for this specific student + source assignment
+    already_exists = Assignment.objects.filter(
+        problem_set__is_remedial=True,
+        problem_set__source_assignment=orig,
+        target_student=submission.student,
+    ).exists()
+    if already_exists:
+        return
+
+    # Find questions the student got wrong (any subpart with mark < 1.0)
+    wrong_question_ids = list(
+        Tick.objects.filter(submission=submission, mark__lt=1.0)
+        .values_list("question_subpart__question_id", flat=True)
+        .distinct()
+    )
+
+    if not wrong_question_ids:
+        logger.warning(
+            f"_create_remedial_assignment: no wrong ticks for submission {submission_id} "
+            f"despite score {submission.score:.2f} — skipping"
+        )
+        return
+
+    # Pick a unique number to satisfy ProblemSet.unique_together
+    max_num = (
+        ProblemSet.objects.filter(
+            school=orig_ps.school,
+            standard=orig_ps.standard,
+            subject=orig_ps.subject,
+            chapter=orig_ps.chapter,
+        ).aggregate(Max("number"))["number__max"]
+        or 0
+    )
+
+    remedial_ps = ProblemSet.objects.create(
+        title=f"Remedial: {orig_ps.title}",
+        school=orig_ps.school,
+        standard=orig_ps.standard,
+        subject=orig_ps.subject,
+        chapter=orig_ps.chapter,
+        number=max_num + 1,
+        is_remedial=True,
+        source_assignment=orig,
+        created_by=orig.assigned_by,
+    )
+    remedial_ps.questions.set(wrong_question_ids)
+
+    due = timezone.now() + timedelta(days=3)
+    Assignment.objects.create(
+        problem_set=remedial_ps,
+        subject_room=orig.subject_room,
+        assigned_by=orig.assigned_by,
+        due_at=due,
+        target_student=submission.student,
+    )
+
+    # Email student about the new remedial assignment
+    from openshiksha.apps.core.emails import notify_remedial_assigned
+
+    notify_remedial_assigned(
+        submission.student,
+        orig_ps.chapter.name,
+        due.strftime("%B %d"),
+    )
+
+    logger.info(
+        f"Created remedial assignment for student {submission.student_id} "
+        f"(submission {submission_id}, {len(wrong_question_ids)} wrong questions)"
     )

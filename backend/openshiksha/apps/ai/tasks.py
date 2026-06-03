@@ -27,6 +27,7 @@ Downstream trigger (intended usage):
 """
 
 import logging
+from datetime import date
 
 from celery import shared_task
 
@@ -328,14 +329,15 @@ def generate_daily_practice_plan(self, student_id: int, subject_room_id: int) ->
 def analyze_student_subject_room(student_id: int, subject_room_id: int) -> None:
     """
     Convenience task: runs gap detection, performance prediction,
-    recommendation refresh, and mastery/path updates for a student.
-    Called after grading completes for a submission.
+    recommendation refresh, mastery/path updates, and daily practice plan
+    generation for a student. Called after grading completes for a submission.
     """
     detect_learning_gaps_for_student.delay(student_id, subject_room_id)
     update_performance_prediction_for_student.delay(student_id, subject_room_id)
     refresh_recommendations_for_student.delay(student_id, subject_room_id)
     update_student_mastery.delay(student_id, subject_room_id)
     rebuild_learning_path.delay(student_id, subject_room_id)
+    generate_daily_practice_plan.delay(student_id, subject_room_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -531,6 +533,188 @@ def rebuild_learning_path(self, student_id: int, subject_room_id: int) -> dict:
         raise self.retry(exc=exc)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Natural Language Explanation Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_explanations_for_submission(self, submission_id: int) -> dict:
+    """
+    Generate AI explanations for every graded subpart in a submission.
+
+    Called asynchronously after grade_submission completes. For each Tick
+    associated with the submission, calls the Anthropic API to produce a
+    short plain-language explanation of why the student's answer was right
+    or wrong.
+
+    Idempotent: uses update_or_create so re-runs don't duplicate records.
+
+    Returns {"created": int, "updated": int, "skipped": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import generate_explanation
+        from openshiksha.apps.ai.models import SubpartExplanation
+        from openshiksha.apps.core.models import Submission
+        from openshiksha.apps.edge.models import Tick
+
+        try:
+            submission = Submission.objects.select_related(
+                "student__school",
+                "assignment__subject_room__classroom__standard",
+            ).get(pk=submission_id)
+        except Submission.DoesNotExist:
+            logger.error("generate_explanations: submission %d not found", submission_id)
+            return {"created": 0, "updated": 0, "skipped": 0}
+
+        # Determine grade level from student's school enrollment or direct grade field
+        grade_level = (
+            submission.student.grade
+            or getattr(submission.assignment.subject_room.classroom.standard, "number", None)
+            or 8
+        )
+
+        ticks = list(
+            Tick.objects.filter(submission=submission).select_related(
+                "question_subpart__question",
+            )
+        )
+
+        if not ticks:
+            logger.info("generate_explanations: no ticks for submission %d", submission_id)
+            return {"created": 0, "updated": 0, "skipped": 0}
+
+        created = 0
+        updated = 0
+        skipped = 0
+
+        for tick in ticks:
+            subpart = tick.question_subpart
+            student_answer = submission.answers.get(str(subpart.id))
+
+            if student_answer is None:
+                skipped += 1
+                continue
+
+            try:
+                result = generate_explanation(
+                    question_text=subpart.question_text or subpart.question.question_type,
+                    options=subpart.options,
+                    student_answer=student_answer,
+                    correct_answer=subpart.correct_answer,
+                    is_correct=tick.mark >= 1.0,
+                    grade_level=grade_level,
+                    language="en",
+                )
+            except Exception:
+                logger.exception(
+                    "generate_explanations: LLM call failed for subpart %d submission %d",
+                    subpart.id,
+                    submission_id,
+                )
+                skipped += 1
+                continue
+
+            _, was_created = SubpartExplanation.objects.update_or_create(
+                student=submission.student,
+                question_subpart=subpart,
+                submission=submission,
+                defaults={
+                    "student_answer": student_answer,
+                    "is_correct": tick.mark >= 1.0,
+                    "explanation_text": result["text"],
+                    "language": "en",
+                    "grade_level": grade_level,
+                    "model_used": result["model"],
+                    "input_tokens": result["input_tokens"],
+                    "output_tokens": result["output_tokens"],
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+
+        logger.info(
+            "generate_explanations: submission=%d created=%d updated=%d skipped=%d",
+            submission_id,
+            created,
+            updated,
+            skipped,
+        )
+        return {"created": created, "updated": updated, "skipped": skipped}
+
+    except Exception as exc:
+        logger.exception("generate_explanations failed: submission=%d", submission_id)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_explanation_for_subpart(
+    self,
+    student_id: int,
+    subpart_id: int,
+    student_answer: object,
+    is_correct: bool,
+    grade_level: int,
+    submission_id: int | None = None,
+    language: str = "en",
+) -> dict:
+    """
+    Generate an explanation for a single subpart (e.g., from SRS drill mode).
+
+    Returns {"explanation_id": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import generate_explanation
+        from openshiksha.apps.ai.models import SubpartExplanation
+        from openshiksha.apps.core.models import QuestionSubpart, User
+
+        student = User.objects.get(pk=student_id)
+        subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+
+        result = generate_explanation(
+            question_text=subpart.question_text or subpart.question.question_type,
+            options=subpart.options,
+            student_answer=student_answer,
+            correct_answer=subpart.correct_answer,
+            is_correct=is_correct,
+            grade_level=grade_level,
+            language=language,
+        )
+
+        obj, _ = SubpartExplanation.objects.update_or_create(
+            student=student,
+            question_subpart=subpart,
+            submission_id=submission_id,
+            defaults={
+                "student_answer": student_answer,
+                "is_correct": is_correct,
+                "explanation_text": result["text"],
+                "language": language,
+                "grade_level": grade_level,
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+        logger.info(
+            "generate_explanation_for_subpart: student=%d subpart=%d explanation=%d",
+            student_id,
+            subpart_id,
+            obj.pk,
+        )
+        return {"explanation_id": obj.pk}
+
+    except Exception as exc:
+        logger.exception(
+            "generate_explanation_for_subpart failed: student=%d subpart=%d",
+            student_id,
+            subpart_id,
+        )
+        raise self.retry(exc=exc)
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def complete_learning_path_step(
     self,
@@ -562,10 +746,10 @@ def complete_learning_path_step(
         step.completed_at = timezone.now()
         step.save(update_fields=["status", "score_when_completed", "completed_at"])
 
-        LearningPath.objects.filter(pk=path.pk).update(
-            completed_steps=LearningPath.objects.filter(pk=path.pk).values_list("completed_steps", flat=True).first()
-            + 1
+        current_completed = (
+            LearningPath.objects.filter(pk=path.pk).values_list("completed_steps", flat=True).first() or 0
         )
+        LearningPath.objects.filter(pk=path.pk).update(completed_steps=current_completed + 1)
 
         # Refresh SRS for the chapter
         update_spaced_repetition_for_student.delay(
@@ -599,4 +783,662 @@ def complete_learning_path_step(
 
     except Exception as exc:
         logger.exception("complete_step failed: step=%d", step_id)
+        raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Weekly Class Report Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _monday_of_week(day: date) -> date:
+    """Return the Monday on or before the given date."""
+    from datetime import timedelta
+
+    return day - timedelta(days=day.weekday())
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_weekly_class_report(self, subject_room_id: int, week_start_iso: str | None = None) -> dict:
+    """
+    Generate (or refresh) the AI weekly summary report for a SubjectRoom.
+
+    If week_start_iso is omitted, defaults to the Monday of the current week.
+    Computes a deterministic stats snapshot from Tick data, generates a
+    plain-language narrative via the LLM cascade, and upserts a WeeklyClassReport.
+
+    Idempotent: re-running for the same (subject_room, week_start) overwrites
+    the existing report in place.
+
+    Returns {"report_id": int, "week_start": str, "active_students": int}
+    """
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.analytics import compute_weekly_class_stats
+        from openshiksha.apps.ai.llm_client import generate_class_summary
+        from openshiksha.apps.ai.models import WeeklyClassReport
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.select_related(
+            "subject",
+            "classroom__standard",
+        ).get(pk=subject_room_id)
+
+        if week_start_iso:
+            week_start = date.fromisoformat(week_start_iso)
+            week_start = _monday_of_week(week_start)
+        else:
+            week_start = _monday_of_week(timezone.localdate())
+        week_end = week_start + timedelta(days=6)
+
+        stats = compute_weekly_class_stats(subject_room, week_start, week_end)
+
+        standard_number = getattr(subject_room.classroom.standard, "number", 8)
+        result = generate_class_summary(
+            stats=stats,
+            subject_name=subject_room.subject.name,
+            standard_number=standard_number,
+        )
+
+        report, _ = WeeklyClassReport.objects.update_or_create(
+            subject_room=subject_room,
+            week_start=week_start,
+            defaults={
+                "week_end": week_end,
+                "summary_text": result["text"],
+                "total_students": stats["total_students"],
+                "active_students": stats["active_students"],
+                "ticks_recorded": stats["ticks_recorded"],
+                "class_avg_score": stats["class_avg_score"],
+                "struggling_chapters": stats["struggling_chapters"],
+                "strong_chapters": stats["strong_chapters"],
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+
+        logger.info(
+            "generate_weekly_class_report: room=%d week=%s report=%d active=%d",
+            subject_room_id,
+            week_start.isoformat(),
+            report.pk,
+            stats["active_students"],
+        )
+        return {
+            "report_id": report.pk,
+            "week_start": week_start.isoformat(),
+            "active_students": stats["active_students"],
+        }
+
+    except Exception as exc:
+        logger.exception("generate_weekly_class_report failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Hint System Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def diagnose_misconception_for_subpart(
+    self,
+    student_id: int,
+    subpart_id: int,
+    student_answer: object,
+    grade_level: int,
+    submission_id: int | None = None,
+) -> dict:
+    """
+    Diagnose and persist the misconception behind a student's wrong answer.
+
+    Only meaningful for incorrect answers — callers should not enqueue this for
+    correct ones. Idempotent: upserts on (student, subpart, submission).
+
+    Returns {"misconception_id": int}
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import diagnose_misconception
+        from openshiksha.apps.ai.models import StudentMisconception
+        from openshiksha.apps.core.models import QuestionSubpart, User
+
+        student = User.objects.get(pk=student_id)
+        subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+
+        result = diagnose_misconception(
+            question_text=subpart.question_text or subpart.question.question_type,
+            options=subpart.options,
+            student_answer=student_answer,
+            correct_answer=subpart.correct_answer or {},
+            grade_level=grade_level,
+        )
+
+        obj, _ = StudentMisconception.objects.update_or_create(
+            student=student,
+            question_subpart=subpart,
+            submission_id=submission_id,
+            defaults={
+                "student_answer": student_answer,
+                "misconception_label": result["misconception_label"],
+                "diagnosis_text": result["diagnosis"],
+                "remediation_tip": result["remediation"],
+                "grade_level": grade_level,
+                "model_used": result["model"],
+                "input_tokens": result["input_tokens"],
+                "output_tokens": result["output_tokens"],
+            },
+        )
+        logger.info(
+            "diagnose_misconception_for_subpart: student=%d subpart=%d misconception=%d",
+            student_id,
+            subpart_id,
+            obj.pk,
+        )
+        return {"misconception_id": obj.pk}
+
+    except Exception as exc:
+        logger.exception(
+            "diagnose_misconception_for_subpart failed: student=%d subpart=%d",
+            student_id,
+            subpart_id,
+        )
+        raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parent Intelligence Dashboard Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_parent_progress_summary(
+    self,
+    parent_id: int,
+    child_id: int,
+    week_start_iso: str | None = None,
+    language: str = "en",
+    send_email: bool = False,
+) -> dict:
+    """
+    Generate (or refresh) the AI weekly progress summary a parent sees for one child.
+
+    Validates that (parent, child) are linked in the User.children M2M. If not,
+    raises ValueError — the API layer enforces this before enqueueing, but the
+    task guards against stale enqueues too.
+
+    If week_start_iso is omitted, defaults to the Monday of the current week.
+
+    Idempotent: re-running for the same (parent, child, week_start) overwrites
+    the existing summary in place.
+
+    If ``send_email`` is True, the parent is emailed the narrative after the
+    summary is persisted (used by the Monday-morning weekly batch). Email failures
+    are swallowed inside the helper and never fail the task.
+
+    Returns {"summary_id": int, "week_start": str, "ticks_recorded": int, "emailed": bool}
+    """
+    try:
+        from datetime import date, timedelta
+
+        from django.utils import timezone
+
+        from openshiksha.apps.ai.analytics import (
+            build_home_activities,
+            build_parent_alerts,
+            compute_parent_weekly_stats,
+        )
+        from openshiksha.apps.ai.llm_client import generate_parent_summary
+        from openshiksha.apps.ai.models import ParentProgressSummary
+        from openshiksha.apps.core.models import User
+
+        parent = User.objects.get(pk=parent_id)
+        child = User.objects.get(pk=child_id)
+
+        if not parent.children.filter(pk=child.pk).exists():
+            raise ValueError(f"User {parent_id} is not the parent of user {child_id}")
+
+        if week_start_iso:
+            ws = date.fromisoformat(week_start_iso)
+            ws = ws - timedelta(days=ws.weekday())
+        else:
+            today = timezone.localdate()
+            ws = today - timedelta(days=today.weekday())
+        we = ws + timedelta(days=6)
+
+        stats = compute_parent_weekly_stats(child, ws, we)
+        narrative = generate_parent_summary(stats, language=language)
+        activities = build_home_activities(stats)
+        alerts = build_parent_alerts(stats)
+
+        summary, _ = ParentProgressSummary.objects.update_or_create(
+            parent=parent,
+            child=child,
+            week_start=ws,
+            defaults={
+                "week_end": we,
+                "summary_text": narrative["text"],
+                "language": language,
+                "ticks_recorded": stats["ticks_recorded"],
+                "active_days": stats["active_days"],
+                "avg_score": stats["avg_score"],
+                "score_delta": stats["score_delta"],
+                "weak_chapters": stats["weak_chapters"],
+                "strong_chapters": stats["strong_chapters"],
+                "home_activities": activities,
+                "alerts": alerts,
+                "model_used": narrative["model"],
+                "input_tokens": narrative["input_tokens"],
+                "output_tokens": narrative["output_tokens"],
+            },
+        )
+
+        emailed = False
+        if send_email:
+            from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+            emailed = notify_parent_weekly_summary(parent, child, summary)
+
+        logger.info(
+            "generate_parent_progress_summary: parent=%d child=%d week=%s ticks=%d alerts=%d emailed=%s",
+            parent_id,
+            child_id,
+            ws.isoformat(),
+            stats["ticks_recorded"],
+            len(alerts),
+            emailed,
+        )
+        return {
+            "summary_id": summary.pk,
+            "week_start": ws.isoformat(),
+            "ticks_recorded": stats["ticks_recorded"],
+            "emailed": emailed,
+        }
+
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "generate_parent_progress_summary failed: parent=%d child=%d",
+            parent_id,
+            child_id,
+        )
+        raise self.retry(exc=exc)
+
+
+@shared_task
+def enqueue_weekly_parent_summaries(week_start_iso: str | None = None) -> dict:
+    """
+    Monday-morning batch: generate and email last week's progress summary for
+    every linked (parent, child) pair.
+
+    Runs on a Celery beat schedule (see CELERY_BEAT_SCHEDULE). Fans out one
+    ``generate_parent_progress_summary`` task per pair with ``send_email=True`` so
+    each generation + email retries independently and a slow LLM call for one
+    child never blocks the others.
+
+    Defaults to the Monday of *last* week (the just-completed week) — on Monday
+    morning the current week has no activity yet. Pass ``week_start_iso`` to
+    override (it is snapped to that week's Monday downstream).
+
+    Returns {"pairs": int, "enqueued": int}.
+    """
+    from datetime import date, timedelta
+
+    from django.utils import timezone
+
+    from openshiksha.apps.core.models import User, UserRole
+
+    if week_start_iso is None:
+        today = timezone.localdate()
+        this_monday = today - timedelta(days=today.weekday())
+        week_start_iso = (this_monday - timedelta(days=7)).isoformat()
+    else:
+        ws = date.fromisoformat(week_start_iso)
+        week_start_iso = (ws - timedelta(days=ws.weekday())).isoformat()
+
+    pairs = 0
+    enqueued = 0
+    for parent in User.objects.filter(role=UserRole.PARENT).prefetch_related("children"):
+        for child in parent.children.all():
+            pairs += 1
+            generate_parent_progress_summary.delay(
+                parent.pk,
+                child.pk,
+                week_start_iso=week_start_iso,
+                send_email=True,
+            )
+            enqueued += 1
+
+    logger.info(
+        "enqueue_weekly_parent_summaries: week=%s pairs=%d enqueued=%d",
+        week_start_iso,
+        pairs,
+        enqueued,
+    )
+    return {"pairs": pairs, "enqueued": enqueued, "week_start": week_start_iso}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Misconception Insights
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def refresh_class_misconception_clusters(
+    self,
+    subject_room_id: int,
+    lookback_days: int | None = None,
+) -> dict:
+    """
+    Rebuild ClassMisconceptionCluster rows for one SubjectRoom.
+
+    Clusters are a snapshot, not history: existing rows for the room are deleted
+    and replaced with whatever the clustering pass produces this run. This keeps
+    the teacher dashboard reflecting the current state — stale clusters whose
+    underlying misconceptions have aged out of the lookback window correctly
+    disappear.
+
+    Returns ``{"created": int, "deleted": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import CLUSTER_LOOKBACK_DAYS, cluster_misconceptions_for_subject_room
+        from openshiksha.apps.ai.models import ClassMisconceptionCluster
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.get(pk=subject_room_id)
+        window_days = lookback_days if lookback_days is not None else CLUSTER_LOOKBACK_DAYS
+
+        clusters, window_start = cluster_misconceptions_for_subject_room(subject_room, lookback_days=window_days)
+
+        deleted, _ = ClassMisconceptionCluster.objects.filter(subject_room=subject_room).delete()
+
+        rows = [
+            ClassMisconceptionCluster(
+                subject_room=subject_room,
+                misconception_label=c["misconception_label"],
+                student_count=c["student_count"],
+                occurrence_count=c["occurrence_count"],
+                sample_diagnosis=c["sample_diagnosis"],
+                sample_remediation_tip=c["sample_remediation_tip"],
+                window_start=window_start,
+                last_seen=c["last_seen"],
+            )
+            for c in clusters
+        ]
+        ClassMisconceptionCluster.objects.bulk_create(rows)
+
+        logger.info(
+            "refresh_class_misconception_clusters: room=%d created=%d deleted=%d",
+            subject_room_id,
+            len(rows),
+            deleted,
+        )
+        return {"created": len(rows), "deleted": deleted}
+
+    except Exception as exc:
+        logger.exception("refresh_class_misconception_clusters failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Assignment Draft Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def build_assignment_draft(self, draft_id: int) -> dict:
+    """
+    Populate a pending AssignmentDraft with selected questions + a rationale.
+
+    The draft row is created synchronously (status=pending) when the teacher hits
+    the endpoint; this task does the heavy lifting: it ranks the class's weak
+    chapters from Tick data, selects targeting questions from the bank, generates
+    a plain-language rationale via the LLM cascade, and flips the draft to
+    ``ready`` (or ``failed`` with a human-readable reason if nothing could be
+    built — e.g. no recent practice data, or no fresh questions in the bank).
+
+    Idempotent: re-running rebuilds the draft in place. A draft that's already
+    been approved or dismissed is left untouched.
+
+    Returns ``{"draft_id": int, "status": str, "question_count": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import build_assignment_draft as build_draft
+        from openshiksha.apps.ai.llm_client import generate_draft_rationale
+        from openshiksha.apps.ai.models import AssignmentDraft, AssignmentDraftStatus
+
+        draft = AssignmentDraft.objects.select_related(
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+        ).get(pk=draft_id)
+
+        # Don't clobber a draft the teacher has already acted on.
+        if draft.status in (AssignmentDraftStatus.APPROVED, AssignmentDraftStatus.DISMISSED):
+            return {"draft_id": draft.pk, "status": draft.status, "question_count": draft.question_count}
+
+        result = build_draft(
+            draft.subject_room,
+            size=draft.requested_size,
+            target_difficulty=draft.target_difficulty,
+        )
+
+        if result["error"]:
+            draft.status = AssignmentDraftStatus.FAILED
+            draft.error_detail = result["error"]
+            draft.target_chapters = result["target_chapters"]
+            draft.save(update_fields=["status", "error_detail", "target_chapters", "updated_at"])
+            logger.info("build_assignment_draft: draft=%d failed (%s)", draft_id, result["error"])
+            return {"draft_id": draft.pk, "status": draft.status, "question_count": 0}
+
+        standard_number = getattr(draft.subject_room.classroom.standard, "number", 8)
+        rationale = generate_draft_rationale(
+            subject_name=draft.subject_room.subject.name,
+            standard_number=standard_number,
+            target_chapters=result["target_chapters"],
+            question_count=len(result["selected_questions"]),
+        )
+
+        draft.status = AssignmentDraftStatus.READY
+        draft.title = result["title"]
+        draft.rationale_text = rationale["text"]
+        draft.target_chapters = result["target_chapters"]
+        draft.selected_questions = result["selected_questions"]
+        draft.estimated_minutes = result["estimated_minutes"]
+        draft.model_used = rationale["model"]
+        draft.input_tokens = rationale["input_tokens"]
+        draft.output_tokens = rationale["output_tokens"]
+        draft.error_detail = ""
+        draft.save()
+
+        logger.info(
+            "build_assignment_draft: draft=%d ready questions=%d chapters=%d",
+            draft_id,
+            len(result["selected_questions"]),
+            len(result["target_chapters"]),
+        )
+        return {
+            "draft_id": draft.pk,
+            "status": draft.status,
+            "question_count": draft.question_count,
+        }
+
+    except Exception as exc:
+        logger.exception("build_assignment_draft failed: draft=%d", draft_id)
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def grade_open_response(self, grade_id: int) -> dict:
+    """
+    Produce an AI-suggested grade for a pending OpenResponseGrade.
+
+    The grade row is created synchronously (status=pending) when a response is
+    submitted; this task does the LLM work: it loads the subpart's rubric (model
+    answer + criteria), asks the provider cascade for a score + feedback, writes
+    the suggestion back, and flips the row to ``ai_graded`` for teacher review.
+    On any failure it records ``error_detail`` and sets status ``failed`` rather
+    than leaving the row stuck in ``pending``.
+
+    Idempotent: re-running re-grades in place. A row the teacher has already
+    reviewed is left untouched.
+
+    Returns ``{"grade_id": int, "status": str, "suggested_score": float|None}``.
+    """
+    try:
+        from openshiksha.apps.ai.llm_client import grade_open_response as run_grade
+        from openshiksha.apps.ai.models import OpenResponseGrade, OpenResponseGradeStatus
+
+        grade = OpenResponseGrade.objects.select_related(
+            "subpart__question__standard",
+            "student",
+        ).get(pk=grade_id)
+
+        # Never clobber a teacher's final decision.
+        if grade.status == OpenResponseGradeStatus.REVIEWED:
+            return {"grade_id": grade.pk, "status": grade.status, "suggested_score": grade.suggested_score}
+
+        subpart = grade.subpart
+        rubric = getattr(subpart, "open_response_rubric", None)
+        model_answer = rubric.model_answer if rubric else ""
+        criteria = rubric.criteria if rubric else []
+        max_marks = grade.max_marks or (rubric.max_marks if rubric else 5)
+        grade_level = getattr(subpart.question.standard, "number", 8) or 8
+
+        result = run_grade(
+            question_text=subpart.question_text or "",
+            model_answer=model_answer,
+            criteria=criteria,
+            response_text=grade.response_text,
+            max_marks=max_marks,
+            grade_level=grade_level,
+        )
+
+        grade.suggested_score = result["score"]
+        grade.feedback = result["feedback"]
+        grade.confidence = result["confidence"]
+        grade.criterion_scores = result["criterion_scores"]
+        grade.max_marks = max_marks
+        grade.model_used = result["model"]
+        grade.input_tokens = result["input_tokens"]
+        grade.output_tokens = result["output_tokens"]
+        grade.status = OpenResponseGradeStatus.AI_GRADED
+        grade.error_detail = ""
+        grade.save()
+
+        logger.info(
+            "grade_open_response: grade=%d scored %.2f/%d via %s",
+            grade_id,
+            result["score"],
+            max_marks,
+            result["model"],
+        )
+        return {"grade_id": grade.pk, "status": grade.status, "suggested_score": grade.suggested_score}
+
+    except Exception as exc:
+        logger.exception("grade_open_response failed: grade=%d", grade_id)
+        try:
+            from openshiksha.apps.ai.models import OpenResponseGrade, OpenResponseGradeStatus
+
+            OpenResponseGrade.objects.filter(pk=grade_id).exclude(status=OpenResponseGradeStatus.REVIEWED).update(
+                status=OpenResponseGradeStatus.FAILED, error_detail=str(exc)[:500]
+            )
+        except Exception:
+            logger.exception("grade_open_response: could not mark grade=%d failed", grade_id)
+        raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestion Tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def generate_interventions_for_subject_room(self, subject_room_id: int) -> dict:
+    """
+    Generate (or refresh) AI intervention suggestions for a SubjectRoom.
+
+    For each student with at least one open ``LearningGap`` in the room, builds an
+    evidence snapshot (weak chapters + recurring misconceptions), asks the LLM
+    cascade for a short intervention plan, and upserts an ``InterventionSuggestion``
+    on (subject_room, student). A teacher's acknowledge/dismiss/resolve decision is
+    preserved across refreshes — only the strategy and snapshot are updated.
+
+    Students who previously had an open suggestion but no longer have any open gaps
+    are auto-resolved, so the teacher's list self-cleans as students recover.
+
+    Idempotent. Returns
+    ``{"subject_room_id": int, "generated": int, "auto_resolved": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import compute_interventions_for_subject_room
+        from openshiksha.apps.ai.llm_client import generate_intervention_plan
+        from openshiksha.apps.ai.models import InterventionStatus, InterventionSuggestion
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.select_related(
+            "subject",
+            "classroom__standard",
+        ).get(pk=subject_room_id)
+
+        snapshots = compute_interventions_for_subject_room(subject_room)
+        standard_number = getattr(subject_room.classroom.standard, "number", 8) or 8
+
+        generated_ids: list[int] = []
+        for snap in snapshots:
+            result = generate_intervention_plan(
+                stats=snap,
+                subject_name=subject_room.subject.name,
+                standard_number=standard_number,
+            )
+            obj, _ = InterventionSuggestion.objects.update_or_create(
+                subject_room=subject_room,
+                student_id=snap["student_id"],
+                defaults={
+                    "priority": snap["priority"],
+                    "severity": snap["severity"],
+                    "avg_score": snap["avg_score"],
+                    "gap_count": snap["gap_count"],
+                    "focus_chapters": snap["focus_chapters"],
+                    "misconception_labels": snap["misconception_labels"],
+                    "strategy_text": result["text"],
+                    "model_used": result["model"],
+                    "input_tokens": result["input_tokens"],
+                    "output_tokens": result["output_tokens"],
+                },
+            )
+            # A refresh on a student who had recovered then regressed re-opens the card.
+            if obj.status == InterventionStatus.RESOLVED:
+                obj.status = InterventionStatus.OPEN
+                obj.save(update_fields=["status"])
+            generated_ids.append(obj.pk)
+
+        # Auto-resolve open/acknowledged suggestions for students who no longer
+        # appear in the snapshot (their gaps closed).
+        auto_resolved = (
+            InterventionSuggestion.objects.filter(
+                subject_room=subject_room,
+                status__in=[InterventionStatus.OPEN, InterventionStatus.ACKNOWLEDGED],
+            )
+            .exclude(pk__in=generated_ids)
+            .update(status=InterventionStatus.RESOLVED)
+        )
+
+        logger.info(
+            "generate_interventions_for_subject_room: room=%d generated=%d auto_resolved=%d",
+            subject_room_id,
+            len(generated_ids),
+            auto_resolved,
+        )
+        return {
+            "subject_room_id": subject_room_id,
+            "generated": len(generated_ids),
+            "auto_resolved": auto_resolved,
+        }
+
+    except Exception as exc:
+        logger.exception("generate_interventions_for_subject_room failed: room=%d", subject_room_id)
         raise self.retry(exc=exc)

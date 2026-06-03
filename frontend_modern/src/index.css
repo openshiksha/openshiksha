@@ -2,15 +2,171 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles for OpenShiksha */
+/* ════════════════════════════════════════════════════════════════════════
+   OpenShiksha V2 — "Chalk & Unlock" design system
+   See docs/initiatives/2026-design-system-v2.md. Tokens live in
+   tailwind.config.js. Migrated code uses the classes below + `ui/` components;
+   never raw hex, never the legacy `primary`/cold-gray palette.
+   ════════════════════════════════════════════════════════════════════════ */
+
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
   body {
-    @apply font-sans antialiased;
+    @apply font-sans antialiased text-ink-700 bg-brand-50;
+  }
+
+  /* Warm paper grain — barely-there texture so flat surfaces feel like paper. */
+  body.bg-paper,
+  .bg-paper {
+    background-color: #fffaf3;
+    background-image:
+      radial-gradient(rgba(26, 24, 22, 0.018) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  /* Brand-tinted text selection. */
+  ::selection {
+    background: rgba(255, 111, 0, 0.18);
+    color: #1a1816;
+  }
+
+  /* Consistent, branded focus ring for keyboard users across the app. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #fffaf3, 0 0 0 4px rgba(255, 111, 0, 0.55);
+    border-radius: 0.375rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }
 
 @layer components {
-  /* Button styles */
+  /* ── V2 brand components ─────────────────────────────────────────────── */
+
+  /* Primary action — the "unlock" button. One per screen, ideally. */
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
+           bg-brand-600 text-white font-semibold shadow-soft
+           transition-all duration-150
+           hover:bg-brand-700 hover:shadow-lift
+           active:translate-y-px
+           disabled:bg-brand-300 disabled:shadow-none disabled:cursor-not-allowed;
+  }
+
+  /* Quiet secondary action on paper. */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
+           bg-transparent text-ink-700 font-semibold border border-ink-100
+           transition-colors duration-150
+           hover:bg-ink-50 hover:border-ink-200
+           disabled:text-ink-300 disabled:cursor-not-allowed;
+  }
+
+  /* The warm surface. Migrated pages use this instead of the legacy `.card`. */
+  .os-card {
+    @apply bg-white border border-ink-100 rounded-xl2 shadow-card;
+  }
+
+  /* Text input in the brand language. */
+  .input-brand {
+    @apply w-full px-4 py-2.5 rounded-xl bg-white border border-ink-200
+           text-ink-800 placeholder-ink-300
+           transition-colors duration-150
+           focus:outline-none focus:border-brand-500;
+  }
+
+  /* Hand-drawn chalk underline — the signature active-nav / accent mark. */
+  .chalk-underline {
+    position: relative;
+  }
+  .chalk-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 3px;
+    border-radius: 3px;
+    background: #ff6f00;
+    /* Slightly irregular, chalk-like ends. */
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+  }
+
+  /* Rich question/solution prose — warm body text with brand links, used by the
+     `RichContent` primitive that renders sanitised HTML + KaTeX. */
+  .prose-osh {
+    @apply text-ink-700 leading-relaxed;
+  }
+  .prose-osh p {
+    @apply my-2 first:mt-0 last:mb-0;
+  }
+  .prose-osh strong,
+  .prose-osh b {
+    @apply font-semibold text-ink-900;
+  }
+  .prose-osh em,
+  .prose-osh i {
+    @apply italic;
+  }
+  .prose-osh a {
+    @apply text-brand-600 underline decoration-brand-300 hover:text-brand-700;
+  }
+  .prose-osh code {
+    @apply px-1 py-0.5 rounded bg-ink-50 text-ink-800 text-[0.9em];
+  }
+  .prose-osh ul {
+    @apply list-disc pl-5 my-2;
+  }
+  .prose-osh ol {
+    @apply list-decimal pl-5 my-2;
+  }
+  .prose-osh img {
+    @apply inline-block max-w-full rounded border border-ink-100 my-2;
+  }
+  .prose-osh table {
+    @apply my-2 border-collapse;
+  }
+  .prose-osh td,
+  .prose-osh th {
+    @apply border border-ink-100 px-2 py-1 text-left;
+  }
+  .prose-osh .katex-display {
+    @apply my-3;
+  }
+
+  /* Chalkboard panel — the legacy blackboard heritage. Use sparingly (auth hero,
+     dividers). Warm near-black with a faint chalk-dust texture. */
+  .bg-chalkboard {
+    background-color: #1a1816;
+    background-image:
+      radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      radial-gradient(rgba(255, 111, 0, 0.05) 1px, transparent 1px);
+    background-size: 22px 22px, 30px 30px;
+    background-position: 0 0, 11px 11px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ── Legacy classes — retained so un-migrated pages keep rendering. ─────────
+   Do NOT use in new/migrated code; prefer the brand components above. */
+@layer components {
   .btn-primary {
     @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors;
   }
@@ -19,17 +175,14 @@
     @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors;
   }
 
-  /* Card styles */
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }
 
-  /* Input styles */
   .input {
     @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
   }
 
-  /* Math rendering with KaTeX */
   .katex-display {
     @apply my-4;
   }

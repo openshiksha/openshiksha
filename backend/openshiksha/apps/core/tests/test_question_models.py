@@ -151,6 +151,11 @@ class TestQuestionSubpart:
         question.delete()
         assert not QuestionSubpart.objects.filter(question_id=question_pk).exists()
 
+    def test_solution_hint_default_empty(self, question, db):
+        subpart = QuestionSubpart.objects.create(question=question, index=0, correct_answer={})
+        assert subpart.solution_text == ""
+        assert subpart.hint_text == ""
+
 
 class TestSubjectRoom:
     def test_create_subject_room(self, db, classroom, subject, teacher_user):
@@ -171,3 +176,24 @@ class TestSubjectRoom:
     def test_str(self, db, classroom, subject, teacher_user):
         room = SubjectRoom.objects.create(classroom=classroom, subject=subject, teacher=teacher_user)
         assert subject.name in str(room)
+
+
+class TestStudentSerializerSolutionGating:
+    def test_solution_hidden_without_grading_flag(self, question, db):
+        from openshiksha.apps.api.serializers.core import QuestionSubpartStudentSerializer
+
+        subpart = QuestionSubpart.objects.create(
+            question=question, index=0, correct_answer={}, solution_text="The steps", hint_text="A nudge"
+        )
+        data = QuestionSubpartStudentSerializer(subpart, context={}).data
+        assert "solution_text" not in data
+        assert data["hint_text"] == "A nudge"
+
+    def test_solution_shown_when_graded(self, question, db):
+        from openshiksha.apps.api.serializers.core import QuestionSubpartStudentSerializer
+
+        subpart = QuestionSubpart.objects.create(
+            question=question, index=0, correct_answer={}, solution_text="The steps"
+        )
+        data = QuestionSubpartStudentSerializer(subpart, context={"include_solutions": True}).data
+        assert data["solution_text"] == "The steps"

@@ -10,12 +10,14 @@ from .models import (
     Board,
     Chapter,
     ClassRoom,
+    ClassroomInviteCode,
     ProblemSet,
     Question,
     QuestionSubpart,
     QuestionTag,
     School,
     Standard,
+    StudentStreak,
     Subject,
     SubjectRoom,
     Submission,
@@ -33,7 +35,7 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ["is_staff", "is_superuser", "is_active", "role", "school"]
     search_fields = ["username", "first_name", "last_name", "email"]
 
-    fieldsets = BaseUserAdmin.fieldsets + (
+    fieldsets = BaseUserAdmin.fieldsets + (  # type: ignore[operator]
         ("Profile Information", {"fields": ("role", "school", "grade", "phone_number", "date_of_birth")}),
     )
 
@@ -101,7 +103,20 @@ class QuestionTagAdmin(admin.ModelAdmin):
 class QuestionSubpartInline(admin.TabularInline):
     model = QuestionSubpart
     extra = 1
-    fields = ["index", "correct_answer", "tags"]
+    fields = [
+        "index",
+        "subpart_type",
+        "question_text",
+        "image_url",
+        "options",
+        "correct_answer",
+        "variable_constraints",
+        "solution_text",
+        "hint_text",
+        "is_interactive",
+        "interactive_html",
+        "tags",
+    ]
     filter_horizontal = ["tags"]
 
 
@@ -145,14 +160,25 @@ class SubjectRoomAdmin(admin.ModelAdmin):
 
 @admin.register(ProblemSet)
 class ProblemSetAdmin(admin.ModelAdmin):
-    list_display = ["title", "standard", "subject", "chapter", "number", "school", "is_active", "created_at"]
-    list_filter = ["is_active", "standard", "subject", "school"]
+    list_display = [
+        "title",
+        "standard",
+        "subject",
+        "chapter",
+        "number",
+        "school",
+        "is_active",
+        "is_remedial",
+        "created_at",
+    ]
+    list_filter = ["is_active", "is_remedial", "standard", "subject", "school"]
     search_fields = ["title", "chapter__name", "subject__name"]
     filter_horizontal = ["questions"]
-    raw_id_fields = ["created_by"]
+    raw_id_fields = ["created_by", "source_assignment"]
     fieldsets = (
         ("Content", {"fields": ("title", "description", "standard", "subject", "chapter", "number", "questions")}),
         ("Metadata", {"fields": ("school", "estimated_minutes", "created_by", "is_active")}),
+        ("Remedial", {"fields": ("is_remedial", "source_assignment"), "classes": ("collapse",)}),
     )
 
 
@@ -170,6 +196,7 @@ class AssignmentAdmin(admin.ModelAdmin):
         "id",
         "problem_set",
         "subject_room",
+        "target_student",
         "assigned_by",
         "assigned_at",
         "due_at",
@@ -177,8 +204,8 @@ class AssignmentAdmin(admin.ModelAdmin):
         "completion_rate",
     ]
     list_filter = ["subject_room__subject", "subject_room__classroom__school"]
-    search_fields = ["problem_set__title", "subject_room__classroom__school__name"]
-    raw_id_fields = ["assigned_by"]
+    search_fields = ["problem_set__title", "subject_room__classroom__school__name", "target_student__username"]
+    raw_id_fields = ["assigned_by", "target_student"]
     readonly_fields = ["assigned_at", "average_score", "completion_rate"]
     inlines = [SubmissionInline]
 
@@ -190,3 +217,20 @@ class SubmissionAdmin(admin.ModelAdmin):
     search_fields = ["student__username", "student__first_name", "student__last_name"]
     raw_id_fields = ["student", "assignment"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(StudentStreak)
+class StudentStreakAdmin(admin.ModelAdmin):
+    list_display = ["student", "current_streak", "longest_streak", "last_activity_date", "updated_at"]
+    search_fields = ["student__username", "student__first_name", "student__last_name"]
+    raw_id_fields = ["student"]
+    readonly_fields = ["updated_at"]
+
+
+@admin.register(ClassroomInviteCode)
+class ClassroomInviteCodeAdmin(admin.ModelAdmin):
+    list_display = ["code", "classroom", "created_by", "is_active", "expires_at", "created_at"]
+    list_filter = ["is_active", "classroom__school"]
+    search_fields = ["code", "classroom__school__name", "created_by__username"]
+    raw_id_fields = ["created_by"]
+    readonly_fields = ["created_at"]

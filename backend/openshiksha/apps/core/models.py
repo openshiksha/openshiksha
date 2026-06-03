@@ -68,6 +68,12 @@ class User(AbstractUser):
 
     date_of_birth = models.DateField(null=True, blank=True, help_text="Date of birth")
 
+    # Notification preferences
+    email_reminders_opt_out = models.BooleanField(
+        default=False,
+        help_text="If True, the student will not receive assignment due-date reminder emails.",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -334,6 +340,10 @@ class QuestionType(models.TextChoices):
     MATCHING = "matching", "Matching"
     MULTI_SELECT = "multi_select", "Multi Select"
     NUMERIC = "numeric", "Numeric Answer"
+    SHORT_ANSWER = "short_answer", "Short Answer"
+    # M7-03: summary type for a Question whose subparts have heterogeneous types.
+    # Only ever set on Question.question_type — never on a single subpart.
+    COMPOUND = "compound", "Compound (mixed subpart types)"
 
 
 class Question(models.Model):
@@ -383,6 +393,16 @@ class Question(models.Model):
         help_text="Difficulty level: 1=easiest, 5=hardest",
     )
     is_active = models.BooleanField(default=True)
+    stem_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Optional shared stem rendered once above the subpart list. "
+            "Cabinet compound questions share a leading paragraph; the importer "
+            "lifts it here so each subpart's question_text holds only the per-part "
+            "prompt. Hand-authored questions leave this blank."
+        ),
+    )
     created_by = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
@@ -418,6 +438,18 @@ class QuestionSubpart(models.Model):
         related_name="subparts",
     )
     index = models.PositiveIntegerField(help_text="Order within question (0-indexed)")
+    subpart_type = models.CharField(
+        max_length=20,
+        choices=QuestionType.choices,
+        blank=True,
+        default="",
+        help_text=(
+            "Per-subpart answer type (mcq / numeric / fill_blank / …). Cabinet "
+            "stored type per subpart; the modern flat Question.question_type lost "
+            "it. The grader and the student widget dispatch on this, falling back "
+            "to the parent Question.question_type when blank (hand-authored rows)."
+        ),
+    )
     tags = models.ManyToManyField(QuestionTag, blank=True, related_name="subparts")
     question_text = models.TextField(
         blank=True,
@@ -432,6 +464,55 @@ class QuestionSubpart(models.Model):
     correct_answer = models.JSONField(
         default=dict,
         help_text='Answer data: e.g. {"type": "mcq", "answer": 2} or {"type": "fill_blank", "answer": "42"}',
+    )
+    variable_constraints = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Variable definitions for token substitution. "
+            'e.g. {"a": {"min": 1, "max": 9, "integer": true}}. '
+            "Tokens {{a}} in question_text/options are replaced per student."
+        ),
+    )
+    image_url = models.URLField(
+        max_length=2000,
+        blank=True,
+        default="",
+        help_text="Optional image shown above the question text (teacher-provided URL)",
+    )
+    solution_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Step-by-step worked solution (plain text or KaTeX). " "Populated by Cabinet import or LLM generation."
+        ),
+    )
+    hint_text = models.TextField(
+        blank=True,
+        default="",
+        help_text=("Progressive hint shown to struggling students. " "Populated by Cabinet import or teacher."),
+    )
+    is_interactive = models.BooleanField(
+        default=False,
+        help_text=(
+            "True when this subpart carries an authored interactive widget "
+            "(embedded <script>/event handlers). The widget HTML lives in "
+            "interactive_html and is rendered ONLY inside a sandboxed iframe "
+            "(M7-11). question_text holds a safe, script-free fallback."
+        ),
+    )
+    interactive_html = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Raw authored widget HTML (may contain <script>). SECURITY: stored "
+            "raw on purpose — NEVER render this into the app DOM or via "
+            "dangerouslySetInnerHTML. It is delivered ONLY to a sandboxed "
+            '<iframe sandbox="allow-scripts"> (no allow-same-origin) so the '
+            "script cannot reach app cookies/storage/DOM. {{var}} tokens are "
+            "substituted per student by the serializer; image tokens are "
+            "resolved to absolute URLs at import."
+        ),
     )
 
     class Meta:
@@ -468,7 +549,7 @@ class SubjectRoom(models.Model):
         related_name="subject_rooms_taught",
         limit_choices_to={"role": UserRole.TEACHER},
     )
-    students = models.ManyToManyField(
+    students: models.ManyToManyField = models.ManyToManyField(
         "User",
         related_name="subject_rooms_enrolled",
         blank=True,
@@ -547,6 +628,18 @@ class ProblemSet(models.Model):
         help_text="Estimated completion time in minutes",
     )
     is_active = models.BooleanField(default=True)
+    is_remedial = models.BooleanField(
+        default=False,
+        help_text="Auto-created by grader for students scoring below the remedial threshold",
+    )
+    source_assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="remedial_problem_sets",
+        help_text="The original assignment this remedial was created from",
+    )
     created_by = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
@@ -600,6 +693,16 @@ class Assignment(models.Model):
         default=1,
         help_text="Disambiguates if same problem set is assigned twice to same room",
     )
+    target_student = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="targeted_assignments",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+        help_text="If set, only this student sees this assignment (used for per-student remedials). Null = class-wide.",
+    )
+
     # Cached aggregates — updated after grading runs
     average_score = models.FloatField(
         null=True,
@@ -684,3 +787,164 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission: {self.student} → {self.assignment}"
+
+
+class AssignmentReminder(models.Model):
+    """
+    Log of due-date reminder emails sent for an assignment to a student.
+
+    Exists purely for idempotency: the periodic reminder task creates one row per
+    (assignment, student) before sending, so re-runs never email the same student
+    twice for the same assignment.
+    """
+
+    assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.CASCADE,
+        related_name="reminders",
+    )
+    student = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="assignment_reminders",
+        limit_choices_to={"role__in": [UserRole.STUDENT, UserRole.OPEN_STUDENT]},
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "assignment_reminders"
+        unique_together = [["assignment", "student"]]
+        indexes = [
+            models.Index(fields=["assignment", "student"]),
+        ]
+
+    def __str__(self):
+        return f"Reminder: {self.assignment_id} → {self.student_id}"
+
+
+class ClassroomInviteCode(models.Model):
+    """
+    A short join code generated by a teacher for their classroom.
+    Students use it at registration to enroll automatically.
+    """
+
+    classroom = models.ForeignKey(
+        "ClassRoom",
+        on_delete=models.CASCADE,
+        related_name="invite_codes",
+    )
+    code = models.CharField(
+        max_length=8,
+        unique=True,
+        db_index=True,
+        help_text="6-character uppercase alphanumeric code (e.g. 'ABC123')",
+    )
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="created_invite_codes",
+        limit_choices_to={"role": UserRole.TEACHER},
+    )
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "classroom_invite_codes"
+
+    def __str__(self):
+        return f"{self.code} → {self.classroom}"
+
+    @classmethod
+    def generate_code(cls) -> str:
+        """Generate a unique 6-char uppercase alphanumeric code."""
+        import secrets
+
+        while True:
+            candidate = secrets.token_urlsafe(5).upper().replace("-", "").replace("_", "")[:6]
+            if len(candidate) == 6 and not cls.objects.filter(code=candidate).exists():
+                return candidate
+
+
+class StudentStreak(models.Model):
+    """
+    Daily activity streak for a student.
+
+    One row per student — updated in-place by record_activity().
+    Incremented when a student submits an assignment (via post_save signal).
+    """
+
+    student = models.OneToOneField(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="streak",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_activity_date = models.DateField(null=True, blank=True)
+    streak_grace_used = models.BooleanField(
+        default=False,
+        help_text="True if the student has already used their grace day for the current streak run.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "student_streaks"
+
+    def __str__(self):
+        return f"Streak({self.student_id}): {self.current_streak}d"
+
+    @property
+    def milestone_tier(self) -> str:
+        """Returns current milestone tier based on current_streak."""
+        if self.current_streak >= 60:
+            return "champion"
+        elif self.current_streak >= 30:
+            return "month"
+        elif self.current_streak >= 7:
+            return "week"
+        elif self.current_streak >= 3:
+            return "starter"
+        return "none"
+
+    def record_activity(self, activity_date):
+        """
+        Record activity for a given date and update streak counters.
+
+        Rules:
+        - Same day as last_activity_date → no-op
+        - Next consecutive day → current_streak += 1, grace resets
+        - Gap of exactly 1 day with grace available → streak continues (grace consumed)
+        - Gap of 2+ days, or grace already used → current_streak resets to 1
+        """
+        from datetime import timedelta
+
+        if self.last_activity_date is None:
+            self.current_streak = 1
+            self.streak_grace_used = False
+        elif activity_date == self.last_activity_date:
+            return
+        elif activity_date == self.last_activity_date + timedelta(days=1):
+            self.current_streak += 1
+            self.streak_grace_used = False
+        elif activity_date == self.last_activity_date + timedelta(days=2) and not self.streak_grace_used:
+            # Missed exactly one day and grace is available — pause, don't break
+            self.current_streak += 1
+            self.streak_grace_used = True
+        else:
+            self.current_streak = 1
+            self.streak_grace_used = False
+
+        self.last_activity_date = activity_date
+        if self.current_streak > self.longest_streak:
+            self.longest_streak = self.current_streak
+        self.save(
+            update_fields=[
+                "current_streak",
+                "longest_streak",
+                "last_activity_date",
+                "streak_grace_used",
+                "updated_at",
+            ]
+        )

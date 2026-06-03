@@ -47,7 +47,7 @@ sh==1.11
 simplejson==3.8.2
 singledispatch==3.4.0.3
 six==1.10.0
-sqlparse==0.2.4
+sqlparse==0.5.4
 typing==3.7.4.1
 urllib3==1.24.3
 vine==1.3.0

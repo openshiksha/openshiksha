@@ -8,6 +8,7 @@ from .models import (
     ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
+    InterventionSuggestion,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -621,3 +622,54 @@ class ReviewOpenResponseSerializer(serializers.Serializer):
 
     final_score = serializers.FloatField(min_value=0)
     teacher_comment = serializers.CharField(required=False, allow_blank=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class InterventionSuggestionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)
+
+    class Meta:
+        model = InterventionSuggestion
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "classroom_label",
+            "student",
+            "student_name",
+            "student_username",
+            "status",
+            "priority",
+            "severity",
+            "strategy_text",
+            "avg_score",
+            "gap_count",
+            "focus_chapters",
+            "misconception_labels",
+            "acknowledged_by",
+            "acknowledged_at",
+            "model_used",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+
+class TriggerInterventionsSerializer(serializers.Serializer):
+    """Request body for queuing intervention generation for a SubjectRoom."""
+
+    subject_room_id = serializers.IntegerField()
+
+
+class UpdateInterventionStatusSerializer(serializers.Serializer):
+    """Request body for a teacher changing an intervention's status."""
+
+    status = serializers.ChoiceField(
+        choices=["acknowledged", "dismissed", "resolved"],
+    )

@@ -39,6 +39,8 @@ from .models import (
     ClassMisconceptionCluster,
     ContentRecommendation,
     HintSequence,
+    InterventionStatus,
+    InterventionSuggestion,
     KnowledgeNode,
     LearningGap,
     LearningPath,
@@ -71,6 +73,7 @@ from .serializers import (
     GenerateParentSummarySerializer,
     GenerateQuestionsRequestSerializer,
     HintSequenceSerializer,
+    InterventionSuggestionSerializer,
     KnowledgeNodeSerializer,
     LearningGapSerializer,
     LearningPathSerializer,
@@ -87,9 +90,11 @@ from .serializers import (
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
+    TriggerInterventionsSerializer,
     TriggerMisconceptionClusterSerializer,
     TriggerRecommendationsSerializer,
     TriggerWeeklyReportSerializer,
+    UpdateInterventionStatusSerializer,
     WeeklyClassReportSerializer,
 )
 from .tasks import (
@@ -100,6 +105,7 @@ from .tasks import (
     generate_class_insights_for_subject_room,
     generate_daily_practice_plan,
     generate_explanation_for_subpart,
+    generate_interventions_for_subject_room,
     generate_parent_progress_summary,
     generate_weekly_class_report,
     grade_open_response,
@@ -1673,3 +1679,91 @@ class OpenResponseGradeViewSet(ReadOnlyModelViewSet):
             ]
         )
         return Response(self.get_serializer(grade).data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class InterventionSuggestionViewSet(ReadOnlyModelViewSet):
+    """
+    AI intervention strategies for struggling students — teacher-only.
+
+    list:        GET  /api/v1/ai/interventions/                    — for teacher's rooms
+                 GET  /api/v1/ai/interventions/?subject_room=<id>  — filter by room
+                 GET  /api/v1/ai/interventions/?status=open        — filter by status
+    retrieve:    GET  /api/v1/ai/interventions/{id}/
+    generate:    POST /api/v1/ai/interventions/generate/           — queue generation
+                     body: {subject_room_id}
+    set_status:  POST /api/v1/ai/interventions/{id}/set-status/    — acknowledge/dismiss/resolve
+                     body: {status: "acknowledged"|"dismissed"|"resolved"}
+
+    A teacher only ever sees and acts on suggestions for rooms they teach.
+    """
+
+    serializer_class = InterventionSuggestionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return InterventionSuggestion.objects.none()
+
+        qs = InterventionSuggestion.objects.select_related(
+            "student",
+            "subject_room__subject",
+            "subject_room__classroom__standard",
+            "subject_room__classroom__school",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+        if status_filter := self.request.query_params.get("status"):
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+    @action(detail=False, methods=["post"])
+    def generate(self, request):
+        """Queue async generation of intervention suggestions for a room the teacher owns."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can generate intervention suggestions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TriggerInterventionsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room = get_object_or_404(SubjectRoom, pk=serializer.validated_data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        generate_interventions_for_subject_room.delay(subject_room.pk)
+        return Response(
+            {"detail": "Intervention generation queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="set-status")
+    def set_status(self, request, pk=None):
+        """Teacher acknowledges, dismisses, or resolves a suggestion."""
+        suggestion = self.get_object()  # already scoped to the teacher's rooms
+
+        serializer = UpdateInterventionStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data["status"]
+
+        suggestion.status = new_status
+        if new_status == InterventionStatus.ACKNOWLEDGED:
+            suggestion.acknowledged_by = request.user
+            suggestion.acknowledged_at = timezone.now()
+            suggestion.save(update_fields=["status", "acknowledged_by", "acknowledged_at", "generated_at"])
+        else:
+            suggestion.save(update_fields=["status", "generated_at"])
+
+        return Response(self.get_serializer(suggestion).data)

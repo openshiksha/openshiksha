@@ -1387,3 +1387,119 @@ def grade_open_response(
     logger.warning("grade_open_response: no LLM provider available — returning stub")
     stub = _stub_open_grade(model_answer, response_text, max_marks)
     return {**stub, "model": "stub", "input_tokens": 0, "output_tokens": 0}
+
+
+# ─────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────
+
+INTERVENTION_MAX_TOKENS = 450
+
+
+def _build_intervention_prompt(stats: dict, subject_name: str, standard_number: int) -> str:
+    name = stats.get("student_name", "this student")
+    chapters = stats.get("focus_chapters", [])
+    chapter_line = (
+        "; ".join(f"{c['chapter_name']} ({c['avg_score']:.0%}, {c['severity']})" for c in chapters)
+        if chapters
+        else "none recorded"
+    )
+    labels = stats.get("misconception_labels", [])
+    misconception_line = (
+        "; ".join(f"{m['label']} (seen {m['count']}×)" for m in labels) if labels else "none diagnosed yet"
+    )
+    return (
+        f"You are an experienced teaching coach helping a school teacher of "
+        f"Standard {standard_number} {subject_name} support a struggling student.\n\n"
+        f"Student: {name}\n"
+        f"Average score across weak chapters: {stats.get('avg_score', 0.0):.0%}\n"
+        f"Number of weak chapters: {stats.get('gap_count', 0)}\n"
+        f"Weakest chapters: {chapter_line}\n"
+        f"Recurring misconceptions: {misconception_line}\n\n"
+        f"Write a short, concrete intervention plan (3–5 sentences) FOR THE TEACHER that:\n"
+        f"- Names the specific chapter(s) to prioritise first and why.\n"
+        f"- Suggests one or two concrete teaching actions (e.g. a targeted re-teach, "
+        f"a worked example addressing the misconception, a small practice set).\n"
+        f"- If a misconception is listed, says how to directly address that faulty idea.\n"
+        f"- Ends with a simple way to check the student has recovered.\n"
+        f"- Is practical and encouraging. Do NOT use markdown or bullet points.\n\n"
+        f"Plan:"
+    )
+
+
+def _stub_intervention(stats: dict) -> str:
+    name = stats.get("student_name", "This student")
+    chapters = stats.get("focus_chapters", [])
+    labels = stats.get("misconception_labels", [])
+
+    if not chapters:
+        return (
+            f"{name} is showing early signs of falling behind. Sit with them for a few minutes "
+            f"to find where the difficulty starts, then assign a short, easy practice set to rebuild confidence."
+        )
+
+    weakest = chapters[0]["chapter_name"]
+    parts = [
+        f"{name} is weakest in {weakest} (scoring {chapters[0]['avg_score']:.0%}), so start there.",
+        f"Re-teach the core idea with one fresh worked example, then assign a short 4–5 question "
+        f"practice set on {weakest} to check understanding.",
+    ]
+    if labels:
+        parts.append(
+            f"Watch for the recurring misconception '{labels[0]['label']}' and address it directly "
+            f"before moving on."
+        )
+    if len(chapters) > 1:
+        others = ", ".join(c["chapter_name"] for c in chapters[1:])
+        parts.append(f"Once {weakest} improves, revisit {others}.")
+    parts.append("Re-check with a quick exit question next week to confirm they have recovered.")
+    return " ".join(parts)
+
+
+def generate_intervention_plan(
+    stats: dict,
+    subject_name: str,
+    standard_number: int,
+) -> dict:
+    """
+    Generate a plain-language, teacher-facing intervention plan for one
+    struggling student. Uses the same provider cascade as the other generators
+    and always returns a usable plan — the stub composes a deterministic plan
+    from the student's weak-chapter snapshot when no LLM provider is configured.
+
+    Returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_intervention_prompt(stats, subject_name, standard_number)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_intervention_plan: using Anthropic Claude")
+            return _call_anthropic_text(prompt, anthropic_key, INTERVENTION_MAX_TOKENS)
+        except Exception:
+            logger.exception("generate_intervention_plan: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_intervention_plan: using Google Gemma 4")
+            return _call_google_gemma(prompt, google_key)
+        except Exception:
+            logger.exception("generate_intervention_plan: Google Gemma failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_intervention_plan: using Ollama at %s", ollama_url)
+            return _call_ollama(prompt, ollama_url)
+        except Exception:
+            logger.exception("generate_intervention_plan: Ollama failed, falling back to stub")
+
+    logger.warning("generate_intervention_plan: no LLM provider available — returning stub")
+    return {
+        "text": _stub_intervention(stats),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }

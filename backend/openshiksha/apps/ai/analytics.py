@@ -1212,3 +1212,114 @@ def cluster_misconceptions_for_subject_room(
 
     clusters.sort(key=lambda c: (-c["student_count"], -c["last_seen"].timestamp()))
     return clusters, window_start
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teacher AI Assistant — Intervention Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Most weak chapters to surface per student in an intervention card
+MAX_FOCUS_CHAPTERS = 4
+
+# Most misconception labels to surface per student
+MAX_MISCONCEPTION_LABELS = 4
+
+
+def compute_interventions_for_subject_room(subject_room: "SubjectRoom") -> list[dict]:
+    """Build a per-struggling-student intervention snapshot for a SubjectRoom.
+
+    Reads the already-persisted ``LearningGap`` rows (open, in this room) and the
+    student's ``StudentMisconception`` labels — the derived signals the rest of
+    the AI suite keeps refreshed — and assembles one snapshot per student who has
+    at least one open gap. No tick re-aggregation here; this is a join over
+    existing derived data, so it is cheap and consistent with the dashboards.
+
+    Each snapshot dict shape::
+
+        {
+            "student_id": int,
+            "student_name": str,
+            "grade_level": int,
+            "avg_score": float,                # mean of the student's open-gap scores
+            "gap_count": int,
+            "severity": str,                   # worst severity among the gaps
+            "priority": int,                   # 1–5, from InterventionSuggestion.priority_for
+            "focus_chapters": [{"chapter_id", "chapter_name", "avg_score", "severity"}],
+            "misconception_labels": [{"label", "count"}],
+        }
+
+    Sorted by ``priority`` desc, then ``avg_score`` asc (worst first).
+    """
+    from openshiksha.apps.ai.models import GapSeverity, InterventionSuggestion, LearningGap, StudentMisconception
+
+    gaps = (
+        LearningGap.objects.filter(subject_room=subject_room, is_resolved=False)
+        .select_related("student", "chapter")
+        .order_by("avg_score")
+    )
+
+    # Group open gaps by student.
+    by_student: dict[int, dict] = {}
+    for gap in gaps:
+        bucket = by_student.setdefault(
+            gap.student_id,
+            {"student": gap.student, "gaps": []},
+        )
+        bucket["gaps"].append(gap)
+
+    if not by_student:
+        return []
+
+    # One DB hit for misconception labels across all affected students.
+    severity_rank = {GapSeverity.SEVERE: 3, GapSeverity.MODERATE: 2, GapSeverity.MILD: 1}
+    grade_level = getattr(getattr(subject_room.classroom, "standard", None), "number", 8) or 8
+
+    misconception_rows = StudentMisconception.objects.filter(student_id__in=by_student.keys()).values_list(
+        "student_id", "misconception_label"
+    )
+    label_counts: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for student_id, label in misconception_rows:
+        norm = _normalise_misconception_label(label)
+        if norm:
+            label_counts[student_id][norm] += 1
+
+    snapshots = []
+    for student_id, bucket in by_student.items():
+        student_gaps = bucket["gaps"]
+        scores = [g.avg_score for g in student_gaps]
+        avg_score = sum(scores) / len(scores)
+        worst = max(student_gaps, key=lambda g: severity_rank.get(g.severity, 0))
+        gap_count = len(student_gaps)
+
+        focus_chapters = [
+            {
+                "chapter_id": g.chapter_id,
+                "chapter_name": g.chapter.name,
+                "avg_score": round(g.avg_score, 3),
+                "severity": g.severity,
+            }
+            for g in sorted(student_gaps, key=lambda g: g.avg_score)[:MAX_FOCUS_CHAPTERS]
+        ]
+
+        ranked_labels = sorted(
+            label_counts.get(student_id, {}).items(),
+            key=lambda kv: (-kv[1], kv[0]),
+        )[:MAX_MISCONCEPTION_LABELS]
+        misconception_labels = [{"label": label, "count": count} for label, count in ranked_labels]
+
+        snapshots.append(
+            {
+                "student_id": student_id,
+                "student_name": bucket["student"].full_name,
+                "grade_level": grade_level,
+                "avg_score": round(avg_score, 3),
+                "gap_count": gap_count,
+                "severity": worst.severity,
+                "priority": InterventionSuggestion.priority_for(worst.severity, gap_count),
+                "focus_chapters": focus_chapters,
+                "misconception_labels": misconception_labels,
+            }
+        )
+
+    snapshots.sort(key=lambda s: (-s["priority"], s["avg_score"]))
+    return snapshots

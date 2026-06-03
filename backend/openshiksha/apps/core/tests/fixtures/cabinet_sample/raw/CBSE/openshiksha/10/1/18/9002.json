@@ -1,0 +1,9 @@
+{
+  "subpart_index": 1,
+  "type": 3,
+  "content": {"text": "<div>Graph 2</div>"},
+  "answer": {"value": 3},
+  "variable_constraints": {},
+  "solution": {"text": "Three zeroes — two crossings and a touch."},
+  "hint": null
+}

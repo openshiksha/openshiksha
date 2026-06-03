@@ -19,7 +19,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.17.0",
     "@tanstack/react-query-devtools": "^5.17.0",
-    "axios": "^1.6.5",
+    "axios": "^1.17.0",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
     "dompurify": "^3.4.7",

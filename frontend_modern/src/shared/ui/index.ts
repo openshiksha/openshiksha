@@ -11,3 +11,5 @@ export { renderRichContent } from './renderRichContent';
 export { InteractiveWidget } from './InteractiveWidget';
 export type { InteractiveWidgetProps } from './InteractiveWidget';
 export { Skeleton } from './Skeleton';
+export { LoadingSpinner } from './LoadingSpinner';
+export { ErrorBoundary } from './ErrorBoundary';

@@ -1,4 +1,4 @@
-import { Logo, Button, Card, Badge, RichContent, InteractiveWidget, Skeleton } from '@/shared/ui';
+import { Logo, Button, Card, Badge, RichContent, InteractiveWidget, Skeleton, LoadingSpinner } from '@/shared/ui';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`
@@ -197,6 +197,41 @@ export const DesignSystemPage = () => (
           <Skeleton w="w-full" h="h-4" />
           <Skeleton w="w-5/6" h="h-4" />
           <Skeleton w="w-2/3" h="h-4" />
+        </Card>
+      </Section>
+
+      <Section kicker="States" title="Loading spinner">
+        <Card className="flex flex-wrap items-center gap-8">
+          <div className="flex flex-col items-center gap-2">
+            <LoadingSpinner size="sm" />
+            <span className="text-xs text-ink-500">sm</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <LoadingSpinner size="md" />
+            <span className="text-xs text-ink-500">md</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <LoadingSpinner size="lg" />
+            <span className="text-xs text-ink-500">lg</span>
+          </div>
+          <p className="ml-auto max-w-xs text-xs text-ink-500">
+            Honours <code>prefers-reduced-motion</code> — the ring is static when
+            reduced motion is requested.
+          </p>
+        </Card>
+      </Section>
+
+      <Section kicker="States" title="404 / error boundary">
+        <Card>
+          <p className="mb-3 text-sm text-ink-500">
+            Unknown URLs render <code>NotFoundPage</code> (the catch-all route).
+            Render-time errors anywhere under the router render the
+            <code> ErrorBoundary</code> fallback. Both surfaces use the warm
+            paper background, brand keyhole motif, and a single primary action.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <a href="/this-route-does-not-exist" className="btn-ghost">Preview 404</a>
+          </div>
         </Card>
       </Section>
 

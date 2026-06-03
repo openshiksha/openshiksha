@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { QuestionCard } from './QuestionCard';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import type { PaginatedResponse, Question } from '@/types/index';
 
 const useBrowsePractice = (chapterId: number | null) =>

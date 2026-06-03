@@ -1,0 +1,5 @@
+-- Postgres init hook for the dev stack (mounted into docker-entrypoint-initdb.d).
+-- The database, user, and password are provisioned by the POSTGRES_* env vars in
+-- docker-compose.yml, so no DDL is required here. This file exists only so the
+-- bind-mount resolves to a readable file (Docker silently creates a *directory*
+-- in its place if the host path is missing, which breaks postgres init).

@@ -19,6 +19,7 @@ from openshiksha.apps.api.serializers import (
     QuestionMistakeSerializer,
     QuestionSerializer,
     QuestionTagSerializer,
+    QuestionWithSubpartsStudentSerializer,
     QuestionWriteSerializer,
     StudentProficiencySerializer,
     StudentProficiencySnapshotSerializer,
@@ -283,6 +284,12 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return QuestionWriteSerializer
+        # Students and open students get the safe serializer: no correct_answer,
+        # MCQ options shuffled, and {{var}} tokens substituted per-student.
+        if self.action in ["list", "retrieve"]:
+            role = getattr(getattr(self, "request", None) and self.request.user, "role", None)
+            if role in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+                return QuestionWithSubpartsStudentSerializer
         return QuestionSerializer
 
     def get_permissions(self):

@@ -120,7 +120,7 @@ jobs:
               env:
                 SECRET_KEY: test-secret-key-not-for-production
             - name: Upload coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: coverage-report
@@ -190,7 +190,7 @@ jobs:
               # Thresholds enforced via test.coverage.thresholds in vite.config.ts.
               run: npm test -- --run --coverage
             - name: Upload frontend coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: frontend-coverage-report
@@ -230,7 +230,7 @@ jobs:
               # its `webServer` block; no separate "build" step needed.
               run: npm run test:e2e
             - name: Upload Playwright HTML report on failure
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: failure()
               with:
                 name: playwright-report
@@ -241,7 +241,7 @@ jobs:
               # itself is non-blocking (see e2e/a11y.spec.ts); this artifact
               # is how we track the baseline over time before the WCAG 2.1 AA
               # initiative starts.
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: axe-report

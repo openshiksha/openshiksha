@@ -291,19 +291,17 @@ export const QuestionBankPage = () => {
     [questions, focusedQuestionId],
   );
 
-  // Auto-focus the first question when results land + nothing is focused yet
-  useEffect(() => {
-    if (focusedQuestionId === null && questions && questions.length > 0) {
-      setFocusedQuestionId(questions[0].id);
-    }
-    if (
-      focusedQuestionId !== null &&
-      questions &&
+  // Keep a valid question focused as results change (during render — react.dev/learn/you-might-not-need-an-effect)
+  if (questions) {
+    if (questions.length === 0) {
+      if (focusedQuestionId !== null) setFocusedQuestionId(null);
+    } else if (
+      focusedQuestionId === null ||
       !questions.some((q) => q.id === focusedQuestionId)
     ) {
-      setFocusedQuestionId(questions[0]?.id ?? null);
+      setFocusedQuestionId(questions[0].id);
     }
-  }, [questions, focusedQuestionId]);
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">

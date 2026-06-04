@@ -39,24 +39,30 @@ export const AssignmentDetailPage = () => {
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Initialize local state from a loaded submission (during render — react.dev/learn/you-might-not-need-an-effect)
+  const [syncedSubmission, setSyncedSubmission] = useState<typeof existingSubmission | undefined>(
+    undefined,
+  );
+  if (!submissionLoading && existingSubmission && existingSubmission !== syncedSubmission) {
+    setSyncedSubmission(existingSubmission);
+    setSubmissionId(existingSubmission.id);
+    setAnswers(
+      Object.fromEntries(
+        Object.entries(existingSubmission.answers ?? {}).map(([k, v]) => [k, String(v)]),
+      ),
+    );
+    if (existingSubmission.submitted_at) {
+      setIsSubmitted(true);
+      setSubmitScore(existingSubmission.score);
+    }
+  }
+
+  // No submission once loading settles — create one (network side effect stays in an effect)
   useEffect(() => {
-    if (!submissionLoading) {
-      if (existingSubmission) {
-        setSubmissionId(existingSubmission.id);
-        setAnswers(
-          Object.fromEntries(
-            Object.entries(existingSubmission.answers ?? {}).map(([k, v]) => [k, String(v)]),
-          ),
-        );
-        if (existingSubmission.submitted_at) {
-          setIsSubmitted(true);
-          setSubmitScore(existingSubmission.score);
-        }
-      } else if (assignmentId && !createSubmission.isPending) {
-        createSubmission.mutate(assignmentId, {
-          onSuccess: (sub) => setSubmissionId(sub.id),
-        });
-      }
+    if (!submissionLoading && !existingSubmission && assignmentId && !createSubmission.isPending) {
+      createSubmission.mutate(assignmentId, {
+        onSuccess: (sub) => setSubmissionId(sub.id),
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submissionLoading, existingSubmission]);

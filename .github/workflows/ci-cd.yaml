@@ -3,6 +3,29 @@ name: CI/CD Pipeline
 on: push
 
 jobs:
+    workflow-lint:
+        name: Workflow Lint (actionlint)
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Install actionlint
+              # Use the official install script from the actionlint maintainer
+              # (rhysd). Pinning to a script URL avoids a third-party action
+              # dependency for a job that just runs a static linter.
+              id: install-actionlint
+              run: |
+                bash <(curl --silent --show-error --fail https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+                echo "actionlint=$(pwd)/actionlint" >> "$GITHUB_OUTPUT"
+            - name: Run actionlint
+              # Validates GitHub Actions workflow YAML — catches typos in
+              # `uses:` versions, bad expression syntax, mismatched `needs:`
+              # references, and other footguns that otherwise only fail at
+              # run time. Shellcheck integration is disabled (-shellcheck=)
+              # because the inline `gh` script in the coverage-comment step
+              # trips style warnings that aren't worth gating CI on.
+              run: ${{ steps.install-actionlint.outputs.actionlint }} -color -shellcheck=
+
     lint:
         name: Lint
         runs-on: ubuntu-latest
@@ -10,7 +33,7 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                 python-version: '3.11'
                 cache: 'pip'
@@ -35,7 +58,7 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                 python-version: '3.11'
                 cache: 'pip'
@@ -57,7 +80,7 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                 python-version: '3.11'
                 cache: 'pip'
@@ -83,7 +106,7 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
                 python-version: '3.11'
                 cache: 'pip'
@@ -217,7 +240,7 @@ jobs:
             - name: Install dependencies
               run: npm ci
             - name: Cache Playwright browsers
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                 path: ~/.cache/ms-playwright
                 key: playwright-${{ runner.os }}-${{ hashFiles('frontend_modern/package-lock.json') }}
@@ -261,7 +284,7 @@ jobs:
               run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
               id: extract_branch
             - name: Build Docker Image & Push to GitHub Container Registry
-              uses: docker/build-push-action@v6
+              uses: docker/build-push-action@v7
               with:
                 context: .
                 push: true
@@ -279,7 +302,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Set Cluster Context
-              uses: azure/k8s-set-context@v3
+              uses: azure/k8s-set-context@v5
               with:
                 method: kubeconfig
                 kubeconfig: '${{ secrets.KUBECONFIG }}'

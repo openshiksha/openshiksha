@@ -425,7 +425,8 @@ def _call_anthropic_generate_questions(prompt: str, api_key: str) -> list[dict]:
     for block in message.content:
         if isinstance(block, ToolUseBlock) and block.name == "save_questions":
             input_data = block.input if isinstance(block.input, dict) else {}
-            return input_data.get("questions", [])
+            questions = input_data.get("questions", [])
+            return questions if isinstance(questions, list) else []
     return []
 
 

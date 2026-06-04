@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingSpinner, RichContent } from '@/shared/ui';
 import { useSubjectRooms } from './useSubjectRooms';
@@ -373,9 +373,10 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   const updateQuestion = useUpdateQuestion();
   const { data: existingQuestion, isLoading: loadingExisting } = useQuestion(editId);
 
-  // Pre-fill form in edit mode once data loads
-  useEffect(() => {
-    if (!existingQuestion || !editMode) return;
+  // Pre-fill form in edit mode when the loaded question changes (during render — react.dev/learn/you-might-not-need-an-effect)
+  const [prefilledFrom, setPrefilledFrom] = useState<typeof existingQuestion | undefined>(undefined);
+  if (editMode && existingQuestion && existingQuestion !== prefilledFrom) {
+    setPrefilledFrom(existingQuestion);
     setSelectedSubjectId(existingQuestion.subject);
     setSelectedChapterId(existingQuestion.chapter);
     setDifficulty(existingQuestion.difficulty);
@@ -396,7 +397,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         hint_text: sp.hint_text ?? '',
       }))
     );
-  }, [existingQuestion, editMode]);
+  }
 
   // Derive unique subjects from the teacher's subject rooms
   const subjects = Array.from(

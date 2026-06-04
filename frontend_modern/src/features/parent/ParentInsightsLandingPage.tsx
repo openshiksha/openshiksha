@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
 import { useChildren } from './useChildren';
 
 export const ParentInsightsLandingPage = () => {
@@ -24,36 +24,38 @@ export const ParentInsightsLandingPage = () => {
   if (!children || children.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Insights</h1>
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-gray-500 font-medium">No children linked to your account</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Ask the school admin to link your children's accounts.
-          </p>
-        </div>
+        <SectionHeading as="h1" title="Insights" className="mb-6" />
+        <EmptyState
+          title="No children linked to your account"
+          description="Ask the school admin to link your children's accounts."
+        />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900">Insights</h1>
-      <p className="text-sm text-gray-500 mt-1">Choose a child to view their weekly summary.</p>
+      <SectionHeading
+        as="h1"
+        title="Insights"
+        description="Choose a child to view their weekly summary."
+        className="mb-6"
+      />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {children.map((child) => (
           <Link
             key={child.id}
             to={`/parent/insights/${child.id}`}
-            className="rounded-xl border border-gray-200 bg-white p-5 hover:border-indigo-300 hover:shadow-sm transition-all"
+            className="os-card p-5 hover:border-brand-300 hover:shadow-sm transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
-            <p className="font-semibold text-gray-900">
+            <p className="font-display font-semibold text-ink-900">
               {child.first_name || child.username}
             </p>
             {child.grade != null && (
-              <p className="text-sm text-gray-500 mt-1">Grade {child.grade}</p>
+              <p className="text-sm text-ink-500 mt-1">Grade {child.grade}</p>
             )}
-            <p className="text-sm text-indigo-600 font-medium mt-3">Open insights →</p>
+            <p className="text-sm text-brand-700 font-medium mt-3">Open insights →</p>
           </Link>
         ))}
       </div>

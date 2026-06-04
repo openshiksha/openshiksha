@@ -238,12 +238,6 @@ const AIGenerationPanel = ({
 
       {open && (
         <div className="px-5 pb-5 space-y-4 border-t border-indigo-200">
-          {!chapterId && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
-              Select a chapter above before generating questions.
-            </p>
-          )}
-
           <div className="mt-4">
             <label className="block text-xs font-medium text-indigo-800 mb-1">
               Topic or concept to test
@@ -609,14 +603,6 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
       </div>
 
       <div className="space-y-6">
-        {/* AI Generation Panel */}
-        {!editMode && (
-          <AIGenerationPanel
-            chapterId={selectedChapterId}
-            onUseDraft={handleUseDraft}
-          />
-        )}
-
         {/* Chapter selection */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="font-semibold text-gray-800">Chapter</h2>
@@ -678,6 +664,14 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <p className="text-xs text-gray-400 mt-1">1 = easiest, 5 = hardest</p>
           </div>
         </div>
+
+        {/* AI Generation Panel — after chapter so chapterId is always set */}
+        {!editMode && (
+          <AIGenerationPanel
+            chapterId={selectedChapterId}
+            onUseDraft={handleUseDraft}
+          />
+        )}
 
         {/* Subpart tabs */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

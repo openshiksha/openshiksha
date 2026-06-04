@@ -3,6 +3,29 @@ name: CI/CD Pipeline
 on: push
 
 jobs:
+    workflow-lint:
+        name: Workflow Lint (actionlint)
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Install actionlint
+              # Use the official install script from the actionlint maintainer
+              # (rhysd). Pinning to a script URL avoids a third-party action
+              # dependency for a job that just runs a static linter.
+              id: install-actionlint
+              run: |
+                bash <(curl --silent --show-error --fail https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+                echo "actionlint=$(pwd)/actionlint" >> "$GITHUB_OUTPUT"
+            - name: Run actionlint
+              # Validates GitHub Actions workflow YAML — catches typos in
+              # `uses:` versions, bad expression syntax, mismatched `needs:`
+              # references, and other footguns that otherwise only fail at
+              # run time. Shellcheck integration is disabled (-shellcheck=)
+              # because the inline `gh` script in the coverage-comment step
+              # trips style warnings that aren't worth gating CI on.
+              run: ${{ steps.install-actionlint.outputs.actionlint }} -color -shellcheck=
+
     lint:
         name: Lint
         runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 # Django Core (LTS 4.2.x)
 Django==4.2.30
 djangorestframework==3.17.1
-django-cors-headers==4.6.0
+django-cors-headers==4.9.0
 django-filter==24.3
 
 # Database - Using psycopg (modern version, better Windows support)

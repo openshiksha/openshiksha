@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { authApi } from '@/api/auth';
 import { UserRole } from '@/types/index';
+import { Button, Card, Input, SectionHeading } from '@/shared/ui';
 import type { AxiosError } from 'axios';
 
 function extractError(err: unknown): string {
@@ -62,19 +63,19 @@ export const ProfilePage = () => {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Profile Settings</h1>
+      <SectionHeading as="h1" title="Profile Settings" className="mb-6" />
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <Card>
         {user && (
-          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <span className="text-indigo-700 font-bold text-lg">
+          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-ink-100">
+            <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center">
+              <span className="text-brand-700 font-bold text-lg font-display">
                 {(user.first_name?.[0] ?? user.username[0]).toUpperCase()}
               </span>
             </div>
             <div>
-              <p className="font-semibold text-gray-900">{user.username}</p>
-              <p className="text-sm text-gray-500 capitalize">{user.role.replace('_', ' ')}</p>
+              <p className="font-semibold text-ink-900">{user.username}</p>
+              <p className="text-sm text-ink-500 capitalize">{user.role.replace('_', ' ')}</p>
             </div>
           </div>
         )}
@@ -82,7 +83,7 @@ export const ProfilePage = () => {
         <form onSubmit={handleSubmit} noValidate>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <FormField
+              <Input
                 label="First Name"
                 id="first_name"
                 value={form.first_name}
@@ -90,7 +91,7 @@ export const ProfilePage = () => {
                 disabled={mutation.isPending}
                 autoComplete="given-name"
               />
-              <FormField
+              <Input
                 label="Last Name"
                 id="last_name"
                 value={form.last_name}
@@ -100,7 +101,7 @@ export const ProfilePage = () => {
               />
             </div>
 
-            <FormField
+            <Input
               label="Email"
               id="email"
               type="email"
@@ -111,7 +112,7 @@ export const ProfilePage = () => {
               placeholder="your@email.com"
             />
 
-            <FormField
+            <Input
               label="Phone Number"
               id="phone_number"
               value={form.phone_number}
@@ -122,20 +123,20 @@ export const ProfilePage = () => {
             />
 
             {isStudent && (
-              <div className="pt-2 border-t border-gray-100">
+              <div className="pt-2 border-t border-ink-100">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={!emailRemindersOptOut}
                     onChange={(e) => setEmailRemindersOptOut(!e.target.checked)}
                     disabled={mutation.isPending}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="mt-0.5 w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
                   />
                   <span>
-                    <span className="block text-sm font-medium text-gray-900">
+                    <span className="block text-sm font-medium text-ink-900">
                       Assignment due-date reminders
                     </span>
-                    <span className="block text-xs text-gray-500 mt-0.5">
+                    <span className="block text-xs text-ink-500 mt-0.5">
                       Email me before an assignment is due. Uncheck to stop these reminders.
                     </span>
                   </span>
@@ -144,58 +145,25 @@ export const ProfilePage = () => {
             )}
 
             {mutation.isError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700" role="alert">
+              <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700" role="alert">
                 {extractError(mutation.error)}
               </div>
             )}
 
             {savedMsg && (
-              <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700" role="status">
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700" role="status">
                 Profile saved successfully.
               </div>
             )}
 
             <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={mutation.isPending}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
+              <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? 'Saving…' : 'Save Changes'}
-              </button>
+              </Button>
             </div>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 };
-
-interface FormFieldProps {
-  label: string;
-  id: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: string;
-  disabled?: boolean;
-  autoComplete?: string;
-  placeholder?: string;
-}
-
-const FormField = ({ label, id, value, onChange, type = 'text', disabled, autoComplete, placeholder }: FormFieldProps) => (
-  <div>
-    <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
-      {label}
-    </label>
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      autoComplete={autoComplete}
-      placeholder={placeholder}
-      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-    />
-  </div>
-);

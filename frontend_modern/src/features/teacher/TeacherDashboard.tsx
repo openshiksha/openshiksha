@@ -4,6 +4,7 @@ import { useTeacherAssignments } from './useTeacherAssignments';
 import { ClassHealthPanel } from './ClassHealthPanel';
 import { WeeklyReportPanel } from './WeeklyReportPanel';
 import { InterventionsPanel } from './InterventionsPanel';
+import { QuestionQualityPanel } from './QuestionQualityPanel';
 import { ClassroomCodeWidget } from './ClassroomCodeWidget';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { Button, Card, EmptyState, SectionHeading, Stat } from '@/shared/ui';
@@ -129,6 +130,7 @@ export const TeacherDashboard = () => {
                 <ClassHealthPanel subjectRoomId={room.id} />
                 <WeeklyReportPanel subjectRoomId={room.id} />
                 <InterventionsPanel subjectRoomId={room.id} />
+                <QuestionQualityPanel subjectRoomId={room.id} />
                 <ClassroomCodeWidget
                   classroomId={room.classroom}
                   classroomName={room.classroom_display}

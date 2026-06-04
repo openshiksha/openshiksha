@@ -1442,3 +1442,60 @@ def generate_interventions_for_subject_room(self, subject_room_id: int) -> dict:
     except Exception as exc:
         logger.exception("generate_interventions_for_subject_room failed: room=%d", subject_room_id)
         raise self.retry(exc=exc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empirical Question Difficulty Calibration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def refresh_difficulty_calibrations(self, subject_room_id: int) -> dict:
+    """
+    Recompute QuestionDifficultyCalibration rows for one SubjectRoom.
+
+    Pure item analysis over the room's Tick stream — no LLM. Like the
+    misconception clusters this is a snapshot, not history: existing rows for
+    the room are deleted and replaced with whatever this pass produces, so a
+    question whose stats have drifted (or which is no longer attempted enough)
+    correctly updates or disappears.
+
+    Returns ``{"created": int, "deleted": int}``.
+    """
+    try:
+        from openshiksha.apps.ai.analytics import calibrate_subparts_for_subject_room
+        from openshiksha.apps.ai.models import QuestionDifficultyCalibration
+        from openshiksha.apps.core.models import SubjectRoom
+
+        subject_room = SubjectRoom.objects.get(pk=subject_room_id)
+        calibrations = calibrate_subparts_for_subject_room(subject_room)
+
+        deleted, _ = QuestionDifficultyCalibration.objects.filter(subject_room=subject_room).delete()
+
+        rows = [
+            QuestionDifficultyCalibration(
+                subject_room=subject_room,
+                question_subpart_id=c["question_subpart_id"],
+                sample_size=c["sample_size"],
+                attempt_count=c["attempt_count"],
+                facility_index=c["facility_index"],
+                discrimination_index=c["discrimination_index"],
+                empirical_difficulty=c["empirical_difficulty"],
+                declared_difficulty=c["declared_difficulty"],
+                flag=c["flag"],
+            )
+            for c in calibrations
+        ]
+        QuestionDifficultyCalibration.objects.bulk_create(rows)
+
+        logger.info(
+            "refresh_difficulty_calibrations: room=%d created=%d deleted=%d",
+            subject_room_id,
+            len(rows),
+            deleted,
+        )
+        return {"created": len(rows), "deleted": deleted}
+
+    except Exception as exc:
+        logger.exception("refresh_difficulty_calibrations failed: room=%d", subject_room_id)
+        raise self.retry(exc=exc)

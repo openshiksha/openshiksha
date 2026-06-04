@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { Button, Card, EmptyState, LoadingSpinner, Select } from '@/shared/ui';
 import { useSubjects } from '@/features/teacher/useSubjects';
 import { useClassroom, useClassroomEnrollment } from './useClassrooms';
 import { useSchoolStudents, useSchoolTeachers } from './useSchoolPeople';
@@ -47,60 +47,46 @@ const NewSubjectRoomForm = ({
             'Could not create subject room. A room for this subject may already exist.';
           setError(msg);
         },
-      }
+      },
     );
   };
 
   return (
-    <form onSubmit={submit} className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-3">
+    <form onSubmit={submit} className="rounded-xl border border-ink-200 bg-paper p-4 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Subject</span>
-          <select
-            value={subject}
-            onChange={(e) => setSubject(e.target.value === '' ? '' : Number(e.target.value))}
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select subject…</option>
-            {subjects?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Teacher</span>
-          <select
-            value={teacher}
-            onChange={(e) => setTeacher(e.target.value === '' ? '' : Number(e.target.value))}
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select teacher…</option>
-            {teachers?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="Subject"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value === '' ? '' : Number(e.target.value))}
+        >
+          <option value="">Select subject…</option>
+          {subjects?.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Teacher"
+          value={teacher}
+          onChange={(e) => setTeacher(e.target.value === '' ? '' : Number(e.target.value))}
+        >
+          <option value="">Select teacher…</option>
+          {teachers?.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.full_name}
+            </option>
+          ))}
+        </Select>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-white transition-colors"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={createRoom.isPending}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-        >
+        </Button>
+        <Button type="submit" size="sm" disabled={createRoom.isPending}>
           {createRoom.isPending ? 'Creating…' : 'Create Subject Room'}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -131,11 +117,15 @@ export const ClassroomManagePage = () => {
 
   if (!classroom) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-500">
-        <p>Classroom not found.</p>
-        <button onClick={() => navigate('/admin')} className="mt-3 text-sm text-indigo-600 hover:underline">
-          Back to dashboard
-        </button>
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <EmptyState
+          title="Classroom not found"
+          action={
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+              Back to dashboard
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -144,15 +134,19 @@ export const ClassroomManagePage = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      <button onClick={() => navigate('/admin')} className="text-sm text-indigo-600 hover:underline">
+      <button
+        type="button"
+        onClick={() => navigate('/admin')}
+        className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+      >
         ← Back to dashboard
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-display font-semibold text-ink-900">
           Grade {classroom.standard_number}-{classroom.division}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-ink-500 mt-1">
           {classroom.class_teacher_name ?? 'No class teacher'} · {classroom.academic_year} ·{' '}
           {classroom.student_count} student{classroom.student_count !== 1 ? 's' : ''}
         </p>
@@ -160,26 +154,28 @@ export const ClassroomManagePage = () => {
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-800">Roster</h2>
+          <h2 className="text-lg font-display font-semibold text-ink-800">Roster</h2>
           <button
+            type="button"
             onClick={() => setShowRoster(true)}
-            className="text-sm text-indigo-600 hover:underline"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             Manage students
           </button>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 text-sm text-gray-600">
+        <Card className="text-sm text-ink-700 p-5">
           {classroom.student_count} student{classroom.student_count !== 1 ? 's' : ''} enrolled in this
           classroom. Use “Manage students” to enroll or remove students.
-        </div>
+        </Card>
       </section>
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-800">Subject Rooms</h2>
+          <h2 className="text-lg font-display font-semibold text-ink-800">Subject Rooms</h2>
           <button
+            type="button"
             onClick={() => setShowNewRoom((v) => !v)}
-            className="text-sm text-indigo-600 hover:underline"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             + Add subject room
           </button>
@@ -196,32 +192,31 @@ export const ClassroomManagePage = () => {
             <LoadingSpinner size="lg" />
           </div>
         ) : rooms.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-white rounded-xl border border-gray-200">
-            <p className="text-sm">No subject rooms yet. Add one to assign a teacher and students.</p>
-          </div>
+          <EmptyState
+            title="No subject rooms yet"
+            description="Add one to assign a teacher and students."
+          />
         ) : (
           <div className="space-y-3">
             {rooms.map((room) => (
-              <div
-                key={room.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
-              >
+              <Card key={room.id} className="p-4 flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-gray-900">{room.subject_name}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{room.teacher_name}</p>
+                  <p className="font-semibold text-ink-900">{room.subject_name}</p>
+                  <p className="text-sm text-ink-500 mt-0.5">{room.teacher_name}</p>
                 </div>
                 <div className="text-right flex items-center gap-4">
-                  <p className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-ink-700">
                     {room.student_count} student{room.student_count !== 1 ? 's' : ''}
                   </p>
                   <button
+                    type="button"
                     onClick={() => setEnrollingRoom(room)}
-                    className="text-xs text-indigo-600 hover:underline"
+                    className="text-xs text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                   >
                     Manage students
                   </button>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

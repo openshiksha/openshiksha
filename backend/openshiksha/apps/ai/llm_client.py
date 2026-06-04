@@ -431,28 +431,66 @@ def _call_anthropic_generate_questions(prompt: str, api_key: str) -> list[dict]:
 
 
 def _call_google_generate_questions(prompt: str, api_key: str) -> list[dict]:
-    """Fallback: ask the Google AI Studio model to return JSON and parse it."""
+    """Call Google AI Studio with structured JSON output (response_mime_type).
+
+    Uses Gemini's native JSON mode so the response is guaranteed valid JSON —
+    no markdown fences, no free-text wrapping, no fragile string parsing.
+    The response_schema mirrors the Anthropic tool's input_schema so both
+    providers return the same shape.
+    """
     import json as _json
 
     from google import genai
     from google.genai import types
 
-    json_prompt = (
-        prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects, "
-        'no markdown fences, no explanation. Example: [{"question_text": "...", ...}]'
-    )
+    response_schema = {
+        "type": "object",
+        "required": ["questions"],
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["question_text", "correct_answer"],
+                    "properties": {
+                        "question_text": {"type": "string"},
+                        "options": {
+                            "type": "array",
+                            "nullable": True,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "key": {"type": "string"},
+                                    "text": {"type": "string"},
+                                },
+                            },
+                        },
+                        "correct_answer": {"type": "string"},
+                        "variable_constraints": {"type": "object", "nullable": True},
+                        "suggested_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "solution": {"type": "string"},
+                    },
+                },
+            }
+        },
+    }
+
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=_google_ai_model(),
-        contents=json_prompt,
+        contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=QUESTION_GEN_MAX_TOKENS,
             temperature=0.8,
+            response_mime_type="application/json",
+            response_schema=response_schema,
         ),
     )
-    text = (response.text or "").strip()
-    text = text.lstrip("```json").lstrip("```").rstrip("```").strip()
-    return _json.loads(text)
+    data = _json.loads(response.text or "{}")
+    return data.get("questions", [])
 
 
 def _call_ollama_generate_questions(prompt: str, base_url: str) -> list[dict]:

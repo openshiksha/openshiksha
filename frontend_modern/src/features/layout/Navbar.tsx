@@ -27,11 +27,13 @@ export const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close menus on route change (adjust state during render — react.dev/learn/you-might-not-need-an-effect)
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
     setMenuOpen(false);
     setUserMenuOpen(false);
-  }, [location.pathname]);
+  }
 
   // Close user dropdown on outside click
   useEffect(() => {

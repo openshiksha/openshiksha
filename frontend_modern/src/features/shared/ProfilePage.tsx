@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { authApi } from '@/api/auth';
@@ -30,7 +30,10 @@ export const ProfilePage = () => {
 
   const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
 
-  useEffect(() => {
+  // Sync the form when the loaded user changes (during render — react.dev/learn/you-might-not-need-an-effect)
+  const [syncedUser, setSyncedUser] = useState<typeof user | undefined>(undefined);
+  if (user !== syncedUser) {
+    setSyncedUser(user);
     if (user) {
       setForm({
         first_name: user.first_name ?? '',
@@ -40,7 +43,7 @@ export const ProfilePage = () => {
       });
       setEmailRemindersOptOut(user.email_reminders_opt_out ?? false);
     }
-  }, [user]);
+  }
 
   const mutation = useMutation({
     mutationFn: authApi.updateProfile,

@@ -11,7 +11,7 @@ Permission rules:
 """
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Count, Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -35,6 +35,7 @@ from openshiksha.apps.core.models import (
 from .models import (
     AssignmentDraft,
     AssignmentDraftStatus,
+    CalibrationFlag,
     ClassInsight,
     ClassMisconceptionCluster,
     ContentRecommendation,
@@ -52,6 +53,7 @@ from .models import (
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
+    QuestionDifficultyCalibration,
     SpacedRepetitionEntry,
     StudentMastery,
     StudentMisconception,
@@ -82,6 +84,7 @@ from .serializers import (
     ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
+    QuestionDifficultyCalibrationSerializer,
     ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
@@ -90,6 +93,7 @@ from .serializers import (
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
+    TriggerDifficultyCalibrationSerializer,
     TriggerInterventionsSerializer,
     TriggerMisconceptionClusterSerializer,
     TriggerRecommendationsSerializer,
@@ -111,6 +115,7 @@ from .tasks import (
     grade_open_response,
     rebuild_learning_path,
     refresh_class_misconception_clusters,
+    refresh_difficulty_calibrations,
     refresh_recommendations_for_student,
 )
 
@@ -1323,6 +1328,109 @@ class ClassMisconceptionClusterViewSet(ReadOnlyModelViewSet):
         refresh_class_misconception_clusters.delay(subject_room.pk, lookback_days)
         return Response(
             {"detail": "Class misconception cluster refresh queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empirical Question Difficulty Calibration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class QuestionDifficultyCalibrationViewSet(ReadOnlyModelViewSet):
+    """
+    Empirical item-analysis calibrations for a teacher's SubjectRooms.
+
+    list:     GET  /api/v1/ai/difficulty-calibrations/                    — all calibrations across teacher's rooms
+              GET  /api/v1/ai/difficulty-calibrations/?subject_room=<id>  — filter by room
+              GET  /api/v1/ai/difficulty-calibrations/?flag=mislabeled    — filter by quality flag
+              GET  /api/v1/ai/difficulty-calibrations/?needs_review=true  — only flagged (non-OK) items
+    retrieve: GET  /api/v1/ai/difficulty-calibrations/{id}/
+    summary:  GET  /api/v1/ai/difficulty-calibrations/summary/?subject_room=<id>
+                  — per-flag counts + totals for a room (dashboard header)
+    refresh:  POST /api/v1/ai/difficulty-calibrations/refresh/            — queue async recompute
+                  body: {subject_room_id}
+
+    Calibrations are derived purely from the room's grading data (no LLM); a
+    teacher only ever sees calibrations for SubjectRooms they teach.
+    """
+
+    serializer_class = QuestionDifficultyCalibrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return QuestionDifficultyCalibration.objects.none()
+
+        qs = QuestionDifficultyCalibration.objects.select_related(
+            "subject_room__subject",
+            "question_subpart__question__chapter",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+        if flag := self.request.query_params.get("flag"):
+            qs = qs.filter(flag=flag)
+        if self.request.query_params.get("needs_review", "").lower() == "true":
+            qs = qs.exclude(flag=CalibrationFlag.OK)
+
+        return qs
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """Per-flag counts and totals for one room — feeds the dashboard header."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers have difficulty calibrations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        subject_room_id = request.query_params.get("subject_room")
+        if not subject_room_id:
+            return Response(
+                {"detail": "subject_room query param is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = self.get_queryset().filter(subject_room_id=subject_room_id)
+        counts = {flag.value: 0 for flag in CalibrationFlag}
+        for row in qs.values("flag").annotate(n=Count("id")):
+            counts[row["flag"]] = row["n"]
+
+        total = sum(counts.values())
+        flagged = total - counts[CalibrationFlag.OK]
+        return Response(
+            {
+                "subject_room": int(subject_room_id),
+                "total_calibrated": total,
+                "flagged": flagged,
+                "by_flag": counts,
+            }
+        )
+
+    @action(detail=False, methods=["post"], url_path="refresh")
+    def refresh(self, request):
+        """Queue async recomputation of calibrations for a SubjectRoom the teacher owns."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can refresh difficulty calibrations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TriggerDifficultyCalibrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room = get_object_or_404(SubjectRoom, pk=serializer.validated_data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        refresh_difficulty_calibrations.delay(subject_room.pk)
+        return Response(
+            {"detail": "Difficulty calibration refresh queued."},
             status=status.HTTP_202_ACCEPTED,
         )
 

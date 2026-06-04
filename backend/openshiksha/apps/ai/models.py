@@ -1777,3 +1777,125 @@ class InterventionSuggestion(models.Model):
         base_by_severity: dict[str, int] = {GapSeverity.SEVERE: 4, GapSeverity.MODERATE: 3}
         base = base_by_severity.get(severity, 2)
         return max(1, min(5, base + max(0, gap_count - 1)))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empirical Question Difficulty Calibration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class CalibrationFlag(models.TextChoices):
+    OK = "ok", "Well-calibrated"
+    MISLABELED = "mislabeled", "Difficulty label mismatch"
+    TOO_EASY = "too_easy", "Too easy (low information)"
+    TOO_HARD = "too_hard", "Too hard (possibly unclear)"
+    LOW_DISCRIMINATION = "low_discrimination", "Low discrimination (possibly mis-keyed)"
+
+
+class QuestionDifficultyCalibration(models.Model):
+    """
+    Empirical, data-driven difficulty calibration for one QuestionSubpart within
+    one SubjectRoom.
+
+    Every model so far asks "how is the *student* doing?". This one turns the
+    same Tick stream around to ask "how is the *question* doing?" — classic item
+    analysis, computed from how a class actually performed:
+
+    - ``facility_index`` (a.k.a. p-value): the mean mark across the room's
+      attempts at this subpart. High = easy, low = hard. Mapped onto a 1–5
+      ``empirical_difficulty`` band.
+    - ``discrimination_index``: how well the item separates the room's stronger
+      students from its weaker ones. Computed as the top-third's facility minus
+      the bottom-third's (students ranked by their overall mark in the room). A
+      near-zero or negative value means the item doesn't discriminate — often a
+      sign it's ambiguous or mis-keyed.
+
+    The teacher value is **content quality monitoring**: a question authored as
+    "easy" that the whole class fails (``MISLABELED`` / ``TOO_HARD``), or one
+    everyone aces (``TOO_EASY``, low information), or one where strong students
+    do *worse* than weak ones (``LOW_DISCRIMINATION``, likely mis-keyed) all
+    surface automatically — no LLM required, pure psychometrics over existing
+    grading data.
+
+    One row per (subject_room, question_subpart); like the misconception
+    clusters this is a refreshed-in-place snapshot, not history. Subparts with
+    too few distinct attempts to be meaningful are simply not stored.
+    """
+
+    subject_room = models.ForeignKey(
+        "core.SubjectRoom",
+        on_delete=models.CASCADE,
+        related_name="difficulty_calibrations",
+    )
+    question_subpart = models.ForeignKey(
+        "core.QuestionSubpart",
+        on_delete=models.CASCADE,
+        related_name="difficulty_calibrations",
+    )
+
+    sample_size = models.PositiveIntegerField(
+        default=0,
+        help_text="Distinct students who attempted this subpart in the room.",
+    )
+    attempt_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Total ticks (attempts) the calibration was computed over.",
+    )
+
+    facility_index = models.FloatField(
+        default=0.0,
+        validators=FRACTION_VALIDATOR,
+        help_text="Mean mark across attempts (0.0–1.0). High = easy, low = hard.",
+    )
+    discrimination_index = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-1.0), MaxValueValidator(1.0)],
+        help_text="Top-third facility minus bottom-third facility (-1.0–1.0). "
+        "Null when too few students to compute.",
+    )
+
+    empirical_difficulty = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Difficulty (1=easiest, 5=hardest) implied by the facility index.",
+    )
+    declared_difficulty = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Snapshot of the authored Question.difficulty at calibration time.",
+    )
+
+    flag = models.CharField(
+        max_length=20,
+        choices=CalibrationFlag.choices,
+        default=CalibrationFlag.OK,
+        help_text="Primary quality verdict for the item (priority-resolved).",
+    )
+
+    computed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_question_difficulty_calibrations"
+        unique_together = [["subject_room", "question_subpart"]]
+        indexes = [
+            models.Index(fields=["subject_room", "flag"]),
+            models.Index(fields=["subject_room", "-sample_size"]),
+        ]
+        # Group by flag, best-evidenced first within each group. Callers that want
+        # flagged-before-OK use ?needs_review=true or the summary endpoint.
+        ordering = ["flag", "-sample_size"]
+
+    def __str__(self):
+        return (
+            f"Calibration: room {self.subject_room_id} | subpart "
+            f"{self.question_subpart_id} | p={self.facility_index:.2f} ({self.flag})"
+        )
+
+    @property
+    def difficulty_delta(self) -> int:
+        """Signed gap between empirical and declared difficulty (+ = harder than labelled)."""
+        return self.empirical_difficulty - self.declared_difficulty
+
+    @property
+    def needs_review(self) -> bool:
+        """True when the item is flagged with anything other than OK."""
+        return self.flag != CalibrationFlag.OK

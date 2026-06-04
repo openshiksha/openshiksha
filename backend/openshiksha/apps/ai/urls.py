@@ -17,6 +17,7 @@ from .views import (
     ParentProgressSummaryViewSet,
     PerformancePredictionViewSet,
     PracticePlanViewSet,
+    QuestionDifficultyCalibrationViewSet,
     SpacedRepetitionViewSet,
     StudentMasteryViewSet,
     StudentMisconceptionViewSet,
@@ -58,5 +59,11 @@ router.register("open-rubrics", OpenResponseRubricViewSet, basename="open-respon
 router.register("open-grades", OpenResponseGradeViewSet, basename="open-response-grade")
 # Teacher AI Assistant — Intervention Suggestions (teacher-only)
 router.register("interventions", InterventionSuggestionViewSet, basename="intervention-suggestion")
+# Empirical Question Difficulty Calibration (teacher-only)
+router.register(
+    "difficulty-calibrations",
+    QuestionDifficultyCalibrationViewSet,
+    basename="difficulty-calibration",
+)
 
 urlpatterns = router.urls

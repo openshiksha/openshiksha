@@ -1323,3 +1323,204 @@ def compute_interventions_for_subject_room(subject_room: "SubjectRoom") -> list[
 
     snapshots.sort(key=lambda s: (-s["priority"], s["avg_score"]))
     return snapshots
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empirical Question Difficulty Calibration
+# ─────────────────────────────────────────────────────────────────────────────
+
+# An item needs at least this many distinct students before its facility index is
+# trustworthy. Below this we don't store a calibration at all — a couple of
+# attempts say nothing about how hard a question really is.
+CALIBRATION_MIN_STUDENTS = 5
+
+# Discrimination splits the cohort into thirds; that's only meaningful with a
+# reasonable number of students. Below this we still compute facility but leave
+# discrimination_index null.
+DISCRIMINATION_MIN_STUDENTS = 6
+
+# Discrimination below this (including negative) means the item fails to separate
+# strong students from weak ones — usually ambiguous wording or a mis-keyed answer.
+LOW_DISCRIMINATION_THRESHOLD = 0.1
+
+# Facility extremes. At/above TOO_EASY almost everyone is correct (little
+# information); at/below TOO_HARD almost no one is (often a broken/unclear item).
+TOO_EASY_FACILITY = 0.95
+TOO_HARD_FACILITY = 0.10
+
+# How far empirical difficulty must drift from the authored label to call it
+# mislabelled. A 2-band gap (e.g. authored "1=easy", behaves like "3") is the
+# threshold — a single band is within normal noise.
+MISLABEL_DELTA = 2
+
+
+def facility_to_difficulty(facility: float) -> int:
+    """Map a facility index (fraction correct, 0–1) onto a 1–5 difficulty band.
+
+    Inverse relationship: an easy item (high facility) → low difficulty number.
+    Band edges are deliberately round so the mapping reads at a glance:
+
+        facility ≥ 0.85 → 1 (easiest)
+        0.70–0.85       → 2
+        0.50–0.70       → 3
+        0.30–0.50       → 4
+        < 0.30          → 5 (hardest)
+    """
+    if facility >= 0.85:
+        return 1
+    if facility >= 0.70:
+        return 2
+    if facility >= 0.50:
+        return 3
+    if facility >= 0.30:
+        return 4
+    return 5
+
+
+def _calibration_flag(
+    facility: float,
+    discrimination: float | None,
+    empirical: int,
+    declared: int,
+) -> str:
+    """Resolve the single, highest-priority quality verdict for an item.
+
+    Priority order (first match wins):
+      1. TOO_HARD — almost no one gets it; likely unclear or broken.
+      2. TOO_EASY — almost everyone gets it; carries little information.
+      3. LOW_DISCRIMINATION — the item doesn't separate strong from weak students
+         (only when we have enough students to trust the figure). Often means the
+         keyed answer is wrong. Checked *after* the facility extremes because a
+         near-uniform item has ~zero discrimination by construction — there the
+         "too easy/too hard" story is the real one, not a keying problem.
+      4. MISLABELED — empirical difficulty drifts ≥ MISLABEL_DELTA from the label.
+      5. OK — behaves as authored.
+    """
+    from openshiksha.apps.ai.models import CalibrationFlag
+
+    if facility <= TOO_HARD_FACILITY:
+        return CalibrationFlag.TOO_HARD
+    if facility >= TOO_EASY_FACILITY:
+        return CalibrationFlag.TOO_EASY
+    if discrimination is not None and discrimination < LOW_DISCRIMINATION_THRESHOLD:
+        return CalibrationFlag.LOW_DISCRIMINATION
+    if abs(empirical - declared) >= MISLABEL_DELTA:
+        return CalibrationFlag.MISLABELED
+    return CalibrationFlag.OK
+
+
+def calibrate_subparts_for_subject_room(subject_room: "SubjectRoom") -> list[dict]:
+    """Run item analysis on every question subpart attempted in a SubjectRoom.
+
+    Reads the room's full Tick stream and, for each subpart with at least
+    ``CALIBRATION_MIN_STUDENTS`` distinct students, computes a facility index,
+    a discrimination index (when enough students), the implied empirical
+    difficulty, and a quality flag versus the authored difficulty.
+
+    A student may answer the same subpart more than once (retries, SRS drills);
+    each student contributes their *mean* mark on the subpart so a single
+    much-practised student can't dominate the facility figure.
+
+    Returns a list of dicts (subparts that clear the sample threshold), each::
+
+        {
+            "question_subpart_id": int,
+            "sample_size": int,            # distinct students
+            "attempt_count": int,          # total ticks
+            "facility_index": float,       # 0.0–1.0
+            "discrimination_index": float | None,
+            "empirical_difficulty": int,   # 1–5
+            "declared_difficulty": int,    # 1–5
+            "flag": str,                   # CalibrationFlag value
+        }
+
+    Sorted worst-first: flagged items (by flag name) ahead of OK, then by
+    sample size descending.
+    """
+    from openshiksha.apps.core.models import QuestionSubpart
+    from openshiksha.apps.edge.models import Tick
+
+    ticks = Tick.objects.filter(subject_room=subject_room).values_list("question_subpart_id", "student_id", "mark")
+
+    # subpart_id -> student_id -> [marks]; and per-student all marks for ability ranking.
+    per_subpart: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    student_all_marks: dict[int, list[float]] = defaultdict(list)
+    attempt_counts: dict[int, int] = defaultdict(int)
+
+    for subpart_id, student_id, mark in ticks:
+        per_subpart[subpart_id][student_id].append(mark)
+        student_all_marks[student_id].append(mark)
+        attempt_counts[subpart_id] += 1
+
+    if not per_subpart:
+        return []
+
+    # Each student's overall ability in the room = mean of all their marks.
+    student_ability = {sid: (sum(marks) / len(marks)) for sid, marks in student_all_marks.items()}
+
+    # Snapshot the authored difficulty for the subparts we're about to score.
+    declared_by_subpart = dict(
+        QuestionSubpart.objects.filter(pk__in=per_subpart.keys()).values_list("pk", "question__difficulty")
+    )
+
+    results: list[dict] = []
+    for subpart_id, by_student in per_subpart.items():
+        if subpart_id not in declared_by_subpart:
+            # Subpart was deleted between tick capture and now — skip defensively.
+            continue
+
+        # Each student's score on this subpart = mean of their attempts at it.
+        student_scores = {sid: (sum(marks) / len(marks)) for sid, marks in by_student.items()}
+        sample_size = len(student_scores)
+        if sample_size < CALIBRATION_MIN_STUDENTS:
+            continue
+
+        facility = sum(student_scores.values()) / sample_size
+        discrimination = _discrimination_index(student_scores, student_ability)
+        empirical = facility_to_difficulty(facility)
+        declared = declared_by_subpart[subpart_id]
+        flag = _calibration_flag(facility, discrimination, empirical, declared)
+
+        results.append(
+            {
+                "question_subpart_id": subpart_id,
+                "sample_size": sample_size,
+                "attempt_count": attempt_counts[subpart_id],
+                "facility_index": round(facility, 4),
+                "discrimination_index": (None if discrimination is None else round(discrimination, 4)),
+                "empirical_difficulty": empirical,
+                "declared_difficulty": declared,
+                "flag": flag,
+            }
+        )
+
+    results.sort(key=lambda r: (r["flag"], -r["sample_size"]))
+    return results
+
+
+def _discrimination_index(
+    student_scores: dict[int, float],
+    student_ability: dict[int, float],
+) -> float | None:
+    """Top-third minus bottom-third facility, ranking students by overall ability.
+
+    Returns None when there are fewer than ``DISCRIMINATION_MIN_STUDENTS``
+    students — a third of a tiny group isn't a stable estimate. Ties on ability
+    are broken by student id so the split is deterministic.
+    """
+    if len(student_scores) < DISCRIMINATION_MIN_STUDENTS:
+        return None
+
+    ranked = sorted(
+        student_scores.keys(),
+        key=lambda sid: (student_ability.get(sid, 0.0), sid),
+    )
+    third = len(ranked) // 3
+    if third == 0:
+        return None
+
+    bottom = ranked[:third]
+    top = ranked[-third:]
+    top_facility = sum(student_scores[sid] for sid in top) / third
+    bottom_facility = sum(student_scores[sid] for sid in bottom) / third
+    return top_facility - bottom_facility

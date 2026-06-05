@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
+import { Button } from '@/shared/ui';
 import type { ClassroomInviteCode } from '@/types/index';
 
 const fetchClassroomCodes = async (): Promise<ClassroomInviteCode[]> => {
@@ -45,36 +46,37 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <p className="text-xs font-medium text-gray-500 mb-2">Classroom Join Code</p>
+    <div className="mt-3 border-t border-ink-100 pt-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+        Classroom Join Code
+      </p>
       {myCode ? (
-        <div className="flex items-center gap-2">
-          <code className="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-mono text-sm font-bold rounded-lg tracking-widest">
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-sm font-bold tracking-widest text-brand-800 ring-1 ring-brand-100">
             {myCode.code}
           </code>
-          <button
-            onClick={handleCopy}
-            className="text-xs px-2.5 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
+          <Button variant="ghost" size="sm" onClick={handleCopy}>
             {copied ? 'Copied!' : 'Copy'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => generateMutation.mutate()}
             disabled={generateMutation.isPending}
-            className="text-xs px-2.5 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             title={`Regenerate join code for ${classroomName}`}
           >
             {generateMutation.isPending ? '…' : 'Regenerate'}
-          </button>
+          </Button>
         </div>
       ) : (
-        <button
+        <Button
+          variant="brand"
+          size="sm"
           onClick={() => generateMutation.mutate()}
           disabled={generateMutation.isPending}
-          className="text-xs px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           {generateMutation.isPending ? 'Generating…' : 'Generate Join Code'}
-        </button>
+        </Button>
       )}
     </div>
   );

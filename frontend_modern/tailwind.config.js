@@ -9,8 +9,8 @@ export default {
       colors: {
         // ── V2 "Unlock" brand palette ──────────────────────────────────────
         // Anchored on the legacy logo orange (#FF6F00 — the keyhole graduation
-        // cap). This is the V2 brand colour; the Phase 2 UI rebuild migrates
-        // `primary` (blue, below) over to `brand`. See docs/V2_ROADMAP.md.
+        // cap). This is the only brand colour; the legacy `primary` blue was
+        // retired in M6-02 once every authenticated surface moved to `brand`.
         brand: {
           50: '#FFF8F1',
           100: '#FFEEDC',
@@ -36,20 +36,6 @@ export default {
           700: '#252220',
           800: '#1A1816',
           900: '#0F0E0D',
-        },
-        // Legacy blue — retained so existing screens render unchanged until the
-        // Phase 2 migration. New work should prefer `brand`.
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
         },
       },
       fontFamily: {

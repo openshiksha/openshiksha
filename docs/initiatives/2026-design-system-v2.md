@@ -64,8 +64,8 @@ Established in the kickoff session (2026-05-30):
 - **Design tokens** — `frontend_modern/tailwind.config.js`:
   - `brand` 50–900 (anchor **`brand-600 = #FF6F00`**, the legacy logo orange).
   - `ink` 50–900 (warm chalkboard neutrals for text/surfaces).
-  - `primary` 50–900 (legacy blue) — **retained only so un-migrated pages keep
-    rendering. New/migrated code must not use `primary`.**
+  - ~~`primary` 50–900 (legacy blue)~~ — removed in M6-02 (2026-06-04, #193)
+    once every authenticated surface moved to `brand`.
   - `boxShadow`: `soft`, `card`, `lift` (warm-toned elevation).
   - `fontFamily`: `sans` (Inter), `display` (Fraunces).
   - `animation`: `fade-up`, `fade-in`, `float`.
@@ -191,10 +191,11 @@ Ledger). Split any item that won't fit one session.
   `QuestionWithSubpartsStudentSerializer` for STUDENT/OPEN_STUDENT on list+retrieve.
   Tokens now substitute deterministically per `(student_id, subpart_id)`; 4 new
   regression tests; 777 backend tests passing.
-- [ ] `M7-03` **List-page filtering / search / sort actually works.** Browse,
-  Question Bank, assignment lists etc. have filter/search controls that don't
-  filter. Wire them to the API query params (or client-side) so they work, with
-  branded controls.
+- [~] `M7-03` **List-page filtering / search / sort actually works.** Browse
+  Grade filter wired correctly 2026-06-04 (#194 — backend was matching
+  `standard_id` against a *standard number*; switched to `standard__number`,
+  4 regression tests). **Remaining:** Question Bank filters/search + assignment-
+  list filters still need a parity pass.
 - [ ] `M7-04` **Feature-parity audit vs. legacy.** Walk the legacy app surface by
   surface; log every capability the modern frontend is missing into this backlog.
 - [x] `M7-05` **`seed_demo_data` idempotency.** Fixed 2026-06-02 (#141) — the
@@ -207,33 +208,43 @@ Ledger). Split any item that won't fit one session.
   `admin_demo`, `openstudent_demo` in addition to the original student/teacher)
   and links `parent_demo → student_demo` so every role works on a fresh stack.
 
-### M4 — Product surfaces  *(one screen = one increment; highest daily use first)*
+### M4 — Product surfaces  *(✅ complete 2026-06-04 — every authenticated surface on V2)*
 - [x] `M4-01` **Student Dashboard** migrated to V2 brand 2026-06-02.
-- [ ] `M4-02` Parent Dashboard + **Parent Insights** (align with the shipped
-  `AlertsPanel`/`HomeActivitiesPanel` styling)
+- [x] `M4-02` Parent Dashboard + Parent Insights — shipped 2026-06-03 (#181).
 - [x] `M4-03` **Teacher Dashboard** migrated to V2 brand 2026-06-02.
-- [ ] `M4-04` Admin Dashboard + Classroom manage
-- [ ] `M4-05` Assignment detail (student) + SRS drill + `QuestionCard` /
-  `AssignmentCard` / `AssignmentList`
-- [ ] `M4-06` Proficiency + Learning Path + Browse + Browse-Practice +
-  `DueForReviewPanel` / `RecommendationsPanel` / `VideosPanel` / `StreakBadge`
-- [ ] `M4-07` Teacher authoring (Create question / problem-set / assignment,
-  Question bank, `ClassHealthPanel` / `WeeklyReportPanel` /
-  `ClassroomCodeWidget` / `TeacherAssignmentDetailPage`)
-- [ ] `M4-08` Profile / settings (`shared/ProfilePage.tsx`)
+- [x] `M4-04` Admin Dashboard + Classroom manage — shipped 2026-06-03 (#182).
+- [x] `M4-05` Assignment detail (student) + SRS drill + `QuestionCard` /
+  `AssignmentCard` / `AssignmentList` — shipped 2026-06-03 (#185 / a62f7464).
+- [x] `M4-06a` Proficiency cluster + `DueForReviewPanel` / `RecommendationsPanel` /
+  `StreakBadge` — shipped 2026-06-03 (#183).
+- [x] `M4-06b-i` Browse + Browse-Practice — shipped 2026-06-04 (#188).
+- [x] `M4-06b-ii` Learning Path + `VideosPanel` — shipped 2026-06-04 (#189).
+- [x] `M4-07a` Teacher dashboard panels (`ClassHealthPanel` / `WeeklyReportPanel` /
+  `ClassroomCodeWidget`) — shipped 2026-06-04 (#190).
+- [x] `M4-07b` `TeacherAssignmentDetailPage` — shipped 2026-06-04 (#191).
+- [x] `M4-07c` Create-Question authoring page — shipped 2026-06-04 (#192). Create
+  problem-set / Create assignment / Question bank were already V2-native by #185.
+- [x] `M4-08` Profile / settings (`shared/ProfilePage.tsx`) — shipped 2026-06-03 (#180).
 
 ### M5 — Mobile & responsive pass
-- [ ] `M5-01` Bottom tab bar for primary roles on mobile.
+- [x] `M5-01` Bottom tab bar for primary roles on mobile — shipped 2026-06-04 (#195).
+  Role-aware (Student/Open: Home/Browse/Path/Profile · Teacher: Home/Questions/Profile ·
+  Parent: Home/Profile · Admin: School/Profile). Above `env(safe-area-inset-bottom)`;
+  hidden on `sm:` and above.
 - [ ] `M5-02` Per-surface responsive audit of migrated M4 pages.
 
 ### M6 — Hardening
 - [ ] `M6-01` Accessibility audit (AA) across migrated surfaces.
-- [ ] `M6-02` Retire the legacy `primary` (blue) token once no migrated code uses it.
+- [x] `M6-02` Retire the legacy `primary` (blue) token — shipped 2026-06-04 (#193).
+  Palette + the four legacy helper classes (`.btn-primary`, `.btn-secondary`,
+  `.card`, `.input`) deleted; 0 src/ consumers verified before merge.
 - [ ] `M6-03` Visual-regression screenshots of `/design` + key pages.
 
-> When M4 is the active milestone, **migrate the highest-traffic un-migrated page
-> next.** A migrated page uses only `ui/` + tokens, has zero `primary`/`indigo`/
-> `gray-50` references left, and is added to the screenshot set.
+> M4 is closed. The next active milestones are **M2-02** (mobile nav polish),
+> **M3-03** (Enquire), **M5-02** (responsive audit), **M6-01** (a11y audit),
+> **M6-03** (visual-regression set), and the remaining slice of **M7-03**
+> (Question Bank + assignment-list filter parity). Pull whichever is the
+> highest-value unblocked item.
 
 ---
 
@@ -290,3 +301,11 @@ Record the improvement in the ledger's "Hardening" column so the gains are visib
 | 2026-06-02 | M4-03 Teacher Dashboard → V2 | #139 | Same treatment for Teacher Dashboard + container chrome of its panels. | `InterventionsPanel` (merged same day) was already token-clean, so only its host needed restyling. |
 | 2026-06-02 | M7-02 variable substitution endpoint fix | #140 | 4 new regression tests; `BrowsePracticePage` stale `LoadingSpinner` import fixed in the same PR; `scripts/init_db.sql` added (Docker auto-creates it as a dir when missing, crashing postgres init). | The substitution engine was *already complete* — the bug was a single missing role-switch in `QuestionViewSet.get_serializer_class`. The SRS drill and assignment detail used the correct serializer; only the browse endpoint was wrong. Cheap fix, huge user-facing impact (no more raw `{{k}}` tokens for students). |
 | 2026-06-02 | M7-05 seed_demo_data idempotency | #141 | `seed-demo` `QuestionTag` namespace; all 5 demo accounts now created by the command + `parent_demo → student_demo` linkage. | Tag-namespaced delete/recreate is cleaner than tightening `get_or_create` keys — works regardless of what other questions share the same (chapter, type, difficulty) combo, and is fully scoped (can never touch cabinet content). Same pattern fits future "demo content reset" needs. |
+| 2026-06-04 | M4-06b-i Browse cluster → V2 | #188 | `BrowsePage` + `BrowsePracticePage` compose `SectionHeading`/`Select`/`os-card`/`Button`/`Badge`/`EmptyState`; table moved to warm `ink-*` with `brand-50/40` hover. | `QuestionCard` was already V2 from #185 so the practice page only needed chrome work — kept the scope tight by explicitly leaving filter wiring for M7-03. |
+| 2026-06-04 | M4-06b-ii Learning Path + Videos → V2 | #189 | Path steps adopt the brand "unlock" motif (emerald check / brand-orange unlocked keyhole / muted locked keyhole + vertical `ink-100` rail); aria `progressbar` on the path-progress bar; `VideosPanel` → `os-card`. | Shape-distinct status icons (keyhole/check/lock) keep the path readable in colourblind modes — not relying on colour alone is a Definition-of-Done win. |
+| 2026-06-04 | M4-07a Teacher dashboard panels → V2 | #190 | `ClassHealthPanel` / `WeeklyReportPanel` / `ClassroomCodeWidget` adopt severity tones (rose/amber/emerald) matching `AlertsPanel`; weekly summary card → `brand-50/60`; join code chip → `brand-50` + `ring-brand-100`. Disclosure toggles gained `focus-visible` rings; chevron honours `motion-reduce`. | The Teacher Dashboard host (#139) already V2 — these were the only three child panels still wearing blue, so reskinning them lets the whole page read as one surface. |
+| 2026-06-04 | M4-07b Teacher assignment detail → V2 | #191 | KPIs → 3 `Stat` blocks (Due Stat surfaces an Overdue delta pill); submission table picks up the Admin-table treatment from #182 (`bg-ink-50` `font-display` header, `brand-50/40` hover rows); Hardest Questions → `os-card` shell with `rose-500` bars. Submission progress bar gained `role="progressbar"` + aria-value attrs. | Reusing the Admin classroom-manage table style across two different roster surfaces is the kind of compounding the initiative is designed for — both pages now share one "roster table" treatment, so the next list/table page is a near-zero design decision. |
+| 2026-06-04 | M4-07c CreateQuestionPage → V2 (**closes M4**) | #192 | ~90 legacy refs swept in one PR via a deterministic class-name mapping (`indigo→brand`, `gray→ink`, `red/green→rose/emerald`); page heading uplifted to `font-display`; all form controls now `focus:ring-brand-500`. AI panel and active subpart tab now wear brand orange. | The plan budgeted a possible "split out the variable-constraints panel into M4-07c-2" fallback — wasn't needed. Class-name-only sweeps of dense legacy files are reviewable in one PR when you resist refactoring state in the same change. RichContent + AI state machine preserved byte-for-byte. |
+| 2026-06-04 | M6-02 retire `primary` blue token | #193 | Deleted `primary-*` palette + `.btn-primary` / `.btn-secondary` / `.card` / `.input` legacy helper classes; refreshed the V2-brand and top-of-file comments. 0 `src/` consumers of the removed tokens/classes verified beforehand. | M4 closing immediately unlocked M6-02 — once the last surface lands on V2 there's nothing left holding the legacy palette in place. Worth doing as its own atomic cleanup PR so the deletion is reviewable. |
+| 2026-06-04 | M7-03 browse Grade filter fix | #194 | Backend `browse_chapters` matches `standard__number` (the dropdown sends standard *numbers* 1..12, not PKs); 4 regression tests covering standard, subject, combined, unfiltered; 163 api tests pass. | The endpoint had always been wrong — only worked by coincidence on dev DBs where Standard PK happened to equal `number`. Surfaced because M4-06b-i made the Browse filter UI visible/branded. Question Bank + assignment-list filter parity still on the M7-03 backlog. |
+| 2026-06-04 | M5-01 mobile bottom tab bar | #195 | New `BottomNav.tsx` (~170 LOC, role-aware, inline SVG icons, `aria-current` + `aria-label="Primary"`, focus-visible brand ring); above `env(safe-area-inset-bottom)`; hidden `sm:` and up. 5 vitest tests cover role tab sets + prefix-match active highlight. `AppShell` now adds `pb-24 sm:pb-8` so content clears the bar. | Hamburger menu intentionally kept for secondary actions (Profile, Sign out, deep-links like Proficiency) — the bottom bar is for *primary* navigation, not a total replacement. That separation keeps the surface area small and the tabs uncluttered. |

@@ -336,7 +336,9 @@ class QuestionViewSet(viewsets.ModelViewSet):
         GET /api/v1/questions/browse/
 
         Returns chapters from the shared question bank with question counts.
-        Filtered by ?subject=<id> and/or ?standard=<id>.
+        Filtered by ?subject=<subject_id> and/or ?standard=<standard_number>
+        (e.g. `?standard=7` selects Grade 7 chapters; the BrowsePage dropdown
+        sends standard numbers, not standard PKs).
         """
         from django.db.models import Count, Q
 
@@ -356,7 +358,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         if subject := params.get("subject"):
             qs = qs.filter(subject_id=subject)
         if standard := params.get("standard"):
-            qs = qs.filter(standard_id=standard)
+            qs = qs.filter(standard__number=standard)
 
         data = [
             {

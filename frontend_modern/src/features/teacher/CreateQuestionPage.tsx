@@ -113,8 +113,8 @@ const VariablePreview = ({
   return (
     <div className="mt-3 pt-3 border-t border-amber-200">
       <p className="text-xs font-semibold text-amber-900 mb-1">Preview</p>
-      <p className="text-xs text-gray-600">Student A: {substituteText(questionText, v1)}</p>
-      <p className="text-xs text-gray-600 mt-0.5">Student B: {substituteText(questionText, v2)}</p>
+      <p className="text-xs text-ink-600">Student A: {substituteText(questionText, v1)}</p>
+      <p className="text-xs text-ink-600 mt-0.5">Student B: {substituteText(questionText, v2)}</p>
     </div>
   );
 };
@@ -125,7 +125,7 @@ const VariablePreview = ({
 
 function renderPreview(text: string): React.ReactNode {
   if (!text) {
-    return <span className="text-gray-400">Type question text above to see preview...</span>;
+    return <span className="text-ink-400">Type question text above to see preview...</span>;
   }
   return <RichContent text={text} variant="block" />;
 }
@@ -141,19 +141,19 @@ const DraftCard = ({
   draft: GeneratedQuestionDraft;
   onUse: (draft: GeneratedQuestionDraft) => void;
 }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-4">
+  <div className="bg-white rounded-xl border border-ink-100 p-4">
     <div className="flex items-start justify-between gap-2 mb-2">
       <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
         Draft
       </span>
       <button
         onClick={() => onUse(draft)}
-        className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors shrink-0"
+        className="text-xs bg-brand-600 text-white px-3 py-1 rounded-lg hover:bg-brand-700 transition-colors shrink-0"
       >
         Use this
       </button>
     </div>
-    <p className="text-sm text-gray-800 font-mono leading-relaxed mb-2">
+    <p className="text-sm text-ink-800 font-mono leading-relaxed mb-2">
       {draft.question_text}
     </p>
     {draft.options && draft.options.length > 0 && (
@@ -161,7 +161,7 @@ const DraftCard = ({
         {draft.options.map((opt) => (
           <div
             key={opt.key}
-            className={`flex gap-2 text-xs ${opt.key === draft.correct_answer ? 'text-green-700 font-semibold' : 'text-gray-600'}`}
+            className={`flex gap-2 text-xs ${opt.key === draft.correct_answer ? 'text-emerald-700 font-semibold' : 'text-ink-600'}`}
           >
             <span className="font-mono">{opt.key}.</span>
             <span>{opt.text}</span>
@@ -170,14 +170,14 @@ const DraftCard = ({
       </div>
     )}
     {!draft.options && (
-      <p className="text-xs text-gray-500 mb-2">
-        Answer: <span className="font-mono text-green-700">{draft.correct_answer}</span>
+      <p className="text-xs text-ink-500 mb-2">
+        Answer: <span className="font-mono text-emerald-700">{draft.correct_answer}</span>
       </p>
     )}
     {draft.suggested_tags.length > 0 && (
       <div className="flex flex-wrap gap-1">
         {draft.suggested_tags.map((t) => (
-          <span key={t} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{t}</span>
+          <span key={t} className="text-xs bg-ink-100 text-ink-500 px-2 py-0.5 rounded-full">{t}</span>
         ))}
       </div>
     )}
@@ -221,30 +221,30 @@ const AIGenerationPanel = ({
   };
 
   return (
-    <div className="bg-indigo-50 rounded-xl border border-indigo-200 overflow-hidden">
+    <div className="bg-brand-50 rounded-xl border border-brand-200 overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-5 py-4 text-left"
       >
         <div className="flex items-center gap-2">
           <span className="text-lg">✨</span>
-          <span className="font-semibold text-indigo-900 text-sm">Generate with AI</span>
-          <span className="text-xs text-indigo-600 font-normal">
+          <span className="font-semibold text-brand-900 text-sm">Generate with AI</span>
+          <span className="text-xs text-brand-700 font-normal">
             Let Claude draft questions for you
           </span>
         </div>
-        <span className="text-indigo-400 text-sm">{open ? '▲' : '▼'}</span>
+        <span className="text-brand-400 text-sm">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
-        <div className="px-5 pb-5 space-y-4 border-t border-indigo-200">
+        <div className="px-5 pb-5 space-y-4 border-t border-brand-200">
           <div className="mt-4">
-            <label className="block text-xs font-medium text-indigo-800 mb-1">
+            <label className="block text-xs font-medium text-brand-800 mb-1">
               Topic or concept to test
             </label>
             <textarea
               rows={2}
-              className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="w-full border border-brand-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
               placeholder="e.g. Factoring quadratic polynomials, laws of thermodynamics…"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -253,9 +253,9 @@ const AIGenerationPanel = ({
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-indigo-800 mb-1">Type</label>
+              <label className="block text-xs font-medium text-brand-800 mb-1">Type</label>
               <select
-                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                 value={qType}
                 onChange={(e) => setQType(e.target.value as QuestionType)}
               >
@@ -266,9 +266,9 @@ const AIGenerationPanel = ({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-indigo-800 mb-1">Difficulty</label>
+              <label className="block text-xs font-medium text-brand-800 mb-1">Difficulty</label>
               <select
-                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                 value={difficulty}
                 onChange={(e) => setDifficulty(Number(e.target.value))}
               >
@@ -278,9 +278,9 @@ const AIGenerationPanel = ({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-indigo-800 mb-1">Count</label>
+              <label className="block text-xs font-medium text-brand-800 mb-1">Count</label>
               <select
-                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                 value={count}
                 onChange={(e) => setCount(Number(e.target.value))}
               >
@@ -295,7 +295,7 @@ const AIGenerationPanel = ({
             <button
               onClick={handleGenerate}
               disabled={!chapterId || !topic.trim() || generateMutation.isPending}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {generateMutation.isPending ? (
                 <>
@@ -307,7 +307,7 @@ const AIGenerationPanel = ({
               )}
             </button>
             {generateMutation.isError && (
-              <div className="flex items-center gap-2 text-xs text-red-600">
+              <div className="flex items-center gap-2 text-xs text-rose-700">
                 <span>Generation failed.</span>
                 <button
                   onClick={handleGenerate}
@@ -322,14 +322,14 @@ const AIGenerationPanel = ({
           {generateMutation.isPending && (
             <div className="space-y-2">
               {Array.from({ length: count }).map((_, i) => (
-                <div key={i} className="h-20 bg-indigo-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-20 bg-brand-100 rounded-lg animate-pulse" />
               ))}
             </div>
           )}
 
           {!generateMutation.isPending && drafts.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-indigo-900">
+              <p className="text-xs font-semibold text-brand-900">
                 {drafts.length} draft{drafts.length > 1 ? 's' : ''} — click "Use this" to pre-fill the form
               </p>
               {drafts.map((d, i) => (
@@ -542,12 +542,12 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   if (successId !== null) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8 text-center">
-        <div className="bg-white rounded-xl border border-gray-200 p-10">
+        <div className="bg-white rounded-xl border border-ink-100 p-10">
           <div className="text-4xl mb-4">✓</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <h2 className="font-display text-xl font-semibold text-ink-900 mb-2">
             Question {editMode ? 'updated' : 'created'}!
           </h2>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-ink-500 mb-6">
             Question #{successId} has been {editMode ? 'updated in' : 'added to'} the question bank.
           </p>
           <div className="flex gap-3 justify-center">
@@ -558,14 +558,14 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                   setSubparts([defaultSubpart()]);
                   setSelectedChapterId('');
                 }}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700"
               >
                 Create another
               </button>
             )}
             <button
               onClick={() => navigate('/teacher/questions')}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              className="px-4 py-2 rounded-lg border border-ink-200 text-ink-700 text-sm font-medium hover:bg-ink-50"
             >
               Back to question bank
             </button>
@@ -585,10 +585,10 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="font-display text-2xl font-semibold text-ink-900">
             {editMode ? 'Edit Question' : 'Create Question'}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-ink-500 mt-1">
             {editMode
               ? 'Update this question in the shared question bank.'
               : 'Add a question to the shared question bank.'}
@@ -596,7 +596,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         </div>
         <button
           onClick={() => navigate('/teacher/questions')}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-ink-500 hover:text-ink-700"
         >
           ← Back
         </button>
@@ -604,14 +604,14 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
 
       <div className="space-y-6">
         {/* Chapter selection */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <h2 className="font-semibold text-gray-800">Chapter</h2>
+        <div className="bg-white rounded-xl border border-ink-100 p-5 space-y-4">
+          <h2 className="font-semibold text-ink-800">Chapter</h2>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Subject</label>
+              <label className="block text-xs font-medium text-ink-600 mb-1">Subject</label>
               <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={selectedSubjectId}
                 onChange={(e) => {
                   setSelectedSubjectId(e.target.value ? Number(e.target.value) : '');
@@ -626,9 +626,9 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Chapter</label>
+              <label className="block text-xs font-medium text-ink-600 mb-1">Chapter</label>
               <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                 value={selectedChapterId}
                 onChange={(e) => setSelectedChapterId(e.target.value ? Number(e.target.value) : '')}
                 disabled={!selectedSubjectId || !chapters}
@@ -645,7 +645,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
 
           {/* Difficulty */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Difficulty</label>
+            <label className="block text-xs font-medium text-ink-600 mb-2">Difficulty</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((d) => (
                 <button
@@ -653,15 +653,15 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                   onClick={() => setDifficulty(d)}
                   className={`w-9 h-9 rounded-lg text-sm font-medium border transition-colors ${
                     difficulty === d
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'bg-white text-ink-600 border-ink-200 hover:border-brand-400'
                   }`}
                 >
                   {d}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-1">1 = easiest, 5 = hardest</p>
+            <p className="text-xs text-ink-400 mt-1">1 = easiest, 5 = hardest</p>
           </div>
         </div>
 
@@ -674,16 +674,16 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         )}
 
         {/* Subpart tabs */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex items-center border-b border-gray-200 px-5 pt-4 gap-2 overflow-x-auto">
+        <div className="bg-white rounded-xl border border-ink-100 overflow-hidden">
+          <div className="flex items-center border-b border-ink-100 px-5 pt-4 gap-2 overflow-x-auto">
             {subparts.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setActiveSubpart(i)}
                 className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeSubpart === i
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-brand-600 text-brand-700'
+                    : 'border-transparent text-ink-500 hover:text-ink-700'
                 }`}
               >
                 Part {String.fromCharCode(65 + i)}
@@ -691,7 +691,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             ))}
             <button
               onClick={addSubpart}
-              className="pb-3 px-3 text-sm text-indigo-500 hover:text-indigo-700 whitespace-nowrap"
+              className="pb-3 px-3 text-sm text-brand-600 hover:text-brand-800 whitespace-nowrap"
             >
               + Add part
             </button>
@@ -700,9 +700,9 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
           <div className="p-5 space-y-4">
             {/* Question type */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Question type</label>
+              <label className="block text-xs font-medium text-ink-600 mb-1">Question type</label>
               <select
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 value={current.question_type}
                 onChange={(e) =>
                   updateSubpart(activeSubpart, { question_type: e.target.value as QuestionType })
@@ -717,9 +717,9 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
 
             {/* Question text */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-ink-600 mb-1">
                 Question text{' '}
-                <span className="text-gray-400">
+                <span className="text-ink-400">
                   {'(LaTeX: $x^2$ or $$\\frac{a}{b}$$)'}
                   {(current.question_type === 'numeric' || current.question_type === 'fill_blank') &&
                     ' · use {{a}} for variable tokens'}
@@ -727,7 +727,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               <textarea
                 rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder={
                   current.question_type === 'numeric' || current.question_type === 'fill_blank'
                     ? 'e.g. Solve ${{a}}x + {{b}} = {{c}}$'
@@ -741,19 +741,19 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             </div>
 
             {/* Live KaTeX preview */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 min-h-[48px]">
-              <span className="text-xs text-gray-400 block mb-1">Preview</span>
+            <div className="bg-ink-50 border border-ink-100 rounded-lg px-4 py-3 text-sm text-ink-800 min-h-[48px]">
+              <span className="text-xs text-ink-400 block mb-1">Preview</span>
               {renderPreview(current.question_text)}
             </div>
 
             {/* Optional image URL */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Image URL <span className="font-normal text-gray-400">(optional — shown above question text)</span>
+              <label className="block text-xs font-medium text-ink-600 mb-1">
+                Image URL <span className="font-normal text-ink-400">(optional — shown above question text)</span>
               </label>
               <input
                 type="url"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="https://example.com/diagram.png"
                 value={current.image_url}
                 onChange={(e) => updateSubpart(activeSubpart, { image_url: e.target.value })}
@@ -762,7 +762,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                 <img
                   src={current.image_url}
                   alt="Preview"
-                  className="mt-2 max-w-xs rounded border border-gray-200"
+                  className="mt-2 max-w-xs rounded border border-ink-100"
                   style={{ maxHeight: '160px', objectFit: 'contain' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
@@ -770,12 +770,12 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Worked solution <span className="font-normal text-gray-400">(optional — shown to students after grading)</span>
+              <label className="block text-xs font-medium text-ink-600 mb-1">
+                Worked solution <span className="font-normal text-ink-400">(optional — shown to students after grading)</span>
               </label>
               <textarea
                 rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="Step-by-step solution. LaTeX with $...$ supported."
                 value={current.solution_text}
                 onChange={(e) => updateSubpart(activeSubpart, { solution_text: e.target.value })}
@@ -783,12 +783,12 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Hint <span className="font-normal text-gray-400">(optional — shown to struggling students during practice)</span>
+              <label className="block text-xs font-medium text-ink-600 mb-1">
+                Hint <span className="font-normal text-ink-400">(optional — shown to struggling students during practice)</span>
               </label>
               <textarea
                 rows={2}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 placeholder="A nudge in the right direction."
                 value={current.hint_text}
                 onChange={(e) => updateSubpart(activeSubpart, { hint_text: e.target.value })}
@@ -810,7 +810,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                       <span className="w-20 text-xs font-mono font-semibold text-amber-800">
                         {`{{${name}}}`}
                       </span>
-                      <label className="text-xs text-gray-600">min</label>
+                      <label className="text-xs text-ink-600">min</label>
                       <input
                         type="number"
                         value={spec.min}
@@ -822,9 +822,9 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                             },
                           })
                         }
-                        className="w-20 text-xs border border-gray-300 rounded px-2 py-1"
+                        className="w-20 text-xs border border-ink-200 rounded px-2 py-1"
                       />
-                      <label className="text-xs text-gray-600">max</label>
+                      <label className="text-xs text-ink-600">max</label>
                       <input
                         type="number"
                         value={spec.max}
@@ -836,9 +836,9 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                             },
                           })
                         }
-                        className="w-20 text-xs border border-gray-300 rounded px-2 py-1"
+                        className="w-20 text-xs border border-ink-200 rounded px-2 py-1"
                       />
-                      <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                      <label className="flex items-center gap-1 text-xs text-ink-600 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={spec.integer}
@@ -867,14 +867,14 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             {/* MCQ options */}
             {(current.question_type === 'mcq' || current.question_type === 'multi_select') && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Options</label>
+                <label className="block text-xs font-medium text-ink-600 mb-2">Options</label>
                 <div className="space-y-2">
                   {current.options.map((opt, oi) => (
                     <div key={opt.key} className="flex items-center gap-2">
-                      <span className="w-6 text-sm font-medium text-gray-500">{opt.key}</span>
+                      <span className="w-6 text-sm font-medium text-ink-500">{opt.key}</span>
                       <input
                         type="text"
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="flex-1 border border-ink-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder={`Option ${opt.key}`}
                         value={opt.text}
                         onChange={(e) => updateOption(activeSubpart, oi, e.target.value)}
@@ -887,17 +887,17 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
 
             {/* Correct answer */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-ink-600 mb-1">
                 Correct answer
                 {hasVariableTokens && current.question_type === 'numeric' && (
-                  <span className="ml-1 text-gray-400 font-normal">
+                  <span className="ml-1 text-ink-400 font-normal">
                     {'(can use {{tokens}}, e.g. ({{c}} - {{b}}) / {{a}})'}
                   </span>
                 )}
               </label>
               {current.question_type === 'mcq' ? (
                 <select
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   value={current.correct_answer}
                   onChange={(e) =>
                     updateSubpart(activeSubpart, { correct_answer: e.target.value })
@@ -913,7 +913,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               ) : (
                 <input
                   type="text"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder={current.question_type === 'numeric' ? 'e.g. 42' : 'Correct answer'}
                   value={current.correct_answer}
                   onChange={(e) =>
@@ -927,7 +927,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             {subparts.length > 1 && (
               <button
                 onClick={() => removeSubpart(activeSubpart)}
-                className="text-xs text-red-500 hover:text-red-700"
+                className="text-xs text-rose-600 hover:text-rose-700"
               >
                 Remove this part
               </button>
@@ -940,18 +940,18 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || isPending}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 bg-brand-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isPending && <LoadingSpinner size="sm" />}
             {editMode ? 'Update question' : 'Save question'}
           </button>
           {!canSubmit && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-ink-400">
               Select a chapter and fill in all question text to save.
             </p>
           )}
           {isError && (
-            <p className="text-xs text-red-500">Failed to save. Please try again.</p>
+            <p className="text-xs text-rose-600">Failed to save. Please try again.</p>
           )}
         </div>
       </div>

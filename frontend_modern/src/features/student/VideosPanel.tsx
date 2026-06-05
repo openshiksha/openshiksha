@@ -13,27 +13,32 @@ export const VideosPanel = ({ chapterId }: VideosPanelProps) => {
   if (isLoading || !videos || videos.length === 0) return null;
 
   return (
-    <div className="mt-8 rounded-xl border border-gray-200 bg-white p-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+    <div className="os-card mt-8 p-5">
+      <h3 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold text-ink-800">
         <span aria-hidden>🎬</span> Learn this chapter
       </h3>
       <ul className="space-y-2">
         {videos.map((video) => {
           const isOpen = openId === video.id;
           return (
-            <li key={video.id} className="rounded-lg border border-gray-100">
+            <li key={video.id} className="rounded-lg border border-ink-100">
               <button
                 type="button"
                 onClick={() => setOpenId(isOpen ? null : video.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 rounded-lg"
+                className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left transition-colors hover:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 aria-expanded={isOpen}
               >
-                <span className="text-sm font-medium text-gray-800">{video.title}</span>
-                <span className="text-gray-400 text-xs">{isOpen ? '▲ Hide' : '▶ Watch'}</span>
+                <span className="text-sm font-medium text-ink-800">{video.title}</span>
+                <span className="text-xs font-semibold text-brand-700">
+                  {isOpen ? '▲ Hide' : '▶ Watch'}
+                </span>
               </button>
               {isOpen && (
                 <div className="px-4 pb-4">
-                  <div className="relative w-full overflow-hidden rounded-lg" style={{ paddingTop: '56.25%' }}>
+                  <div
+                    className="relative w-full overflow-hidden rounded-lg"
+                    style={{ paddingTop: '56.25%' }}
+                  >
                     <iframe
                       src={video.embed_url}
                       title={video.title}
@@ -43,7 +48,7 @@ export const VideosPanel = ({ chapterId }: VideosPanelProps) => {
                     />
                   </div>
                   {video.description && (
-                    <p className="mt-2 text-xs text-gray-500">{video.description}</p>
+                    <p className="mt-2 text-xs text-ink-500">{video.description}</p>
                   )}
                 </div>
               )}

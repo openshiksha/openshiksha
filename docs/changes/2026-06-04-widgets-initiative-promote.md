@@ -25,22 +25,31 @@ initiative's gate condition is met.
   module, IW-1c runtime + hello-widget + `/design` preview). Each item
   names the exact files, DoD, and how to verify.
 
-## Why this shape
-The user-stated requirements were "must be extensible, feel natural, easy
-hooks to build things quickly and nicely to attract newer people." The
-backlog encodes this:
+## Why this shape — three authoring tiers, one runtime
+The user-stated requirements were *"must be extensible, feel natural, easy
+hooks to build things quickly and nicely to attract newer people,"* and on
+follow-up: *"this should also allow teachers to use their own widget creator
+ideally in some way."* The backlog encodes both:
 
-- **One file per widget kind** (principle #4, IW-2 DoD): a widget is
-  `index.tsx` calling `defineWidget(...)` plus a JSON Schema. No string
-  IDs duplicated, no separate registration step.
-- **`npm run widget:new <kind>`** (IW-8): scaffolds the boilerplate so a
-  first-time author skips it entirely.
-- **Hot-reloading dev playground at `/widgets/dev`** (IW-8): see your
-  widget render before it ever touches a question.
-- **10-minute tutorial** (IW-8 deliverable): the reviewer-tested path to a
-  first ship. Each pass tightens the docs.
-- **V2-native inside the sandbox** (principle #9): widgets read as one
-  product, not a third-party embed.
+- **Tier 1 — Configure** (every teacher): pick a registry widget, fill a
+  form generated from its JSON Schema. The 90% path. Lives in IW-2 → IW-6.
+- **Tier 2 — Compose** (any teacher, in-app **Widget Studio**): drag
+  primitives (slider / input / plot / readout / formula / image) onto a
+  canvas, wire bindings, save to their school's gallery. **The Studio is a
+  constrained visual builder — it composes, it never executes.** A scene
+  is pure JSON; the runtime *interprets* it through the same
+  `safe_eval_expr` engine the cabinet already trusts. New milestones
+  **IW-9** (data model + runtime + primitives) and **IW-10** (the visual
+  builder UI, with templates to make the < 5-min first ship achievable).
+- **Tier 3 — Code** (contributor): one `defineWidget()` file + JSON
+  Schema. `npm run widget:new` scaffolds the boilerplate; the
+  `/widgets/dev` playground hot-reloads it; the 10-min tutorial walks a
+  reviewer through their first ship. Lives in IW-1 → IW-2 → IW-8.
+
+**Every tier renders through the same sandboxed iframe**, passes through
+the same per-subpart grader, and obeys the same V2 brand tokens — so the
+trust boundary doesn't depend on who authored, and the visual language
+doesn't depend on which tier produced the scene.
 
 ## How the routine picks this up
 - The plan routine ([`~/.claude/scheduled-tasks/openshiksha-plan/SKILL.md`](../../../.claude/scheduled-tasks/openshiksha-plan/SKILL.md))

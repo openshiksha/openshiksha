@@ -1,46 +1,53 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherAssignmentDetail } from './useTeacherAssignmentDetail';
 import { useQuestionMistakes } from './useQuestionMistakes';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import {
+  Badge,
+  EmptyState,
+  LoadingSpinner,
+  SectionHeading,
+  Stat,
+} from '@/shared/ui';
 import type { SubmissionWithStudent } from './useTeacherAssignmentDetail';
 import type { QuestionMistake } from './useQuestionMistakes';
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 const isOverdue = (dueAt: string) => new Date(dueAt) < new Date();
 
 const ScoreBadge = ({ score }: { score: number | null }) => {
   if (score === null) {
-    return <span className="text-xs text-gray-400 italic">Grading...</span>;
+    return <span className="text-xs italic text-ink-400">Grading...</span>;
   }
   const pct = Math.round(score * 100);
-  const color = pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-yellow-600' : 'text-red-600';
-  return <span className={`text-sm font-semibold ${color}`}>{pct}%</span>;
+  const tone = pct >= 70 ? 'text-emerald-700' : pct >= 40 ? 'text-amber-700' : 'text-rose-700';
+  return <span className={`text-sm font-semibold ${tone}`}>{pct}%</span>;
 };
 
 const SubmissionRow = ({ sub }: { sub: SubmissionWithStudent }) => (
-  <tr className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-    <td className="px-4 py-3 text-sm text-gray-900">{sub.student_name}</td>
-    <td className="px-4 py-3 text-sm text-gray-500">
-      {sub.submitted_at ? formatDate(sub.submitted_at) : <span className="text-gray-300">—</span>}
+  <tr className="border-t border-ink-100 transition-colors hover:bg-brand-50/40">
+    <td className="px-4 py-3 text-sm font-medium text-ink-900">{sub.student_name}</td>
+    <td className="px-4 py-3 text-sm text-ink-500">
+      {sub.submitted_at ? formatDate(sub.submitted_at) : <span className="text-ink-300">—</span>}
     </td>
     <td className="px-4 py-3">
       {sub.submitted_at ? (
         <ScoreBadge score={sub.score} />
       ) : (
-        <span className="text-xs text-gray-400">—</span>
+        <span className="text-xs text-ink-400">—</span>
       )}
     </td>
     <td className="px-4 py-3">
       {sub.submitted_at ? (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-          ✓ Submitted
-        </span>
+        <Badge tone="success">✓ Submitted</Badge>
       ) : (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-          ⏳ Pending
-        </span>
+        <Badge tone="attention">⏳ Pending</Badge>
       )}
     </td>
   </tr>
@@ -50,24 +57,24 @@ const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) =>
   if (!mistakes.length) return null;
   const maxRegression = Math.max(...mistakes.map((m) => m.regression));
   return (
-    <div className="mt-6 bg-white rounded-xl border border-red-100 p-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">
+    <div className="os-card mt-6 p-5">
+      <h3 className="mb-3 font-display text-base font-semibold text-ink-900">
         Hardest Questions{' '}
-        <span className="text-gray-400 font-normal">(by cumulative marks lost)</span>
+        <span className="font-normal text-ink-400">(by cumulative marks lost)</span>
       </h3>
       <div className="space-y-3">
         {mistakes.slice(0, 5).map((m) => (
           <div key={m.id} className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-gray-700 line-clamp-2">{m.question_text}</p>
-              <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <p className="line-clamp-2 text-xs text-ink-700">{m.question_text}</p>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
                 <div
-                  className="h-full bg-red-400 rounded-full"
+                  className="h-full rounded-full bg-rose-500"
                   style={{ width: `${Math.round((m.regression / maxRegression) * 100)}%` }}
                 />
               </div>
             </div>
-            <span className="shrink-0 text-xs font-semibold text-red-700">
+            <span className="shrink-0 text-xs font-semibold text-rose-700">
               {m.regression.toFixed(1)} pts lost
             </span>
           </div>
@@ -90,7 +97,7 @@ export const TeacherAssignmentDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
+      <div className="flex min-h-64 items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -98,11 +105,19 @@ export const TeacherAssignmentDetailPage = () => {
 
   if (isError || !metaQuery.data) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 text-center text-gray-500">
-        <p>Failed to load assignment. It may not exist or you may not have access.</p>
-        <button onClick={() => navigate('/teacher')} className="mt-4 text-indigo-600 hover:underline text-sm">
-          ← Back to dashboard
-        </button>
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <EmptyState
+          title="Failed to load assignment"
+          description="It may not exist or you may not have access."
+          action={
+            <button
+              onClick={() => navigate('/teacher')}
+              className="rounded text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              ← Back to dashboard
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -122,58 +137,67 @@ export const TeacherAssignmentDetailPage = () => {
   const submissionPct = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      {/* Back link */}
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <button
         onClick={() => navigate('/teacher')}
-        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+        className="flex items-center gap-1 rounded text-sm text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         ← Back to dashboard
       </button>
 
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h1 className="text-xl font-bold text-gray-900">{assignment.problem_set.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{assignment.subject_room_display}</p>
+      <div className="os-card p-6">
+        <SectionHeading
+          as="h1"
+          eyebrow={assignment.subject_room_display}
+          title={assignment.problem_set.title}
+          action={
+            overdue ? (
+              <Badge tone="urgent">Overdue</Badge>
+            ) : (
+              <Badge tone="brand">Active</Badge>
+            )
+          }
+        />
 
-        <div className="flex flex-wrap gap-4 mt-4 text-sm">
-          <div>
-            <span className="text-gray-400">Due</span>{' '}
-            <span className={`font-medium ${overdue ? 'text-red-500' : 'text-gray-700'}`}>
-              {dueDate}{overdue ? ' (overdue)' : ''}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-400">Submitted</span>{' '}
-            <span className="font-medium text-gray-700">
-              {submittedCount}/{totalStudents}
-            </span>
-          </div>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Stat
+            label="Due"
+            value={dueDate}
+            delta={overdue ? 'Overdue' : undefined}
+            tone="urgent"
+          />
+          <Stat
+            label="Submitted"
+            value={`${submittedCount}/${totalStudents}`}
+          />
           {avgScore !== null && (
-            <div>
-              <span className="text-gray-400">Avg score</span>{' '}
-              <span className="font-medium text-gray-700">{Math.round(avgScore * 100)}%</span>
-            </div>
+            <Stat label="Avg score" value={`${Math.round(avgScore * 100)}%`} />
           )}
         </div>
 
-        {/* Progress bar */}
-        <div className="mt-4">
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="mt-5">
+          <div
+            className="h-2 overflow-hidden rounded-full bg-ink-100"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(submissionPct)}
+          >
             <div
-              className="h-full bg-indigo-500 rounded-full transition-all"
+              className="h-full rounded-full bg-brand-600 transition-all"
               style={{ width: `${submissionPct}%` }}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-1">{Math.round(submissionPct)}% submitted</p>
+          <p className="mt-1 text-xs text-ink-400">{Math.round(submissionPct)}% submitted</p>
         </div>
       </div>
 
-      {/* Submissions table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Student Submissions</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+      <div className="os-card overflow-hidden p-0">
+        <div className="border-b border-ink-100 px-6 py-4">
+          <h2 className="font-display text-base font-semibold text-ink-900">
+            Student Submissions
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-400">
             {submissions.length} submission{submissions.length !== 1 ? 's' : ''} recorded
             {totalStudents > submissions.length && (
               <> · {totalStudents - submissions.length} students have not started</>
@@ -182,13 +206,13 @@ export const TeacherAssignmentDetailPage = () => {
         </div>
 
         {submissions.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <p className="text-sm">No submissions yet.</p>
+          <div className="px-6 py-12">
+            <EmptyState title="No submissions yet." />
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <thead className="bg-ink-50 text-xs font-display font-semibold uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="px-4 py-3">Student</th>
                   <th className="px-4 py-3">Submitted</th>

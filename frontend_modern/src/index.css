@@ -5,8 +5,9 @@
 /* ════════════════════════════════════════════════════════════════════════
    OpenShiksha V2 — "Chalk & Unlock" design system
    See docs/initiatives/2026-design-system-v2.md. Tokens live in
-   tailwind.config.js. Migrated code uses the classes below + `ui/` components;
-   never raw hex, never the legacy `primary`/cold-gray palette.
+   tailwind.config.js. All code uses the classes below + `ui/` components;
+   never raw hex, never the cold-gray palette. The legacy `primary` blue
+   palette was removed in M6-02.
    ════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
@@ -164,25 +165,7 @@
   }
 }
 
-/* ── Legacy classes — retained so un-migrated pages keep rendering. ─────────
-   Do NOT use in new/migrated code; prefer the brand components above. */
 @layer components {
-  .btn-primary {
-    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors;
-  }
-
-  .btn-secondary {
-    @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors;
-  }
-
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
-  }
-
   .katex-display {
     @apply my-4;
   }

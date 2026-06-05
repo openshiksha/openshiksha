@@ -46,13 +46,6 @@ export const EnquirePage = () => {
       <AuthLayout
         title="Bring OpenShiksha to your school"
         subtitle="Tell us a little about your school and our team will reach out to set you up."
-        footer={
-          <p>
-            <Link to="/login" className="font-semibold text-brand-700 hover:text-brand-800">
-              ← Back to sign in
-            </Link>
-          </p>
-        }
       >
         <EmptyState
           title="Thank you for your enquiry"

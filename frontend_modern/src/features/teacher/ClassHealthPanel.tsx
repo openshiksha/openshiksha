@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useClassInsights } from './useClassInsights';
 import type { ClassInsight } from './useClassInsights';
+import { Button } from '@/shared/ui';
 
 const STATUS_CONFIG: Record<ClassInsight['insight_type'], { dot: string; label: string }> = {
-  struggling: { dot: 'bg-red-500', label: 'Struggling' },
-  at_risk: { dot: 'bg-yellow-400', label: 'At Risk' },
-  proficient: { dot: 'bg-green-500', label: 'Proficient' },
+  struggling: { dot: 'bg-rose-500', label: 'Struggling' },
+  at_risk: { dot: 'bg-amber-400', label: 'At Risk' },
+  proficient: { dot: 'bg-emerald-500', label: 'Proficient' },
 };
 
 const triggerClassInsights = async (subjectRoomId: number): Promise<void> => {
@@ -27,7 +28,6 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
     setIsTriggering(true);
     try {
       await triggerClassInsights(subjectRoomId);
-      // Wait a moment then refetch — task is async on server
       setTimeout(() => {
         refetch();
         setIsTriggering(false);
@@ -38,31 +38,38 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
   };
 
   return (
-    <div className="mt-3 border-t border-gray-100 pt-3">
+    <div className="mt-3 border-t border-ink-100 pt-3">
       <button
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors w-full text-left"
+        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         <span>Class Health</span>
-        <span className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+        <span
+          className={`transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`}
+          aria-hidden
+        >
+          ▾
+        </span>
       </button>
 
       {isExpanded && (
         <div className="mt-3">
           {isLoading && (
-            <p className="text-xs text-gray-400 py-2">Loading class health data…</p>
+            <p className="py-2 text-xs text-ink-400">Loading class health data…</p>
           )}
 
           {!isLoading && (!insights || insights.length === 0) && (
-            <div className="text-xs text-gray-400 py-2">
+            <div className="py-2 text-xs text-ink-400">
               No class health data yet. Insights appear after students complete assignments.
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleRefresh}
                 disabled={isTriggering}
-                className="ml-2 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
+                className="ml-2"
               >
                 {isTriggering ? 'Computing…' : 'Refresh'}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -70,29 +77,37 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
             <>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-100">
-                    <th className="text-left pb-1.5 font-medium">Chapter</th>
-                    <th className="text-right pb-1.5 font-medium">Avg</th>
-                    <th className="text-right pb-1.5 font-medium">Struggling</th>
-                    <th className="text-right pb-1.5 font-medium">Status</th>
+                  <tr className="border-b border-ink-100 text-ink-500">
+                    <th className="pb-1.5 text-left font-display font-semibold">Chapter</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">Avg</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">Struggling</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {insights.map((insight) => {
                     const cfg = STATUS_CONFIG[insight.insight_type];
                     return (
-                      <tr key={insight.id} className="border-b border-gray-50 last:border-0">
-                        <td className="py-1.5 text-gray-800 font-medium">{insight.chapter_name}</td>
-                        <td className="py-1.5 text-right text-gray-600">
+                      <tr
+                        key={insight.id}
+                        className="border-b border-ink-50 last:border-0"
+                      >
+                        <td className="py-1.5 font-medium text-ink-800">
+                          {insight.chapter_name}
+                        </td>
+                        <td className="py-1.5 text-right text-ink-600">
                           {Math.round(insight.class_avg_score * 100)}%
                         </td>
-                        <td className="py-1.5 text-right text-gray-500">
+                        <td className="py-1.5 text-right text-ink-500">
                           {insight.students_struggling}/{insight.students_assessed}
                         </td>
                         <td className="py-1.5 text-right">
                           <span className="inline-flex items-center gap-1">
-                            <span className={`inline-block w-2 h-2 rounded-full ${cfg.dot}`} />
-                            <span className="text-gray-600">{cfg.label}</span>
+                            <span
+                              aria-hidden
+                              className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`}
+                            />
+                            <span className="text-ink-600">{cfg.label}</span>
                           </span>
                         </td>
                       </tr>
@@ -101,7 +116,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                 </tbody>
               </table>
               <div className="mt-2 flex items-center justify-between">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-400">
                   Last updated:{' '}
                   {new Date(insights[0].generated_at).toLocaleString('en-IN', {
                     day: 'numeric',
@@ -110,13 +125,14 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                     minute: '2-digit',
                   })}
                 </p>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleRefresh}
                   disabled={isTriggering}
-                  className="text-xs text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
                 >
                   {isTriggering ? 'Computing…' : 'Refresh'}
-                </button>
+                </Button>
               </div>
             </>
           )}

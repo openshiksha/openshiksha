@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useWeeklyReport } from './useWeeklyReport';
+import { Button } from '@/shared/ui';
 
 const triggerWeeklyReport = async (subjectRoomId: number): Promise<void> => {
   await apiClient.post('/ai/weekly-reports/generate/', { subject_room_id: subjectRoomId });
@@ -23,7 +24,6 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
     setIsGenerating(true);
     try {
       await triggerWeeklyReport(subjectRoomId);
-      // Generation is async on the server — give it a moment, then refetch.
       setTimeout(() => {
         refetch();
         setIsGenerating(false);
@@ -34,40 +34,51 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
   };
 
   return (
-    <div className="mt-3 border-t border-gray-100 pt-3">
+    <div className="mt-3 border-t border-ink-100 pt-3">
       <button
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors w-full text-left"
+        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         <span>Weekly AI Summary</span>
-        <span className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+        <span
+          className={`transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`}
+          aria-hidden
+        >
+          ▾
+        </span>
       </button>
 
       {isExpanded && (
         <div className="mt-3">
-          {isLoading && <p className="text-xs text-gray-400 py-2">Loading weekly summary…</p>}
+          {isLoading && (
+            <p className="py-2 text-xs text-ink-400">Loading weekly summary…</p>
+          )}
 
           {!isLoading && !report && (
-            <div className="text-xs text-gray-400 py-2">
+            <div className="py-2 text-xs text-ink-400">
               No weekly summary yet. Generate one from this week's practice activity.
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="ml-2 text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
+                className="ml-2"
               >
                 {isGenerating ? 'Generating…' : 'Generate'}
-              </button>
+              </Button>
             </div>
           )}
 
           {!isLoading && report && (
-            <div className="rounded-lg bg-indigo-50/60 border border-indigo-100 p-3">
-              <p className="text-xs font-medium text-indigo-700">
+            <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+              <p className="text-xs font-semibold text-brand-800">
                 Week of {formatDate(report.week_start)} – {formatDate(report.week_end)}
               </p>
-              <p className="mt-1.5 text-sm text-gray-700 leading-relaxed">{report.summary_text}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-ink-700">
+                {report.summary_text}
+              </p>
 
-              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500">
                 <span>
                   {report.active_students}/{report.total_students} practised
                 </span>
@@ -76,29 +87,30 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
               </div>
 
               {report.struggling_chapters.length > 0 && (
-                <p className="mt-2 text-xs text-gray-600">
-                  <span className="font-medium text-red-600">Needs work:</span>{' '}
+                <p className="mt-2 text-xs text-ink-600">
+                  <span className="font-semibold text-rose-700">Needs work:</span>{' '}
                   {report.struggling_chapters.map((c) => c.chapter_name).join(', ')}
                 </p>
               )}
               {report.strong_chapters.length > 0 && (
-                <p className="mt-0.5 text-xs text-gray-600">
-                  <span className="font-medium text-green-600">Strong:</span>{' '}
+                <p className="mt-0.5 text-xs text-ink-600">
+                  <span className="font-semibold text-emerald-700">Strong:</span>{' '}
                   {report.strong_chapters.map((c) => c.chapter_name).join(', ')}
                 </p>
               )}
 
               <div className="mt-2.5 flex items-center justify-between">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-400">
                   Generated {formatDate(report.generated_at)} · {report.model_used}
                 </p>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  className="text-xs text-indigo-500 hover:text-indigo-700 disabled:opacity-50"
                 >
                   {isGenerating ? 'Regenerating…' : 'Regenerate'}
-                </button>
+                </Button>
               </div>
             </div>
           )}

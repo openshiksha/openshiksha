@@ -90,8 +90,8 @@ export const BrowsePage = () => {
       )}
 
       {chapters && chapters.length > 0 && (
-        <div className="os-card overflow-hidden p-0">
-          <table className="w-full text-sm">
+        <div className="os-card overflow-x-auto p-0">
+          <table className="w-full min-w-[24rem] text-sm">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50">
                 <th className="px-4 py-3 text-left font-display font-semibold text-ink-700">

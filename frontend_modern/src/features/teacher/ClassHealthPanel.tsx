@@ -75,7 +75,8 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
 
           {insights && insights.length > 0 && (
             <>
-              <table className="w-full text-xs">
+              <div className="-mx-1 overflow-x-auto">
+              <table className="w-full min-w-[22rem] text-xs">
                 <thead>
                   <tr className="border-b border-ink-100 text-ink-500">
                     <th className="pb-1.5 text-left font-display font-semibold">Chapter</th>
@@ -115,6 +116,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                   })}
                 </tbody>
               </table>
+              </div>
               <div className="mt-2 flex items-center justify-between">
                 <p className="text-xs text-ink-400">
                   Last updated:{' '}

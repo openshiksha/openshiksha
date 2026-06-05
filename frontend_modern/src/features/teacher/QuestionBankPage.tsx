@@ -109,15 +109,23 @@ const AddToProblemSetSheet = ({
   const { data: problemSets, isLoading } = useProblemSets(question.subject);
   const addQuestion = useAddQuestionToProblemSet();
   const [success, setSuccess] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Lock body scroll while sheet is open
+  // Lock body scroll + listen for ESC to close (a11y: AAA modal dialog pattern).
   useEffect(() => {
     const original = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    // Move focus into the dialog so a screen reader announces it.
+    closeButtonRef.current?.focus();
     return () => {
       document.body.style.overflow = original;
+      document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [onClose]);
 
   const handleAdd = () => {
     if (!selectedPsId) return;
@@ -132,21 +140,30 @@ const AddToProblemSetSheet = ({
       className="fixed inset-0 z-50 flex justify-end bg-ink-900/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex h-full w-full max-w-md flex-col bg-paper shadow-lift">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-to-set-title"
+        className="flex h-full w-full max-w-md flex-col bg-paper shadow-lift"
+      >
         <div className="flex items-center justify-between border-b border-ink-100 px-6 py-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
               Add to set
             </p>
-            <h3 className="font-display text-lg font-semibold text-ink-900">
+            <h3
+              id="add-to-set-title"
+              className="font-display text-lg font-semibold text-ink-900"
+            >
               Question #{question.id}
             </h3>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            aria-label="Close"
-            className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-800"
+            aria-label="Close add-to-set dialog"
+            className="rounded-full p-1.5 text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />

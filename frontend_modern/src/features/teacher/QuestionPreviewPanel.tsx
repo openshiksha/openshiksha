@@ -52,7 +52,7 @@ const SubpartPreview = ({
       {subpart.image_url && (
         <img
           src={subpart.image_url}
-          alt=""
+          alt="Question diagram"
           className="mt-4 max-h-64 rounded-lg border border-ink-100 object-contain"
         />
       )}
@@ -180,4 +180,3 @@ export const QuestionPreviewPanel = ({
     </Card>
   );
 };
-

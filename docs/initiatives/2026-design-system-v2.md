@@ -154,7 +154,11 @@ Ledger). Split any item that won't fit one session.
 ### M2 — Global shell  *(every page inherits this — do first)*
 - [x] `M2-01` Reskin **App Shell** (`AppShell` + `Navbar`): real `<Logo/>`, warm
   paper background, brand active-nav (chalk underline), warm user menu.
-- [ ] `M2-02` Mobile nav polish: brand hamburger sheet, role chips, safe-area.
+- [x] `M2-02` Mobile nav polish — shipped 2026-06-04 (#198). Hamburger sheet
+  repurposed as an Account drawer (now that M5-01 bottom tabs carry primary
+  nav); tokens swept; `aria-current` / `aria-haspopup` / dynamic
+  hamburger-label / focus-visible rings / ESC closes both dropdowns; safe-area
+  inset top.
 - [x] `M2-03` Global states: branded `LoadingSpinner`, `NotFoundPage` (404 route),
   `ErrorBoundary` shipped 2026-06-02. Toast theming deferred (no toast lib
   currently wired — add when first needed).
@@ -163,7 +167,10 @@ Ledger). Split any item that won't fit one session.
 - [x] `M3-01` **Login** → chalkboard-left / paper-right brand layout (flagship).
 - [x] `M3-02` Register + Register-school + Register-open migrated to the V2
   chalkboard/paper layout 2026-06-02, using new `ui/Input`.
-- [ ] `M3-03` Public **Enquire** page (prospective schools) — credible + warm.
+- [x] `M3-03` Public **Enquire** page — shipped 2026-06-04 (#199 + #200 follow-up
+  for a duplicate "Back to sign in" link). Composed via the shared `AuthLayout`
+  (chalkboard hero + paper form); uses `ui/Input`/`Textarea`/`Button`; success
+  state via `EmptyState` keyhole motif.
 - [x] `M3-04` **Home page** at `/` — legacy-inspired (chalkboard hero →
   Practice/Evaluate/Analyse → mission + teacher photo → "Start now" → features),
   new branding, legacy hero images, branded Login CTA. Logo links home everywhere.
@@ -192,12 +199,15 @@ Ledger). Split any item that won't fit one session.
   Tokens now substitute deterministically per `(student_id, subpart_id)`; 4 new
   regression tests; 777 backend tests passing.
 - [~] `M7-03` **List-page filtering / search / sort actually works.** Browse
-  Grade filter wired correctly 2026-06-04 (#194 — backend was matching
-  `standard_id` against a *standard number*; switched to `standard__number`,
-  4 regression tests). **Remaining:** Question Bank filters/search + assignment-
-  list filters still need a parity pass.
-- [ ] `M7-04` **Feature-parity audit vs. legacy.** Walk the legacy app surface by
-  surface; log every capability the modern frontend is missing into this backlog.
+  Grade filter (#194) + Question Bank search-dedup + Grade filter parity (#197)
+  shipped 2026-06-04. **Remaining:** Question Bank chapter-filter *UI* (backend
+  already supports `?chapter=`); assignment-list filters (student/teacher
+  views currently group by status only — no UI controls). Both small frontend
+  follow-ups.
+- [x] `M7-04` **Feature-parity audit vs. legacy** — shipped 2026-06-04 in
+  [`legacy-feature-parity.md`](legacy-feature-parity.md). At-a-glance table
+  per legacy app, by-audience capability tables, known TODO list (7 items),
+  and a deletion checklist for retiring a legacy app.
 - [x] `M7-05` **`seed_demo_data` idempotency.** Fixed 2026-06-02 (#141) — the
   command was crashing with `MultipleObjectsReturned` on any DB with cabinet
   imports because `Question.get_or_create(school, standard, subject, chapter,
@@ -231,14 +241,30 @@ Ledger). Split any item that won't fit one session.
   Role-aware (Student/Open: Home/Browse/Path/Profile · Teacher: Home/Questions/Profile ·
   Parent: Home/Profile · Admin: School/Profile). Above `env(safe-area-inset-bottom)`;
   hidden on `sm:` and above.
-- [ ] `M5-02` Per-surface responsive audit of migrated M4 pages.
+- [x] `M5-02` Per-surface responsive audit — shipped 2026-06-04 (#201). Two
+  table-overflow fixes (BrowsePage chapter table, ClassHealthPanel table);
+  rest of the migrated surfaces audited clean. **Follow-up:** 44×44 touch
+  targets on student practice (flagged in #195 change doc); PWA install /
+  offline question viewing.
 
 ### M6 — Hardening
-- [ ] `M6-01` Accessibility audit (AA) across migrated surfaces.
+- [x] `M6-01` Accessibility audit (AA, focused baseline) — shipped 2026-06-04
+  (#202). Skip-to-main link + `id="main-content"` landmark; full dialog
+  semantics on the QuestionBank add-to-set sheet (role=dialog, aria-modal,
+  aria-labelledby, ESC, initial focus on close); image alt parity on
+  QuestionPreviewPanel. **Follow-up:** keyboard walkthrough, screen-reader
+  spot-check (VoiceOver/NVDA), CreateQuestionPage tab-order audit, axe-core
+  CI gating — promote to its own initiative if scope grows.
 - [x] `M6-02` Retire the legacy `primary` (blue) token — shipped 2026-06-04 (#193).
   Palette + the four legacy helper classes (`.btn-primary`, `.btn-secondary`,
   `.card`, `.input`) deleted; 0 src/ consumers verified before merge.
-- [ ] `M6-03` Visual-regression screenshots of `/design` + key pages.
+- [~] `M6-03` Visual-regression screenshots — spec shipped 2026-06-04 (#203).
+  Playwright `visual.spec.ts` covers `/design`, `/`, `/login`, `/enquire` at
+  desktop + mobile; describe block is `.skip`-d until Linux baseline PNGs are
+  generated on CI (Windows-generated PNGs would never match the CI runner).
+  Activation = one CI run with `--update-snapshots` + commit + remove the
+  `.skip`. Authenticated-surface snapshots need a separate `playwright`
+  project against Docker; deliberate follow-up.
 
 > M4 is closed. The next active milestones are **M2-02** (mobile nav polish),
 > **M3-03** (Enquire), **M5-02** (responsive audit), **M6-01** (a11y audit),
@@ -309,3 +335,10 @@ Record the improvement in the ledger's "Hardening" column so the gains are visib
 | 2026-06-04 | M6-02 retire `primary` blue token | #193 | Deleted `primary-*` palette + `.btn-primary` / `.btn-secondary` / `.card` / `.input` legacy helper classes; refreshed the V2-brand and top-of-file comments. 0 `src/` consumers of the removed tokens/classes verified beforehand. | M4 closing immediately unlocked M6-02 — once the last surface lands on V2 there's nothing left holding the legacy palette in place. Worth doing as its own atomic cleanup PR so the deletion is reviewable. |
 | 2026-06-04 | M7-03 browse Grade filter fix | #194 | Backend `browse_chapters` matches `standard__number` (the dropdown sends standard *numbers* 1..12, not PKs); 4 regression tests covering standard, subject, combined, unfiltered; 163 api tests pass. | The endpoint had always been wrong — only worked by coincidence on dev DBs where Standard PK happened to equal `number`. Surfaced because M4-06b-i made the Browse filter UI visible/branded. Question Bank + assignment-list filter parity still on the M7-03 backlog. |
 | 2026-06-04 | M5-01 mobile bottom tab bar | #195 | New `BottomNav.tsx` (~170 LOC, role-aware, inline SVG icons, `aria-current` + `aria-label="Primary"`, focus-visible brand ring); above `env(safe-area-inset-bottom)`; hidden `sm:` and up. 5 vitest tests cover role tab sets + prefix-match active highlight. `AppShell` now adds `pb-24 sm:pb-8` so content clears the bar. | Hamburger menu intentionally kept for secondary actions (Profile, Sign out, deep-links like Proficiency) — the bottom bar is for *primary* navigation, not a total replacement. That separation keeps the surface area small and the tabs uncluttered. |
+| 2026-06-04 | M7-03 Question list dedupe + Grade filter parity | #197 | `QuestionViewSet.get_queryset` ends with `.distinct()` (search across `subparts__question_text` + `tags__name` no longer multiplies rows); standard filter matches `standard__number` to mirror Browse (#194). 4 new regression tests; 167 api tests pass. | Surfaced once the Question Bank UI exercised search seriously — the same kind of join-multiplies-rows bug Django emits whenever a `search_fields` walks an M2M/reverse-FK. `.distinct()` at the queryset tail is the cheapest reliable fix; the regression tests lock it in. |
+| 2026-06-04 | M2-02 mobile nav polish + a11y | #198 | Hamburger sheet repurposed as an Account drawer (identity row, Profile, student-only My Progress, Sign out — no longer duplicating the bottom-tab primary nav). Tokens swept (`gray-*`→`ink-*`, `red-*`→`rose-*`). `aria-label="Top"` on `<nav>`; `aria-current="page"` on active desktop links; `aria-haspopup="menu"` + `role="menu"`/`menuitem` on the avatar dropdown; dynamic hamburger `aria-label`; ESC closes both dropdowns + returns focus to the toggle; focus-visible brand rings throughout; `pt-[env(safe-area-inset-top)]`. | A11y plumbing added at the `Navbar` level (one ESC handler, one focus-visible utility) so the rest of the app inherits the behaviour without per-component wiring. Mobile sheet shrinking to "account only" was the right move *because* M5-01 had just shipped — the bottom bar carries the primary nav. |
+| 2026-06-04 | M3-03 Public Enquire page → V2 | #199 + #200 | `EnquirePage` wraps in shared `AuthLayout`; form rebuilt on `ui/Input`/`Textarea`/`Button`; success state uses `EmptyState` keyhole motif; rose-* error banner. Follow-up #200 removed a duplicate "Back to sign in" link from the success state's footer. | Last external-facing surface still on the legacy indigo gradient — wrapping it in `AuthLayout` proved the pattern composes for any new public page in minutes. The duplicate-link follow-up was a 5-min visual bug surfaced by the user immediately after merge; treated as its own atomic PR. |
+| 2026-06-04 | M5-02 per-surface responsive audit | #201 | BrowsePage chapter table → `overflow-x-auto` + `min-w-[24rem]` floor so long chapter names don't squash the Practice button. ClassHealthPanel table wrapped in `-mx-1 overflow-x-auto` + `min-w-[22rem]` to absorb long chapter names and wide X/Y counts. Rest of M4 surfaces audited clean. | The dashboards/Profile/Proficiency surfaces inherited their responsive rhythm from `Stat`/`SectionHeading`/`grid-cols-1 sm:grid-cols-N` — *because* they're composed from primitives, the audit found nothing to fix in them. Tables (raw `<table>` markup, not a primitive yet) were the only weak point — argues for a `Table` primitive sometime. |
+| 2026-06-04 | M6-01 accessibility audit (focused baseline) | #202 | Skip-to-main link in `AppShell` (sr-only-until-focused brand pill) + `id="main-content" tabIndex={-1}` landmark. `QuestionBankPage` add-to-set side-sheet promoted to a proper dialog: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, descriptive close `aria-label`, ESC handler, initial focus on close button, focus-visible brand ring. `QuestionPreviewPanel` image alt switched from `""` to `"Question diagram"` for parity with `QuestionCard`. | Skip link / main-landmark is *the* foundational a11y move — every page in the app inherits it via `AppShell`. Dialog semantics on the add-to-set sheet matter because it's the only modal surface in the V2 stack; making it correct sets the pattern for any future dialog. Full keyboard walkthrough + screen-reader spot-check + axe-core CI are explicit non-goals; flagged for a dedicated a11y initiative. |
+| 2026-06-04 | M6-03 visual-regression spec scaffold | #203 | New `e2e/visual.spec.ts` covers `/design` + `/` + `/login` + `/enquire` at desktop (1280×800) + mobile (375×720), 8 snapshots total. `maxDiffPixelRatio: 0.02`; waits on `document.fonts.ready` so Fraunces/Inter character widths settle pre-snapshot. `test:e2e:update-snapshots` npm script. **`test.describe.skip` until Linux baselines are seeded on CI** (Windows PNGs would never match the Linux runner). | The honest answer to "where do we keep visual baselines on Windows-dev / Linux-CI without false diffs" is: on CI. Skipping the spec until that happens keeps CI green; the activation steps live in the change doc. Authenticated-surface snapshots require a separate Playwright project against Docker — deliberate follow-up. |
+| 2026-06-04 | M7-04 legacy feature-parity audit | this PR | New `docs/initiatives/legacy-feature-parity.md`: at-a-glance status per legacy app (`core`/`edge`/`grader`/`focus`/`croupier`/`sphinx`/`cabinet`/`pylon`/`concierge`/`lodge`/`ink`/`challenge`/`frontend`), by-audience capability tables (student/teacher/parent/admin/public), 7 known TODOs split by scope, and a retirement checklist. | The "Already ported" table lived in `CLAUDE.md` (routine prompt) — invisible to a reader browsing `docs/`. Pulling it into the initiatives folder gives it a stable URL, a status column to scan, and a place to record the gaps the routine table hand-waved over. Surfaced one concrete TODO from the M3-03 follow-up: `ADMINS` env-var wiring so `concierge` enquiry emails stop no-op'ing. |

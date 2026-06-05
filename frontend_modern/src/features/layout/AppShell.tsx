@@ -1,3 +1,4 @@
+import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
 
 interface AppShellProps {
@@ -7,8 +8,9 @@ interface AppShellProps {
 export const AppShell = ({ children }: AppShellProps) => (
   <div className="bg-paper min-h-screen">
     <Navbar />
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8">
       {children}
     </main>
+    <BottomNav />
   </div>
 );

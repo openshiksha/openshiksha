@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuestionList } from './useQuestionList';
 import { useSubjects } from './useSubjects';
+import { useChapters } from './useChapters';
 import { useProblemSets } from './useProblemSets';
 import { useAddQuestionToProblemSet } from './useAddQuestionToProblemSet';
 import { previewFromQuestionText } from './previewFromQuestionText';
@@ -275,15 +276,23 @@ export const QuestionBankPage = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<number | ''>('');
+  const [selectedChapter, setSelectedChapter] = useState<number | ''>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | ''>('');
   const [focusedQuestionId, setFocusedQuestionId] = useState<number | null>(null);
   const [modalQuestion, setModalQuestion] = useState<Question | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: subjects } = useSubjects();
+  // Chapter list is scoped to the selected subject; disabled until a subject
+  // is picked (otherwise it would offer chapters from across every subject
+  // the teacher can see, which makes the picker overwhelming).
+  const { data: chapters } = useChapters(
+    selectedSubject !== '' ? (selectedSubject as number) : undefined,
+  );
   const { data: questions, isLoading } = useQuestionList({
     search: debouncedSearch || undefined,
     subject: selectedSubject !== '' ? (selectedSubject as number) : undefined,
+    chapter: selectedChapter !== '' ? (selectedChapter as number) : undefined,
     difficulty: selectedDifficulty !== '' ? (selectedDifficulty as number) : undefined,
   });
 
@@ -294,12 +303,16 @@ export const QuestionBankPage = () => {
   };
 
   const hasFilters =
-    !!search || selectedSubject !== '' || selectedDifficulty !== '';
+    !!search ||
+    selectedSubject !== '' ||
+    selectedChapter !== '' ||
+    selectedDifficulty !== '';
 
   const clearFilters = () => {
     setSearch('');
     setDebouncedSearch('');
     setSelectedSubject('');
+    setSelectedChapter('');
     setSelectedDifficulty('');
   };
 
@@ -353,9 +366,13 @@ export const QuestionBankPage = () => {
             <div className="grid grid-cols-2 gap-2">
               <Select
                 value={selectedSubject}
-                onChange={(e) =>
-                  setSelectedSubject(e.target.value ? Number(e.target.value) : '')
-                }
+                onChange={(e) => {
+                  const next = e.target.value ? Number(e.target.value) : '';
+                  setSelectedSubject(next);
+                  // Chapter belongs to a subject — drop the selection when the
+                  // subject changes so we don't filter against a stale chapter id.
+                  setSelectedChapter('');
+                }}
               >
                 <option value="">All subjects</option>
                 {(subjects ?? []).map((s) => (
@@ -378,6 +395,22 @@ export const QuestionBankPage = () => {
                 ))}
               </Select>
             </div>
+            <Select
+              value={selectedChapter}
+              onChange={(e) =>
+                setSelectedChapter(e.target.value ? Number(e.target.value) : '')
+              }
+              disabled={selectedSubject === ''}
+              hint={selectedSubject === '' ? 'Pick a subject first' : undefined}
+            >
+              <option value="">All chapters</option>
+              {(chapters ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                  {c.standard_number !== undefined ? ` · Grade ${c.standard_number}` : ''}
+                </option>
+              ))}
+            </Select>
             {hasFilters && (
               <button
                 type="button"

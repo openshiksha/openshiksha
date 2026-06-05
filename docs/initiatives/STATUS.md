@@ -4,12 +4,17 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short — one row per initiative.
 
-**Last updated:** 2026-06-04 — V2 milestones largely closed. Today's second batch shipped M7-03 remaining (#197), M2-02 (#198), M3-03 (#199), Enquire-success fix (#200), M5-02 (#201), M6-01 (#202), M6-03 (#203) and M7-04 (this doc PR). See [legacy-feature-parity.md](legacy-feature-parity.md) for the new parity audit.
+**Last updated:** 2026-06-04 — **Interactive Widgets Framework promoted to #1
+active.** V2 "Chalk & Unlock" backlog is `[x]` end-to-end except for explicitly
+deferred non-goals (full a11y audit, axe-core CI gating, authenticated-surface
+visual snapshots) — promoted to ✅ closing so routines advance the next
+top priority.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | 🟢 Active | **M1, M2 (01+02+03), M3 (01+02+03+04), M4 (all), M5-01, M6-01, M6-02, M6-03 infra, M7-01/02/03/04/05 done.** The product wears one branded language end-to-end; the legacy `primary` blue is gone; tables overflow safely on mobile; the navbar is a11y-clean; a skip-link lands keyboard users on `<main>`; the AddToProblemSet dialog has full modal semantics; visual-regression spec is in place (baselines pending CI seed). **Remaining:** `M5-02` follow-ups (touch-target audit, PWA), `M6-03` baseline activation (commit Linux PNGs and unskip), `M7-03` Question Bank chapter-filter UI + assignment-list filters. | Pick from: **commit `M6-03` Linux baselines via CI** (small, unblocks visual-regression gating); **`ADMINS` env-var wiring** so concierge enquiry email stops no-op'ing (5 lines, called out in the parity audit); **Question Bank chapter-filter UI** (final M7-03 slice); or promote the **Accessibility Pass** backlog item to its own initiative now that a baseline a11y audit exists. |
-| — | [Cabinet Data Fidelity](cabinet-data-fidelity.md) (M7-03/06/08) | ✅ Done | Closing batch shipped (M7-08, M7-06, M7-03a/b, fidelity-audit guard) + proper taxonomy names baked into the importer. `audit_cabinet_fidelity --strict` is **green on the real 646-question corpus** (0 wrong-widget, 0 token leaks, 0 placeholders, every id→1 Q). Residuals: image count 138 (<500, follow-up) and the additive **M7-11 interactive widget** (in progress). | — |
+| 1 | [Interactive Widgets Framework](interactive-widgets-framework.md) | 🟢 Active | Just promoted (2026-06-04). M7-11 sandbox seed already shipped (#132 / [`InteractiveWidget.tsx`](../../frontend_modern/src/shared/ui/InteractiveWidget.tsx)). Full **IW-1 → IW-11** backlog written, **three authoring tiers** explicit: Tier 1 *Configure* (any teacher picks from registry + form), Tier 2 *Compose* (any teacher uses the in-app **Widget Studio** — drag primitives, wire bindings, save to school; no code), Tier 3 *Code* (`defineWidget()` + schema scaffold via `npm run widget:new`, hot-reloading playground, < 30 min for a new widget kind). All three tiers render through the **same** sandboxed iframe and pass through the same per-subpart grader. | **IW-1 — Runtime + SDK skeleton.** Convert the M7-11 host into a reusable runtime (typed `host.ts`/`runtime.ts`/`protocol.ts`); add an empty `registry.ts`; ship a "hello-widget" to prove the loop end-to-end; rewire `<InteractiveWidget>` through `_sdk/host.ts` so the legacy thermo path stays green. The teacher-facing Studio (IW-9 + IW-10) builds on this foundation. Full DoD in [the initiative doc](interactive-widgets-framework.md#d-backlog--iw-1--iw-11-each--one-reviewable-pr--batch-item). |
+| — | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | ✅ Closing | M1–M7 all `[x]` or `[~]` with documented activation steps. Final batch shipped 2026-06-04 (#188–#207) — M4 closed; M5-01/02, M6-01/02/03 (scaffold + workflow), M7-01/02/03/04/05 all shipped. Only one-click activations remain: run the [seed-visual-baselines](../../.github/workflows/seed-visual-baselines.yaml) workflow once for M6-03 baselines; set `OPENSHIKSHA_ADMIN_EMAILS` env in prod for concierge enquiry email (#205). | — (initiative closing) |
+| — | [Cabinet Data Fidelity](cabinet-data-fidelity.md) | ✅ Done | Closing batch shipped (M7-08, M7-06, M7-03a/b, fidelity-audit guard) + proper taxonomy names baked into the importer. `audit_cabinet_fidelity --strict` is **green on the real 646-question corpus**. M7-11 sandbox primitive shipped and now seeds the new **Interactive Widgets Framework** initiative. | — |
 
 ## Legend
 
@@ -23,18 +28,17 @@
 These are candidate long-horizon goals. Promote one to its own doc when it
 becomes the right next bet.
 
-- **[Interactive Widgets Framework](interactive-widgets-framework.md)** —
-  ⚪ written up. A registry + sandboxed runtime + authoring UX so new interactive
-  educational widgets (the thermo piston sim and successors) are easy to build and
-  safe to render. Seeded by Cabinet Data Fidelity's M7-11 sandbox primitive;
-  promote once that ships.
 - **Mobile shell** — bottom tab bar shipped 2026-06-04 (#195 / `M5-01`).
-  Remaining work for a proper proposal: route-level mobile layouts, PWA install,
-  offline-tolerant question viewing.
+  Remaining work for a proper proposal: route-level mobile layouts, PWA
+  install, offline-tolerant question viewing.
 - **AI tutor surface** — student-facing conversational help over the existing
-  hint + explanation backends.
+  hint + explanation backends. A branch (`ai/2026-06-04-ai-tutor-chat`,
+  commit `1e3c50f9`) has a Socratic chat coded but diverged ~5 000 lines from
+  `modernization`. Promotion = rebase, harden, formalise.
 - **Accessibility pass** — WCAG 2.1 AA across the migrated V2 surfaces. A
   focused baseline pass landed 2026-06-04 (M6-01 #202) — skip link, dialog
   semantics, image alts. Promote to its own initiative when ready for a
   full audit (keyboard walkthrough, screen-reader spot-check, axe-core CI).
-- **Performance budget** — route-level code-splitting, image/font optimisation.
+- **Performance budget** — route-level code-splitting, image/font
+  optimisation. The build warns `dist/assets/index-*.js 770 kB`; one bundle =
+  slow first paint on K-12 mobile networks.

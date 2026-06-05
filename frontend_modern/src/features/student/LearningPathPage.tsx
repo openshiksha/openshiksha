@@ -1,49 +1,105 @@
 import { useLearningPaths } from './useLearningPaths';
 import type { LearningPath, LearningPathStep } from './useLearningPaths';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { Badge, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
 
-const StepRow = ({ step, isCurrent }: { step: LearningPathStep; isCurrent: boolean }) => {
+const KeyholeOpen = () => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 16 16"
+    width="12"
+    height="12"
+    fill="none"
+    className="text-white"
+  >
+    <circle cx="8" cy="6" r="2" fill="currentColor" />
+    <path d="M7 8 L6.5 12 L9.5 12 L9 8 Z" fill="currentColor" />
+  </svg>
+);
+
+const KeyholeLocked = () => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 16 16"
+    width="12"
+    height="12"
+    fill="none"
+    className="text-ink-300"
+  >
+    <circle cx="8" cy="6" r="2" stroke="currentColor" strokeWidth="1.5" />
+    <path
+      d="M7 8 L6.5 12 L9.5 12 L9 8 Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const StepRow = ({
+  step,
+  isCurrent,
+  isLast,
+}: {
+  step: LearningPathStep;
+  isCurrent: boolean;
+  isLast: boolean;
+}) => {
   const isCompleted = step.status === 'completed';
   return (
-    <div
-      className={`flex items-start gap-3 py-3 border-b border-gray-100 last:border-0 ${
-        isCurrent ? 'bg-indigo-50 -mx-4 px-4 rounded-lg' : ''
-      }`}
-    >
+    <div className="relative">
+      {!isLast && (
+        <span
+          aria-hidden
+          className="absolute left-[11px] top-7 h-[calc(100%-0.5rem)] w-px bg-ink-100"
+        />
+      )}
       <div
-        className={`mt-0.5 shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-          isCompleted
-            ? 'bg-green-100 text-green-700'
-            : isCurrent
-              ? 'bg-indigo-600 text-white'
-              : 'bg-gray-100 text-gray-400'
+        className={`relative flex items-start gap-3 rounded-lg px-3 py-3 transition-colors ${
+          isCurrent ? 'bg-brand-50 ring-1 ring-brand-200' : ''
         }`}
       >
-        {isCompleted ? '✓' : step.position + 1}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p
-          className={`text-sm font-medium ${
-            isCompleted ? 'text-gray-400 line-through' : isCurrent ? 'text-gray-900' : 'text-gray-500'
+        <div
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            isCompleted
+              ? 'bg-emerald-100 text-emerald-700'
+              : isCurrent
+                ? 'bg-brand-600 text-white shadow-soft'
+                : 'bg-ink-100 text-ink-400'
           }`}
+          aria-hidden
         >
-          {step.chapter_name}
-        </p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          {step.subject_name}
-          {step.is_review && <span className="ml-2 text-amber-600">• Review</span>}
-          {isCompleted && step.score_when_completed !== null && (
-            <span className="ml-2 text-green-600">
-              {Math.round(step.score_when_completed * 100)}%
-            </span>
-          )}
-        </p>
+          {isCompleted ? '✓' : isCurrent ? <KeyholeOpen /> : <KeyholeLocked />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p
+            className={`text-sm font-medium ${
+              isCompleted
+                ? 'text-ink-400 line-through'
+                : isCurrent
+                  ? 'text-ink-900'
+                  : 'text-ink-500'
+            }`}
+          >
+            {step.chapter_name}
+          </p>
+          <p className="mt-0.5 text-xs text-ink-400">
+            {step.subject_name}
+            {step.is_review && (
+              <span className="ml-2 text-amber-700">• Review</span>
+            )}
+            {isCompleted && step.score_when_completed !== null && (
+              <span className="ml-2 text-emerald-700">
+                {Math.round(step.score_when_completed * 100)}%
+              </span>
+            )}
+          </p>
+        </div>
+        {isCurrent && (
+          <Badge tone="brand" className="shrink-0">
+            Up next
+          </Badge>
+        )}
       </div>
-      {isCurrent && (
-        <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
-          Up next
-        </span>
-      )}
     </div>
   );
 };
@@ -53,26 +109,41 @@ const PathCard = ({ path }: { path: LearningPath }) => {
   const sorted = [...path.steps].sort((a, b) => a.position - b.position);
   const currentIndex = (() => {
     const inProgress = sorted.findIndex((s) => s.status === 'in_progress');
-    return inProgress !== -1 ? inProgress : sorted.findIndex((s) => s.status === 'not_started');
+    return inProgress !== -1
+      ? inProgress
+      : sorted.findIndex((s) => s.status === 'not_started');
   })();
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">{path.status_display}</h3>
-        <span className="text-xs text-gray-500">
+    <div className="os-card p-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-display text-base font-semibold text-ink-900">
+          {path.status_display}
+        </h3>
+        <span className="text-xs text-ink-500">
           {path.completed_steps} / {path.total_steps} steps
         </span>
       </div>
-      <div className="h-2 bg-gray-100 rounded-full mb-4 overflow-hidden">
+      <div
+        className="mb-4 h-2 overflow-hidden rounded-full bg-ink-100"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progressPct}
+      >
         <div
-          className="h-full bg-indigo-500 rounded-full transition-all"
+          className="h-full rounded-full bg-brand-600 transition-all"
           style={{ width: `${progressPct}%` }}
         />
       </div>
       <div>
         {sorted.map((step, i) => (
-          <StepRow key={step.id} step={step} isCurrent={i === currentIndex} />
+          <StepRow
+            key={step.id}
+            step={step}
+            isCurrent={i === currentIndex}
+            isLast={i === sorted.length - 1}
+          />
         ))}
       </div>
     </div>
@@ -84,7 +155,7 @@ export const LearningPathPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
+      <div className="flex min-h-64 items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -93,20 +164,19 @@ export const LearningPathPage = () => {
   const activePaths = (paths ?? []).filter((p) => p.status !== 'completed');
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Your Learning Path</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Steps are ordered by mastery gaps from your practice history.
-        </p>
-      </div>
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      <SectionHeading
+        as="h1"
+        eyebrow="Unlock your next chapter"
+        title="Your Learning Path"
+        description="Steps are ordered by mastery gaps from your practice history."
+        className="mb-6"
+      />
       {activePaths.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-base font-medium">No learning paths yet</p>
-          <p className="text-sm mt-1">
-            Complete some practice assignments to generate your path.
-          </p>
-        </div>
+        <EmptyState
+          title="No learning paths yet"
+          description="Complete some practice assignments to generate your path."
+        />
       ) : (
         <div className="space-y-6">
           {activePaths.map((path) => (

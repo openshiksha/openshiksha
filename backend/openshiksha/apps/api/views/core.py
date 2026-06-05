@@ -318,13 +318,20 @@ class QuestionViewSet(viewsets.ModelViewSet):
         if subject := params.get("subject"):
             qs = qs.filter(subject_id=subject)
         if standard := params.get("standard"):
-            qs = qs.filter(standard_id=standard)
+            # Match the Browse endpoint (#194): callers send the standard number
+            # (1..12), not the PK. Keeps the QuestionBank's eventual Grade filter
+            # consistent with Browse.
+            qs = qs.filter(standard__number=standard)
         if difficulty := params.get("difficulty"):
             qs = qs.filter(difficulty=difficulty)
         if question_type := params.get("question_type"):
             qs = qs.filter(question_type=question_type)
 
-        return qs
+        # `search_fields` joins through subparts.question_text and tags.name —
+        # a question with two matching subparts (or several matching tags) would
+        # otherwise appear once per match. Deduplicate at the queryset level so
+        # paginated + non-paginated callers both see one row per question.
+        return qs.distinct()
 
     def perform_create(self, serializer):
         school = getattr(self.request.user, "school", None)

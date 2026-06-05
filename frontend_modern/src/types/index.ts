@@ -119,6 +119,28 @@ export interface HintSequence {
   generated_at: string;
 }
 
+export type TutorMessageRole = 'student' | 'tutor';
+
+export interface TutorMessage {
+  id: number;
+  role: TutorMessageRole;
+  content: string;
+  model_used: string;
+  created_at: string;
+}
+
+export interface TutorConversation {
+  id: number;
+  question_subpart: number | null;
+  title: string;
+  grade_level: number;
+  language: string;
+  message_count: number;
+  messages: TutorMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
 
 export interface Question {
   id: number;

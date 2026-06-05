@@ -22,6 +22,7 @@ from .views import (
     StudentMasteryViewSet,
     StudentMisconceptionViewSet,
     SubpartExplanationViewSet,
+    TutorConversationViewSet,
     WeeklyClassReportViewSet,
 )
 
@@ -65,5 +66,7 @@ router.register(
     QuestionDifficultyCalibrationViewSet,
     basename="difficulty-calibration",
 )
+# AI Tutor — student-facing Socratic chat (student-only)
+router.register("tutor", TutorConversationViewSet, basename="tutor-conversation")
 
 urlpatterns = router.urls

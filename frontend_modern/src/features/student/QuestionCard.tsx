@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { Question, QuestionSubpart, MCQOption, AIHint, SubpartType } from '@/types/index';
 import { RichContent, InteractiveWidget } from '@/shared/ui';
 import { useHints } from './useHints';
+import { AskTutorPanel } from './AskTutorPanel';
 
 interface QuestionCardProps {
   question: Question;
@@ -308,6 +309,8 @@ export const QuestionCard = ({
             )}
 
             {!isSubmitted && <AIHintPanel subpartId={subpart.id} />}
+
+            {!isSubmitted && <AskTutorPanel subpartId={subpart.id} />}
 
             {isSubmitted && subpart.solution_text && (
               <CollapsibleReveal

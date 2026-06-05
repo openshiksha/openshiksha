@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
+from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions, generate_tutor_reply
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
@@ -58,6 +58,9 @@ from .models import (
     StudentMastery,
     StudentMisconception,
     SubpartExplanation,
+    TutorConversation,
+    TutorMessage,
+    TutorMessageRole,
     WeeklyClassReport,
 )
 from .serializers import (
@@ -83,10 +86,12 @@ from .serializers import (
     OpenResponseRubricSerializer,
     ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
+    PostTutorMessageSerializer,
     PracticePlanSerializer,
     QuestionDifficultyCalibrationSerializer,
     ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
+    StartTutorConversationSerializer,
     StudentMasterySerializer,
     StudentMisconceptionSerializer,
     SubmitOpenResponseSerializer,
@@ -98,6 +103,8 @@ from .serializers import (
     TriggerMisconceptionClusterSerializer,
     TriggerRecommendationsSerializer,
     TriggerWeeklyReportSerializer,
+    TutorConversationListSerializer,
+    TutorConversationSerializer,
     UpdateInterventionStatusSerializer,
     WeeklyClassReportSerializer,
 )
@@ -1875,3 +1882,176 @@ class InterventionSuggestionViewSet(ReadOnlyModelViewSet):
             suggestion.save(update_fields=["status", "generated_at"])
 
         return Response(self.get_serializer(suggestion).data)
+
+
+class TutorConversationViewSet(ModelViewSet):
+    """
+    Student-facing AI Tutor — multi-turn Socratic chat.
+
+    list:     GET    /api/v1/ai/tutor/                — the student's own conversations
+                     GET /api/v1/ai/tutor/?subpart=<id>
+    retrieve: GET    /api/v1/ai/tutor/{id}/           — one conversation with all messages
+    create:   POST   /api/v1/ai/tutor/                — start a conversation
+                     body: {subpart_id?, message?, grade_level?, language?}
+    message:  POST   /api/v1/ai/tutor/{id}/message/   — post a follow-up message
+                     body: {message}
+
+    Each create/message call appends the student's turn, generates a tutor reply
+    synchronously via the LLM cascade, stores both, and returns the full
+    conversation. The tutor is prompted to guide Socratically and never reveal the
+    answer — the anchored subpart's correct answer is passed to the model only as
+    a guard-rail and is never serialised back to the student.
+
+    Only students (and open_students) may access this; each student sees only
+    their own conversations.
+    """
+
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
+
+    def _student_only(self, user):
+        return user.role in (UserRole.STUDENT, UserRole.OPEN_STUDENT)
+
+    def get_queryset(self):
+        user = self.request.user
+        if not self._student_only(user):
+            return TutorConversation.objects.none()
+        qs = TutorConversation.objects.filter(student=user).prefetch_related("messages")
+        if subpart_id := self.request.query_params.get("subpart"):
+            qs = qs.filter(question_subpart_id=subpart_id)
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return TutorConversationListSerializer
+        return TutorConversationSerializer
+
+    @staticmethod
+    def _subpart_context(subpart):
+        """Build the optional anchor context passed to the LLM."""
+        if subpart is None:
+            return {"question_text": "", "options": None, "correct_answer": None}
+        return {
+            "question_text": subpart.question_text or "",
+            "options": subpart.options,
+            "correct_answer": subpart.correct_answer or {},
+        }
+
+    def _generate_reply(self, conversation, student_message):
+        """Append the student turn, generate + store the tutor reply.
+
+        Returns the created tutor TutorMessage. Raises on LLM failure so the
+        caller can surface a 503 (the student turn is committed regardless so the
+        conversation isn't lost).
+        """
+        history = [{"role": m.role, "content": m.content} for m in conversation.messages.all()]
+        TutorMessage.objects.create(
+            conversation=conversation,
+            role=TutorMessageRole.STUDENT,
+            content=student_message,
+        )
+
+        ctx = self._subpart_context(conversation.question_subpart)
+        result = generate_tutor_reply(
+            student_message=student_message,
+            history=history,
+            grade_level=conversation.grade_level,
+            language=conversation.language,
+            **ctx,
+        )
+        tutor_msg = TutorMessage.objects.create(
+            conversation=conversation,
+            role=TutorMessageRole.TUTOR,
+            content=result["text"],
+            model_used=result["model"],
+            input_tokens=result["input_tokens"],
+            output_tokens=result["output_tokens"],
+        )
+        # Touch updated_at so the history list re-sorts to the top.
+        conversation.save(update_fields=["updated_at"])
+        return tutor_msg
+
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        if not self._student_only(user):
+            return Response(
+                {"detail": "Only students can use the tutor."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = StartTutorConversationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        subpart = None
+        if subpart_id := d.get("subpart_id"):
+            try:
+                subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+            except QuestionSubpart.DoesNotExist:
+                return Response({"detail": "Subpart not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        grade_level = d.get("grade_level") or user.grade or 8
+        first_message = (d.get("message") or "").strip()
+
+        conversation = TutorConversation.objects.create(
+            student=user,
+            question_subpart=subpart,
+            grade_level=grade_level,
+            language=d.get("language", "en"),
+            title=first_message[:120],
+        )
+
+        if first_message:
+            try:
+                self._generate_reply(conversation, first_message)
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).exception("generate_tutor_reply: unexpected error")
+                # Keep the conversation + the student's message; signal degraded reply.
+                return Response(
+                    {
+                        "detail": "The tutor is unavailable right now. Your message was saved — please try again.",
+                        "conversation": TutorConversationSerializer(conversation).data,
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+        conversation.refresh_from_db()
+        return Response(
+            TutorConversationSerializer(conversation).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="message")
+    def message(self, request, pk=None):
+        """Post a follow-up message to an existing conversation."""
+        conversation = self.get_object()  # already scoped to this student
+
+        serializer = PostTutorMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student_message = serializer.validated_data["message"].strip()
+        if not student_message:
+            return Response(
+                {"detail": "Message cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Backfill a title if the conversation was started empty.
+        if not conversation.title:
+            conversation.title = student_message[:120]
+            conversation.save(update_fields=["title"])
+
+        try:
+            self._generate_reply(conversation, student_message)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_tutor_reply: unexpected error")
+            return Response(
+                {"detail": "The tutor is unavailable right now. Your message was saved — please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        conversation.refresh_from_db()
+        return Response(TutorConversationSerializer(conversation).data)

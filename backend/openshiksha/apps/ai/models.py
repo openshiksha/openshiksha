@@ -1899,3 +1899,117 @@ class QuestionDifficultyCalibration(models.Model):
     def needs_review(self) -> bool:
         """True when the item is flagged with anything other than OK."""
         return self.flag != CalibrationFlag.OK
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Tutor (student-facing conversational help)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TutorMessageRole(models.TextChoices):
+    STUDENT = "student", "Student"
+    TUTOR = "tutor", "Tutor"
+
+
+class TutorConversation(models.Model):
+    """
+    A multi-turn Socratic chat between a student and the AI tutor.
+
+    Unlike the cached, student-agnostic HintSequence (one set of hints reused for
+    every student), a conversation is personal and stateful: it remembers the
+    back-and-forth so the tutor can build on what the student has already said.
+
+    A conversation may be *anchored* to a specific QuestionSubpart (the common
+    case — "help me with this question") so the tutor has the question text,
+    options and correct answer as private context. The correct answer is given to
+    the LLM only as a guard-rail ("guide toward this, never state it outright") —
+    it is never serialised back to the student. A conversation may also be
+    unanchored (free-form "explain photosynthesis") with no subpart.
+
+    Replies are generated synchronously by the LLM cascade
+    (Claude → Gemini → Ollama → stub) so the chat feels live.
+    """
+
+    student = models.ForeignKey(
+        "core.User",
+        on_delete=models.CASCADE,
+        related_name="tutor_conversations",
+        limit_choices_to={"role__in": ["student", "open_student"]},
+    )
+    question_subpart = models.ForeignKey(
+        "core.QuestionSubpart",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tutor_conversations",
+        help_text="Optional anchor — the question the student is asking about.",
+    )
+    title = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Short label derived from the student's first message.",
+    )
+    grade_level = models.PositiveSmallIntegerField(
+        default=8,
+        validators=[MinValueValidator(1), MaxValueValidator(12)],
+        help_text="Grade level used to calibrate the tutor's language.",
+    )
+    language = models.CharField(
+        max_length=5,
+        choices=ExplanationLanguage.choices,
+        default=ExplanationLanguage.ENGLISH,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ai_tutor_conversations"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["student", "-updated_at"]),
+            models.Index(fields=["question_subpart"]),
+        ]
+
+    def __str__(self):
+        return f"TutorConversation #{self.pk}: {self.student} ({self.title or 'untitled'})"
+
+    @property
+    def message_count(self) -> int:
+        return self.messages.count()
+
+
+class TutorMessage(models.Model):
+    """
+    A single turn in a TutorConversation, by either the student or the tutor.
+
+    Token/model fields are populated only on tutor turns (student turns cost
+    nothing). Ordering by ``created_at`` reconstructs the dialogue and is what we
+    replay to the LLM as history on each new turn.
+    """
+
+    conversation = models.ForeignKey(
+        TutorConversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    role = models.CharField(max_length=10, choices=TutorMessageRole.choices)
+    content = models.TextField()
+
+    model_used = models.CharField(max_length=60, blank=True, default="")
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "ai_tutor_messages"
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["conversation", "created_at"]),
+        ]
+
+    def __str__(self):
+        preview = (self.content or "")[:40]
+        return f"TutorMessage #{self.pk} ({self.role}): {preview}"

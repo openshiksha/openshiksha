@@ -21,6 +21,8 @@ from .models import (
     StudentMastery,
     StudentMisconception,
     SubpartExplanation,
+    TutorConversation,
+    TutorMessage,
     WeeklyClassReport,
 )
 
@@ -474,3 +476,39 @@ class QuestionDifficultyCalibrationAdmin(admin.ModelAdmin):
         "computed_at",
     ]
     list_select_related = ["subject_room__subject", "question_subpart"]
+
+
+class TutorMessageInline(admin.TabularInline):
+    model = TutorMessage
+    extra = 0
+    fields = ["role", "content", "model_used", "created_at"]
+    readonly_fields = ["role", "content", "model_used", "created_at"]
+    can_delete = False
+
+
+@admin.register(TutorConversation)
+class TutorConversationAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "student",
+        "title",
+        "question_subpart",
+        "grade_level",
+        "language",
+        "message_count",
+        "updated_at",
+    ]
+    list_filter = ["language", "grade_level"]
+    search_fields = ["title", "student__username"]
+    readonly_fields = ["student", "question_subpart", "created_at", "updated_at"]
+    list_select_related = ["student", "question_subpart"]
+    inlines = [TutorMessageInline]
+
+
+@admin.register(TutorMessage)
+class TutorMessageAdmin(admin.ModelAdmin):
+    list_display = ["id", "conversation", "role", "model_used", "created_at"]
+    list_filter = ["role"]
+    search_fields = ["content"]
+    readonly_fields = ["conversation", "role", "content", "model_used", "created_at"]
+    list_select_related = ["conversation"]

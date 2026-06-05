@@ -23,6 +23,8 @@ from .models import (
     StudentMastery,
     StudentMisconception,
     SubpartExplanation,
+    TutorConversation,
+    TutorMessage,
     WeeklyClassReport,
 )
 
@@ -723,3 +725,74 @@ class UpdateInterventionStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
         choices=["acknowledged", "dismissed", "resolved"],
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# AI Tutor
+# ─────────────────────────────────────────────────────────────
+
+
+class TutorMessageSerializer(serializers.ModelSerializer):
+    """A single chat turn. Token/model fields are exposed for transparency."""
+
+    class Meta:
+        model = TutorMessage
+        fields = ["id", "role", "content", "model_used", "created_at"]
+        read_only_fields = fields
+
+
+class TutorConversationSerializer(serializers.ModelSerializer):
+    """Full conversation including its ordered messages."""
+
+    messages = TutorMessageSerializer(many=True, read_only=True)
+    message_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = TutorConversation
+        fields = [
+            "id",
+            "question_subpart",
+            "title",
+            "grade_level",
+            "language",
+            "message_count",
+            "messages",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class TutorConversationListSerializer(serializers.ModelSerializer):
+    """Lightweight conversation row for the history list (no message bodies)."""
+
+    message_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = TutorConversation
+        fields = [
+            "id",
+            "question_subpart",
+            "title",
+            "grade_level",
+            "language",
+            "message_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class StartTutorConversationSerializer(serializers.Serializer):
+    """Request body for starting a conversation (optionally with a first message)."""
+
+    subpart_id = serializers.IntegerField(required=False, allow_null=True)
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+    grade_level = serializers.IntegerField(min_value=1, max_value=12, required=False, allow_null=True)
+    language = serializers.ChoiceField(choices=["en", "hi"], required=False, default="en")
+
+
+class PostTutorMessageSerializer(serializers.Serializer):
+    """Request body for posting a follow-up message to an existing conversation."""
+
+    message = serializers.CharField()

@@ -1572,3 +1572,225 @@ def generate_intervention_plan(
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# AI Tutor (multi-turn Socratic chat)
+# ─────────────────────────────────────────────────────────────
+
+TUTOR_MAX_TOKENS = 500
+
+
+def _build_tutor_system_prompt(
+    question_text: str,
+    options: list[dict] | None,
+    correct_answer: dict | None,
+    grade_level: int,
+    language: str,
+) -> str:
+    """System prompt that makes the assistant a Socratic tutor, not an answer key."""
+    tier = _grade_tier(grade_level)
+    lang_instruction = " Respond in Hindi (Devanagari script)." if language == "hi" else ""
+
+    context_block = ""
+    if question_text:
+        lines = [f"The student is working on this question:\n{question_text}"]
+        if options:
+            opt_lines = "\n".join(f"  {opt.get('key', '?')}. {opt.get('text', '')}" for opt in options)
+            lines.append(f"Options:\n{opt_lines}")
+        if correct_answer:
+            answer_value = correct_answer.get("answer", "")
+            if answer_value != "":
+                # Given to the tutor ONLY as a guard-rail — never reveal it.
+                lines.append(
+                    f"(For your reference only — the correct answer is "
+                    f"'{_answer_text(options, answer_value)}'. NEVER state this "
+                    f"answer outright; guide the student to reach it themselves.)"
+                )
+        context_block = "\n\n" + "\n\n".join(lines)
+
+    return (
+        f"You are a warm, patient tutor for a student in {tier}\n"
+        f"Teach through the Socratic method: ask one short leading question at a "
+        f"time, build on what the student already understands, and help them reason "
+        f"their way to the answer. Praise genuine effort.\n\n"
+        f"Hard rules:\n"
+        f"- NEVER give the final answer directly, even if the student asks or is "
+        f"frustrated. Instead, give a smaller hint or a guiding question.\n"
+        f"- Keep each reply short (1–3 sentences) and end with a question that "
+        f"invites the student to take the next step.\n"
+        f"- Stay on the academic topic; gently redirect off-topic chat.\n"
+        f"- Use language appropriate for {tier}{lang_instruction}"
+        f"{context_block}"
+    )
+
+
+def _stub_tutor_reply(history: list[dict], student_message: str) -> str:
+    """Deterministic guiding reply when no LLM provider is configured."""
+    first_turn = not any(m.get("role") == "tutor" for m in history)
+    if first_turn:
+        return (
+            "Good question! Let's work through it together. What do you already "
+            "know about this problem, and where exactly do you get stuck?"
+        )
+    return (
+        "You're on the right track — let's take it one step at a time. What do you "
+        "think the very next step should be, and why?"
+    )
+
+
+def _anthropic_chat_messages(history: list[dict], student_message: str) -> list[dict]:
+    """Map tutor history (+ the new student turn) to Anthropic user/assistant roles."""
+    role_map = {"student": "user", "tutor": "assistant"}
+    messages = [{"role": role_map.get(m["role"], "user"), "content": m["content"]} for m in history if m.get("content")]
+    messages.append({"role": "user", "content": student_message})
+    return messages
+
+
+def _call_anthropic_chat(system: str, messages: list[dict], api_key: str) -> dict:
+    import anthropic
+    from anthropic.types import TextBlock
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=TUTOR_MAX_TOKENS,
+        system=system,
+        messages=messages,
+    )
+    text_blocks = [b for b in message.content if isinstance(b, TextBlock)]
+    text = text_blocks[0].text.strip() if text_blocks else ""
+    return {
+        "text": text,
+        "model": message.model,
+        "input_tokens": message.usage.input_tokens,
+        "output_tokens": message.usage.output_tokens,
+    }
+
+
+def _call_google_chat(system: str, messages: list[dict], api_key: str) -> dict:
+    from google import genai
+    from google.genai import types
+
+    model = _google_ai_model()
+    client = genai.Client(api_key=api_key)
+    role_map = {"user": "user", "assistant": "model"}
+    contents = [
+        types.Content(
+            role=role_map.get(m["role"], "user"),
+            parts=[types.Part(text=m["content"])],
+        )
+        for m in messages
+    ]
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=TUTOR_MAX_TOKENS,
+            temperature=0.7,
+        ),
+    )
+    text = response.text.strip() if response.text else ""
+    usage = getattr(response, "usage_metadata", None)
+    return {
+        "text": text,
+        "model": model,
+        "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+        "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+    }
+
+
+def _call_ollama_chat(system: str, messages: list[dict], base_url: str) -> dict:
+    import httpx
+
+    model = _ollama_model()
+    url = f"{base_url.rstrip('/')}/api/chat"
+    chat_messages = [{"role": "system", "content": system}] + messages
+    payload = {
+        "model": model,
+        "messages": chat_messages,
+        "stream": False,
+        "options": {"num_predict": TUTOR_MAX_TOKENS, "temperature": 0.7},
+    }
+    resp = httpx.post(url, json=payload, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
+    text = (data.get("message", {}) or {}).get("content", "").strip()
+    return {
+        "text": text,
+        "model": f"ollama/{model}",
+        "input_tokens": data.get("prompt_eval_count", 0),
+        "output_tokens": data.get("eval_count", 0),
+    }
+
+
+def generate_tutor_reply(
+    student_message: str,
+    history: list[dict],
+    question_text: str = "",
+    options: list[dict] | None = None,
+    correct_answer: dict | None = None,
+    grade_level: int = 8,
+    language: str = "en",
+) -> dict:
+    """
+    Generate the tutor's next reply in a Socratic chat.
+
+    Args:
+        student_message: the student's newest message (not yet in ``history``).
+        history: prior turns, oldest first, each ``{"role": "student"|"tutor",
+                 "content": str}``.
+        question_text/options/correct_answer: optional anchor context. The correct
+                 answer is used only as a guard-rail and is never revealed.
+
+    Provider cascade (first available wins): Anthropic → Google AI Studio →
+    Ollama → stub. Always returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    system = _build_tutor_system_prompt(
+        question_text=question_text,
+        options=options,
+        correct_answer=correct_answer,
+        grade_level=grade_level,
+        language=language,
+    )
+    messages = _anthropic_chat_messages(history, student_message)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_tutor_reply: using Anthropic Claude")
+            result = _call_anthropic_chat(system, messages, anthropic_key)
+            if result["text"]:
+                return result
+        except Exception:
+            logger.exception("generate_tutor_reply: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_tutor_reply: using Google AI Studio")
+            result = _call_google_chat(system, messages, google_key)
+            if result["text"]:
+                return result
+        except Exception:
+            logger.exception("generate_tutor_reply: Google AI Studio call failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_tutor_reply: using Ollama at %s", ollama_url)
+            result = _call_ollama_chat(system, messages, ollama_url)
+            if result["text"]:
+                return result
+        except Exception:
+            logger.exception("generate_tutor_reply: Ollama failed, falling back to stub")
+
+    logger.warning("generate_tutor_reply: no LLM provider available — returning stub")
+    return {
+        "text": _stub_tutor_reply(history, student_message),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }

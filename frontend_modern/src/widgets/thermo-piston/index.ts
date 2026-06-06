@@ -92,7 +92,7 @@ export default defineWidget({
         cursor: pointer; font-size: 14px; min-width: 80px;
       }
       .tp-btn:hover { background: #FFF4E5; }
-      .tp-btn:active { transform: translateY(1px); }
+      .tp-btn:active { background: #FFE5C4; }
       .tp-btn-group { display: flex; gap: 6px; }
       .tp-vars { font-size: 13px; color: #4B463E; margin: 0; }
       .tp-reset { font-size: 12px; color: #4B463E; background: transparent; border: 0; cursor: pointer; text-decoration: underline; padding: 0; }
@@ -217,7 +217,12 @@ export default defineWidget({
     rod.setAttribute('fill', '#4B463E');
     svg.appendChild(rod);
 
-    // Heat zone strip below — colour shifts red ↔ blue with sign of Q.
+    // Heat zone strip below — colour shifts red ↔ blue with sign of Q,
+    // and a stylised flame / snowflake glyph fades in to echo the legacy
+    // widget's `7.gif` (fire) / `9.png` (ice) sprite swap. Drawing the
+    // glyphs **inline as SVG** keeps the widget self-contained: the
+    // sandbox is opaque-origin, so a raster fetch from the app would add
+    // a network round-trip + CORS surface for no real visual gain.
     const heatStrip = document.createElementNS(SVG_NS, 'rect');
     heatStrip.setAttribute('x', '40');
     heatStrip.setAttribute('y', '260');
@@ -227,8 +232,66 @@ export default defineWidget({
     heatStrip.setAttribute('fill', '#E7E2D3');
     svg.appendChild(heatStrip);
 
+    // Flame icon — a soft teardrop with an inner highlight. Sits on the
+    // left of the heat strip when Q > 0. Width ≈ 22 px so it doesn't
+    // crowd the label text.
+    const fireGroup = document.createElementNS(SVG_NS, 'g');
+    fireGroup.setAttribute('opacity', '0');
+    const fireOuter = document.createElementNS(SVG_NS, 'path');
+    fireOuter.setAttribute(
+      'd',
+      // M start near base, curl up on the left, peak with a small kick to
+      // the right (the "tongue"), then come back down — a stylised flame.
+      'M55 290 Q47 281 50 272 Q55 263 58 270 Q60 263 62 267 Q66 257 65 270 Q70 277 67 285 Q63 293 55 290 Z',
+    );
+    fireOuter.setAttribute('fill', '#F97316');
+    const fireInner = document.createElementNS(SVG_NS, 'path');
+    fireInner.setAttribute('d', 'M58 288 Q54 281 57 275 Q60 270 61 277 Q64 281 62 285 Q60 290 58 288 Z');
+    fireInner.setAttribute('fill', '#FDE68A');
+    fireGroup.appendChild(fireOuter);
+    fireGroup.appendChild(fireInner);
+    svg.appendChild(fireGroup);
+
+    // Snowflake icon — six-fold radial of short lines with end-tick branches.
+    // Sits on the left of the heat strip when Q < 0. Centred at (58, 278).
+    const iceGroup = document.createElementNS(SVG_NS, 'g');
+    iceGroup.setAttribute('opacity', '0');
+    iceGroup.setAttribute('stroke', '#3B82F6');
+    iceGroup.setAttribute('stroke-width', '1.4');
+    iceGroup.setAttribute('stroke-linecap', 'round');
+    const iceCx = 58;
+    const iceCy = 278;
+    const armLen = 9;
+    const branchLen = 3;
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i;
+      const ex = iceCx + Math.cos(a) * armLen;
+      const ey = iceCy + Math.sin(a) * armLen;
+      const arm = document.createElementNS(SVG_NS, 'line');
+      arm.setAttribute('x1', String(iceCx));
+      arm.setAttribute('y1', String(iceCy));
+      arm.setAttribute('x2', String(ex));
+      arm.setAttribute('y2', String(ey));
+      iceGroup.appendChild(arm);
+      // Two angled branches partway along each arm — classic snowflake.
+      for (const sign of [-1, 1] as const) {
+        const mx = iceCx + Math.cos(a) * (armLen * 0.55);
+        const my = iceCy + Math.sin(a) * (armLen * 0.55);
+        const ba = a + sign * (Math.PI / 3);
+        const bx = mx + Math.cos(ba) * branchLen;
+        const by = my + Math.sin(ba) * branchLen;
+        const branch = document.createElementNS(SVG_NS, 'line');
+        branch.setAttribute('x1', String(mx));
+        branch.setAttribute('y1', String(my));
+        branch.setAttribute('x2', String(bx));
+        branch.setAttribute('y2', String(by));
+        iceGroup.appendChild(branch);
+      }
+    }
+    svg.appendChild(iceGroup);
+
     const heatLabel = document.createElementNS(SVG_NS, 'text');
-    heatLabel.setAttribute('x', '100');
+    heatLabel.setAttribute('x', '108'); // shifted right so it doesn't overlap the icon
     heatLabel.setAttribute('y', '283');
     heatLabel.setAttribute('text-anchor', 'middle');
     heatLabel.setAttribute('font-size', '13');
@@ -371,18 +434,26 @@ export default defineWidget({
       const norm = Math.max(-1, Math.min(1, u / 200));
       energyAmplitude = Math.max(0.4, Math.min(6, 1 + norm * 4));
 
-      // Heat strip — red for Q>0, blue for Q<0, neutral for 0.
+      // Heat strip — red for Q>0, blue for Q<0, neutral for 0. The flame
+      // / snowflake icons fade in proportionally to |Q| so a tiny nudge on
+      // the slider gives a tiny glyph and a full swing gives a full one.
       let fill = '#E7E2D3';
       let label = 'no heat flow';
+      let fireOpacity = 0;
+      let iceOpacity = 0;
       if (q > 0) {
         fill = '#FCA5A5';
         label = 'heat in (warming)';
+        fireOpacity = Math.min(1, q / 100);
       } else if (q < 0) {
         fill = '#93C5FD';
         label = 'heat out (cooling)';
+        iceOpacity = Math.min(1, -q / 100);
       }
       heatStrip.setAttribute('fill', fill);
       heatLabel.textContent = label;
+      fireGroup.setAttribute('opacity', fireOpacity.toFixed(2));
+      iceGroup.setAttribute('opacity', iceOpacity.toFixed(2));
     }
     paint();
 
@@ -421,15 +492,20 @@ export default defineWidget({
       q = parseInt(slider.value, 10) || 0;
       paint();
     });
+    // No `ctx.requestResize()` here on purpose — the SVG is a fixed
+    // 180×270 box, so the iframe content size doesn't change when the
+    // piston moves. Calling requestResize would re-post a `resize`
+    // message whose value can drift by a pixel against the host's `+4`
+    // buffer, ratcheting the iframe height a pixel taller on every
+    // click. The runtime's ResizeObserver still catches any *real*
+    // content-size change.
     btnUp.addEventListener('click', () => {
       w = Math.min(workMax, w + workStep);
       paint();
-      ctx.requestResize();
     });
     btnDown.addEventListener('click', () => {
       w = Math.max(-workMax, w - workStep);
       paint();
-      ctx.requestResize();
     });
     resetBtn.addEventListener('click', () => {
       q = 0;

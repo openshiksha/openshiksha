@@ -21,6 +21,7 @@ from .models import (
     Subject,
     SubjectRoom,
     Submission,
+    TeacherWidget,
     User,
 )
 
@@ -236,3 +237,12 @@ class ClassroomInviteCodeAdmin(admin.ModelAdmin):
     search_fields = ["code", "classroom__school__name", "created_by__username"]
     raw_id_fields = ["created_by"]
     readonly_fields = ["created_at"]
+
+
+@admin.register(TeacherWidget)
+class TeacherWidgetAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "visibility", "created_by", "scene_version", "updated_at"]
+    list_filter = ["visibility", "school"]
+    search_fields = ["name", "description", "created_by__username"]
+    raw_id_fields = ["created_by", "school"]
+    readonly_fields = ["created_at", "updated_at"]

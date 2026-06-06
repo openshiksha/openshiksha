@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:custom-html/v1",
+  "title": "custom-html widget params",
+  "description": "Per-question configuration for the custom-html escape-hatch widget. ADMIN-ONLY — the teacher gallery (IW-5) must filter this kind out so only school admins can attach raw HTML to a question.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["html"],
+  "properties": {
+    "html": {
+      "type": "string",
+      "description": "Raw HTML body the widget renders inside the sandbox. May contain inline or `src`-style `<script>` tags; the widget re-executes them in document order after innerHTML insertion. {{var}} tokens in this string are substituted server-side by the croupier (IW-3b)."
+    }
+  }
+}

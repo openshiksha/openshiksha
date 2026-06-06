@@ -233,6 +233,33 @@ export const DesignSystemPage = () => (
         </p>
       </Section>
 
+      <Section kicker="Interactive Widgets · IW-7" title="custom-html — the escape hatch">
+        <p className="mb-3 text-sm text-ink-500">
+          The last piece of the framework: an admin-only registry kind whose
+          single config field is a raw HTML string. With this in the registry,
+          the legacy <code>interactive_html</code> field is now deprecated —
+          every authoring path on the platform flows through the same
+          sandboxed host. <code>{'<script>'}</code> tags inside the HTML run
+          (the widget re-executes them in document order after innerHTML
+          insertion).
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={140}
+            kind="custom-html"
+            config={{
+              html:
+                '<p style="margin:0 0 8px 0">Authored HTML — the script below runs in the sandbox:</p>' +
+                '<input id="r" type="range" min="0" max="10" value="3" style="width:160px" />' +
+                '<p style="margin:8px 0 0 0">Value: <b id="out">3</b></p>' +
+                '<script>(function(){var r=document.getElementById("r"),' +
+                'o=document.getElementById("out");' +
+                'r.addEventListener("input",function(){o.textContent=r.value;});})();</script>',
+            }}
+          />
+        </Card>
+      </Section>
+
       <Section kicker="Interactive Widgets · IW-2" title="thermo-piston (legacy Class-11 sim, re-skinned)">
         <p className="mb-3 text-sm text-ink-500">
           The first non-stub widget on the framework: a re-implementation of

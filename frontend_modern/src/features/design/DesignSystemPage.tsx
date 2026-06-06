@@ -233,6 +233,27 @@ export const DesignSystemPage = () => (
         </p>
       </Section>
 
+      <Section kicker="Interactive Widgets · IW-2" title="thermo-piston (legacy Class-11 sim, re-skinned)">
+        <p className="mb-3 text-sm text-ink-500">
+          The first non-stub widget on the framework: a re-implementation of
+          Cabinet question <code>1/1/11/3/44/22</code> (Class-11 Thermodynamics,
+          First Law). Same physics (ΔU = ΔQ − ΔW) and the same slider /
+          piston / readout story as the legacy — but no jQuery, no embedded
+          <code>&lt;script&gt;</code>, no Bootstrap glyphicons. ~280 KB of
+          vendor head dropped; ~3 KB of vanilla SVG took its place. Per-student
+          variables flow through <code>ctx.variables</code> the same way the
+          croupier substitutes them server-side.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={160}
+            kind="thermo-piston"
+            config={{}}
+            variables={{ k: 80, j: 30 }}
+          />
+        </Card>
+      </Section>
+
       <Section kicker="Components" title="Form inputs">
         <Card className="grid gap-4 sm:grid-cols-2">
           <Input label="Full name" placeholder="Aanya Sharma" />

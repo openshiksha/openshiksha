@@ -22,14 +22,19 @@ from django.db import transaction
 
 from openshiksha.apps.core.models import QuestionSubpart
 
-# Initial config for the React thermo-piston widget (IW-2 lands the widget
-# itself). These constants mirror the legacy inline-JS's starting values; the
-# per-student {{a}} substitution still happens at serializer time because the
-# legacy variable_constraints stay on the row.
+# Initial config for the thermo-piston widget (IW-2). Bounds mirror the
+# legacy jQuery-UI slider's min:-200 / max:200 and the piston's ~200 px of
+# vertical travel. The per-student substitution still happens at serializer
+# time (IW-3b), but none of the *legacy* variables (`k`, `j`) are direct
+# widget inputs — they are answer-related values the student sees in the
+# question text, and the widget surfaces them via `ctx.variables` as a hint
+# instead of binding them to controls.
 DEFAULT_THERMO_CONFIG: dict = {
-    "initialVolume": "{{a}}",
-    "maxHeat": 100,
-    "title": "Thermodynamics: piston & First Law",
+    "heatMin": -200,
+    "heatMax": 200,
+    "workMax": 200,
+    "workStep": 5,
+    "title": "Thermodynamics — piston & First Law",
 }
 
 THERMO_WIDGET_KIND = "thermo-piston"

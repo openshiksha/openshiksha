@@ -93,7 +93,10 @@ const InteractiveWidgetImpl = ({
   const errorMessage = reportedError && reportedError.srcDoc === srcDoc ? reportedError.message : null;
 
   useEffect(() => {
-    const grow = (h: number) => setHeight(Math.max(minHeight, Math.ceil(h) + 16));
+    // The reported height already includes the runtime body's own padding
+    // (12 px top/bottom), so we only need a small visual buffer here.
+    // Adding the previous +16 left a chunk of unused space below the widget.
+    const grow = (h: number) => setHeight(Math.max(minHeight, Math.ceil(h) + 4));
     return createHostBridge(() => iframeRef.current, {
       onLegacyHeight: grow,
       onResize: (msg) => grow(msg.height),

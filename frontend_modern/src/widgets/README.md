@@ -26,16 +26,23 @@ teacher gallery (IW-5). User-visible widgets use plain kind names —
 
 ## Adding a new widget kind
 
-A widget is **one file + one registry entry**. From inside this folder:
+A widget is **one folder + one registry entry**. Use the scaffolder:
 
-1. Create `src/widgets/<kind>/index.ts` (or `.tsx` once React-in-sandbox lands
-   with IW-2) that default-exports a `defineWidget({...})` call.
-2. Append `<kind>` to `widgetRegistry` in `registry.ts`.
-3. Add the same key to `KNOWN_WIDGET_KINDS` in
-   `backend/openshiksha/apps/core/widgets.py` so the writable serializer
-   accepts it.
+```bash
+cd frontend_modern
+npm run widget:new number-line
+```
 
-The scaffolder (`npm run widget:new <kind>`, IW-8) automates 1 + 2.
+That creates `src/widgets/number-line/{index.ts, params.schema.json,
+README.md}` from a stub and patches `registry.ts` (import + entry) at the
+`widget:new` anchor comments. The one manual step left is adding the
+kind to `KNOWN_WIDGET_KINDS` in
+`backend/openshiksha/apps/core/widgets.py` so the writable serializer
+accepts it — the script prints a reminder at the end.
+
+See [`docs/widgets/anatomy.md`](../../../docs/widgets/anatomy.md) for the
+canonical SDK reference (`defineWidget` API, `ctx` hooks, render
+constraints, wire protocol, security model).
 
 ### Render-function constraints
 

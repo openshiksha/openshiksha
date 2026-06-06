@@ -9,7 +9,10 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./src/test-setup.ts'],
     // Vitest runs unit tests only — Playwright owns e2e/ (see playwright.config.ts).
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // `scripts/` holds dev-tooling Node scripts (e.g. the IW-8 widget
+    // scaffolder); their tests live next to the script so coverage stays
+    // local and discoverable.
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.{test,spec}.mjs'],
     exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -246,7 +246,7 @@ export const DesignSystemPage = () => (
         </p>
         <Card>
           <InteractiveWidget
-            minHeight={360}
+            minHeight={160}
             kind="thermo-piston"
             config={{}}
             variables={{ k: 80, j: 30 }}

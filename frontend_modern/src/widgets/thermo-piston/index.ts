@@ -115,9 +115,13 @@ export default defineWidget({
 
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 200 320');
+    // viewBox: y=0 at the very top of the rod, cylinder opening at y=40,
+    // cylinder bottom at y=250, heat strip down to y=300. The 40 px above
+    // the cylinder is *where the rod sticks out* when the piston is high
+    // — it is not blank padding, so we keep it tight.
+    svg.setAttribute('viewBox', '0 0 200 300');
     svg.setAttribute('width', '180');
-    svg.setAttribute('height', '288');
+    svg.setAttribute('height', '270');
     svg.setAttribute('aria-label', 'Piston cylinder with heat source');
 
     // Cylinder walls (open at top).
@@ -191,17 +195,25 @@ export default defineWidget({
       });
     }
 
-    // Piston (slab + rod).
+    // Piston (slab + rod). The slab is a fixed 14 px slice that slides
+    // vertically. The rod is a slim **fixed-length** rectangle whose
+    // bottom edge stays glued to the top of the slab — it shouldn't
+    // grow/shrink as the piston moves; it just translates with it. (The
+    // previous build sized the rod from `pistonY`, which meant it
+    // ballooned wider/taller on compression and clipped through the gas.)
     const piston = document.createElementNS(SVG_NS, 'rect');
-    piston.setAttribute('x', '38');
-    piston.setAttribute('width', '124');
+    piston.setAttribute('x', '40');
+    piston.setAttribute('width', '120');
     piston.setAttribute('height', '14');
     piston.setAttribute('fill', '#4B463E');
     svg.appendChild(piston);
 
+    const ROD_WIDTH = 6;
+    const ROD_HEIGHT = 36; // fixed; rod just translates with the piston
     const rod = document.createElementNS(SVG_NS, 'rect');
-    rod.setAttribute('x', '96');
-    rod.setAttribute('width', '8');
+    rod.setAttribute('x', String(100 - ROD_WIDTH / 2));
+    rod.setAttribute('width', String(ROD_WIDTH));
+    rod.setAttribute('height', String(ROD_HEIGHT));
     rod.setAttribute('fill', '#4B463E');
     svg.appendChild(rod);
 
@@ -336,8 +348,10 @@ export default defineWidget({
       const PISTON_Y_MAX = 200;
       const pistonY = Math.max(PISTON_Y_MIN, Math.min(PISTON_Y_MAX, baseY - (w / workMax) * range));
       piston.setAttribute('y', String(pistonY));
-      rod.setAttribute('y', String(pistonY - 30));
-      rod.setAttribute('height', String(pistonY - 5));
+      // Rod's BOTTOM edge sits on the top of the piston slab; height is the
+      // fixed `ROD_HEIGHT` constant so it doesn't change size as the piston
+      // moves. Only its `y` translates.
+      rod.setAttribute('y', String(pistonY - ROD_HEIGHT));
       // Gas region: starts below the slab, ends at the cylinder floor (250).
       gasX = 44;
       gasW = 112;

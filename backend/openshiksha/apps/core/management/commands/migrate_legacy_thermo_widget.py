@@ -124,24 +124,25 @@ class Command(BaseCommand):
             # run.
             needs_kind_stamp = not (sp.widget_kind == THERMO_WIDGET_KIND and sp.widget_config)
             cleaned_prompt = derive_clean_prompt(sp.question_text)
-            needs_text_clean = cleaned_prompt is not None
 
-            if not needs_kind_stamp and not needs_text_clean:
+            if not needs_kind_stamp and cleaned_prompt is None:
                 skipped += 1
                 self.stdout.write(f"  • subpart {sp.id}: already on {THERMO_WIDGET_KIND} with cleaned prompt; skipping")
                 continue
 
-            actions = []
-            update_fields = []
+            actions: list[str] = []
+            update_fields: list[str] = []
             if needs_kind_stamp:
                 actions.append(f"widget_kind {sp.widget_kind!r} → {THERMO_WIDGET_KIND!r}")
                 sp.widget_kind = THERMO_WIDGET_KIND
                 sp.widget_config = dict(DEFAULT_THERMO_CONFIG)
                 update_fields += ["widget_kind", "widget_config"]
-            if needs_text_clean:
+            # Direct ``is not None`` test (rather than a bool alias) so mypy
+            # narrows ``cleaned_prompt`` to ``str`` inside this branch.
+            if cleaned_prompt is not None:
                 original_len = len(sp.question_text)
                 actions.append(f"question_text {original_len} → {len(cleaned_prompt)} chars (stripped legacy preamble)")
-                sp.question_text = cleaned_prompt or ""
+                sp.question_text = cleaned_prompt
                 update_fields.append("question_text")
 
             self.stdout.write(f"  • subpart {sp.id} (Q{sp.question_id}): " + "; ".join(actions))

@@ -115,6 +115,8 @@ class QuestionSubpartInline(admin.TabularInline):
         "hint_text",
         "is_interactive",
         "interactive_html",
+        "widget_kind",
+        "widget_config",
         "tags",
     ]
     filter_horizontal = ["tags"]

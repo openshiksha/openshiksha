@@ -528,3 +528,4 @@ Pick one small hardening task whenever advancing this initiative:
 | Date | Increment | PR | Hardening / learning |
 |---|---|---|---|
 | 2026-06-04 | Initiative promoted from ⚪ Proposed to 🟢 Active; full IW-1…IW-8 backlog written; DX-first principle added. | _(this docs PR)_ | Routine handoff documented (plan reads STATUS → reads this doc → batches IW-1 first). M7-11 host stays as the legacy/escape-hatch path through IW-7. |
+| 2026-06-05 | **IW-3a** — `widget_kind` + `widget_config` fields on `QuestionSubpart`; server-side `KNOWN_WIDGET_KINDS` registry + writable-serializer guard; admin + read/write serializer exposure; 10 backend tests. | _this PR_ | Backend keystone shipped **independently of IW-1** so the data model is ready the moment IW-1 + IW-2 land. Per-kind JSON-Schema validation hangs off `apps/core/widgets.py` and arrives per widget. |

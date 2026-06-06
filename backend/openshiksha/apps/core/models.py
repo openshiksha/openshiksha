@@ -514,6 +514,27 @@ class QuestionSubpart(models.Model):
             "resolved to absolute URLs at import."
         ),
     )
+    widget_kind = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=(
+            "Registry key of an interactive widget (e.g. 'thermo-piston'). "
+            "Blank = no widget. The kind-based path is the going-forward "
+            "Widgets Framework contract and supersedes the legacy "
+            "interactive_html escape hatch (kept for backwards-compat until "
+            "IW-7 deprecates it)."
+        ),
+    )
+    widget_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Per-widget config validated against the kind's params schema. "
+            "May contain {{var}} tokens substituted per student by the "
+            "serializer (IW-3b)."
+        ),
+    )
 
     class Meta:
         db_table = "question_subparts"

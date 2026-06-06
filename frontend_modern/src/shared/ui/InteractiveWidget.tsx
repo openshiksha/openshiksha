@@ -66,7 +66,15 @@ const InteractiveWidgetImpl = ({
 }: InteractiveWidgetProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(minHeight);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Error state is stored *with* the srcDoc it belongs to. When `srcDoc`
+  // changes (new kind / new config), the previously stored error
+  // automatically stops being visible without us having to clear it inside
+  // the effect — that pattern trips `react-hooks/set-state-in-effect` and
+  // the React docs explicitly recommend deriving instead
+  // (https://react.dev/learn/you-might-not-need-an-effect).
+  const [reportedError, setReportedError] = useState<{ srcDoc: string; message: string } | null>(
+    null,
+  );
 
   // `kind` wins when both are present — the framework path is the
   // going-forward contract; `html` is the legacy escape hatch.
@@ -82,14 +90,14 @@ const InteractiveWidgetImpl = ({
     return html ? buildLegacySrcDoc(html) : '';
   }, [kind, config, variables, imageBase, html]);
 
+  const errorMessage = reportedError && reportedError.srcDoc === srcDoc ? reportedError.message : null;
+
   useEffect(() => {
-    // Clear any prior error when the inputs change.
-    setErrorMessage(null);
     const grow = (h: number) => setHeight(Math.max(minHeight, Math.ceil(h) + 16));
     return createHostBridge(() => iframeRef.current, {
       onLegacyHeight: grow,
       onResize: (msg) => grow(msg.height),
-      onError: (msg) => setErrorMessage(msg.message),
+      onError: (msg) => setReportedError({ srcDoc, message: msg.message }),
     });
   }, [minHeight, srcDoc]);
 

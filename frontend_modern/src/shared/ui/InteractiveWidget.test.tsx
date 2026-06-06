@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { InteractiveWidget } from './InteractiveWidget';
+import { WIDGET_PROTOCOL_VERSION } from '../../widgets/_sdk/protocol';
 
 // M7-11: the widget must run authored scripts in a sandboxed iframe that CANNOT
 // reach the app origin (no allow-same-origin), and must never inject the raw
@@ -45,5 +46,41 @@ describe('InteractiveWidget', () => {
     );
     expect(container.querySelector('iframe')).toBeNull();
     expect(container.textContent).toContain('Static prompt');
+  });
+
+  it('forwards typed `value` messages from the bound iframe to the onValue prop (IW-4)', async () => {
+    const onValue = vi.fn();
+    const { container } = render(
+      <InteractiveWidget
+        kind="_hello"
+        config={{ kind: '_hello' }}
+        onValue={onValue}
+      />,
+    );
+    const iframe = container.querySelector('iframe') as HTMLIFrameElement;
+    expect(iframe).not.toBeNull();
+
+    // Simulate an answer-producing widget posting `ctx.reportValue(42)`.
+    // The bridge enforces `event.source === iframe.contentWindow` before
+    // firing handlers, so the test message must use the iframe's own
+    // contentWindow as the source.
+    const event = new MessageEvent('message', {
+      data: { type: 'value', protocol: WIDGET_PROTOCOL_VERSION, value: 42 },
+      source: iframe.contentWindow as Window,
+    });
+    window.dispatchEvent(event);
+
+    expect(onValue).toHaveBeenCalledWith(42);
+  });
+
+  it('does NOT fire onValue when the message is from some other window (source guard)', () => {
+    const onValue = vi.fn();
+    render(<InteractiveWidget kind="_hello" config={{ kind: '_hello' }} onValue={onValue} />);
+    const event = new MessageEvent('message', {
+      data: { type: 'value', protocol: WIDGET_PROTOCOL_VERSION, value: 999 },
+      source: window, // ← deliberately the wrong source
+    });
+    window.dispatchEvent(event);
+    expect(onValue).not.toHaveBeenCalled();
   });
 });

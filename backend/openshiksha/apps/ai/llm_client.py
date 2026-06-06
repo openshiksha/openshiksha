@@ -543,12 +543,20 @@ def generate_questions(
     question_type: str,
     difficulty: int,
     count: int,
-) -> list[dict]:
+) -> dict:
     """
     Generate question drafts using the same LLM cascade as generate_explanation.
 
-    Returns a list of draft dicts:
-        [{question_text, options, correct_answer, variable_constraints, suggested_tags}]
+    Returns a dict:
+        {
+            "questions": [{question_text, options, correct_answer,
+                           variable_constraints, suggested_tags}, ...],
+            "ai_available": bool,   # False when every provider was exhausted
+                                    # and the deterministic stub was returned
+        }
+
+    Callers should surface ``ai_available is False`` to the user rather than
+    presenting the stub placeholders as genuine drafts.
     """
     prompt = _build_question_gen_prompt(
         topic=topic,
@@ -564,7 +572,7 @@ def generate_questions(
     if anthropic_key:
         try:
             logger.debug("generate_questions: using Anthropic Claude")
-            return _call_anthropic_generate_questions(prompt, anthropic_key)
+            return {"questions": _call_anthropic_generate_questions(prompt, anthropic_key), "ai_available": True}
         except Exception:
             logger.exception("generate_questions: Anthropic failed, trying next provider")
 
@@ -572,7 +580,7 @@ def generate_questions(
     if google_key:
         try:
             logger.debug("generate_questions: using Google AI Studio")
-            return _call_google_generate_questions(prompt, google_key)
+            return {"questions": _call_google_generate_questions(prompt, google_key), "ai_available": True}
         except Exception:
             logger.exception("generate_questions: Google AI Studio call failed, trying next provider")
 
@@ -580,12 +588,12 @@ def generate_questions(
     if _ollama_reachable(ollama_url):
         try:
             logger.debug("generate_questions: using Ollama at %s", ollama_url)
-            return _call_ollama_generate_questions(prompt, ollama_url)
+            return {"questions": _call_ollama_generate_questions(prompt, ollama_url), "ai_available": True}
         except Exception:
             logger.exception("generate_questions: Ollama failed, falling back to stub")
 
     logger.warning("generate_questions: no LLM provider available — returning stub")
-    return _stub_questions(question_type, count)
+    return {"questions": _stub_questions(question_type, count), "ai_available": False}
 
 
 # ─────────────────────────────────────────────────────────────

@@ -901,7 +901,7 @@ class GenerateQuestionsViewSet(ViewSet):
         )
 
         try:
-            drafts = generate_questions(
+            result = generate_questions(
                 topic=d["topic"],
                 chapter_name=chapter.name,
                 subject_name=chapter.subject.name,
@@ -919,9 +919,16 @@ class GenerateQuestionsViewSet(ViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
+        # ``generate_questions`` returns ``ai_available: False`` when no LLM
+        # provider was configured and the deterministic stub was used. Surface
+        # that to the client so the UI shows an "unavailable" state instead of
+        # presenting placeholder text as a real draft (see DraftCard).
+        ai_available = result["ai_available"]
+        drafts = result["questions"] if ai_available else []
+
         out_serializer = GeneratedQuestionDraftSerializer(data=drafts, many=True)
         out_serializer.is_valid()
-        return Response({"questions": out_serializer.data})
+        return Response({"questions": out_serializer.data, "ai_available": ai_available})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

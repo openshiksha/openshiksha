@@ -201,11 +201,13 @@ const AIGenerationPanel = ({
   const [difficulty, setDifficulty] = useState(2);
   const [count, setCount] = useState(3);
   const [drafts, setDrafts] = useState<GeneratedQuestionDraft[]>([]);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
 
   const generateMutation = useGenerateQuestions();
 
   const handleGenerate = () => {
     if (!chapterId || !topic.trim()) return;
+    setAiUnavailable(false);
     generateMutation.mutate(
       {
         topic: topic.trim(),
@@ -215,7 +217,10 @@ const AIGenerationPanel = ({
         count,
       },
       {
-        onSuccess: (data) => setDrafts(data.questions),
+        onSuccess: (data) => {
+          setDrafts(data.questions);
+          setAiUnavailable(!data.ai_available);
+        },
       }
     );
   };
@@ -327,7 +332,17 @@ const AIGenerationPanel = ({
             </div>
           )}
 
-          {!generateMutation.isPending && drafts.length > 0 && (
+          {!generateMutation.isPending && aiUnavailable && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+              <span aria-hidden className="mt-px">⚠️</span>
+              <p>
+                AI question generation is unavailable right now. Please try again
+                in a little while, or write your question by hand below.
+              </p>
+            </div>
+          )}
+
+          {!generateMutation.isPending && !aiUnavailable && drafts.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-brand-900">
                 {drafts.length} draft{drafts.length > 1 ? 's' : ''} — click "Use this" to pre-fill the form

@@ -581,6 +581,14 @@ class AssignmentSerializer(serializers.ModelSerializer):
     submission_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
     child_submission_status = serializers.SerializerMethodField()
+    # ``my_submission`` is the student's own submission row, surfaced on
+    # *every* assignment payload (list + detail) so the dashboard can group
+    # rows into Due Soon / Overdue / Completed without an extra round-trip
+    # per assignment. Used to be on AssignmentDetailSerializer only, which
+    # meant the list view never knew whether a row was already submitted —
+    # the StudentDashboard couldn't tell the two apart and showed every
+    # assignment as "Start" + "Due in N days", even after grading.
+    my_submission = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -600,8 +608,35 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "student_count",
             "child_submission_status",
             "target_student",
+            "my_submission",
         ]
         read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
+
+    def get_my_submission(self, obj) -> dict | None:
+        """Return the current student's own Submission (if any).
+
+        Returns ``None`` for unauthenticated requests and for non-student
+        roles (teachers and admins don't have a "my" submission against
+        another teacher's assignment). Uses the prefetch cache populated
+        by ``AssignmentViewSet.get_queryset`` so listing N assignments
+        does not fan out into N submission queries.
+        """
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        user = request.user
+        if getattr(user, "role", None) not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return None
+        # When the viewset prefetched with a Prefetch(..., to_attr="my_submissions")
+        # filtered to the current user, read it directly to avoid N+1.
+        prefetched = getattr(obj, "my_submissions", None)
+        if prefetched is not None:
+            submission = prefetched[0] if prefetched else None
+        else:
+            submission = obj.submissions.filter(student=user).first()
+        if submission is None:
+            return None
+        return SubmissionSerializer(submission, context=self.context).data
 
     def get_submission_count(self, obj) -> int:
         return obj.submissions.count()
@@ -656,21 +691,13 @@ class AssignmentDetailSerializer(AssignmentSerializer):
     to students via the assignment detail endpoint.
     """
 
+    # ``my_submission`` is inherited from AssignmentSerializer now — the
+    # detail serializer only swaps the problem-set serializer for the
+    # student-safe variant that hides ``correct_answer``.
     problem_set = ProblemSetStudentDetailSerializer(read_only=True)
-    my_submission = serializers.SerializerMethodField()
 
     class Meta(AssignmentSerializer.Meta):
-        fields = AssignmentSerializer.Meta.fields + ["my_submission"]
-
-    def get_my_submission(self, obj) -> dict | None:
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-        try:
-            submission = obj.submissions.get(student=request.user)
-            return SubmissionSerializer(submission, context=self.context).data
-        except Submission.DoesNotExist:
-            return None
+        fields = AssignmentSerializer.Meta.fields
 
 
 class SubmissionSerializer(serializers.ModelSerializer):

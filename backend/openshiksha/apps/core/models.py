@@ -969,3 +969,93 @@ class StudentStreak(models.Model):
                 "updated_at",
             ]
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Interactive Widgets Framework — Tier 2 (Widget Studio) data model
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TeacherWidgetVisibility(models.TextChoices):
+    """Where a teacher-composed widget surfaces in the gallery (IW-9).
+
+    Default ``personal`` keeps a draft author-only; ``school`` shares with the
+    teacher's school once they're happy with it; ``pending_review`` is the
+    queue state the Studio uses when an admin opt-in is required to cross
+    schools (cross-school sharing itself ships later, gated on this state).
+    """
+
+    PERSONAL = "personal", "Personal"
+    SCHOOL = "school", "School"
+    PENDING_REVIEW = "pending_review", "Pending review"
+
+
+class TeacherWidget(models.Model):
+    """A teacher-composed Tier-2 widget (the **Widget Studio** output).
+
+    Model-only slice of IW-9 — DRF endpoints, the serializer, and the scene
+    schema validator land in IW-9 proper (after IW-1 + IW-2). Shipping the
+    table now is a cheap, low-risk migration that unblocks the Studio later
+    without adding a schema change to that PR's diff.
+
+    ``scene`` is the pure-data Studio composition: a list of primitive
+    instances + bindings + simple formula expressions. The runtime
+    *interprets* the scene inside the same sandbox every other widget uses —
+    no ``eval``, no ``Function``, no script string evaluation. ``scene_version``
+    lets a future Studio runtime migrate older scenes without breaking
+    content.
+    """
+
+    name = models.CharField(max_length=200, help_text="Display name of the widget in the teacher gallery.")
+    description = models.TextField(
+        blank=True, default="", help_text="Optional one-paragraph blurb for the gallery card."
+    )
+    school = models.ForeignKey(
+        "School",
+        on_delete=models.CASCADE,
+        related_name="teacher_widgets",
+        null=True,
+        blank=True,
+        help_text="Owning school (null for personal widgets authored by an open / unaffiliated teacher).",
+    )
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.PROTECT,
+        related_name="teacher_widgets_authored",
+        limit_choices_to={"role": UserRole.TEACHER},
+        help_text="Teacher who composed this widget.",
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=TeacherWidgetVisibility.choices,
+        default=TeacherWidgetVisibility.PERSONAL,
+        help_text="Gallery visibility — see TeacherWidgetVisibility for the state machine.",
+    )
+    scene_version = models.PositiveIntegerField(
+        default=1,
+        help_text=(
+            "Scene-schema version this widget was authored against. A future Studio "
+            "runtime uses this to migrate older scenes on read."
+        ),
+    )
+    scene = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Pure-data Studio composition: {primitives: [...], bindings: [...], formulas: [...]}. "
+            "Interpreted by the runtime — never eval'd."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teacher_widgets"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["school", "visibility"]),
+            models.Index(fields=["created_by", "updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.visibility})"

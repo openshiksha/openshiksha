@@ -32,6 +32,7 @@
  */
 
 import { defineWidget } from '../_sdk/defineWidget';
+import paramsSchema from './params.schema.json';
 
 interface ThermoConfig {
   /** Lower bound of the heat slider in Joules. Default −200. */
@@ -60,6 +61,7 @@ export default defineWidget({
       'Explanatory; the student types the numeric answer separately.',
     answerProducing: false,
   },
+  paramsSchema,
   render: (ctx) => {
     // Defaults mirror the legacy slider's `min:-200, max:200` and the
     // piston's ~200 px of vertical travel. workStep=5 keeps the click

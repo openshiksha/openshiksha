@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingSpinner, RichContent } from '@/shared/ui';
+import { WidgetGalleryPanel } from './WidgetGalleryPanel';
+import { getWidgetModule } from '@/widgets/registry';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useChapters } from './useChapters';
 import { useCreateQuestion } from './useCreateQuestion';
@@ -12,6 +14,86 @@ import type {
   QuestionSubpartWrite,
   GeneratedQuestionDraft,
 } from '@/types/index';
+
+// ── IW-5: Widget picker section (gallery toggler + applied-widget summary) ──
+
+interface WidgetPickerSectionProps {
+  kind: string;
+  config: Record<string, unknown>;
+  onChange: (next: { kind: string; config: Record<string, unknown> }) => void;
+}
+
+/**
+ * Collapsible block that surfaces the active subpart's interactive widget,
+ * if any. When no widget is attached, shows a "+ Add interactive widget"
+ * button that opens the `WidgetGalleryPanel`. When one is attached,
+ * summarises it and offers Edit / Remove buttons.
+ *
+ * Kept tight so it doesn't dominate the author's view when widgets aren't
+ * in use (the dominant case for short-answer / MCQ rows).
+ */
+function WidgetPickerSection({ kind, config, onChange }: WidgetPickerSectionProps) {
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const module = kind ? getWidgetModule(kind) : undefined;
+
+  if (galleryOpen) {
+    return (
+      <WidgetGalleryPanel
+        initialKind={kind || undefined}
+        initialConfig={kind ? config : undefined}
+        onApply={(sel) => {
+          onChange(sel);
+          setGalleryOpen(false);
+        }}
+        onCancel={() => setGalleryOpen(false)}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-ink-600 mb-1">
+        Interactive widget <span className="font-normal text-ink-400">(optional — renders in a sandbox)</span>
+      </label>
+      {kind ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-200 bg-paper px-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink-900">
+              {module?.meta.title ?? kind}
+            </p>
+            <p className="truncate font-mono text-[10px] uppercase tracking-wider text-ink-400">
+              {kind} · {Object.keys(config).length} field{Object.keys(config).length === 1 ? '' : 's'} configured
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setGalleryOpen(true)}
+              className="rounded-md border border-ink-200 px-2 py-1 text-xs hover:bg-ink-50"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ kind: '', config: {} })}
+              className="rounded-md border border-ink-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setGalleryOpen(true)}
+          className="w-full rounded-lg border border-dashed border-ink-300 bg-paper px-3 py-2 text-sm text-ink-600 hover:border-brand-600 hover:text-brand-700"
+        >
+          + Add interactive widget
+        </button>
+      )}
+    </div>
+  );
+}
 
 type QuestionType = 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
 
@@ -26,6 +108,10 @@ interface SubpartDraft {
   image_url: string;
   solution_text: string;
   hint_text: string;
+  /** IW-5: registry kind of an interactive widget attached to the subpart (blank = none). */
+  widget_kind: string;
+  /** IW-5: per-widget config validated against the kind's params schema. */
+  widget_config: Record<string, unknown>;
 }
 
 const defaultSubpart = (): SubpartDraft => ({
@@ -42,6 +128,8 @@ const defaultSubpart = (): SubpartDraft => ({
   image_url: '',
   solution_text: '',
   hint_text: '',
+  widget_kind: '',
+  widget_config: {},
 });
 
 // ---------------------------------------------------------------------------
@@ -404,6 +492,8 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         image_url: sp.image_url ?? '',
         solution_text: sp.solution_text ?? '',
         hint_text: sp.hint_text ?? '',
+        widget_kind: sp.widget_kind ?? '',
+        widget_config: sp.widget_config ?? {},
       }))
     );
   }
@@ -486,6 +576,8 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         image_url: '',
         solution_text: draft.solution ?? '',
         hint_text: '',
+        widget_kind: '',
+        widget_config: {},
       },
     ]);
     setActiveSubpart(0);
@@ -513,6 +605,11 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
       ...(s.image_url.trim() ? { image_url: s.image_url.trim() } : {}),
       ...(s.solution_text.trim() ? { solution_text: s.solution_text.trim() } : {}),
       ...(s.hint_text.trim() ? { hint_text: s.hint_text.trim() } : {}),
+      // IW-5: only send widget fields when the teacher actually picked
+      // one. Blank widget_kind on a row is the "no widget" signal — the
+      // writable serializer's validator then short-circuits and leaves
+      // widget_config as the default {}.
+      ...(s.widget_kind ? { widget_kind: s.widget_kind, widget_config: s.widget_config } : {}),
     }));
 
     const chapter = chapters?.find((c) => c.id === selectedChapterId);
@@ -760,6 +857,18 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               <span className="text-xs text-ink-400 block mb-1">Preview</span>
               {renderPreview(current.question_text)}
             </div>
+
+            {/* Optional interactive widget (IW-5) */}
+            <WidgetPickerSection
+              kind={current.widget_kind}
+              config={current.widget_config}
+              onChange={(next) =>
+                updateSubpart(activeSubpart, {
+                  widget_kind: next.kind,
+                  widget_config: next.config,
+                })
+              }
+            />
 
             {/* Optional image URL */}
             <div>

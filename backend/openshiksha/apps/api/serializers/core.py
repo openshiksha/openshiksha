@@ -123,6 +123,26 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
         ]
 
 
+def _substitute_in_json(node, sampled_values: dict):
+    """Walk a JSON tree and substitute ``{{var}}`` tokens in every string leaf.
+
+    Reuses the existing ``substitute_variables`` helper so widget configs share
+    the croupier's per-student token semantics — same tokens, same evaluator,
+    same fallback behaviour on bad expressions. Non-string leaves
+    (numbers, bools, None) pass through unchanged; nested dicts and lists are
+    recursed into.
+    """
+    from openshiksha.apps.api.croupier import substitute_variables
+
+    if isinstance(node, str):
+        return substitute_variables(node, sampled_values)
+    if isinstance(node, dict):
+        return {k: _substitute_in_json(v, sampled_values) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_substitute_in_json(v, sampled_values) for v in node]
+    return node
+
+
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
     """
     Student-safe subpart serializer — omits correct_answer.
@@ -200,6 +220,13 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
                 data["solution_text"] = substitute_variables(data["solution_text"], sampled_values)
             if "hint_text" in data:
                 data["hint_text"] = substitute_variables(data["hint_text"], sampled_values)
+
+            # IW-3b: substitute the same per-student values into widget_config so
+            # the framework runtime receives already-resolved numbers in its
+            # init payload. We walk the JSON tree and only touch string leaves,
+            # leaving numbers/bools/None untouched.
+            if data.get("widget_config"):
+                data["widget_config"] = _substitute_in_json(data["widget_config"], sampled_values)
 
         # Phase 1: MCQ option shuffling (applied after variable substitution)
         options = data.get("options")

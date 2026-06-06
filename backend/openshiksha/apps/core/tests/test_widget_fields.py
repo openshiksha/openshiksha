@@ -180,3 +180,90 @@ class TestWidgetFieldsAPI:
         )
         resp = client.post("/api/v1/questions/", payload, format="json")
         assert resp.status_code == 201, resp.content
+
+
+# ── IW-3b: per-student substitution + legacy-thermo migration command ─────────
+
+
+class TestWidgetConfigSubstitution:
+    """Student serializer walks widget_config and substitutes {{var}} tokens."""
+
+    def test_substitution_into_string_leaves(self, db, school, standard, subject, chapter, teacher):
+        from django.http import HttpRequest
+        from rest_framework.request import Request
+
+        from openshiksha.apps.api.serializers.core import QuestionSubpartStudentSerializer
+        from openshiksha.apps.core.models import Question, QuestionSubpart, User, UserRole
+
+        q = Question.objects.create(
+            school=school, standard=standard, subject=subject, chapter=chapter, created_by=teacher
+        )
+        sp = QuestionSubpart.objects.create(
+            question=q,
+            index=0,
+            subpart_type="mcq",
+            question_text="What is {{a}}?",
+            variable_constraints={"a": {"min": 5, "max": 5, "integer": True}},
+            widget_kind="thermo-piston",
+            widget_config={
+                "initialVolume": "{{a}}",
+                "maxHeat": 100,  # number leaf — must pass through untouched
+                "nested": {"label": "Value = {{a}}", "n": 42},
+                "list": ["x={{a}}", 7, True, None],
+            },
+        )
+        student = User.objects.create_user(username="s1", password="pw", role=UserRole.STUDENT, school=school)
+        req = Request(HttpRequest())
+        req.user = student
+
+        data = QuestionSubpartStudentSerializer(sp, context={"request": req}).data
+        cfg = data["widget_config"]
+        assert cfg["initialVolume"] == "5"
+        assert cfg["maxHeat"] == 100
+        assert cfg["nested"] == {"label": "Value = 5", "n": 42}
+        assert cfg["list"] == ["x=5", 7, True, None]
+
+
+class TestMigrateLegacyThermoCommand:
+    def _make_thermo(self, school, standard, subject, chapter, teacher):
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        q = Question.objects.create(
+            school=school, standard=standard, subject=subject, chapter=chapter, created_by=teacher
+        )
+        return QuestionSubpart.objects.create(
+            question=q,
+            index=0,
+            subpart_type="mcq",
+            question_text="Thermo",
+            is_interactive=True,
+            interactive_html="<div>legacy</div>",
+            variable_constraints={"a": {"min": 1, "max": 9, "integer": True}},
+        )
+
+    def test_command_stamps_widget_kind(self, db, school, standard, subject, chapter, teacher):
+        from django.core.management import call_command
+
+        from openshiksha.apps.core.models import QuestionSubpart
+
+        sp = self._make_thermo(school, standard, subject, chapter, teacher)
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
+        sp.refresh_from_db()
+        assert sp.widget_kind == "thermo-piston"
+        assert sp.widget_config["initialVolume"] == "{{a}}"
+        assert sp.interactive_html == "<div>legacy</div>"  # untouched
+        # Idempotent re-run is a no-op
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
+        sp.refresh_from_db()
+        assert sp.widget_kind == "thermo-piston"
+        # Untouched rows: explicit count check
+        assert QuestionSubpart.objects.filter(widget_kind="thermo-piston").count() == 1
+
+    def test_dry_run_writes_nothing(self, db, school, standard, subject, chapter, teacher):
+        from django.core.management import call_command
+
+        sp = self._make_thermo(school, standard, subject, chapter, teacher)
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id, dry_run=True)
+        sp.refresh_from_db()
+        assert sp.widget_kind == ""
+        assert sp.widget_config == {}

@@ -39,6 +39,38 @@ DEFAULT_THERMO_CONFIG: dict = {
 
 THERMO_WIDGET_KIND = "thermo-piston"
 
+# The legacy thermo question_text was extracted from the original Cabinet
+# `interactive_html` blob during the M7-08 cleanup, so it carries every label
+# the *widget* used to render natively (the ΔU formula readout, "Piston
+# (doing work):", "Heat supplied to the system:", a redundant "Part b)"
+# marker, etc.). The new React widget shows all of that itself, so once the
+# kind path is active those labels are pure visual noise above the prompt.
+#
+# `PROMPT_MARKER` is the unmistakable opening of the *real* question. Every
+# observed cabinet variation of the thermo prompt begins with this phrase.
+# Stripping everything before it leaves exactly the sentence the student
+# needs to answer (still carrying the per-student `{{k}}` / `{{j}}` tokens
+# the croupier substitutes server-side).
+PROMPT_MARKER = "Based on the calculations above"
+
+
+def derive_clean_prompt(original_text: str) -> "str | None":
+    """Strip the legacy preamble from a thermo subpart's ``question_text``.
+
+    Returns the cleaned prompt when there is a recognisable preamble to drop,
+    or ``None`` when the text is already clean (or doesn't match the pattern,
+    in which case the command leaves it alone rather than risk destroying the
+    only copy of the prompt).
+    """
+    if not original_text:
+        return None
+    idx = original_text.find(PROMPT_MARKER)
+    if idx <= 0:
+        # idx == -1: not a recognisable preamble; leave the row alone.
+        # idx ==  0: already clean; nothing to do (idempotent re-run).
+        return None
+    return original_text[idx:].strip()
+
 
 class Command(BaseCommand):
     help = "Stamp widget_kind='thermo-piston' on the legacy thermo subpart (IW-3b)."
@@ -85,17 +117,36 @@ class Command(BaseCommand):
         updated = 0
         skipped = 0
         for sp in qs:
-            if sp.widget_kind == THERMO_WIDGET_KIND and sp.widget_config:
+            # Two independent transformations the command may need to apply.
+            # Keeping them independent means a re-run after IW-2's prompt
+            # cleanup (added in this PR) picks up just the text change on
+            # rows where the kind+config were already stamped by an earlier
+            # run.
+            needs_kind_stamp = not (sp.widget_kind == THERMO_WIDGET_KIND and sp.widget_config)
+            cleaned_prompt = derive_clean_prompt(sp.question_text)
+            needs_text_clean = cleaned_prompt is not None
+
+            if not needs_kind_stamp and not needs_text_clean:
                 skipped += 1
-                self.stdout.write(f"  • subpart {sp.id}: already points at {THERMO_WIDGET_KIND}; skipping")
+                self.stdout.write(f"  • subpart {sp.id}: already on {THERMO_WIDGET_KIND} with cleaned prompt; skipping")
                 continue
-            self.stdout.write(
-                f"  • subpart {sp.id} (Q{sp.question_id}): " f"widget_kind {sp.widget_kind!r} → {THERMO_WIDGET_KIND!r}"
-            )
-            if not dry_run:
+
+            actions = []
+            update_fields = []
+            if needs_kind_stamp:
+                actions.append(f"widget_kind {sp.widget_kind!r} → {THERMO_WIDGET_KIND!r}")
                 sp.widget_kind = THERMO_WIDGET_KIND
                 sp.widget_config = dict(DEFAULT_THERMO_CONFIG)
-                sp.save(update_fields=["widget_kind", "widget_config"])
+                update_fields += ["widget_kind", "widget_config"]
+            if needs_text_clean:
+                original_len = len(sp.question_text)
+                actions.append(f"question_text {original_len} → {len(cleaned_prompt)} chars (stripped legacy preamble)")
+                sp.question_text = cleaned_prompt or ""
+                update_fields.append("question_text")
+
+            self.stdout.write(f"  • subpart {sp.id} (Q{sp.question_id}): " + "; ".join(actions))
+            if not dry_run:
+                sp.save(update_fields=update_fields)
             updated += 1
 
         if dry_run:

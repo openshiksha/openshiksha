@@ -87,6 +87,38 @@ describe('buildHostSrcDoc', () => {
     expect(srcDoc).toContain('#FF6F00');
     expect(srcDoc).toContain('Fraunces');
   });
+
+  // IW-1c branch coverage — registry-resolved kind vs. unknown kind.
+  describe('registry resolution', () => {
+    it('bakes the widget`s renderSource into the boot when the kind is known', () => {
+      const srcDoc = buildHostSrcDoc({
+        kind: '_hello',
+        config: { kind: '_hello' },
+        variables: {},
+        imageBase: '',
+      });
+      // `__widgetRender` is the runtime`s wrapper variable name — its
+      // presence means we`re on the registry-resolved path, not the
+      // unknown-kind fallback.
+      expect(srcDoc).toContain('__widgetRender');
+      // The hello widget`s body content (`Widget runtime alive`) must end up
+      // inlined into the boot script via toString().
+      expect(srcDoc).toContain('Widget runtime alive');
+    });
+
+    it('falls back to a typed `error` boot when the kind is unknown', () => {
+      const srcDoc = buildHostSrcDoc({
+        kind: 'totally-made-up-kind',
+        config: {},
+        variables: {},
+        imageBase: '',
+      });
+      expect(srcDoc).not.toContain('__widgetRender');
+      expect(srcDoc).toContain("type: 'error'");
+      expect(srcDoc).toContain('Unknown widget kind');
+      expect(srcDoc).toContain('totally-made-up-kind');
+    });
+  });
 });
 
 describe('createHostBridge', () => {

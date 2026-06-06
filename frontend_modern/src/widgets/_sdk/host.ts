@@ -31,6 +31,7 @@
  * runtime (`runtime.ts`, IW-1c) or per-widget modules.
  */
 
+import { getWidgetModule } from '../registry';
 import {
   isErrorMessage,
   isReadyMessage,
@@ -44,6 +45,7 @@ import {
   type ValueMessage,
   type WidgetMessage,
 } from './protocol';
+import { buildRuntimeBoot } from './runtime';
 
 // ── srcdoc construction ───────────────────────────────────────────────────
 
@@ -99,15 +101,12 @@ export function buildLegacySrcDoc(html: string): string {
  * Build the srcdoc for the **going-forward Widgets Framework** path
  * (kind-based; no vendor libs).
  *
- * For IW-1b this returns a runtime stub that:
- *   - posts a typed `ready` message at load
- *   - listens for the host's `init` and renders a tiny placeholder
- *   - emits typed `resize` messages whenever its content size changes
- *
- * IW-1c replaces the stub body with the real runtime that looks up `kind`
- * in `registry.ts` and mounts the widget's React component. The wire shape
- * the host listens to is finalised here, so IW-1c is a body swap, not an
- * API change.
+ * Looks `kind` up in the SDK registry. If the kind is known, the widget's
+ * `renderSource` is wrapped by the runtime boot (`buildRuntimeBoot`) and
+ * baked into the srcdoc — that's the IW-1c "real" path. If the kind is
+ * unknown (typo, version skew, etc.) the srcdoc falls back to a small stub
+ * that emits a typed `error` so the host's error UI can render — the
+ * framework never silently no-ops.
  */
 export function buildHostSrcDoc(params: {
   kind: string;
@@ -115,25 +114,25 @@ export function buildHostSrcDoc(params: {
   variables: Record<string, number | string | boolean>;
   imageBase: string;
 }): string {
-  // The init payload is encoded as JSON inside the boot script. Using a
-  // `<script>` tag (and NOT `dangerouslySetInnerHTML`) — the only place this
-  // string ever lands is inside an `<iframe srcDoc>`, which is parsed as a
-  // standalone document at an opaque origin.
+  // The init payload is JSON-serialised once and shared with the runtime
+  // boot. Using a `<script>` tag (and NOT `dangerouslySetInnerHTML`) — the
+  // only place this string lands is inside `<iframe srcDoc>`, which parses
+  // as a standalone document at an opaque origin.
   const initJson = JSON.stringify({
     type: 'init',
     protocol: WIDGET_PROTOCOL_VERSION,
     ...params,
   } satisfies InitMessage);
-  const escapedInit = initJson.replace(/</g, '\\u003c');
 
   // Inline brand tokens so widgets read on-brand from day one (no external
-  // stylesheet load — keeps the runtime tiny and cache-warm). IW-1c will move
-  // this into a shared widget-runtime.css if the size grows.
+  // stylesheet load — keeps the runtime tiny and cache-warm). Migrating this
+  // to a shared `widget-runtime.css` is an IW-1 follow-up if the size grows.
   const inlineStyles = `
     :root {
       --brand-600: #FF6F00;
       --paper: #FBF7EE;
       --ink-900: #1B1A17;
+      --ink-300: #BDB6A5;
     }
     html, body {
       margin: 0;
@@ -145,42 +144,10 @@ export function buildHostSrcDoc(params: {
     h1, h2, h3 { font-family: "Fraunces", Georgia, serif; }
   `;
 
-  const bootScript = `<script>
-(function () {
-  var PROTOCOL = ${WIDGET_PROTOCOL_VERSION};
-  var initPayload = ${escapedInit};
-
-  function post(msg) {
-    try { parent.postMessage(msg, '*'); } catch (e) {}
-  }
-
-  function emitResize() {
-    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-    post({ type: 'resize', protocol: PROTOCOL, height: h });
-  }
-
-  // Tell the host we're alive. The host replies with init; for the IW-1b
-  // stub we already have the payload baked in, so we just render directly.
-  post({ type: 'ready', protocol: PROTOCOL });
-
-  function renderStub() {
-    var root = document.getElementById('widget-root');
-    if (!root) return;
-    root.innerHTML = '';
-    var note = document.createElement('p');
-    note.textContent = 'Widget runtime stub · kind = ' + String(initPayload.kind);
-    root.appendChild(note);
-    emitResize();
-  }
-
-  if (typeof ResizeObserver !== 'undefined') {
-    try { new ResizeObserver(emitResize).observe(document.body); } catch (e) {}
-  }
-  window.addEventListener('load', renderStub);
-  // Belt-and-braces in case 'load' already fired by the time we got here.
-  if (document.readyState === 'complete') renderStub();
-})();
-</script>`;
+  const widget = getWidgetModule(params.kind);
+  const bootScript = widget
+    ? buildRuntimeBoot({ initJson, kind: params.kind, renderSource: widget.renderSource })
+    : buildUnknownKindBoot(params.kind, initJson);
 
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
@@ -191,6 +158,39 @@ export function buildHostSrcDoc(params: {
     bootScript,
     '</body></html>',
   ].join('\n');
+}
+
+/**
+ * Fallback boot used when the requested `kind` is not in the registry. Posts
+ * `ready` so the host bridge fires its onReady handler, then emits a typed
+ * `error`. The host renders a branded error state; the widget area never
+ * silently goes blank.
+ */
+function buildUnknownKindBoot(kind: string, initJson: string): string {
+  const safeKind = JSON.stringify(kind);
+  const safeInit = initJson.replace(/</g, '\\u003c');
+  return `<script>
+(function () {
+  var PROTOCOL = ${WIDGET_PROTOCOL_VERSION};
+  function post(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
+  // Reference the init payload so static analysis sees it was used, even
+  // though the unknown-kind branch has nothing to render with it.
+  var _init = ${safeInit};
+  void _init;
+  post({ type: 'ready', protocol: PROTOCOL });
+  post({
+    type: 'error',
+    protocol: PROTOCOL,
+    message: 'Unknown widget kind: ' + ${safeKind}
+  });
+  var note = document.createElement('p');
+  note.textContent = 'Unknown widget kind: ' + ${safeKind};
+  note.style.color = '#9B1C1C';
+  document.body.appendChild(note);
+  var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  post({ type: 'resize', protocol: PROTOCOL, height: h });
+})();
+</script>`;
 }
 
 // ── Message bridge ────────────────────────────────────────────────────────

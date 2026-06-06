@@ -95,14 +95,32 @@ export interface QuestionSubpart {
   image_url?: string;
   solution_text?: string;
   hint_text?: string;
-  /** M7-11: true when this subpart has an authored interactive widget. */
+  /**
+   * @deprecated (IW-7) — paired with `interactive_html` below. The
+   * going-forward signal that a subpart has a widget is `widget_kind`
+   * being non-blank; this flag is kept only so the legacy raw-HTML path
+   * keeps rendering until every row has been migrated to `custom-html`.
+   */
   is_interactive?: boolean;
   /**
-   * Resolved widget HTML (script + markup) for the sandboxed iframe. Only
-   * present when is_interactive. SECURITY: render ONLY via InteractiveWidget's
-   * sandboxed iframe — never through dangerouslySetInnerHTML / RichContent.
+   * @deprecated (IW-7) — legacy raw widget HTML. Resolved + tokenised
+   * server-side. New rows should use `widget_kind='custom-html'` +
+   * `widget_config.html`. Rendered ONLY via the InteractiveWidget
+   * sandbox — never through dangerouslySetInnerHTML / RichContent.
    */
   interactive_html?: string;
+  /**
+   * Registry key of an Interactive Widgets Framework kind (e.g.
+   * `'thermo-piston'`, `'custom-html'`). When set, the widget renders
+   * via the SDK path; the deprecated `interactive_html` is ignored.
+   */
+  widget_kind?: string;
+  /**
+   * Per-widget config, already substituted server-side for `{{var}}`
+   * tokens (IW-3b). Shape varies by kind — see each widget's
+   * `params.schema.json`.
+   */
+  widget_config?: Record<string, unknown>;
 }
 
 export interface AIHint {

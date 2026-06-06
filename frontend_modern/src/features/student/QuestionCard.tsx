@@ -279,7 +279,36 @@ export const QuestionCard = ({
               </div>
             )}
 
-            {subpart.is_interactive && subpart.interactive_html ? (
+            {/*
+              Widget render-path priority:
+                1. widget_kind (Interactive Widgets Framework — kind-based,
+                   the going-forward path; covers thermo-piston, custom-html,
+                   future answer-producing widgets). The question prompt
+                   renders ABOVE the widget because new-style widgets only
+                   carry the interactive surface, not the prompt copy (the
+                   legacy interactive_html embedded both in one blob).
+                2. interactive_html (DEPRECATED M7-11 raw-HTML escape hatch;
+                   prompt was historically embedded inside the HTML, so
+                   question_text is only a fallback).
+                3. plain RichContent fallback for text-only subparts.
+            */}
+            {subpart.widget_kind ? (
+              <>
+                {subpart.question_text && (
+                  <RichContent
+                    text={subpart.question_text}
+                    variant="block"
+                    className="text-sm text-ink-800"
+                  />
+                )}
+                <InteractiveWidget
+                  kind={subpart.widget_kind}
+                  config={subpart.widget_config ?? {}}
+                  fallbackText={subpart.question_text}
+                  className="text-sm text-ink-800"
+                />
+              </>
+            ) : subpart.is_interactive && subpart.interactive_html ? (
               <InteractiveWidget
                 html={subpart.interactive_html}
                 fallbackText={subpart.question_text}

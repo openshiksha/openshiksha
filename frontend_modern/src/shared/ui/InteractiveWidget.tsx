@@ -52,6 +52,16 @@ export interface InteractiveWidgetProps {
   /** Min iframe height before the widget reports its own (px). */
   minHeight?: number;
   className?: string;
+  /**
+   * Fired when an **answer-producing** widget calls `ctx.reportValue(v)`
+   * from inside the sandbox (IW-4). The value reaches us via the typed
+   * `value` postMessage and is `unknown` at this boundary — the consumer
+   * (usually `QuestionCard`) is responsible for shape-checking against
+   * the subpart's expected answer type before binding it to the answer
+   * form. Explanatory widgets (e.g. `thermo-piston`) never call
+   * `reportValue`, so `onValue` is simply never invoked on those.
+   */
+  onValue?: (value: unknown) => void;
 }
 
 const InteractiveWidgetImpl = ({
@@ -63,6 +73,7 @@ const InteractiveWidgetImpl = ({
   fallbackText,
   minHeight = 640,
   className,
+  onValue,
 }: InteractiveWidgetProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(minHeight);
@@ -101,8 +112,13 @@ const InteractiveWidgetImpl = ({
       onLegacyHeight: grow,
       onResize: (msg) => grow(msg.height),
       onError: (msg) => setReportedError({ srcDoc, message: msg.message }),
+      // Answer-producing widgets (IW-4) post a typed `value` message via
+      // `ctx.reportValue(v)`; surface it to the parent's `onValue` so
+      // QuestionCard can route it into the submission form. Explanatory
+      // widgets never call reportValue, so this handler is a no-op for them.
+      onValue: onValue ? (msg) => onValue(msg.value) : undefined,
     });
-  }, [minHeight, srcDoc]);
+  }, [minHeight, srcDoc, onValue]);
 
   // Neither mode has content → fall back to the sanitised prose so the
   // question is still shown (the answer input lives outside this component).

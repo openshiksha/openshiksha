@@ -233,6 +233,28 @@ export const DesignSystemPage = () => (
         </p>
       </Section>
 
+      <Section kicker="Interactive Widgets · IW-4" title="number-line — the first answer-producing widget">
+        <p className="mb-3 text-sm text-ink-500">
+          The student drags the orange point along the axis (or uses arrow keys
+          / Home / End for keyboard access). Every snap calls{' '}
+          <code>ctx.reportValue(v)</code>; in a real question the host routes
+          that value straight into the submission form, and the existing
+          numeric grader scores it against <code>correct_answer</code>. Try
+          the drag below — open the browser devtools and you'll see the
+          typed <code>value</code> messages on each snap.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={180}
+            kind="number-line"
+            config={{ min: 0, max: 10, step: 1, label: 'Drag to a number between 0 and 10' }}
+            onValue={(v) => {
+              console.log('[number-line showcase] reportValue →', v);
+            }}
+          />
+        </Card>
+      </Section>
+
       <Section kicker="Interactive Widgets · IW-7" title="custom-html — the escape hatch">
         <p className="mb-3 text-sm text-ink-500">
           The last piece of the framework: an admin-only registry kind whose

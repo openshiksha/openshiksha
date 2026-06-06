@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { Question, QuestionSubpart, MCQOption, AIHint, SubpartType } from '@/types/index';
 import { RichContent, InteractiveWidget } from '@/shared/ui';
+import { getWidgetModule } from '@/widgets/registry';
 import { useHints } from './useHints';
 
 interface QuestionCardProps {
@@ -257,6 +258,13 @@ export const QuestionCard = ({
       {question.subparts.map((subpart, i) => {
         const value = answers[String(subpart.id)] ?? '';
         const isAnswered = value.trim().length > 0;
+        // IW-4: a widget whose module declares `meta.answerProducing` is
+        // the answer surface — it owns the input and reports values via
+        // ctx.reportValue. In that case the typed SubpartInput would be
+        // a confusing parallel field, so we hide it. Explanatory widgets
+        // (thermo-piston, custom-html) leave the typed input visible.
+        const widgetModule = subpart.widget_kind ? getWidgetModule(subpart.widget_kind) : undefined;
+        const widgetProducesAnswer = widgetModule?.meta.answerProducing === true;
 
         return (
           <div key={subpart.id} className={i > 0 ? 'mt-6 pt-6 border-t border-ink-100' : ''}>
@@ -306,6 +314,17 @@ export const QuestionCard = ({
                   config={subpart.widget_config ?? {}}
                   fallbackText={subpart.question_text}
                   className="text-sm text-ink-800"
+                  // IW-4: answer-producing widgets push their value through
+                  // the typed `value` postMessage; we route it straight into
+                  // the answer state via handleChange. The value is `unknown`
+                  // at the protocol boundary — coerce to string here because
+                  // `answers` is `Record<string, string>` (the submission
+                  // payload's wire type).
+                  onValue={
+                    widgetProducesAnswer
+                      ? (v) => handleChange(subpart.id, v == null ? '' : String(v))
+                      : undefined
+                  }
                 />
               </>
             ) : subpart.is_interactive && subpart.interactive_html ? (
@@ -324,13 +343,29 @@ export const QuestionCard = ({
               <p className="text-sm text-ink-400 italic">No question text available.</p>
             )}
 
-            <SubpartInput
-              subpart={subpart}
-              widgetType={subpart.subpart_type || question.question_type}
-              value={value}
-              onChange={(val) => handleChange(subpart.id, val)}
-              isSubmitted={isSubmitted}
-            />
+            {/*
+              Answer-producing widgets (IW-4) are themselves the input — the
+              student drags / clicks / selects inside the widget and that
+              becomes the answer via onValue above. Rendering the typed
+              SubpartInput too would put a confusing parallel field below the
+              widget. Show a small post-grade summary instead so the student
+              still sees what they submitted.
+            */}
+            {widgetProducesAnswer ? (
+              isSubmitted && (
+                <p className="text-xs text-ink-500 mt-1">
+                  Submitted value: <span className="font-semibold text-ink-900">{value || '—'}</span>
+                </p>
+              )
+            ) : (
+              <SubpartInput
+                subpart={subpart}
+                widgetType={subpart.subpart_type || question.question_type}
+                value={value}
+                onChange={(val) => handleChange(subpart.id, val)}
+                isSubmitted={isSubmitted}
+              />
+            )}
 
             {isAnswered && !isSubmitted && (
               <p className="text-xs text-emerald-700 mt-1">Answered</p>

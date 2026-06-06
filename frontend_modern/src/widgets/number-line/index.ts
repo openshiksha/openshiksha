@@ -24,6 +24,7 @@
  */
 
 import { defineWidget } from '../_sdk/defineWidget';
+import paramsSchema from './params.schema.json';
 
 interface NumberLineConfig {
   /** Left-end value on the axis (default 0). */
@@ -46,6 +47,7 @@ export default defineWidget({
     description: 'Drag a point along a labelled number line; the value becomes the answer.',
     answerProducing: true,
   },
+  paramsSchema,
   render: (ctx) => {
     const cfg = ctx.config as NumberLineConfig;
     const min = Number.isFinite(cfg.min) ? (cfg.min as number) : 0;

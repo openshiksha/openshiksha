@@ -89,6 +89,7 @@ function widgetIndexTemplate(kind, ident) {
  */
 
 import { defineWidget } from '../_sdk/defineWidget';
+import paramsSchema from './params.schema.json';
 
 interface ${ident.charAt(0).toUpperCase() + ident.slice(1)}Config {
   /** TODO: declare typed config fields here, mirroring params.schema.json. */
@@ -103,6 +104,7 @@ export default defineWidget({
     description: 'TODO: one-paragraph description for the teacher gallery.',
     answerProducing: false,
   },
+  paramsSchema,
   render: (ctx) => {
     const cfg = ctx.config as ${ident.charAt(0).toUpperCase() + ident.slice(1)}Config;
     const label = typeof cfg.label === 'string' ? cfg.label : '${kind}';

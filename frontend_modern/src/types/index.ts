@@ -282,6 +282,10 @@ export interface QuestionSubpartWrite {
   image_url?: string;
   solution_text?: string;
   hint_text?: string;
+  /** IW-5: registry kind of an interactive widget attached to this subpart. */
+  widget_kind?: string;
+  /** IW-5: per-widget config validated against the kind's params schema. */
+  widget_config?: Record<string, unknown>;
 }
 
 export interface QuestionCreate {

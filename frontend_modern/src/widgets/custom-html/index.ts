@@ -36,6 +36,7 @@
  */
 
 import { defineWidget } from '../_sdk/defineWidget';
+import paramsSchema from './params.schema.json';
 
 interface CustomHtmlConfig {
   /** Raw HTML to render inside the sandbox. May contain `<script>` tags. */
@@ -54,6 +55,7 @@ export default defineWidget({
       'in an opaque-origin sandbox, but it is still your code shipping to students.',
     answerProducing: false,
   },
+  paramsSchema,
   render: (ctx) => {
     const cfg = ctx.config as CustomHtmlConfig;
     const html = typeof cfg.html === 'string' ? cfg.html : '';

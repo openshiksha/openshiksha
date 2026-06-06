@@ -88,6 +88,16 @@ export interface WidgetMeta {
 }
 
 /**
+ * JSON Schema describing the shape of a widget's `widget_config`. The
+ * teacher gallery (IW-5) reads this to auto-generate the config form;
+ * the backend's per-kind validator (future IW-3 follow-up) reads it
+ * server-side. Typed as `Record<string, unknown>` here — the surface
+ * shape is JSON-Schema draft 2020-12, but we don't ship a full schema
+ * validator in the SDK; consumers narrow as needed.
+ */
+export type WidgetParamsSchema = Record<string, unknown>;
+
+/**
  * Spec a contributor passes to `defineWidget`. The kind is the registry
  * key; `version` lets a question pin a specific behaviour so a widget
  * evolving doesn't break old content (cross-version migration is an IW-2
@@ -108,6 +118,14 @@ export interface WidgetSpec {
    * their renders pure.
    */
   render: (ctx: WidgetContext) => void;
+  /**
+   * Optional JSON Schema describing the widget's config shape. When
+   * present, the teacher gallery (IW-5) auto-generates a form from it
+   * and the live preview re-renders on every change. Import the
+   * sibling `params.schema.json` with `import schema from
+   * './params.schema.json'` and pass it here.
+   */
+  paramsSchema?: WidgetParamsSchema;
 }
 
 /**
@@ -121,6 +139,8 @@ export interface WidgetModule {
   readonly meta: WidgetMeta;
   /** Source of the render function (already stringified) — what the boot script inlines. */
   readonly renderSource: string;
+  /** JSON Schema for the config shape, if the widget declared one. */
+  readonly paramsSchema?: WidgetParamsSchema;
 }
 
 /**
@@ -149,5 +169,6 @@ export function defineWidget(spec: WidgetSpec): WidgetModule {
     version: spec.version,
     meta: spec.meta,
     renderSource: spec.render.toString(),
+    paramsSchema: spec.paramsSchema,
   };
 }

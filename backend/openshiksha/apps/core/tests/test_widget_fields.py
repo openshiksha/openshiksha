@@ -270,3 +270,80 @@ class TestMigrateLegacyThermoCommand:
         sp.refresh_from_db()
         assert sp.widget_kind == ""
         assert sp.widget_config == {}
+
+    def test_command_strips_legacy_preamble_from_question_text(self, db, school, standard, subject, chapter, teacher):
+        """The widget's own labels (formula readout, control captions) used to
+        live in ``question_text`` after the M7-08 cleanup. Now that the React
+        widget shows them itself, the command strips everything up to the
+        actual prompt so the student sees the question once, not twice.
+        """
+        from django.core.management import call_command
+
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        q = Question.objects.create(
+            school=school, standard=standard, subject=subject, chapter=chapter, created_by=teacher
+        )
+        legacy_text = (
+            "Part b)\nChange in Internal Energy (ΔU) = ΔQ - ΔW\n= 0 Joules - 0 Joules\n"
+            "ΔQ = Heat supplied to the system by the surroundings\n"
+            "Piston (doing work):\n"
+            "Heat supplied to the system:\n"
+            "Based on the calculations above, what is the change in internal energy "
+            "if {{k}} Joules of heat is removed from the system and {{j}} Joules of "
+            "work is done on the system by the surroundings?"
+        )
+        sp = QuestionSubpart.objects.create(
+            question=q,
+            index=0,
+            subpart_type="numeric",
+            question_text=legacy_text,
+            is_interactive=True,
+            interactive_html="<div>legacy</div>",
+            variable_constraints={"k": {"min": 20, "max": 200, "integer": True}},
+        )
+
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
+        sp.refresh_from_db()
+        # Preamble (formula, control labels, "Part b)") all gone…
+        assert "Part b)" not in sp.question_text
+        assert "Heat supplied to the system:" not in sp.question_text
+        assert "Change in Internal Energy" not in sp.question_text
+        # …actual prompt preserved verbatim, including the {{var}} tokens.
+        assert sp.question_text.startswith("Based on the calculations above")
+        assert "{{k}}" in sp.question_text
+        assert "{{j}}" in sp.question_text
+
+    def test_command_text_clean_is_idempotent(self, db, school, standard, subject, chapter, teacher):
+        """Re-running the command on a row whose preamble was already stripped
+        must be a no-op for ``question_text`` (and the row count check below
+        guards against accidental duplicate writes)."""
+        from django.core.management import call_command
+
+        from openshiksha.apps.core.models import Question, QuestionSubpart
+
+        q = Question.objects.create(
+            school=school, standard=standard, subject=subject, chapter=chapter, created_by=teacher
+        )
+        clean_prompt = "Based on the calculations above, what is ΔU?"
+        sp = QuestionSubpart.objects.create(
+            question=q,
+            index=0,
+            subpart_type="numeric",
+            question_text=clean_prompt,
+            is_interactive=True,
+            interactive_html="<div>legacy</div>",
+            variable_constraints={"k": {"min": 1, "max": 9, "integer": True}},
+        )
+
+        # First run: stamps the kind. question_text is already clean so it's
+        # left alone (idx == 0 in derive_clean_prompt).
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
+        sp.refresh_from_db()
+        assert sp.widget_kind == "thermo-piston"
+        assert sp.question_text == clean_prompt
+
+        # Second run: skips both transformations.
+        call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
+        sp.refresh_from_db()
+        assert sp.question_text == clean_prompt

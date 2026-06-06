@@ -495,23 +495,25 @@ class QuestionSubpart(models.Model):
     is_interactive = models.BooleanField(
         default=False,
         help_text=(
-            "True when this subpart carries an authored interactive widget "
-            "(embedded <script>/event handlers). The widget HTML lives in "
-            "interactive_html and is rendered ONLY inside a sandboxed iframe "
-            "(M7-11). question_text holds a safe, script-free fallback."
+            "DEPRECATED (IW-7) — paired with interactive_html below. The going-"
+            "forward signal that a subpart carries a widget is widget_kind being "
+            "non-blank; this flag is kept only so the legacy thermo question "
+            "keeps rendering until the migration command stamps it with "
+            "widget_kind='custom-html'. Do not set on new rows."
         ),
     )
     interactive_html = models.TextField(
         blank=True,
         default="",
         help_text=(
-            "Raw authored widget HTML (may contain <script>). SECURITY: stored "
-            "raw on purpose — NEVER render this into the app DOM or via "
-            "dangerouslySetInnerHTML. It is delivered ONLY to a sandboxed "
-            '<iframe sandbox="allow-scripts"> (no allow-same-origin) so the '
-            "script cannot reach app cookies/storage/DOM. {{var}} tokens are "
-            "substituted per student by the serializer; image tokens are "
-            "resolved to absolute URLs at import."
+            "DEPRECATED (IW-7) — raw authored widget HTML, kept as a read-only "
+            "legacy surface until the migration command moves its content into "
+            "widget_kind='custom-html' + widget_config={'html': <this>}. New "
+            "authoring MUST use widget_kind + widget_config; this column will be "
+            "dropped once the legacy thermo row has been migrated. SECURITY "
+            "invariants unchanged while present: stored raw, NEVER rendered into "
+            "the app DOM, delivered ONLY to a sandboxed "
+            '<iframe sandbox="allow-scripts"> (no allow-same-origin).'
         ),
     )
     widget_kind = models.CharField(
@@ -519,11 +521,11 @@ class QuestionSubpart(models.Model):
         blank=True,
         default="",
         help_text=(
-            "Registry key of an interactive widget (e.g. 'thermo-piston'). "
-            "Blank = no widget. The kind-based path is the going-forward "
-            "Widgets Framework contract and supersedes the legacy "
-            "interactive_html escape hatch (kept for backwards-compat until "
-            "IW-7 deprecates it)."
+            "Registry key of an interactive widget (e.g. 'thermo-piston', "
+            "'custom-html'). Blank = no widget. The kind-based path is the "
+            "ONE going-forward Widgets Framework contract — the legacy "
+            "interactive_html escape hatch above is deprecated in favour of "
+            "widget_kind='custom-html' + widget_config={'html': ...} (IW-7)."
         ),
     )
     widget_config = models.JSONField(

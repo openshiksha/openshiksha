@@ -75,10 +75,18 @@ export const StudentDashboard = () => {
         />
       )}
 
-      {assignments && assignments.length > 0 && <AssignmentList assignments={assignments} />}
-
-      <RecommendationsPanel />
-      <DueForReviewPanel />
+      {/*
+        The major dashboard surfaces are separated by the same 32 px (mt-8)
+        gutter the V2 spacing scale uses elsewhere. Without it the
+        "Due Soon" assignment cards sit flush against the recommendations
+        panel, which read as one merged block rather than discrete
+        sections (regression spotted on the live student view).
+      */}
+      <div className="space-y-8">
+        {assignments && assignments.length > 0 && <AssignmentList assignments={assignments} />}
+        <RecommendationsPanel />
+        <DueForReviewPanel />
+      </div>
     </div>
   );
 };

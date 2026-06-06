@@ -20,10 +20,26 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
     ? `Overdue by ${formatDistanceToNow(dueDate)}`
     : `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`;
 
+  // Submitted assignments surface *when* they were submitted instead of the
+  // due date — once you've turned it in, the due date is irrelevant and the
+  // student wants to know "did I do this recently?" at a glance.
+  const submittedLabel =
+    isSubmitted && my_submission?.submitted_at
+      ? `Submitted ${formatDistanceToNow(parseISO(my_submission.submitted_at), { addSuffix: true })}`
+      : 'Submitted';
+
   const cta = isSubmitted ? 'Review' : completion > 0 ? 'Continue' : 'Start';
 
   return (
-    <div className="os-card p-5 hover:shadow-md transition-shadow motion-reduce:transition-none">
+    <div
+      className={`os-card p-5 hover:shadow-md transition-shadow motion-reduce:transition-none ${
+        // Submitted cards get a subtle emerald edge so the difference reads
+        // at a glance in a mixed list, without leaning on color alone (the
+        // "Submitted" label + score badge + ghost CTA still carry the
+        // signal for users with reduced color vision).
+        isSubmitted ? 'border-emerald-200/80 bg-emerald-50/30' : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -71,10 +87,14 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
         <span
           className={`text-xs ${
-            isOverdue && !isSubmitted ? 'text-rose-600 font-medium' : 'text-ink-400'
+            isSubmitted
+              ? 'text-emerald-700 font-medium'
+              : isOverdue
+                ? 'text-rose-600 font-medium'
+                : 'text-ink-400'
           }`}
         >
-          {isSubmitted ? 'Submitted' : dueDateLabel}
+          {isSubmitted ? submittedLabel : dueDateLabel}
         </span>
         <Button
           variant={isSubmitted ? 'ghost' : 'brand'}

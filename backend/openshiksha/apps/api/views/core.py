@@ -695,12 +695,27 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         )
 
         if user.role in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
-            from django.db.models import Q
+            from django.db.models import Prefetch, Q
 
-            return qs.filter(
-                subject_room__students=user,
-                subject_room__is_active=True,
-            ).filter(Q(target_student=None) | Q(target_student=user))
+            from openshiksha.apps.core.models import Submission
+
+            # Prefetch only *this* student's submission per assignment so
+            # AssignmentSerializer.get_my_submission can read it off the
+            # cache without falling into N+1 over a class-sized list.
+            return (
+                qs.filter(
+                    subject_room__students=user,
+                    subject_room__is_active=True,
+                )
+                .filter(Q(target_student=None) | Q(target_student=user))
+                .prefetch_related(
+                    Prefetch(
+                        "submissions",
+                        queryset=Submission.objects.filter(student=user),
+                        to_attr="my_submissions",
+                    )
+                )
+            )
         elif user.role == UserRole.TEACHER:
             return qs.filter(assigned_by=user)
         elif user.role == UserRole.ADMIN:

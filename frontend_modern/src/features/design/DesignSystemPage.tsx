@@ -233,6 +233,55 @@ export const DesignSystemPage = () => (
         </p>
       </Section>
 
+      <Section kicker="Interactive Widgets · IW-6" title="function-plotter — explanatory math widget">
+        <p className="mb-3 text-sm text-ink-500">
+          Plots <code>y = f(x)</code> over a configurable domain. Expression
+          parsed by a tiny in-sandbox recursive-descent evaluator (numbers,
+          identifiers, <code>+ - * / **</code>, function calls — no{' '}
+          <code>eval()</code>, no <code>Function()</code>). Try
+          <code> sin(x) + 0.5*x</code> or <code>x**3 - 4*x</code>.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={300}
+            kind="function-plotter"
+            config={{
+              expr: 'sin(x) + 0.5 * x',
+              xMin: -6,
+              xMax: 6,
+              yMin: -4,
+              yMax: 4,
+              title: 'y = sin(x) + ½x',
+            }}
+          />
+        </Card>
+      </Section>
+
+      <Section kicker="Interactive Widgets · IW-6" title="fraction-bar — primary-school fractions">
+        <p className="mb-3 text-sm text-ink-500">
+          Shaded bar showing <code>numerator / denominator</code>. Default mode
+          hides the numerals so the question can ask the student to name the
+          fraction. The <code>labelled</code> mode (right-hand example) shows
+          <code> n/d</code> below the bar for hints and worked solutions.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Card>
+            <InteractiveWidget
+              minHeight={140}
+              kind="fraction-bar"
+              config={{ numerator: 3, denominator: 8, title: 'Bar A (shaded mode)' }}
+            />
+          </Card>
+          <Card>
+            <InteractiveWidget
+              minHeight={160}
+              kind="fraction-bar"
+              config={{ numerator: 5, denominator: 12, mode: 'labelled', title: 'Bar B (labelled)' }}
+            />
+          </Card>
+        </div>
+      </Section>
+
       <Section kicker="Interactive Widgets · IW-4" title="number-line — the first answer-producing widget">
         <p className="mb-3 text-sm text-ink-500">
           The student drags the orange point along the axis (or uses arrow keys

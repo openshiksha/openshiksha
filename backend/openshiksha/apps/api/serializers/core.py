@@ -118,6 +118,8 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
             "image_url",
             "solution_text",
             "hint_text",
+            "widget_kind",
+            "widget_config",
         ]
 
 
@@ -149,6 +151,8 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
             "hint_text",
             "is_interactive",
             "interactive_html",
+            "widget_kind",
+            "widget_config",
         ]
 
     def to_representation(self, instance):
@@ -303,12 +307,33 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
             "variable_constraints",
             "solution_text",
             "hint_text",
+            "widget_kind",
+            "widget_config",
         ]
         extra_kwargs = {
             "subpart_type": {"required": False},
             "solution_text": {"required": False},
             "hint_text": {"required": False},
+            "widget_kind": {"required": False},
+            "widget_config": {"required": False},
         }
+
+    def validate(self, attrs):
+        from openshiksha.apps.core.widgets import validate_widget_config
+
+        kind = (
+            attrs.get("widget_kind", "")
+            if "widget_kind" in attrs
+            else (self.instance.widget_kind if self.instance else "")
+        )
+        config = (
+            attrs.get("widget_config")
+            if "widget_config" in attrs
+            else (self.instance.widget_config if self.instance else {})
+        )
+        if kind:
+            validate_widget_config(kind, config if config is not None else {})
+        return super().validate(attrs)
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):

@@ -232,37 +232,40 @@ export default defineWidget({
     heatStrip.setAttribute('fill', '#E7E2D3');
     svg.appendChild(heatStrip);
 
-    // Flame icon — a soft teardrop with an inner highlight. Sits on the
-    // left of the heat strip when Q > 0. Width ≈ 22 px so it doesn't
-    // crowd the label text.
+    // Flame icon — a soft teardrop with an inner highlight. Hugs the
+    // *left edge* of the heat strip so it never crowds the label text in
+    // the centre. Bounding box roughly x=47..62, y=265..292 (~15 wide,
+    // ~27 tall) — fits the strip's 36 px height with a tiny margin.
     const fireGroup = document.createElementNS(SVG_NS, 'g');
     fireGroup.setAttribute('opacity', '0');
     const fireOuter = document.createElementNS(SVG_NS, 'path');
     fireOuter.setAttribute(
       'd',
-      // M start near base, curl up on the left, peak with a small kick to
-      // the right (the "tongue"), then come back down — a stylised flame.
-      'M55 290 Q47 281 50 272 Q55 263 58 270 Q60 263 62 267 Q66 257 65 270 Q70 277 67 285 Q63 293 55 290 Z',
+      // Start near base-left, curl up over a peak on the right (the
+      // "tongue"), come back down — stylised flame, kept narrow.
+      'M52 290 Q46 282 50 273 Q53 266 55 273 Q57 268 59 273 Q63 266 61 275 Q65 282 60 289 Q56 293 52 290 Z',
     );
     fireOuter.setAttribute('fill', '#F97316');
     const fireInner = document.createElementNS(SVG_NS, 'path');
-    fireInner.setAttribute('d', 'M58 288 Q54 281 57 275 Q60 270 61 277 Q64 281 62 285 Q60 290 58 288 Z');
+    fireInner.setAttribute('d', 'M55 288 Q51 282 54 277 Q57 273 58 279 Q60 283 58 287 Q56 290 55 288 Z');
     fireInner.setAttribute('fill', '#FDE68A');
     fireGroup.appendChild(fireOuter);
     fireGroup.appendChild(fireInner);
     svg.appendChild(fireGroup);
 
-    // Snowflake icon — six-fold radial of short lines with end-tick branches.
-    // Sits on the left of the heat strip when Q < 0. Centred at (58, 278).
+    // Snowflake icon — six-fold radial of short lines with end-tick
+    // branches. Centred at (55, 278); arm length 7 → fits within an
+    // ~14 px square that matches the flame's footprint, so swapping
+    // between Q>0 and Q<0 doesn't shift any other glyph on the strip.
     const iceGroup = document.createElementNS(SVG_NS, 'g');
     iceGroup.setAttribute('opacity', '0');
     iceGroup.setAttribute('stroke', '#3B82F6');
-    iceGroup.setAttribute('stroke-width', '1.4');
+    iceGroup.setAttribute('stroke-width', '1.2');
     iceGroup.setAttribute('stroke-linecap', 'round');
-    const iceCx = 58;
+    const iceCx = 55;
     const iceCy = 278;
-    const armLen = 9;
-    const branchLen = 3;
+    const armLen = 7;
+    const branchLen = 2.5;
     for (let i = 0; i < 6; i++) {
       const a = (Math.PI / 3) * i;
       const ex = iceCx + Math.cos(a) * armLen;
@@ -290,11 +293,15 @@ export default defineWidget({
     }
     svg.appendChild(iceGroup);
 
+    // Heat label sits to the *right* of the icon. The strip runs x=40..160
+    // and the icon occupies the left ~22 px (x≈46..62). Anchoring the
+    // label at x=115 (middle) puts even the longest copy ("no heat flow",
+    // ~80 px wide at 13 px font) comfortably clear of the icon area.
     const heatLabel = document.createElementNS(SVG_NS, 'text');
-    heatLabel.setAttribute('x', '108'); // shifted right so it doesn't overlap the icon
+    heatLabel.setAttribute('x', '115');
     heatLabel.setAttribute('y', '283');
     heatLabel.setAttribute('text-anchor', 'middle');
-    heatLabel.setAttribute('font-size', '13');
+    heatLabel.setAttribute('font-size', '12');
     heatLabel.setAttribute('fill', '#1B1A17');
     heatLabel.textContent = 'no heat flow';
     svg.appendChild(heatLabel);
@@ -443,11 +450,11 @@ export default defineWidget({
       let iceOpacity = 0;
       if (q > 0) {
         fill = '#FCA5A5';
-        label = 'heat in (warming)';
+        label = 'heat in';
         fireOpacity = Math.min(1, q / 100);
       } else if (q < 0) {
         fill = '#93C5FD';
-        label = 'heat out (cooling)';
+        label = 'heat out';
         iceOpacity = Math.min(1, -q / 100);
       }
       heatStrip.setAttribute('fill', fill);

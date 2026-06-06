@@ -250,7 +250,10 @@ class TestMigrateLegacyThermoCommand:
         call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)
         sp.refresh_from_db()
         assert sp.widget_kind == "thermo-piston"
-        assert sp.widget_config["initialVolume"] == "{{a}}"
+        # Defaults updated in IW-2 to match the legacy slider bounds.
+        assert sp.widget_config["heatMin"] == -200
+        assert sp.widget_config["heatMax"] == 200
+        assert sp.widget_config["workMax"] == 200
         assert sp.interactive_html == "<div>legacy</div>"  # untouched
         # Idempotent re-run is a no-op
         call_command("migrate_legacy_thermo_widget", subpart_id=sp.id)

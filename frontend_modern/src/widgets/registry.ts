@@ -16,12 +16,14 @@
  */
 
 import _hello from './_hello';
+import thermoPiston from './thermo-piston';
 import type { WidgetModule } from './_sdk/defineWidget';
 
 // widget:new inserts here — the IW-8 scaffolder appends new kinds above
 // this comment so the diff is one line per widget.
 export const widgetRegistry = {
   _hello,
+  'thermo-piston': thermoPiston,
 } as const satisfies Record<string, WidgetModule>;
 
 /** String-literal union of every registered kind. */

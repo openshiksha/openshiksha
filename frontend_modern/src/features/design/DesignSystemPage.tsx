@@ -206,6 +206,33 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
+      <Section kicker="Interactive Widgets · IW-1c" title="Runtime preview (framework path)">
+        <p className="mb-3 text-sm text-ink-500">
+          The new <strong>Widgets Framework</strong> path renders a registered
+          widget kind through the SDK runtime — no raw HTML, no jQuery.
+          Contributors write one file at{' '}
+          <code>src/widgets/&lt;kind&gt;/index.ts</code> calling{' '}
+          <code>defineWidget()</code>; the host serialises the render function,
+          inlines it in the sandbox srcdoc, and wraps it with{' '}
+          <code>reportValue</code> / <code>requestResize</code> hooks. The
+          <code>_hello</code> widget below is the IW-1 end-to-end proof.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={120}
+            kind="_hello"
+            config={{ kind: '_hello' }}
+          />
+        </Card>
+        <p className="mt-3 text-xs text-ink-400">
+          Try{' '}
+          <code>
+            &lt;InteractiveWidget kind=&quot;not-real&quot; config=&#123;&#123;&#125;&#125; /&gt;
+          </code>{' '}
+          to see the typed-error fallback.
+        </p>
+      </Section>
+
       <Section kicker="Components" title="Form inputs">
         <Card className="grid gap-4 sm:grid-cols-2">
           <Input label="Full name" placeholder="Aanya Sharma" />

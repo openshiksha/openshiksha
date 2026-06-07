@@ -1,4 +1,4 @@
-import DOMPurify from 'dompurify';
+import createDOMPurify from 'dompurify';
 import katex from 'katex';
 
 /**
@@ -26,19 +26,9 @@ const ALLOWED_ATTR = ['href', 'src', 'alt', 'width', 'height', 'title', 'class',
 // rewritten to absolute raw.githubusercontent.com URLs at import time, so any
 // non-http(s) `src` (relative leftovers, `data:` SVG payloads, `javascript:`)
 // is an XSS vector or a guaranteed broken image — drop the attribute entirely.
-// Registered once at module load; DOMPurify hooks are process-global.
 const HTTP_SRC = /^https?:\/\//i;
-let imgSrcHookRegistered = false;
-function ensureImgSrcHook(): void {
-  if (imgSrcHookRegistered) return;
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.nodeName === 'IMG' && node.hasAttribute('src')) {
-      const src = node.getAttribute('src') ?? '';
-      if (!HTTP_SRC.test(src)) node.removeAttribute('src');
-    }
-  });
-  imgSrcHookRegistered = true;
-}
+const DOMPurify = createDOMPurify(window);
+const FORBIDDEN_CONTENT_SELECTOR = 'script, style, iframe, object, embed';
 
 // `exprGroup: 0` means feed the entire match to KaTeX (used for un-delimited
 // `\begin{X}…\end{X}` environments where the begin/end tokens are part of the
@@ -101,6 +91,20 @@ function renderKatex(expr: string, block: boolean): string {
   }
 }
 
+function dropForbiddenContent(text: string): string {
+  const template = document.createElement('template');
+  template.innerHTML = text;
+  template.content.querySelectorAll(FORBIDDEN_CONTENT_SELECTOR).forEach((node) => node.remove());
+  return template.innerHTML;
+}
+
+function dropUnsafeImageSources(fragment: DocumentFragment): void {
+  fragment.querySelectorAll('img[src]').forEach((img) => {
+    const src = img.getAttribute('src') ?? '';
+    if (!HTTP_SRC.test(src)) img.removeAttribute('src');
+  });
+}
+
 function injectMath(fragment: DocumentFragment): string {
   const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
   const replacements: Array<{ node: Text; html: string }> = [];
@@ -138,8 +142,7 @@ function injectMath(fragment: DocumentFragment): string {
 export function renderRichContent(text: string): string {
   if (!text) return '';
 
-  ensureImgSrcHook();
-  const cleanHtml = DOMPurify.sanitize(text, {
+  const cleanHtml = DOMPurify.sanitize(`<div>${dropForbiddenContent(text)}</div>`, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
@@ -149,5 +152,6 @@ export function renderRichContent(text: string): string {
 
   const template = document.createElement('template');
   template.innerHTML = cleanHtml;
+  dropUnsafeImageSources(template.content);
   return injectMath(template.content);
 }

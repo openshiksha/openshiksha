@@ -185,24 +185,37 @@ class UserViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=["get", "post"], url_path="me/classroom-code", permission_classes=[IsTeacher])
     def classroom_code(self, request):
         """
-        GET  — returns all active join codes for classrooms taught by this teacher.
+        GET  — returns all active join codes for classrooms this teacher can manage.
         POST — generates a new code for a specified classroom (body: {classroom_id}).
+
+        A classroom is manageable by its homeroom ``class_teacher`` **and** by any
+        teacher who runs a ``SubjectRoom`` inside it. The dashboard surfaces the
+        join code per subject room, so a subject teacher (who is usually *not*
+        the homeroom teacher) must be able to generate and read it — otherwise
+        the widget silently 404s for them.
         """
-        from django.shortcuts import get_object_or_404
+        from django.db.models import Q
 
         from openshiksha.apps.api.serializers.core import ClassroomInviteCodeSerializer
         from openshiksha.apps.core.models import ClassRoom, ClassroomInviteCode
 
+        manageable = Q(class_teacher=request.user) | Q(subject_rooms__teacher=request.user)
+
         if request.method == "GET":
-            codes = ClassroomInviteCode.objects.filter(
-                classroom__class_teacher=request.user, is_active=True
-            ).select_related("classroom")
+            codes = (
+                ClassroomInviteCode.objects.filter(is_active=True)
+                .filter(Q(classroom__class_teacher=request.user) | Q(classroom__subject_rooms__teacher=request.user))
+                .select_related("classroom")
+                .distinct()
+            )
             return Response(ClassroomInviteCodeSerializer(codes, many=True).data)
 
         classroom_id = request.data.get("classroom_id")
         if not classroom_id:
             return Response({"detail": "classroom_id is required."}, status=400)
-        classroom = get_object_or_404(ClassRoom, id=classroom_id, class_teacher=request.user)
+        classroom = ClassRoom.objects.filter(manageable, id=classroom_id).distinct().first()
+        if classroom is None:
+            return Response({"detail": "Classroom not found, or you do not teach in it."}, status=404)
         ClassroomInviteCode.objects.filter(classroom=classroom).update(is_active=False)
         code = ClassroomInviteCode.objects.create(
             classroom=classroom,
@@ -643,7 +656,10 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
         return ProblemSetSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        # `preview` (view-as-student) is a teacher-only authoring aid — this
+        # overridden get_permissions takes precedence over the @action's own
+        # permission_classes, so it must be listed here explicitly.
+        if self.action in ["create", "update", "partial_update", "destroy", "preview"]:
             return [permissions.IsAuthenticated(), IsTeacher()]
         return [permissions.IsAuthenticated()]
 
@@ -671,6 +687,22 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         school = getattr(self.request.user, "school", None)
         serializer.save(school=school, created_by=self.request.user)
+
+    @action(detail=True, methods=["get"], url_path="preview")
+    def preview(self, request, pk=None):
+        """
+        GET /api/v1/problem-sets/<id>/preview/
+
+        Renders the set **exactly as a student sees it** — correct answers
+        stripped, ``{{var}}`` tokens substituted, and MCQ options shuffled via
+        the same student serializer the assignment page uses. Read-only; lets a
+        teacher sanity-check a set before assigning it.
+        """
+        from openshiksha.apps.api.serializers.core import ProblemSetStudentDetailSerializer
+
+        problem_set = get_object_or_404(self.get_queryset(), pk=pk)
+        serializer = ProblemSetStudentDetailSerializer(problem_set, context={"request": request})
+        return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="add-question")
     def add_question(self, request, pk=None):

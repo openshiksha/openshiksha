@@ -314,3 +314,72 @@ class TestAddQuestionToProblemSet:
         url = f"/api/v1/problem-sets/{problem_set.pk}/add-question/"
         response = api_client.post(url, {"question_id": 99999}, format="json")
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestProblemSetStudentPreview:
+    """Tests for GET /api/v1/problem-sets/<id>/preview/ (view-as-student)."""
+
+    def test_teacher_can_preview_with_questions(self, api_client, teacher, problem_set, question):
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/preview/"
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == problem_set.pk
+        assert len(response.data["questions"]) == 1
+        assert response.data["questions"][0]["id"] == question.pk
+        assert len(response.data["questions"][0]["subparts"]) == 1
+
+    def test_preview_hides_correct_answer(self, api_client, teacher, problem_set):
+        """The student serializer must never leak the correct answer."""
+        api_client.force_authenticate(user=teacher)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/preview/"
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        subpart = response.data["questions"][0]["subparts"][0]
+        assert "correct_answer" not in subpart
+
+    def test_student_cannot_preview(self, api_client, student, problem_set):
+        api_client.force_authenticate(user=student)
+        url = f"/api/v1/problem-sets/{problem_set.pk}/preview/"
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_preview_unknown_set_returns_404(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get("/api/v1/problem-sets/99999/preview/")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestClassroomCodeForSubjectTeacher:
+    """The join code must work for a subject teacher who is *not* the homeroom
+    ``class_teacher`` — the dashboard surfaces it per subject room."""
+
+    def test_subject_teacher_can_generate_code(self, api_client, teacher, classroom, subject_room):
+        # `teacher` runs `subject_room` in `classroom` but is NOT its class_teacher.
+        assert classroom.class_teacher_id is None
+        api_client.force_authenticate(user=teacher)
+        url = "/api/v1/users/me/classroom-code/"
+        response = api_client.post(url, {"classroom_id": classroom.pk}, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["code"]
+        assert response.data["classroom_id"] == classroom.pk
+
+    def test_subject_teacher_sees_code_in_list(self, api_client, teacher, classroom, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = "/api/v1/users/me/classroom-code/"
+        api_client.post(url, {"classroom_id": classroom.pk}, format="json")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert any(c["classroom_id"] == classroom.pk for c in response.data)
+
+    def test_unrelated_teacher_cannot_generate_code(self, api_client, school, classroom):
+        outsider = User.objects.create_user(
+            username="outsider_teacher",
+            password="pass",
+            role=UserRole.TEACHER,
+            school=school,
+        )
+        api_client.force_authenticate(user=outsider)
+        url = "/api/v1/users/me/classroom-code/"
+        response = api_client.post(url, {"classroom_id": classroom.pk}, format="json")
+        assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -22,6 +22,7 @@ import { TeacherDashboard } from './features/teacher/TeacherDashboard';
 import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
 import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
 import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
+import { ProblemSetPreviewPage } from './features/teacher/ProblemSetPreviewPage';
 import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
 import { QuestionBankPage } from './features/teacher/QuestionBankPage';
 import { ParentDashboard } from './features/parent/ParentDashboard';
@@ -192,6 +193,17 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <CreateProblemSetPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/problem-sets/:id/preview"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <ProblemSetPreviewPage />
               </AppShell>
             </ProtectedRoute>
           }

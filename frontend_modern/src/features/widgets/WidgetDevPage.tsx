@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Badge, Card, InteractiveWidget, Select, Textarea } from '@/shared/ui';
+import { Badge, Card, Select, Textarea } from '@/shared/ui';
+import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { widgetRegistry, type WidgetKind } from '@/widgets/registry';
 import type { WidgetModule, WidgetParamsSchema } from '@/widgets/_sdk/defineWidget';
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Card, InteractiveWidget } from '@/shared/ui';
+import { Card } from '@/shared/ui';
+import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { widgetRegistry } from '@/widgets/registry';
 import type { WidgetModule } from '@/widgets/_sdk/defineWidget';
 

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { LoadingSpinner, RichContent } from '@/shared/ui';
+import { LoadingSpinner } from '@/shared/ui';
+import { RichContent } from '@/shared/ui/RichContent';
 import { WidgetGalleryPanel } from './WidgetGalleryPanel';
 import { getWidgetModule } from '@/widgets/registry';
 import { useSubjectRooms } from './useSubjectRooms';

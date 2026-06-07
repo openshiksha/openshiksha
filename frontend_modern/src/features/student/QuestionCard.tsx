@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { Question, QuestionSubpart, MCQOption, AIHint, SubpartType } from '@/types/index';
-import { RichContent, InteractiveWidget } from '@/shared/ui';
+import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
+import { RichContent } from '@/shared/ui/RichContent';
 import { getWidgetModule } from '@/widgets/registry';
 import { useHints } from './useHints';
 

@@ -41,10 +41,42 @@ react-query (login/register/enquire all use react-query mutations today). That
 is a real ~half-day refactor, not a follow-up tweak. It's documented under §H
 "Open follow-ups" in the initiative for whoever picks it up next.
 
-## Why no lazy DOMPurify?
+## DOMPurify off the auth critical path (barrel-export fix)
 
-User scoped out. The DOMPurify chunk is only 25 kB and the change is
-non-trivial; deferred unless a future measurement promotes it.
+Originally scoped out, but a closer look found a much simpler win than lazy-
+loading the module:
+
+`@/shared/ui/index.ts` re-exported `RichContent`, `renderRichContent`, and
+`InteractiveWidget`. Every eager page (`LoginPage`, `RegisterPage`, `HomePage`,
+`NotFoundPage`, …) imported from that barrel — even when they only needed
+`{ Logo, Button }`. Rolldown couldn't tree-shake the unused exports because
+`renderRichContent.ts` calls `createDOMPurify(window)` at module top-level
+(a side effect), so the whole module — and its `dompurify` dep — got pulled
+into the entry chunk.
+
+**Fix:** removed `RichContent` / `renderRichContent` / `InteractiveWidget`
+from the barrel. Consumers now import them directly from
+`@/shared/ui/RichContent` and `@/shared/ui/InteractiveWidget`. Updated 5
+consumers (`QuestionCard`, `CreateQuestionPage`, `QuestionPreviewPanel`,
+`DesignSystemPage`, `WidgetDevPage`, `WidgetGalleryPanel`) and the
+`WidgetDevPage.test.tsx` mock (was mocking the barrel; now mocks the direct
+path).
+
+### Measured results
+
+| Build artefact            | Before          | After           |
+| ------------------------- | --------------- | --------------- |
+| Entry `index-*.js`        | 132.06 kB       | **93.0 kB**     |
+| Entry gzip                | 41.30 kB        | **29.30 kB**    |
+| `vendor-dompurify` in modulepreload? | yes  | **no**          |
+
+`/login` re-measured under Slow 4G + 4× CPU emulation:
+
+| Metric              | Before  | After   |
+| ------------------- | ------- | ------- |
+| FCP                 | 4608 ms | **4388 ms** |
+| Total JS payload    | 415 kB  | **355 kB** |
+| JS requests         | 5       | **4**   |
 
 ## Why no PERF-05 (font self-hosting)?
 

@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { Badge, Card, RichContent } from '@/shared/ui';
+import { Badge, Card } from '@/shared/ui';
+import { RichContent } from '@/shared/ui/RichContent';
 import { difficultyStars, typeLabel, typeTone } from './questionPreviewMeta';
 import type { MCQOption, Question, QuestionSubpart } from '@/types/index';
 

@@ -3,8 +3,6 @@ import {
   Button,
   Card,
   Badge,
-  RichContent,
-  InteractiveWidget,
   Skeleton,
   LoadingSpinner,
   Input,
@@ -14,6 +12,8 @@ import {
   SectionHeading,
   EmptyState,
 } from '@/shared/ui';
+import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
+import { RichContent } from '@/shared/ui/RichContent';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`

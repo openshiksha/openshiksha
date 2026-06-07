@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubjectRooms, type TeacherSubjectRoom } from './useSubjectRooms';
 import { useProblemSets, type TeacherProblemSet } from './useProblemSets';
 import { useCreateAssignment } from './useCreateAssignment';
@@ -48,6 +48,7 @@ const daysFromToday = (iso: string): number | null => {
 
 export const CreateAssignmentPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [subjectRoomId, setSubjectRoomId] = useState<number | ''>('');
   const [problemSetId, setProblemSetId] = useState<number | ''>('');
@@ -63,6 +64,47 @@ export const CreateAssignmentPage = () => {
   const subjectId = selectedRoom?.subject ?? null;
 
   const { data: problemSets, isLoading: setsLoading } = useProblemSets(subjectId);
+
+  // ── Deep-link preselection ────────────────────────────────────────────────
+  // The dashboard's "Assign" buttons link here with ?room=<id> (from a subject
+  // room) or ?problemSet=<id> (from a problem set). We resolve the set's subject
+  // from the unfiltered list so a ?problemSet= link can pick a matching room
+  // even before the subject-filtered list loads. Each preset is applied exactly
+  // once (refs) so manual edits afterwards stick.
+  const presetRoom = searchParams.get('room');
+  const presetSet = searchParams.get('problemSet');
+  const { data: allSets } = useProblemSets();
+  const roomPresetDone = useRef(false);
+  const setPresetDone = useRef(false);
+
+  useEffect(() => {
+    if (roomPresetDone.current || !subjectRooms) return;
+    if (presetRoom) {
+      const rid = Number(presetRoom);
+      if (subjectRooms.some((r) => r.id === rid)) {
+        setSubjectRoomId(rid);
+        roomPresetDone.current = true;
+      }
+      return;
+    }
+    if (presetSet && allSets) {
+      const target = allSets.find((s) => s.id === Number(presetSet));
+      if (target) {
+        const room = subjectRooms.find((r) => r.subject === target.subject);
+        if (room) setSubjectRoomId(room.id);
+        roomPresetDone.current = true;
+      }
+    }
+  }, [subjectRooms, allSets, presetRoom, presetSet]);
+
+  useEffect(() => {
+    if (setPresetDone.current || !presetSet || !problemSets) return;
+    const id = Number(presetSet);
+    if (problemSets.some((s) => s.id === id)) {
+      setProblemSetId(id);
+      setPresetDone.current = true;
+    }
+  }, [problemSets, presetSet]);
 
   const selectedSet = useMemo(
     () => problemSets?.find((ps) => ps.id === problemSetId) ?? null,
@@ -468,6 +510,15 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
                 )}
                 <Badge tone="neutral">{set.chapter_name}</Badge>
               </div>
+              <a
+                href={`/teacher/problem-sets/${set.id}/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-800"
+              >
+                Preview the actual questions as a student
+                <span aria-hidden="true">↗</span>
+              </a>
             </div>
           ) : (
             <p className="text-sm text-ink-400">Pick a problem set on the left.</p>

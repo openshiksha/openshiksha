@@ -221,6 +221,10 @@ jobs:
                 retention-days: 14
             - name: Build
               run: npm run build
+            - name: Check bundle-size budget (PERF-06)
+              # Fails if the entry chunk grows past the documented ceiling.
+              # See docs/perf/budget.md for the raise-the-ceiling protocol.
+              run: npm run check:budget
 
     frontend-e2e:
         name: Frontend E2E (Playwright smoke)

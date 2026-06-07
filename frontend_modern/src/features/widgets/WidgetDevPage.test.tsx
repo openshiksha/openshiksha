@@ -4,21 +4,17 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { WidgetDevPage } from './WidgetDevPage';
 
-vi.mock('@/shared/ui', async () => {
-  const actual = await vi.importActual<typeof import('@/shared/ui')>('@/shared/ui');
-  return {
-    ...actual,
-    InteractiveWidget: ({ kind, config, variables }: {
-      kind?: string;
-      config?: Record<string, unknown>;
-      variables?: Record<string, unknown>;
-    }) => (
-      <div data-testid="widget-preview">
-        {kind}::{JSON.stringify(config)}::{JSON.stringify(variables)}
-      </div>
-    ),
-  };
-});
+vi.mock('@/shared/ui/InteractiveWidget', () => ({
+  InteractiveWidget: ({ kind, config, variables }: {
+    kind?: string;
+    config?: Record<string, unknown>;
+    variables?: Record<string, unknown>;
+  }) => (
+    <div data-testid="widget-preview">
+      {kind}::{JSON.stringify(config)}::{JSON.stringify(variables)}
+    </div>
+  ),
+}));
 
 function renderPage(route = '/widgets/dev') {
   return render(

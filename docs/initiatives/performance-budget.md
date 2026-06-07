@@ -6,11 +6,12 @@
 > routes that need them; the build never silently regresses past the budget
 > again.
 >
-> **Status:** 🟢 **Active** (promoted 2026-06-07). Top priority now that V2,
-> Cabinet Data Fidelity, and Legacy Parity are closed and Interactive Widgets
-> is paused after IW-8.
+> **Status:** ✅ **Done** (2026-06-07). North Star reached: route-split bundle,
+> KaTeX off the first-paint critical path, dead deps gone, CI budget guard
+> defends the cut. Open follow-ups (PERF-05 deferred, "trim auth critical
+> path" future pull) tracked under §H below.
 
-**Last updated:** 2026-06-07
+**Last updated:** 2026-06-07 (closeout)
 
 ---
 
@@ -189,6 +190,24 @@ Pick one small hardening task whenever advancing this initiative:
 
 ---
 
+## H. Open follow-ups (post-close)
+
+The initiative's North Star is reached, but real-device measurement surfaced
+two opportunities worth tracking — neither is required for the close:
+
+- **Trim the auth critical path (~42 kB cut on `/login`).** Move the
+  `QueryClientProvider` below the unauthenticated routes (login/register/
+  enquire). Requires refactoring `useAuth`, `useLoginMutation`,
+  `useRegisterMutation`, `useEnquireMutation` from react-query to plain
+  fetch+useState. ~half-day refactor; opens a new dedicated PR if ever picked
+  up.
+- **PERF-05 (font self-hosting) — deferred.** Measurement showed fonts aren't
+  the long pole: `font-display: swap` already absorbs the cost into a
+  post-FCP swap, and zero `.woff2` files are fetched in the first-paint
+  window. Worth maybe ~100-200 ms of perceived font-swap latency vs. the
+  operational cost of vendoring + cache-busting fonts. Not worth shipping
+  unless a real LCP trace promotes it.
+
 ## F. Relationship to other initiatives
 
 - **V2 "Chalk & Unlock"** owns the visual language — font optimization
@@ -206,4 +225,10 @@ Pick one small hardening task whenever advancing this initiative:
 
 | Date | Increment | PR | Hardening / learning |
 |---|---|---|---|
-| 2026-06-07 | Initiative promoted ⚪ Proposed → 🟢 Active; PERF-01…PERF-06 backlog written. | _(this docs PR)_ | Promoted because all prior top initiatives are closed/paused and the 770 kB single-chunk warning is the biggest standing quality gap for the K-12 mobile audience. |
+| 2026-06-07 | Initiative promoted ⚪ Proposed → 🟢 Active; PERF-01…PERF-06 backlog written. | _(plan PR)_ | Promoted because all prior top initiatives are closed/paused and the 770 kB single-chunk warning is the biggest standing quality gap for the K-12 mobile audience. |
+| 2026-06-07 | **PERF-01** — vendor `manualChunks`, `rollup-plugin-visualizer` behind `--mode analyze`, `chunkSizeWarningLimit: 900`, baseline doc. Entry JS 855 → 353 kB / 247 → 92 kB gzip (vendor split only). | [#251](https://github.com/openshiksha/openshiksha/pull/251) | Function-form `manualChunks` required by rolldown (object form errors). Baseline lives at `docs/perf/baseline-2026-06-07.md`. |
+| 2026-06-07 | **PERF-02** — dropped unused `recharts`. Verified zero source imports across `src/`, `scripts/`, widgets, e2e; `npm ls recharts` empty. | [#252](https://github.com/openshiksha/openshiksha/pull/252) | Pure dead-weight removal; proficiency / trend graphs were already hand-rolled SVG. |
+| 2026-06-07 | **PERF-03** — route-level `React.lazy` for 22 pages behind one top-level `<Suspense>`. Typed `lazyNamed` helper preserves component props. Entry JS **131 kB / 41 kB gzip** (84% drop from baseline). | [#253](https://github.com/openshiksha/openshiksha/pull/253) | The headline cut. Per-route chunks land between 1–32 kB each. Auth + Home stay eager. |
+| 2026-06-07 | **PERF-04** — KaTeX dynamic-imported behind `<RichContent>`; only fired when text contains math delimiters. `vendor-katex` (77 kB gzip) no longer in `index.html` modulepreload. | [#254](https://github.com/openshiksha/openshiksha/pull/254) | Test-setup preloads KaTeX synchronously so existing 19 sync renderer tests stay sync. |
+| 2026-06-07 | **PERF-06** — CI bundle-size budget guard (`scripts/check-bundle-budget.mjs`, 9 unit tests, CI step after build, `docs/perf/budget.md`). Initial ceiling 160 kB; measured 129 kB; 31 kB headroom. | [#255](https://github.com/openshiksha/openshiksha/pull/255) | Hash-aware resolution from `index.html` — never hard-codes filename. |
+| 2026-06-07 | **Follow-up** — real-device measurement under Slow 4G + 4× CPU emulation: FCP 4.6 s on `/login`. JS dominates; fonts are NOT the long pole (zero `.woff2` fetched in first-paint window thanks to `font-display: swap` already in place). Dropped `ReactQueryDevtools` from production via `import.meta.env.DEV` guard + isolated `devtools-react-query` chunk. PERF-05 deferred — would buy ~100-200 ms of font-swap latency, an order of magnitude smaller than what already shipped. **Also fixed the `@/shared/ui` barrel:** `RichContent` / `renderRichContent` / `InteractiveWidget` were re-exported and dragged DOMPurify into the entry chunk via barrel imports from `LoginPage`. Removed them from the barrel; consumers now import direct paths. `vendor-dompurify` (24 kB) is no longer in `/login`'s modulepreload list. Entry chunk **131 → 93 kB / 41 → 29 kB gzip**; re-measured `/login` FCP **4608 → 4388 ms** (−220 ms), JS payload **415 → 355 kB** (−60 kB). | _(this PR)_ | Adds `scripts/measure-perf.mjs` for repeat measurement. The actual next-meaningful pull is "move QueryClientProvider below the auth boundary" — would cut another ~42 kB on `/login` — but requires refactoring `useAuth` + login/register/enquire mutations off react-query, so left for a dedicated future PR. |

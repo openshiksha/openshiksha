@@ -1,15 +1,19 @@
 // OpenShiksha V2 design-system primitives.
 // Import from here: `import { Button, Card, Badge, Logo } from '@/shared/ui'`.
 // Every new primitive must be exported here AND rendered in features/design.
+//
+// `RichContent` / `renderRichContent` / `InteractiveWidget` are intentionally
+// NOT re-exported from this barrel. They depend on DOMPurify (~25 kB) — and
+// `InteractiveWidget` transitively re-pulls `RichContent` as its fallback
+// renderer. Only question-rendering surfaces need them. Pulling them through
+// the barrel forces eager pages like `LoginPage` (which only needs
+// `{ Logo, Button }`) to drag DOMPurify into the first-paint critical path.
+// Import them directly from `@/shared/ui/RichContent` /
+// `@/shared/ui/InteractiveWidget` instead.
 export { Logo } from './Logo';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Badge } from './Badge';
-export { RichContent } from './RichContent';
-export type { RichContentProps } from './RichContent';
-export { renderRichContent } from './renderRichContent';
-export { InteractiveWidget } from './InteractiveWidget';
-export type { InteractiveWidgetProps } from './InteractiveWidget';
 export { Skeleton } from './Skeleton';
 export { LoadingSpinner } from './LoadingSpinner';
 export { ErrorBoundary } from './ErrorBoundary';

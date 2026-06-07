@@ -27,9 +27,16 @@ That single command:
 3. Prints the one remaining manual step (the server-side
    `KNOWN_WIDGET_KINDS` mirror).
 
-Then iterate on `index.ts` until your widget does what you want. Run
-`npm run dev` and visit `/design`'s "Interactive Widgets" section to
-see it render in the sandbox.
+Then iterate on `index.ts` until your widget does what you want:
+
+```bash
+npm run widget:dev -- my-widget
+```
+
+That opens `/widgets/dev?kind=my-widget`, a focused playground with a
+widget picker, config JSON editor, variables JSON editor, live sandbox
+preview, and last-reported-value readout. For the full walkthrough, see
+[`build-your-first-widget.md`](./build-your-first-widget.md).
 
 ## The folder layout
 

@@ -49,4 +49,13 @@ describe('<WidgetDevPage />', () => {
     expect(screen.getByText(/fix the json error/i)).toBeInTheDocument();
     expect(screen.queryByTestId('widget-preview')).not.toBeInTheDocument();
   });
+
+  it('seeds custom-html with a rich sandbox demo', () => {
+    renderPage('/widgets/dev?kind=custom-html');
+
+    const config = screen.getByLabelText(/config json/i) as HTMLTextAreaElement;
+    expect(config.value).toContain('Sandboxed HTML can still feel alive');
+    expect(config.value).toContain('energy');
+    expect(screen.getByTestId('widget-preview')).toHaveTextContent('custom-html');
+  });
 });

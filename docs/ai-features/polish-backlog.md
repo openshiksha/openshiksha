@@ -35,6 +35,35 @@ not fake drafts. With a key set, drafts render as before.
 
 ---
 
+## 2026-06-07 — Weekly class reports: AI-generated label + generation error state
+
+**Surface:** Weekly class reports (teacher dashboard `WeeklyReportPanel`).
+
+**Gaps (checklist #1 error states, #3 copy/tone, #7 provider transparency):**
+1. The LLM-written `summary_text` was shown with **no indication it was
+   AI-generated** — teachers had no signal the narrative came from a model.
+2. When `model_used === 'stub'` (no LLM key — deterministic data-derived
+   fallback), the stub text was presented identically to genuine AI output,
+   violating provider-cascade transparency.
+3. `handleGenerate` **silently swallowed errors**: if the generate POST failed,
+   the panel just reverted to the empty "No weekly summary yet" state with no
+   feedback, so a teacher couldn't tell the click had failed.
+
+**Fix:**
+- Added a small `Badge` on the report card: `✨ AI-generated` (brand tone) for a
+  real LLM, or `Auto-summary` (neutral tone) plus an "AI was unavailable, so this
+  was built directly from your class data" note when `model_used === 'stub'`.
+- Added a friendly inline error message ("Couldn't generate the summary just now.
+  Please try again in a moment.") on generation failure.
+- New test file `WeeklyReportPanel.test.tsx` covers the AI label, the stub
+  auto-summary path, and the generation-error path (checklist #8).
+
+**Verify:** Expand "Weekly AI Summary" on the teacher dashboard. With a provider
+key set the report shows the ✨ AI-generated badge; with no key the stub summary
+shows the Auto-summary badge + note. Trigger a failing generate → red error line.
+
+---
+
 ## Remaining gaps (audit notes — not yet addressed)
 
 - **Natural language explanations** — backend `SubpartExplanationViewSet` is
@@ -42,10 +71,11 @@ not fake drafts. With a key set, drafts render as before.
   `frontend_modern`**. The post-grading student feedback surface appears to be
   unwired in the V2 app. Needs UX placement work (inline after feedback) — sizeable,
   flag before treating as polish vs. feature.
-- **Other generation surfaces** (weekly reports, parent summaries, class summary,
-  interventions) use the same stub-cascade pattern. Audit each for whether the
-  stub model leaks to the UI as if it were real content, mirroring the
-  question-generation fix above. `generate_class_summary` returns
-  `{"text", "model"}` — check the view/UI actually distinguish `model == "stub"`.
+- **Parent summaries (`NarrativeCard`) + interventions (`InterventionsPanel`)**
+  still display LLM narrative text with **no AI-generated / stub badge**, unlike
+  the now-fixed `WeeklyReportPanel`. Both already receive `model_used` from their
+  serializers — apply the same `✨ AI-generated` vs `Auto-summary` badge for
+  consistency (one surface per run). `NarrativeCard` has no badge at all;
+  `InterventionsPanel` only has a footer disclaimer line.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.

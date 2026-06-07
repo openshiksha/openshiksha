@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubjectRooms, type TeacherSubjectRoom } from './useSubjectRooms';
 import { useProblemSets, type TeacherProblemSet } from './useProblemSets';
@@ -69,42 +69,42 @@ export const CreateAssignmentPage = () => {
   // The dashboard's "Assign" buttons link here with ?room=<id> (from a subject
   // room) or ?problemSet=<id> (from a problem set). We resolve the set's subject
   // from the unfiltered list so a ?problemSet= link can pick a matching room
-  // even before the subject-filtered list loads. Each preset is applied exactly
-  // once (refs) so manual edits afterwards stick.
+  // even before the subject-filtered list loads.
+  //
+  // This is the "adjust state when data arrives" case, so we apply it during
+  // render (guarded so it runs once) rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect. The guards flip only
+  // after the relevant data has loaded, so a teacher's later manual edits stick.
   const presetRoom = searchParams.get('room');
   const presetSet = searchParams.get('problemSet');
   const { data: allSets } = useProblemSets();
-  const roomPresetDone = useRef(false);
-  const setPresetDone = useRef(false);
+  const [roomPresetDone, setRoomPresetDone] = useState(false);
+  const [setPresetDone, setSetPresetDone] = useState(false);
 
-  useEffect(() => {
-    if (roomPresetDone.current || !subjectRooms) return;
+  if (!roomPresetDone && subjectRooms) {
     if (presetRoom) {
       const rid = Number(presetRoom);
-      if (subjectRooms.some((r) => r.id === rid)) {
-        setSubjectRoomId(rid);
-        roomPresetDone.current = true;
-      }
-      return;
-    }
-    if (presetSet && allSets) {
+      if (subjectRooms.some((r) => r.id === rid)) setSubjectRoomId(rid);
+      setRoomPresetDone(true);
+    } else if (presetSet && allSets) {
       const target = allSets.find((s) => s.id === Number(presetSet));
       if (target) {
         const room = subjectRooms.find((r) => r.subject === target.subject);
         if (room) setSubjectRoomId(room.id);
-        roomPresetDone.current = true;
       }
+      setRoomPresetDone(true);
+    } else if (!presetSet) {
+      setRoomPresetDone(true);
     }
-  }, [subjectRooms, allSets, presetRoom, presetSet]);
+  }
 
-  useEffect(() => {
-    if (setPresetDone.current || !presetSet || !problemSets) return;
+  if (!setPresetDone && presetSet && problemSets) {
     const id = Number(presetSet);
     if (problemSets.some((s) => s.id === id)) {
       setProblemSetId(id);
-      setPresetDone.current = true;
+      setSetPresetDone(true);
     }
-  }, [problemSets, presetSet]);
+  }
 
   const selectedSet = useMemo(
     () => problemSets?.find((ps) => ps.id === problemSetId) ?? null,

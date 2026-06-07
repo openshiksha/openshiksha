@@ -1,10 +1,30 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { visualizer } from 'rollup-plugin-visualizer';
+
+// `rollup-plugin-visualizer` is only used in `--mode analyze`. We dynamic-
+// import it inside the factory so missing it never breaks a normal `dev` /
+// `build` — Docker images that omit dev deps, fresh clones before
+// `npm install`, etc. still boot cleanly.
+async function loadVisualizer(): Promise<PluginOption | null> {
+  try {
+    const mod = await import('rollup-plugin-visualizer');
+    return mod.visualizer({
+      filename: 'dist/stats.html',
+      template: 'treemap',
+      gzipSize: true,
+      brotliSize: true,
+    });
+  } catch {
+    console.warn(
+      '[vite.config] --mode analyze requested but rollup-plugin-visualizer is not installed; skipping.',
+    );
+    return null;
+  }
+}
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(async ({ mode }) => ({
   test: {
     globals: true,
     environment: 'happy-dom',
@@ -51,16 +71,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    ...(mode === 'analyze'
-      ? [
-          visualizer({
-            filename: 'dist/stats.html',
-            template: 'treemap',
-            gzipSize: true,
-            brotliSize: true,
-          }),
-        ]
-      : []),
+    ...(mode === 'analyze' ? [await loadVisualizer()].filter(Boolean) : []),
   ],
   resolve: {
     alias: {

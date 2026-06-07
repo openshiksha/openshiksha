@@ -5,6 +5,10 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        # k8s manifests routinely concatenate multiple resources in one file
+        # with `---` separators (Service + StatefulSet, etc.). Without this
+        # flag, check-yaml errors on every k8s/base/*.yaml file.
+        args: [--allow-multiple-documents]
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements

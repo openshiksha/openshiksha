@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openshiksha-config
+data:
+  # Non-secret env shared by backend + celery + celery-beat.
+  # Overlays patch ALLOWED_HOSTS / CORS_ALLOWED_ORIGINS to the env's hostname.
+  DJANGO_SETTINGS_MODULE: openshiksha.settings.production
+  PYTHONUNBUFFERED: "1"
+  # Overridden per-overlay:
+  ALLOWED_HOSTS: ""
+  CORS_ALLOWED_ORIGINS: ""
+  # Postgres + Redis live in-cluster (see statefulsets); the DATABASE_URL
+  # secret encodes the password. The host/port here are referenced by both
+  # backend and celery for the broker URL fallbacks.
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: openshiksha
+  POSTGRES_USER: openshiksha
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"

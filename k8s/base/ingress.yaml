@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openshiksha
+  annotations:
+    # k3s ships Traefik by default; this is the IngressClass it creates.
+    # If you've installed nginx-ingress or another controller, change to match.
+    kubernetes.io/ingress.class: traefik
+    # Traefik will redirect HTTP → HTTPS via the websecure entrypoint TLS
+    # config — but if cert-manager is set up on the cluster, uncomment the
+    # next line and the `tls:` block at the bottom so certs are auto-issued
+    # for the host (you'll need a ClusterIssuer named `letsencrypt-prod`).
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  # `host:` is patched per overlay (qa.openshiksha.org, openshiksha.org).
+  rules:
+    - host: PLACEHOLDER.openshiksha.org
+      http:
+        paths:
+          # /api/* and /admin/* go to the Django backend.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # /static/* served by WhiteNoise off the backend (collectstatic-baked).
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # Everything else → the React SPA (nginx).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+  # TLS — uncomment + populate after enabling cert-manager.
+  # tls:
+  #   - hosts:
+  #       - PLACEHOLDER.openshiksha.org
+  #     secretName: openshiksha-tls

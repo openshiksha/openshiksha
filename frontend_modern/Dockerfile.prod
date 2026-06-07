@@ -1,0 +1,41 @@
+# Production image for the modern OpenShiksha frontend.
+#
+# Multi-stage:
+#   1. `builder` runs `npm ci && npm run build` → /app/dist (Vite output).
+#   2. `runtime` is nginx serving /app/dist with SPA-style history fallback
+#      so React Router deep links work, plus long cache headers on hashed
+#      assets and a strict no-cache on index.html (so deploys take effect).
+#
+# Bundle budget guard from PERF-06 runs inside the builder stage so a build
+# that exceeds the ceiling fails the CI image build, not just the unit-test
+# job that already ran in `frontend`.
+
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+# Defend the entry-chunk ceiling — fails the image build if it's blown.
+RUN npm run check:budget
+
+# -----------------------------------------------------------------------------
+
+FROM nginx:1.27-alpine AS runtime
+
+# OpenShiksha SPA-friendly nginx config: history fallback for client-side
+# routes, long cache + immutable on /assets/* (Vite content-hashes
+# everything), and a strict no-cache on /index.html so a deploy is visible
+# immediately rather than waiting for a CDN/browser cache to expire.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://127.0.0.1/healthz || exit 1

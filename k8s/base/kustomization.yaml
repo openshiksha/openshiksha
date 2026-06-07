@@ -1,0 +1,25 @@
+# Base manifests. Each overlay (k8s/overlays/{qa,prod}) sets:
+#   - the target `namespace`
+#   - the image tag for backend + frontend
+#   - the Ingress host (`ALLOWED_HOSTS` ConfigMap entry stays in sync)
+#
+# `secret.example.yaml` is NOT included — the real Secret is created out-of-band
+# (see docs/deploy/README.md for the kubectl create secret command). Including
+# a stringData stub would silently overwrite real values on every apply.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - redis.yaml
+  - backend.yaml
+  - frontend.yaml
+  - celery.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: openshiksha
+    includeSelectors: false

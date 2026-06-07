@@ -9,9 +9,25 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
 
+
+def healthz(_request):
+    """Liveness/readiness probe target for k8s + Docker HEALTHCHECK.
+
+    Returns 200 OK as long as the WSGI/ASGI app is wired up — does NOT hit the
+    DB or Redis on purpose. A failing DB shouldn't take the pod down (it'll
+    just return 5xx to /api/ requests), and a Redis hiccup shouldn't either.
+    DB-aware probes belong on a separate /readyz that the LB can use as a
+    drain signal; we keep this probe path cheap and reliable.
+    """
+    return HttpResponse("ok", content_type="text/plain")
+
+
 urlpatterns = [
+    # Cheap liveness probe — no DB / Redis / auth. See healthz() above.
+    path("healthz/", healthz, name="healthz"),
     # Django Admin
     path("admin/", admin.site.urls),
     # API v1 endpoints

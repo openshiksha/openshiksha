@@ -12,6 +12,12 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")  # noqa: F405
 
 # Security Settings
 SECURE_SSL_REDIRECT = True
+# When deployed behind a TLS-terminating ingress (Traefik on k3s, ALB, etc.),
+# Django sees plain HTTP at the socket. It has to trust the proxy's
+# X-Forwarded-Proto header to know the original request was HTTPS, otherwise
+# SECURE_SSL_REDIRECT triggers an infinite redirect loop. Only safe when the
+# ingress strips this header from client input (Traefik does by default).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True

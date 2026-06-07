@@ -41,7 +41,7 @@ Pillow==12.2.0
 # Development
 django-debug-toolbar==4.4.6
 django-extensions==3.2.3
-ipython==8.32.0
+ipython==9.14.1
 
 # Testing
 pytest==9.0.3

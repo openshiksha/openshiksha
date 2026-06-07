@@ -42,5 +42,12 @@ becomes the right next bet.
   focused baseline pass landed 2026-06-04 (M6-01 #202) - skip link, dialog
   semantics, image alts. Promote to its own initiative when ready for a
   full audit (keyboard walkthrough, screen-reader spot-check, axe-core CI).
+- **[Authoring Integrity & Versioning](authoring-integrity-versioning.md)** -
+  ⚪ Proposed (2026-06-07). Editing a problem set / question today retroactively
+  changes already-assigned and already-graded work, because `grade_submission`
+  reads the **live** set + correct answers. Phase 1 (per-assignment content
+  snapshot) removes that silent-corruption risk and unblocks an **editable**
+  teacher preview; later phases add versioning + a guarded re-sync. Motivated by
+  the editable-preview ask on [#248](https://github.com/openshiksha/openshiksha/pull/248).
 - _(Promoted 2026-06-07 → [Performance Budget](performance-budget.md), now the
   active top initiative.)_

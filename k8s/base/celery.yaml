@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  labels:
+    app: celery-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: ghcr.io/openshiksha/openshiksha-backend:qa  # overlay rewrites tag
+          imagePullPolicy: Always
+          # Reuse the backend image — the same code/deps. Override the daphne
+          # CMD with `celery worker`.
+          command: ["celery"]
+          args: ["-A", "openshiksha", "worker", "--loglevel=info", "--concurrency=2"]
+          envFrom:
+            - configMapRef:
+                name: openshiksha-config
+            - secretRef:
+                name: openshiksha-secrets
+          readinessProbe:
+            exec:
+              command: ["celery", "-A", "openshiksha", "inspect", "ping", "-d", "celery@$(hostname)"]
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  labels:
+    app: celery-beat
+spec:
+  # Beat must be exactly 1 replica — multiple beats would double-fire every
+  # scheduled task. Strategy=Recreate so we never briefly have 2 during a
+  # rollout.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: ghcr.io/openshiksha/openshiksha-backend:qa  # overlay rewrites tag
+          imagePullPolicy: Always
+          command: ["celery"]
+          args: ["-A", "openshiksha", "beat", "--loglevel=info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+          envFrom:
+            - configMapRef:
+                name: openshiksha-config
+            - secretRef:
+                name: openshiksha-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

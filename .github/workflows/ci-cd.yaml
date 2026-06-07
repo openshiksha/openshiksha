@@ -275,41 +275,134 @@ jobs:
                 path: frontend_modern/axe-report
                 retention-days: 14
 
+    # ─── Build & publish the MODERN stack ────────────────────────────────────
+    # Two images go to ghcr.io: backend (Django 4.2 + daphne) and frontend
+    # (multi-stage build → nginx). The legacy root Dockerfile is intentionally
+    # NOT built — see docs/deploy/README.md for why. The matrix lets both
+    # images build in parallel.
     build-publish:
-        name: Build & Publish
+        name: Build & Publish (${{ matrix.service }})
         needs: [lint, typecheck, security, test, frontend, frontend-e2e]
-        # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - service: backend
+                      context: ./backend
+                      dockerfile: ./backend/Dockerfile.prod
+                    - service: frontend
+                      context: ./frontend_modern
+                      dockerfile: ./frontend_modern/Dockerfile.prod
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Extract Branch name for Tagging
               run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
               id: extract_branch
-            - name: Build Docker Image & Push to GitHub Container Registry
-              uses: docker/build-push-action@v7
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v3
               with:
-                context: .
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build & push ${{ matrix.service }} image
+              uses: docker/build-push-action@v6
+              with:
+                context: ${{ matrix.context }}
+                file: ${{ matrix.dockerfile }}
                 push: true
                 tags: |
-                    ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
-                    ghcr.io/${{ github.repository }}:${{ github.sha }}
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+                    ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ github.sha }}
+                cache-from: type=gha,scope=${{ matrix.service }}
+                cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-    deploy-prod:
-        name: Deploy to Cluster
+    # ─── Deploy to QA ────────────────────────────────────────────────────────
+    # Renders the qa overlay with the just-built image digest pinned (so the
+    # rollout actually picks up the new code instead of re-pulling a stale tag),
+    # applies, and rolls each Deployment so the new pods come up clean.
+    deploy-qa:
+        name: Deploy to QA Cluster
         needs: build-publish
-        # only run this on prod branch
-        if: github.ref == 'refs/heads/prod'
+        if: github.ref == 'refs/heads/qa'
         runs-on: ubuntu-latest
+        environment: qa
         steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
             - name: Set Cluster Context
               uses: azure/k8s-set-context@v5
               with:
                 method: kubeconfig
                 kubeconfig: '${{ secrets.KUBECONFIG }}'
                 context: k3s-personal-server
-            - name: Restart pods
-              run: kubectl rollout restart deployment openshiksha openshiksha-celery-worker openshiksha-celery-beat -n openshiksha
+            - name: Set up kubectl + kustomize
+              uses: azure/setup-kubectl@v4
+              with:
+                version: 'v1.31.0'
+            - name: Pin image tags to commit SHA
+              # The committed overlay points at the `:qa` tag, but tags can be
+              # re-pushed — so we override to the exact SHA we just built. This
+              # forces a real new digest into the Deployment spec, which forces
+              # a rollout.
+              working-directory: k8s/overlays/qa
+              run: |
+                kubectl kustomize . > /dev/null  # sanity-render before edits
+                kustomize edit set image \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-backend=ghcr.io/${{ github.repository_owner }}/openshiksha-backend:${{ github.sha }} \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-frontend=ghcr.io/${{ github.repository_owner }}/openshiksha-frontend:${{ github.sha }}
+            - name: Apply qa manifests
+              run: kubectl apply -k k8s/overlays/qa
+            - name: Wait for rollouts
+              run: |
+                kubectl -n openshiksha-qa rollout status statefulset/postgres --timeout=180s
+                kubectl -n openshiksha-qa rollout status statefulset/redis --timeout=120s
+                kubectl -n openshiksha-qa rollout status deployment/backend --timeout=300s
+                kubectl -n openshiksha-qa rollout status deployment/frontend --timeout=180s
+                kubectl -n openshiksha-qa rollout status deployment/celery-worker --timeout=180s
+                kubectl -n openshiksha-qa rollout status deployment/celery-beat --timeout=180s
+
+    # ─── Deploy to Prod ──────────────────────────────────────────────────────
+    deploy-prod:
+        name: Deploy to Prod Cluster
+        needs: build-publish
+        if: github.ref == 'refs/heads/prod'
+        runs-on: ubuntu-latest
+        environment: prod
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Set Cluster Context
+              uses: azure/k8s-set-context@v5
+              with:
+                method: kubeconfig
+                kubeconfig: '${{ secrets.KUBECONFIG }}'
+                context: k3s-personal-server
+            - name: Set up kubectl + kustomize
+              uses: azure/setup-kubectl@v4
+              with:
+                version: 'v1.31.0'
+            - name: Pin image tags to commit SHA
+              working-directory: k8s/overlays/prod
+              run: |
+                kubectl kustomize . > /dev/null
+                kustomize edit set image \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-backend=ghcr.io/${{ github.repository_owner }}/openshiksha-backend:${{ github.sha }} \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-frontend=ghcr.io/${{ github.repository_owner }}/openshiksha-frontend:${{ github.sha }}
+            - name: Apply prod manifests
+              run: kubectl apply -k k8s/overlays/prod
+            - name: Wait for rollouts
+              run: |
+                kubectl -n openshiksha-prod rollout status statefulset/postgres --timeout=180s
+                kubectl -n openshiksha-prod rollout status statefulset/redis --timeout=120s
+                kubectl -n openshiksha-prod rollout status deployment/backend --timeout=300s
+                kubectl -n openshiksha-prod rollout status deployment/frontend --timeout=180s
+                kubectl -n openshiksha-prod rollout status deployment/celery-worker --timeout=180s
+                kubectl -n openshiksha-prod rollout status deployment/celery-beat --timeout=180s

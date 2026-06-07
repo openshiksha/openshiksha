@@ -4,16 +4,17 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-07 - **Interactive Widgets Framework remains #1
-active.** IW-1 through IW-8 are now shipped: runtime/SDK, first-party widgets,
-answer-producing plumbing, Tier-1 gallery/configuration, custom-HTML escape
-hatch, library expansion, scaffolder, and dev playground. Next routine should
-start IW-9 proper: Studio runtime + primitives + TeacherWidget API wiring.
+**Last updated:** 2026-06-07 - **Legacy parity and the current mobile shell
+scope are closed.** Interactive Widgets IW-1 through IW-8 are shipped and
+valuable: developer-authored widgets are easy to build, registry widgets are
+available in the question creator, and all render through the shared sandbox.
+IW-9/IW-10/IW-11 are intentionally deferred until Widget Studio has a clearer
+teacher-facing product pull.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Interactive Widgets Framework](interactive-widgets-framework.md) | Active | Tier 1 **Configure** is usable (`WidgetGalleryPanel` + registry schemas). Tier 3 **Code** is usable (`defineWidget`, `npm run widget:new`, `npm run widget:dev -- <kind>`, `/widgets/dev`, docs). First-party library currently includes `_hello`, `thermo-piston`, `number-line`, `function-plotter`, `fraction-bar`, plus admin-only `custom-html`; all render through the same sandboxed iframe and answer-producing widgets report through the shared protocol. | **IW-9 - Widget Studio runtime + primitives.** Ship `studio-scene`, safe formula evaluation, primitive scene rendering, scene schema validation, and DRF endpoints/permissions for `TeacherWidget` so hand-authored Studio JSON can render through the same sandbox before the visual builder (IW-10). |
-| - | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | Closing | M1-M7 all `[x]` or `[~]` with documented activation steps. Final batch shipped 2026-06-04 (#188-#207) - M4 closed; M5-01/02, M6-01/02/03 (scaffold + workflow), M7-01/02/03/04/05 all shipped. Only one-click activations remain: run the [seed-visual-baselines](../../.github/workflows/seed-visual-baselines.yaml) workflow once for M6-03 baselines; set `OPENSHIKSHA_ADMIN_EMAILS` env in prod for concierge enquiry email (#205). | - |
+| - | [Interactive Widgets Framework](interactive-widgets-framework.md) | Paused | Tier 1 **Configure** is usable (`WidgetGalleryPanel` + registry schemas). Tier 3 **Code** is usable (`defineWidget`, `npm run widget:new`, `npm run widget:dev -- <kind>`, `/widgets/dev`, docs). First-party library currently includes `_hello`, `thermo-piston`, `number-line`, `function-plotter`, `fraction-bar`, plus admin-only `custom-html`; all render through the same sandboxed iframe and answer-producing widgets report through the shared protocol. | Defer **IW-9 - IW-11** until product discovery proves Widget Studio is more valuable than more first-party/developer-authored widgets. |
+| - | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | Done | M1-M7 are closed for the current scope. Mobile shell now has role-aware bottom tabs, account drawer, safe-area/dynamic-viewport padding, large touch targets, responsive surface audit, and focused a11y baseline. Legacy parity gaps are closed or explicitly skipped. Only optional activation remains: run the [seed-visual-baselines](../../.github/workflows/seed-visual-baselines.yaml) workflow once for M6-03 baselines. | - |
 | - | [Cabinet Data Fidelity](cabinet-data-fidelity.md) | Done | Closing batch shipped (M7-08, M7-06, M7-03a/b, fidelity-audit guard) + proper taxonomy names baked into the importer. `audit_cabinet_fidelity --strict` is **green on the real 646-question corpus**. M7-11 sandbox primitive shipped and now seeds the new **Interactive Widgets Framework** initiative. | - |
 
 ## Legend

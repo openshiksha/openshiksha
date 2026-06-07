@@ -80,9 +80,10 @@ Each `docs/initiatives/<id>.md` contains, in this order:
 
 See [`STATUS.md`](STATUS.md) for the live priority order and headline progress.
 
-- [`interactive-widgets-framework.md`](interactive-widgets-framework.md) —
-  **Interactive Widgets Framework.** Three authoring tiers (configure,
-  compose, code) rendered through one sandboxed runtime.
+There is no active initiative at the moment. The previous top initiative,
+[`interactive-widgets-framework.md`](interactive-widgets-framework.md), is
+paused after IW-8: configure/code widgets are shipped, while Widget Studio is
+deferred pending product validation.
 
 ---
 

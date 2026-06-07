@@ -6,13 +6,14 @@ import { UserRole } from '@/types/index';
 import { Button, Card, Input, SectionHeading } from '@/shared/ui';
 import type { AxiosError } from 'axios';
 
-function extractError(err: unknown): string {
-  const axiosErr = err as AxiosError<Record<string, string[]>>;
+function extractError(err: unknown, fallback = 'Save failed. Please try again.'): string {
+  const axiosErr = err as AxiosError<Record<string, string[] | string>>;
   const data = axiosErr?.response?.data;
-  if (!data) return 'Save failed. Please try again.';
+  if (!data) return fallback;
   const firstKey = Object.keys(data)[0];
   if (firstKey && Array.isArray(data[firstKey])) return data[firstKey][0];
-  return 'Save failed. Please try again.';
+  if (firstKey && typeof data[firstKey] === 'string') return data[firstKey];
+  return fallback;
 }
 
 export const ProfilePage = () => {
@@ -27,6 +28,12 @@ export const ProfilePage = () => {
   });
   const [emailRemindersOptOut, setEmailRemindersOptOut] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+  const [passwordSavedMsg, setPasswordSavedMsg] = useState(false);
 
   const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
 
@@ -54,6 +61,15 @@ export const ProfilePage = () => {
     },
   });
 
+  const passwordMutation = useMutation({
+    mutationFn: authApi.changePassword,
+    onSuccess: () => {
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      setPasswordSavedMsg(true);
+      setTimeout(() => setPasswordSavedMsg(false), 3000);
+    },
+  });
+
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
@@ -64,8 +80,24 @@ export const ProfilePage = () => {
     );
   };
 
+  const setPassword = (field: keyof typeof passwordForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.new_password !== passwordForm.confirm_password) return;
+    passwordMutation.mutate({
+      current_password: passwordForm.current_password,
+      new_password: passwordForm.new_password,
+    });
+  };
+
+  const passwordMismatch =
+    passwordForm.confirm_password.length > 0 &&
+    passwordForm.new_password !== passwordForm.confirm_password;
+
   return (
-    <div className="max-w-xl">
+    <div className="max-w-xl space-y-6">
       <SectionHeading as="h1" title="Profile Settings" className="mb-6" />
 
       <Card>
@@ -162,6 +194,77 @@ export const ProfilePage = () => {
             <div className="flex justify-end pt-2">
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Card>
+
+      <Card>
+        <form onSubmit={handlePasswordSubmit} noValidate>
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-ink-900">Change password</h2>
+              <p className="mt-1 text-sm text-ink-500">
+                Use a fresh password that you do not use on other sites.
+              </p>
+            </div>
+
+            <Input
+              label="Current password"
+              id="current_password"
+              type="password"
+              value={passwordForm.current_password}
+              onChange={setPassword('current_password')}
+              disabled={passwordMutation.isPending}
+              autoComplete="current-password"
+            />
+
+            <Input
+              label="New password"
+              id="new_password"
+              type="password"
+              value={passwordForm.new_password}
+              onChange={setPassword('new_password')}
+              disabled={passwordMutation.isPending}
+              autoComplete="new-password"
+            />
+
+            <Input
+              label="Confirm new password"
+              id="confirm_password"
+              type="password"
+              value={passwordForm.confirm_password}
+              onChange={setPassword('confirm_password')}
+              disabled={passwordMutation.isPending}
+              autoComplete="new-password"
+              error={passwordMismatch ? 'Passwords do not match.' : undefined}
+            />
+
+            {passwordMutation.isError && (
+              <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700" role="alert">
+                {extractError(passwordMutation.error, 'Password change failed. Please try again.')}
+              </div>
+            )}
+
+            {passwordSavedMsg && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700" role="status">
+                Password changed successfully.
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button
+                type="submit"
+                disabled={
+                  passwordMutation.isPending ||
+                  !passwordForm.current_password ||
+                  !passwordForm.new_password ||
+                  !passwordForm.confirm_password ||
+                  passwordMismatch
+                }
+              >
+                {passwordMutation.isPending ? 'Updating...' : 'Update Password'}
               </Button>
             </div>
           </div>

@@ -4,8 +4,13 @@ Core ViewSets for OpenShiksha API
 Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
+from pathlib import Path
+from uuid import uuid4
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
-from rest_framework import filters, permissions, status, viewsets
+from rest_framework import filters, parsers, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -158,6 +163,25 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer.save()
         return Response(UserSerializer(request.user).data)
 
+    @action(detail=False, methods=["post"], url_path="me/password")
+    def change_password(self, request):
+        """POST /api/v1/users/me/password/ - change own password."""
+        current_password = request.data.get("current_password", "")
+        new_password = request.data.get("new_password", "")
+
+        if not request.user.check_password(current_password):
+            return Response({"current_password": ["Current password is incorrect."]}, status=400)
+
+        try:
+            validate_password(new_password, request.user)
+        except Exception as exc:
+            messages = getattr(exc, "messages", None)
+            return Response({"new_password": messages or [str(exc)]}, status=400)
+
+        request.user.set_password(new_password)
+        request.user.save(update_fields=["password"])
+        return Response({"detail": "Password changed successfully."})
+
     @action(detail=False, methods=["get", "post"], url_path="me/classroom-code", permission_classes=[IsTeacher])
     def classroom_code(self, request):
         """
@@ -293,7 +317,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return QuestionSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "upload_image"]:
             return [permissions.IsAuthenticated(), IsTeacher()]
         return [permissions.IsAuthenticated()]
 
@@ -336,6 +360,33 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         school = getattr(self.request.user, "school", None)
         serializer.save(created_by=self.request.user, school=school)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="upload-image",
+        parser_classes=[parsers.MultiPartParser, parsers.FormParser],
+    )
+    def upload_image(self, request):
+        """POST /api/v1/questions/upload-image/ - upload an authoring image."""
+        upload = request.FILES.get("image")
+        if upload is None:
+            return Response({"image": ["No image file provided."]}, status=400)
+
+        content_type = getattr(upload, "content_type", "") or ""
+        if not content_type.startswith("image/"):
+            return Response({"image": ["Upload must be an image file."]}, status=400)
+
+        max_size = 5 * 1024 * 1024
+        if upload.size > max_size:
+            return Response({"image": ["Image must be 5 MB or smaller."]}, status=400)
+
+        suffix = Path(upload.name).suffix.lower()
+        if suffix not in {".gif", ".jpg", ".jpeg", ".png", ".webp"}:
+            suffix = ".png"
+
+        path = default_storage.save(f"question_uploads/{uuid4().hex}{suffix}", upload)
+        return Response({"image_url": request.build_absolute_uri(default_storage.url(path))}, status=201)
 
     @action(detail=False, methods=["get"], url_path="browse")
     def browse_chapters(self, request):

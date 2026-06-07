@@ -1,5 +1,29 @@
 import createDOMPurify from 'dompurify';
-import katex from 'katex';
+import type Katex from 'katex';
+
+// KaTeX is the largest single dependency in the bundle (~257 kB / ~77 kB gzip).
+// We dynamic-import it from `<RichContent>` only when the text actually contains
+// math delimiters, so dashboards / browse pages / non-math content never pay for
+// it on first paint. The component pokes the loaded module in here via
+// `setKatex()`; until that happens (or for non-math content) `renderRichContent`
+// is fully usable and just renders math expressions as escaped fallback text.
+//
+// In Vitest, `src/test-setup.ts` preloads KaTeX synchronously so the existing
+// sync renderer tests don't have to become async.
+let katexRef: typeof Katex | null = null;
+export function setKatex(mod: typeof Katex): void {
+  katexRef = mod;
+}
+export function isKatexLoaded(): boolean {
+  return katexRef !== null;
+}
+
+// Cheap pre-check so `<RichContent>` can decide whether to even kick off the
+// dynamic import. Matches the same delimiters the renderer recognises.
+const MATH_HINT_PATTERN = /\$|\\\(|\\\[|\\begin\{/;
+export function textContainsMath(text: string): boolean {
+  return MATH_HINT_PATTERN.test(text);
+}
 
 /**
  * Pure HTML+LaTeX renderer used by `<RichContent />`. Split into its own file
@@ -79,8 +103,15 @@ function escapeHtml(s: string): string {
 }
 
 function renderKatex(expr: string, block: boolean): string {
+  if (!katexRef) {
+    // Fallback before the lazy KaTeX chunk has finished loading. We render the
+    // raw expression as inline-code so the user sees something readable rather
+    // than a blank flash; the component re-renders once KaTeX is ready.
+    const tag = block ? 'div' : 'span';
+    return `<${tag} class="katex-pending font-mono text-ink-700">${escapeHtml(expr)}</${tag}>`;
+  }
   try {
-    return katex.renderToString(expr, {
+    return katexRef.renderToString(expr, {
       throwOnError: false,
       displayMode: block,
       strict: 'ignore',

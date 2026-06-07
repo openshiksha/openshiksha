@@ -85,6 +85,11 @@ export default defineConfig(async ({ mode }) => ({
   server: {
     port: 5173,
     host: true,
+    // Vite 5+ blocks unknown host headers by default. Allow Cloudflare quick
+    // tunnels so a docker-compose stack exposed via `docker-compose.tunnel.yml`
+    // is reachable from the `*.trycloudflare.com` URL. Has no effect on a
+    // normal `localhost` dev session.
+    allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

@@ -1,0 +1,36 @@
+# Compose overlay that puts the running dev stack on a public *.trycloudflare.com
+# URL with zero source-code changes.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d \
+#       tunnel-proxy cloudflared
+#   docker compose logs -f cloudflared        # the URL is in the log
+#
+# tunnel-proxy:  nginx reverse-proxy. /api, /admin, /static, /media, /healthz
+#                go to the backend container; everything else (incl. vite HMR
+#                websocket) goes to the frontend container. Same shape as the
+#                production Ingress in k8s/base/ingress.yaml.
+# cloudflared:   Cloudflare quick tunnel. Free, no account, prints the public
+#                URL into its logs ("Your quick Tunnel has been created!").
+#                The URL changes every restart — fine for ad-hoc QA.
+services:
+  tunnel-proxy:
+    image: nginx:1.27-alpine
+    container_name: openshiksha-tunnel-proxy
+    volumes:
+      - ./tunnel/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - openshiksha-network
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.5.2
+    container_name: openshiksha-cloudflared
+    command: tunnel --no-autoupdate --url http://tunnel-proxy:80
+    depends_on:
+      - tunnel-proxy
+    networks:
+      - openshiksha-network
+    restart: unless-stopped

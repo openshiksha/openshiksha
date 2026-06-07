@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * PERF-06 — Bundle-size budget guard.
  *

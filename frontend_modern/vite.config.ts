@@ -97,6 +97,13 @@ export default defineConfig(({ mode }) => ({
           if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
             return 'vendor-react';
           }
+          if (/[\\/]node_modules[\\/]@tanstack[\\/]react-query-devtools[\\/]/.test(id)) {
+            // Dev-only. main.tsx guards the import with `import.meta.env.DEV`
+            // so production builds tree-shake it out entirely; keeping a
+            // dedicated chunk name here means a dev build also doesn't
+            // pollute the long-cacheable vendor-query chunk.
+            return 'devtools-react-query';
+          }
           if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) {
             return 'vendor-query';
           }

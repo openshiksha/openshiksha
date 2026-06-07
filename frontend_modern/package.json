@@ -16,7 +16,8 @@
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
-    "widget:new": "node scripts/create-widget.mjs"
+    "widget:new": "node scripts/create-widget.mjs",
+    "widget:dev": "node scripts/widget-dev.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",

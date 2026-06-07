@@ -44,6 +44,21 @@ See [`docs/widgets/anatomy.md`](../../../docs/widgets/anatomy.md) for the
 canonical SDK reference (`defineWidget` API, `ctx` hooks, render
 constraints, wire protocol, security model).
 
+## Previewing a widget
+
+Use the dev playground to exercise a registered kind through the same
+sandboxed host students see:
+
+```bash
+cd frontend_modern
+npm run widget:dev -- number-line
+```
+
+That opens `/widgets/dev?kind=number-line`, with a widget picker, JSON config
+editor, variables editor, live preview, and last-reported-value readout for
+answer-producing widgets. The contributor walkthrough lives at
+[`docs/widgets/build-your-first-widget.md`](../../../docs/widgets/build-your-first-widget.md).
+
 ### Render-function constraints
 
 Your `render` is **executed inside the sandboxed iframe**, not the app

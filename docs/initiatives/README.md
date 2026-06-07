@@ -80,10 +80,9 @@ Each `docs/initiatives/<id>.md` contains, in this order:
 
 See [`STATUS.md`](STATUS.md) for the live priority order and headline progress.
 
-- [`2026-design-system-v2.md`](2026-design-system-v2.md) — **V2 "Chalk & Unlock"
-  design overhaul.** Replace the generic blue template with a warm, branded,
-  professional-but-fun design system, page by page, improving the system itself
-  each session.
+- [`interactive-widgets-framework.md`](interactive-widgets-framework.md) —
+  **Interactive Widgets Framework.** Three authoring tiers (configure,
+  compose, code) rendered through one sandboxed runtime.
 
 ---
 

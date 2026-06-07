@@ -1,39 +1,60 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './shared/hooks/useAuth';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { RegisterSchoolPage } from './features/auth/RegisterSchoolPage';
 import { RegisterOpenPage } from './features/auth/RegisterOpenPage';
-import { EnquirePage } from './features/enquiry/EnquirePage';
-import { DesignSystemPage } from './features/design/DesignSystemPage';
-import { WidgetDevPage } from './features/widgets/WidgetDevPage';
 import { HomePage } from './features/home/HomePage';
 import { AppShell } from './features/layout/AppShell';
 import { ProtectedRoute } from './features/layout/ProtectedRoute';
-import { StudentDashboard } from './features/student/StudentDashboard';
-import { AssignmentDetailPage } from './features/student/AssignmentDetailPage';
-import { ProficiencyPage } from './features/student/ProficiencyPage';
-import { LearningPathPage } from './features/student/LearningPathPage';
-import { SRSDrillPage } from './features/student/SRSDrillPage';
-import { BrowsePage } from './features/student/BrowsePage';
-import { BrowsePracticePage } from './features/student/BrowsePracticePage';
-import { ProfilePage } from './features/shared/ProfilePage';
-import { TeacherDashboard } from './features/teacher/TeacherDashboard';
-import { CreateAssignmentPage } from './features/teacher/CreateAssignmentPage';
-import { CreateQuestionPage } from './features/teacher/CreateQuestionPage';
-import { CreateProblemSetPage } from './features/teacher/CreateProblemSetPage';
-import { ProblemSetPreviewPage } from './features/teacher/ProblemSetPreviewPage';
-import { TeacherAssignmentDetailPage } from './features/teacher/TeacherAssignmentDetailPage';
-import { QuestionBankPage } from './features/teacher/QuestionBankPage';
-import { ParentDashboard } from './features/parent/ParentDashboard';
-import { ParentInsightsPage } from './features/parent/ParentInsightsPage';
-import { ParentInsightsLandingPage } from './features/parent/ParentInsightsLandingPage';
-import { AdminDashboard } from './features/admin/AdminDashboard';
-import { ClassroomManagePage } from './features/admin/ClassroomManagePage';
+import { NotFoundPage } from './features/shared/NotFoundPage';
 import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 import { ErrorBoundary } from './shared/ui';
-import { NotFoundPage } from './features/shared/NotFoundPage';
+
+// Route-level code-splitting. Every page below is loaded on demand so a cold
+// open of /login (the K-12 student's first impression on a budget Android phone)
+// never downloads the teacher authoring surface, the admin classroom manager,
+// or the dev-only widget playground. Auth + home stay eager because they sit on
+// the critical first-paint path. See docs/initiatives/performance-budget.md.
+const lazyNamed = <T extends Record<string, unknown>, K extends keyof T>(
+  loader: () => Promise<T>,
+  name: K,
+): T[K] extends React.ComponentType<infer P> ? React.LazyExoticComponent<React.ComponentType<P>> : never =>
+  lazy(() => loader().then((m) => ({ default: m[name] as unknown as React.ComponentType<unknown> }))) as never;
+
+const EnquirePage = lazyNamed(() => import('./features/enquiry/EnquirePage'), 'EnquirePage');
+const DesignSystemPage = lazyNamed(() => import('./features/design/DesignSystemPage'), 'DesignSystemPage');
+const WidgetDevPage = lazyNamed(() => import('./features/widgets/WidgetDevPage'), 'WidgetDevPage');
+const StudentDashboard = lazyNamed(() => import('./features/student/StudentDashboard'), 'StudentDashboard');
+const AssignmentDetailPage = lazyNamed(() => import('./features/student/AssignmentDetailPage'), 'AssignmentDetailPage');
+const ProficiencyPage = lazyNamed(() => import('./features/student/ProficiencyPage'), 'ProficiencyPage');
+const LearningPathPage = lazyNamed(() => import('./features/student/LearningPathPage'), 'LearningPathPage');
+const SRSDrillPage = lazyNamed(() => import('./features/student/SRSDrillPage'), 'SRSDrillPage');
+const BrowsePage = lazyNamed(() => import('./features/student/BrowsePage'), 'BrowsePage');
+const BrowsePracticePage = lazyNamed(() => import('./features/student/BrowsePracticePage'), 'BrowsePracticePage');
+const ProfilePage = lazyNamed(() => import('./features/shared/ProfilePage'), 'ProfilePage');
+const TeacherDashboard = lazyNamed(() => import('./features/teacher/TeacherDashboard'), 'TeacherDashboard');
+const CreateAssignmentPage = lazyNamed(() => import('./features/teacher/CreateAssignmentPage'), 'CreateAssignmentPage');
+const CreateQuestionPage = lazyNamed(() => import('./features/teacher/CreateQuestionPage'), 'CreateQuestionPage');
+const CreateProblemSetPage = lazyNamed(() => import('./features/teacher/CreateProblemSetPage'), 'CreateProblemSetPage');
+const ProblemSetPreviewPage = lazyNamed(() => import('./features/teacher/ProblemSetPreviewPage'), 'ProblemSetPreviewPage');
+const TeacherAssignmentDetailPage = lazyNamed(() => import('./features/teacher/TeacherAssignmentDetailPage'), 'TeacherAssignmentDetailPage');
+const QuestionBankPage = lazyNamed(() => import('./features/teacher/QuestionBankPage'), 'QuestionBankPage');
+const ParentDashboard = lazyNamed(() => import('./features/parent/ParentDashboard'), 'ParentDashboard');
+const ParentInsightsPage = lazyNamed(() => import('./features/parent/ParentInsightsPage'), 'ParentInsightsPage');
+const ParentInsightsLandingPage = lazyNamed(() => import('./features/parent/ParentInsightsLandingPage'), 'ParentInsightsLandingPage');
+const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard'), 'AdminDashboard');
+const ClassroomManagePage = lazyNamed(() => import('./features/admin/ClassroomManagePage'), 'ClassroomManagePage');
+
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
 
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -57,6 +78,7 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -300,6 +322,7 @@ function App() {
         <Route path="/" element={isAuthenticated ? <Navigate to={defaultPath} replace /> : <HomePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
       </ErrorBoundary>
     </Router>
   );

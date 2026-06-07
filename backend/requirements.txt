@@ -24,7 +24,7 @@ daphne==4.1.2
 
 # Validation & Serialization
 pydantic==2.10.5
-pydantic-settings==2.7.1
+pydantic-settings==2.14.1
 
 # HTTP Client (for Cabinet API)
 httpx==0.28.1

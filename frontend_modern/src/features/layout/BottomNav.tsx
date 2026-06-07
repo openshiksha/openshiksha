@@ -169,11 +169,11 @@ export const BottomNav = () => {
     <nav
       aria-label="Primary"
       className={clsx(
-        'fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-white/95 backdrop-blur sm:hidden',
+        'fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-white/95 shadow-[0_-10px_30px_rgba(23,32,51,0.08)] backdrop-blur sm:hidden',
         'pb-[env(safe-area-inset-bottom)]',
       )}
     >
-      <ul className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1">
+      <ul className="mx-auto flex max-w-md items-stretch justify-around px-2 py-1.5">
         {tabs.map((tab) => {
           const active = isActive(location.pathname, tab);
           return (
@@ -182,13 +182,13 @@ export const BottomNav = () => {
                 to={tab.to}
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
-                  'flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors',
+                  'flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1 text-[11px] font-semibold leading-tight transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
                   active ? 'text-brand-700' : 'text-ink-500 hover:text-ink-800',
                 )}
               >
                 <span aria-hidden>{tab.icon}</span>
-                <span>{tab.label}</span>
+                <span className="max-w-full truncate">{tab.label}</span>
               </Link>
             </li>
           );

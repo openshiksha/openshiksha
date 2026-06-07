@@ -6,7 +6,7 @@ interface AppShellProps {
 }
 
 export const AppShell = ({ children }: AppShellProps) => (
-  <div className="bg-paper min-h-screen">
+  <div className="bg-paper min-h-screen min-h-[100dvh]">
     {/* Skip link — visually hidden until focused, then anchors at top-left.
         Lets keyboard / screen-reader users jump past the Navbar to page content. */}
     <a
@@ -19,7 +19,7 @@ export const AppShell = ({ children }: AppShellProps) => (
     <main
       id="main-content"
       tabIndex={-1}
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8 focus-visible:outline-none"
+      className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 pb-[calc(6.75rem+env(safe-area-inset-bottom))] sm:pb-8 focus-visible:outline-none"
     >
       {children}
     </main>

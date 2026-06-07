@@ -25,10 +25,10 @@
 | `croupier/` | ✅ | `backend/openshiksha/apps/api/croupier.py` | Deterministic per-(student_id, subpart_id) seeded MCQ shuffle + variable substitution. M7-02 (#140) wired this into the student list endpoint. |
 | `sphinx/` | ✅ | `frontend_modern/src/features/teacher/CreateQuestionPage.tsx` | Authoring with KaTeX preview, variable-constraints panel, AI-generation panel (Gemini JSON mode, #185). Migrated to V2 in M4-07c / #192. |
 | `cabinet/` | ✅ | DB-stored `Question`/`QuestionSubpart` + import command | Cabinet imports baked in; **Cabinet Data Fidelity** initiative is closed (audit `--strict` green on 646 questions). External cabinet service retired. |
-| `pylon/` (SMS) | 🟡 | `backend/openshiksha/apps/core/emails.py` | **Replaced** with email (no SMS in modern). Phase 1 (grading complete + remedial assigned) shipped; due-date reminder still TODO. Legacy SMS-to-Indian-providers integration intentionally not ported. |
-| `concierge/` | ✅ | `backend/openshiksha/apps/concierge/` + `frontend_modern/src/features/enquiry/EnquirePage.tsx` | `Enquirer` model + public POST + `notify_enquiry_received` (mail_admins) + V2 page (M3-03 #199). **Activation gap:** `ADMINS` is not set in `settings/`, so the email currently no-ops. See the "Known gaps" section. |
+| `pylon/` (SMS) | ✅ | `backend/openshiksha/apps/core/emails.py` | **Replaced** with email (no SMS in modern). Grading-complete, remedial-assigned, and due-date reminder emails are shipped; students can opt out of due-date reminders in Profile. Legacy SMS-to-Indian-providers integration intentionally not ported. |
+| `concierge/` | ✅ | `backend/openshiksha/apps/concierge/` + `frontend_modern/src/features/enquiry/EnquirePage.tsx` | `Enquirer` model + public POST + `notify_enquiry_received` (mail_admins) + V2 page (M3-03 #199). `ADMINS` is loaded from `OPENSHIKSHA_ADMIN_EMAILS`, so enquiry email delivery is activated when the env var is set. |
 | `lodge/` | ✅ | `backend/openshiksha/apps/lodge/` + `frontend_modern/src/features/student/VideosPanel.tsx` | `Video` model + `GET /api/videos/?chapter=<id>`; `VideosPanel` renders per-chapter videos on Assignment detail. M4-06b-ii (#189) reskinned to V2. |
-| `ink/` (Dossier) | 🟡 | `User.phone_number`, `User.email` (`shared/ProfilePage.tsx`) | Primary email + phone ported. **`secondaryPhone` / `secondaryEmail` / `flagged`** intentionally skipped — legacy CRM-only fields, not user-facing product. |
+| `ink/` (Dossier) | ✅ | `User.phone_number`, `User.email` (`shared/ProfilePage.tsx`) | Primary email, phone, due-date email preference, and password change are ported. **`secondaryPhone` / `secondaryEmail` / `flagged`** intentionally skipped - legacy CRM-only fields, not user-facing product. |
 | `challenge/` | ⛔ | n/a | A memorisation-game / honeypot view rendering a 1000-element RANDOM_DATA list. No identified product value; deliberately not ported. |
 | `frontend/` (Django templates) | ⛔ | n/a — replaced wholesale | The legacy Django-template UI was superseded by `frontend_modern/` React app. |
 
@@ -48,7 +48,7 @@
 | Chapter videos | `lodge.Video` | `VideosPanel` (per-chapter, conditional render) | ✅ V2 (M4-06b-ii #189) |
 | Question images | `cabinet` base64 | `QuestionSubpart.image_url` URLField | ✅ (#86) |
 | Hints + worked solutions | `cabinet` `solution`, `hint` fields | `QuestionSubpart.solution_text` + `hint_text` | ✅ |
-| Profile / settings | `ink.Dossier` | `ProfilePage` + `PATCH /users/me/profile/` | ✅ V2 (M4-08 #180); password change still TODO |
+| Profile / settings | `ink.Dossier` | `ProfilePage` + `PATCH /users/me/profile/` + `POST /users/me/password/` | ✅ V2 (M4-08 #180); password change shipped |
 | Mobile primary navigation | n/a (legacy was desktop-only) | `BottomNav` (Home/Browse/Path/Profile) | ✅ (M5-01 #195) |
 | AI tutor / Socratic chat | none in legacy | branch `ai/2026-06-04-ai-tutor-chat` (in flight) | 🟡 (separate track) |
 
@@ -93,38 +93,28 @@
 
 ## Known gaps (TODO)
 
-1. **`concierge` enquiry email delivery.** `notify_enquiry_received` calls
-   `mail_admins(...)` correctly, but `ADMINS` isn't set in any `settings/`
-   module — so the email no-ops in both dev and prod. Enquiries are still
-   captured in the DB (visible at `/admin/concierge/enquirer/`). Fix: load
-   `ADMINS` from `OPENSHIKSHA_ADMIN_EMAILS` env var in `settings/production.py`.
-   *Small follow-up; ~5 lines.*
+No user-facing legacy parity gaps remain.
 
-2. **Due-date email reminder** (legacy `pylon` had SMS equivalent). The Phase 2
-   note in `CLAUDE.md` flags this — Celery beat schedule already exists for
-   `send_due_date_reminders`, but the email template + per-student opt-out
-   are TODO.
+Closed in follow-up work after the 2026-06-04 audit:
 
-3. **Password change** on the Profile page. Backend endpoint pending; UI
-   placeholder noted in `M4-08`.
+1. **`concierge` enquiry email delivery.** `ADMINS` now comes from
+   `OPENSHIKSHA_ADMIN_EMAILS`; `mail_admins(...)` sends when the env var is set.
+2. **Due-date email reminders.** `send_due_date_reminders` is scheduled,
+   idempotent via `AssignmentReminder`, and respects `email_reminders_opt_out`.
+3. **Password change.** Profile now uses `POST /api/v1/users/me/password/`.
+4. **Question file upload.** Teacher authoring can upload an image and store the
+   returned `image_url`; URL paste remains as a fallback.
+5. **Question Bank chapter filter UI.** The filter bar includes a subject-scoped
+   chapter selector wired to `?chapter=`.
 
-4. **Question file upload** (replace URL pasting with a real upload). The
-   `QuestionSubpart.image_url` URLField was Phase 1; a
-   `POST /api/questions/<id>/upload-image/` endpoint + drag-and-drop UI is
-   the next slice.
+Intentionally skipped:
 
-5. **Browse/Question-Bank chapter filter UI.** Backend supports `?chapter=`
-   already; the chapter selector isn't in the QuestionBank filter bar yet
-   (Browse has Subject + Grade only). Small frontend follow-up; M7-03's
-   remaining slice.
-
-6. **`pylon` SMS** — deliberately not ported. If SMS is ever needed, wire a
-   modern provider (Twilio / MSG91) behind a new `apps/sms/` shim with the
-   same Celery hook points as `emails.py`. Out of scope until product asks.
-
-7. **`ink.Dossier` CRM fields** (secondary email/phone, `flagged`) —
-   deliberately not ported. Legacy CRM workflow lived in Django admin and
-   has no modern user-facing equivalent.
+- **`pylon` SMS.** Modern product uses email. If SMS is ever needed, wire a
+  modern provider (Twilio / MSG91) behind a new `apps/sms/` shim with the same
+  Celery hook points as `emails.py`.
+- **`ink.Dossier` CRM fields** (`secondaryPhone`, `secondaryEmail`, `flagged`).
+  Legacy CRM workflow lived in Django admin and has no modern user-facing
+  equivalent.
 
 ## Activation checklist before retiring a legacy app
 

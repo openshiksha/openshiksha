@@ -9,6 +9,7 @@ import { useCreateQuestion } from './useCreateQuestion';
 import { useUpdateQuestion } from './useUpdateQuestion';
 import { useQuestion } from './useQuestion';
 import { useGenerateQuestions } from './useGenerateQuestions';
+import { useUploadQuestionImage } from './useUploadQuestionImage';
 import type {
   MCQOption,
   QuestionSubpartWrite,
@@ -469,6 +470,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   const createQuestion = useCreateQuestion();
   const updateQuestion = useUpdateQuestion();
   const { data: existingQuestion, isLoading: loadingExisting } = useQuestion(editId);
+  const uploadImage = useUploadQuestionImage();
 
   // Pre-fill form in edit mode when the loaded question changes (during render — react.dev/learn/you-might-not-need-an-effect)
   const [prefilledFrom, setPrefilledFrom] = useState<typeof existingQuestion | undefined>(undefined);
@@ -506,6 +508,13 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   const updateSubpart = useCallback((idx: number, patch: Partial<SubpartDraft>) => {
     setSubparts((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }, []);
+
+  const handleImageUpload = (idx: number, file: File | undefined) => {
+    if (!file) return;
+    uploadImage.mutate(file, {
+      onSuccess: (data) => updateSubpart(idx, { image_url: data.image_url }),
+    });
+  };
 
   const handleTextChange = useCallback(
     (idx: number, value: string, currentConstraints: Record<string, VariableSpec>) => {
@@ -878,10 +887,31 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               <input
                 type="url"
                 className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="https://example.com/diagram.png"
+                placeholder="Paste an image URL or upload a file"
                 value={current.image_url}
                 onChange={(e) => updateSubpart(activeSubpart, { image_url: e.target.value })}
               />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-brand-300 hover:text-brand-700">
+                  {uploadImage.isPending ? 'Uploading...' : 'Upload image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={uploadImage.isPending}
+                    onChange={(e) => {
+                      handleImageUpload(activeSubpart, e.target.files?.[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <span className="text-xs text-ink-400">PNG, JPG, GIF, or WebP under 5 MB.</span>
+              </div>
+              {uploadImage.isError && (
+                <p className="mt-1 text-xs font-medium text-rose-600">
+                  Image upload failed. Try a PNG, JPG, GIF, or WebP under 5 MB.
+                </p>
+              )}
               {current.image_url.trim() && (
                 <img
                   src={current.image_url}

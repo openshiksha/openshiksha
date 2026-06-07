@@ -32,7 +32,7 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
 
   return (
     <div
-      className={`os-card p-5 hover:shadow-md transition-shadow motion-reduce:transition-none ${
+      className={`os-card w-full min-w-0 p-5 hover:shadow-md transition-shadow motion-reduce:transition-none ${
         // Submitted cards get a subtle emerald edge so the difference reads
         // at a glance in a mixed list, without leaning on color alone (the
         // "Submitted" label + score badge + ghost CTA still carry the
@@ -40,7 +40,7 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
         isSubmitted ? 'border-emerald-200/80 bg-emerald-50/30' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
@@ -84,9 +84,9 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+      <div className="flex min-w-0 flex-col gap-3 mt-4 sm:flex-row sm:items-center sm:justify-between">
         <span
-          className={`text-xs ${
+          className={`min-w-0 text-xs ${
             isSubmitted
               ? 'text-emerald-700 font-medium'
               : isOverdue

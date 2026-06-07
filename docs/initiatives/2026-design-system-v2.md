@@ -243,9 +243,11 @@ Ledger). Split any item that won't fit one session.
   hidden on `sm:` and above.
 - [x] `M5-02` Per-surface responsive audit — shipped 2026-06-04 (#201). Two
   table-overflow fixes (BrowsePage chapter table, ClassHealthPanel table);
-  rest of the migrated surfaces audited clean. **Follow-up:** 44×44 touch
-  targets on student practice (flagged in #195 change doc); PWA install /
-  offline question viewing.
+  rest of the migrated surfaces audited clean.
+- [x] `M5-03` Mobile shell closeout - dynamic viewport shell, safer bottom
+  content gutter, larger bottom-tab touch targets, truncating labels, and
+  stronger mobile nav surface. PWA install / offline question viewing is a
+  future product initiative, not part of the shell closeout.
 
 ### M6 — Hardening
 - [x] `M6-01` Accessibility audit (AA, focused baseline) — shipped 2026-06-04
@@ -266,11 +268,10 @@ Ledger). Split any item that won't fit one session.
   `.skip`. Authenticated-surface snapshots need a separate `playwright`
   project against Docker; deliberate follow-up.
 
-> M4 is closed. The next active milestones are **M2-02** (mobile nav polish),
-> **M3-03** (Enquire), **M5-02** (responsive audit), **M6-01** (a11y audit),
-> **M6-03** (visual-regression set), and the remaining slice of **M7-03**
-> (Question Bank + assignment-list filter parity). Pull whichever is the
-> highest-value unblocked item.
+> M1-M7 are closed for the current scope. Remaining optional activation:
+> seed Linux visual-regression baselines for M6-03. PWA/offline and full
+> WCAG audit should be promoted as separate initiatives when product priority
+> justifies them.
 
 ---
 
@@ -342,3 +343,4 @@ Record the improvement in the ledger's "Hardening" column so the gains are visib
 | 2026-06-04 | M6-01 accessibility audit (focused baseline) | #202 | Skip-to-main link in `AppShell` (sr-only-until-focused brand pill) + `id="main-content" tabIndex={-1}` landmark. `QuestionBankPage` add-to-set side-sheet promoted to a proper dialog: `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, descriptive close `aria-label`, ESC handler, initial focus on close button, focus-visible brand ring. `QuestionPreviewPanel` image alt switched from `""` to `"Question diagram"` for parity with `QuestionCard`. | Skip link / main-landmark is *the* foundational a11y move — every page in the app inherits it via `AppShell`. Dialog semantics on the add-to-set sheet matter because it's the only modal surface in the V2 stack; making it correct sets the pattern for any future dialog. Full keyboard walkthrough + screen-reader spot-check + axe-core CI are explicit non-goals; flagged for a dedicated a11y initiative. |
 | 2026-06-04 | M6-03 visual-regression spec scaffold | #203 | New `e2e/visual.spec.ts` covers `/design` + `/` + `/login` + `/enquire` at desktop (1280×800) + mobile (375×720), 8 snapshots total. `maxDiffPixelRatio: 0.02`; waits on `document.fonts.ready` so Fraunces/Inter character widths settle pre-snapshot. `test:e2e:update-snapshots` npm script. **`test.describe.skip` until Linux baselines are seeded on CI** (Windows PNGs would never match the Linux runner). | The honest answer to "where do we keep visual baselines on Windows-dev / Linux-CI without false diffs" is: on CI. Skipping the spec until that happens keeps CI green; the activation steps live in the change doc. Authenticated-surface snapshots require a separate Playwright project against Docker — deliberate follow-up. |
 | 2026-06-04 | M7-04 legacy feature-parity audit | this PR | New `docs/initiatives/legacy-feature-parity.md`: at-a-glance status per legacy app (`core`/`edge`/`grader`/`focus`/`croupier`/`sphinx`/`cabinet`/`pylon`/`concierge`/`lodge`/`ink`/`challenge`/`frontend`), by-audience capability tables (student/teacher/parent/admin/public), 7 known TODOs split by scope, and a retirement checklist. | The "Already ported" table lived in `CLAUDE.md` (routine prompt) — invisible to a reader browsing `docs/`. Pulling it into the initiatives folder gives it a stable URL, a status column to scan, and a place to record the gaps the routine table hand-waved over. Surfaced one concrete TODO from the M3-03 follow-up: `ADMINS` env-var wiring so `concierge` enquiry emails stop no-op'ing. |
+| 2026-06-07 | Legacy parity + mobile shell closeout | _this PR_ | Password change endpoint/UI, teacher question image upload, stale parity TODO cleanup, and mobile shell touch/viewport hardening. | The parity audit had drifted behind the code: `ADMINS`, due-date reminders, and Question Bank chapter filters were already done. Closing the doc prevents future sessions from re-solving shipped work. |

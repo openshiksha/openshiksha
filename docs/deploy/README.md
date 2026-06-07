@@ -65,9 +65,25 @@ namespace until someone runs `kubectl delete ns openshiksha`.
 
 ## One-time bootstrap (per environment)
 
+Three things have to be true on the first deploy of an environment, or CI
+will look like it succeeded but nothing will actually go out:
+
+1. **The GitHub Environment exists.** The deploy jobs declare
+   `environment: qa` / `environment: prod`. If those environments don't
+   exist in the repo's Settings → Environments page, the jobs **silently
+   skip** — no error, no deploy. Create both (no approvers needed unless you
+   want them). One-time per repo.
+2. **DNS points at the cluster.** Add an A/CNAME for the env's hostname
+   (`qa.openshiksha.org`, `openshiksha.org`) pointing at the k3s node's
+   external IP. Traefik picks up the Ingress as soon as the manifest is
+   applied, but nothing can reach it without DNS.
+3. **The Secret exists in the namespace** (covered in detail below). Without
+   this, `kubectl apply` of the manifests succeeds and creates the
+   namespace, but the backend / celery pods crash-loop and the CI
+   `rollout status` step times out.
+
 The `Secret` is not committed to git. Before the first deploy, populate it
-out-of-band — `kubectl apply` of the manifests will create the namespace
-implicitly, but the pods will crash-loop until the Secret exists.
+out-of-band:
 
 ```bash
 # Replace REPLACE-ME values. Random 50-char strings are fine for SECRET_KEY

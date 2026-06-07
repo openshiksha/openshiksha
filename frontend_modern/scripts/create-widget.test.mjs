@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { kindToIdentifier, patchRegistry, validateKind } from './create-widget.mjs';
+import { kindToIdentifier, patchRegistry, validateKind } from './create-widget-utils.mjs';
 
 describe('validateKind', () => {
   it('accepts hyphen-separated lowercase slugs', () => {

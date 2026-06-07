@@ -163,7 +163,10 @@ export const TeacherDashboard = () => {
                     <span className="text-sm text-ink-500">
                       {room.student_count} student{room.student_count !== 1 ? 's' : ''}
                     </span>
-                    <Button size="sm" onClick={() => navigate('/teacher/assignments/new')}>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/teacher/assignments/new?room=${room.id}`)}
+                    >
                       Assign
                     </Button>
                   </div>
@@ -226,7 +229,10 @@ export const TeacherDashboard = () => {
                       >
                         Preview as student
                       </Button>
-                      <Button size="sm" onClick={() => navigate('/teacher/assignments/new')}>
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/teacher/assignments/new?problemSet=${ps.id}`)}
+                      >
                         Assign
                       </Button>
                     </div>

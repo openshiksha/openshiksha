@@ -65,7 +65,7 @@ const SuggestionCard = ({ item, subjectRoomId }: CardProps) => {
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-xs text-ink-400">
-          {formatDate(item.generated_at)} · {item.model_used}
+          Generated {formatDate(item.generated_at)}
         </p>
         {item.status === 'open' ? (
           <div className="flex gap-2">

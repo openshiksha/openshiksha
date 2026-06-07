@@ -1,4 +1,3 @@
-import { Badge } from '@/shared/ui';
 import type { ParentProgressSummary } from '../useParentSummary';
 
 interface Props {
@@ -40,7 +39,6 @@ export const NarrativeCard = ({ summary }: Props) => {
           </p>
           <p className="text-sm text-ink-500 mt-1">{weekRange}</p>
         </div>
-        <Badge tone="brand">{summary.model_used}</Badge>
       </div>
 
       <p className="mt-4 text-ink-800 leading-relaxed whitespace-pre-line">

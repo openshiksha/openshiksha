@@ -6,7 +6,7 @@ interface GenerateQuestionsResponse {
   questions: GeneratedQuestionDraft[];
   /**
    * False when the backend's LLM cascade was exhausted and it fell back to the
-   * deterministic stub. In that case `questions` is empty and the UI should
+   * deterministic fallback. In that case `questions` is empty and the UI should
    * show an "AI unavailable" message rather than rendering placeholder drafts.
    */
   ai_available: boolean;

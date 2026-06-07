@@ -34,7 +34,7 @@ npm run widget:new number-line
 ```
 
 That creates `src/widgets/number-line/{index.ts, params.schema.json,
-README.md}` from a stub and patches `registry.ts` (import + entry) at the
+README.md}` from a starter implementation and patches `registry.ts` (import + entry) at the
 `widget:new` anchor comments. The one manual step left is adding the
 kind to `KNOWN_WIDGET_KINDS` in
 `backend/openshiksha/apps/core/widgets.py` so the writable serializer

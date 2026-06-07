@@ -37,7 +37,7 @@ const SUGGESTION: InterventionSuggestion = {
   misconception_labels: [{ label: 'adds numerators and denominators', count: 3 }],
   acknowledged_by: null,
   acknowledged_at: null,
-  model_used: 'stub',
+  model_used: 'test-model',
   generated_at: '2026-06-02T10:00:00Z',
 };
 

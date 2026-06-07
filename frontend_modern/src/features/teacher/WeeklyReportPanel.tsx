@@ -101,7 +101,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
 
               <div className="mt-2.5 flex items-center justify-between">
                 <p className="text-xs text-ink-400">
-                  Generated {formatDate(report.generated_at)} · {report.model_used}
+                  Generated {formatDate(report.generated_at)}
                 </p>
                 <Button
                   variant="ghost"

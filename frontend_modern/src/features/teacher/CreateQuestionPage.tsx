@@ -323,7 +323,7 @@ const AIGenerationPanel = ({
           <span className="text-lg">✨</span>
           <span className="font-semibold text-brand-900 text-sm">Generate with AI</span>
           <span className="text-xs text-brand-700 font-normal">
-            Let Claude draft questions for you
+            Draft questions from your topic and constraints
           </span>
         </div>
         <span className="text-brand-400 text-sm">{open ? '▲' : '▼'}</span>

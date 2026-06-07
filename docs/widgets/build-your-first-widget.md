@@ -41,7 +41,7 @@ shows the last reported value under the preview.
 
 ## 3. Implement the widget
 
-Open `src/widgets/color-picker/index.ts` and replace the generated stub. Keep
+Open `src/widgets/color-picker/index.ts` and replace the generated starter implementation. Keep
 the render function self-contained:
 
 - Do not capture variables from the app bundle.

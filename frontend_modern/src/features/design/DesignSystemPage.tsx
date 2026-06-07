@@ -206,7 +206,7 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-1c" title="Runtime preview (framework path)">
+      <Section kicker="Interactive Widgets" title="Runtime preview">
         <p className="mb-3 text-sm text-ink-500">
           The new <strong>Widgets Framework</strong> path renders a registered
           widget kind through the SDK runtime — no raw HTML, no jQuery.
@@ -214,8 +214,7 @@ export const DesignSystemPage = () => (
           <code>src/widgets/&lt;kind&gt;/index.ts</code> calling{' '}
           <code>defineWidget()</code>; the host serialises the render function,
           inlines it in the sandbox srcdoc, and wraps it with{' '}
-          <code>reportValue</code> / <code>requestResize</code> hooks. The
-          <code>_hello</code> widget below is the IW-1 end-to-end proof.
+          <code>reportValue</code> / <code>requestResize</code> hooks.
         </p>
         <Card>
           <InteractiveWidget
@@ -233,7 +232,7 @@ export const DesignSystemPage = () => (
         </p>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-6" title="function-plotter — explanatory math widget">
+      <Section kicker="Interactive Widgets" title="function-plotter">
         <p className="mb-3 text-sm text-ink-500">
           Plots <code>y = f(x)</code> over a configurable domain. Expression
           parsed by a tiny in-sandbox recursive-descent evaluator (numbers,
@@ -257,7 +256,7 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-6" title="fraction-bar — primary-school fractions">
+      <Section kicker="Interactive Widgets" title="fraction-bar">
         <p className="mb-3 text-sm text-ink-500">
           Shaded bar showing <code>numerator / denominator</code>. Default mode
           hides the numerals so the question can ask the student to name the
@@ -282,7 +281,7 @@ export const DesignSystemPage = () => (
         </div>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-4" title="number-line — the first answer-producing widget">
+      <Section kicker="Interactive Widgets" title="number-line">
         <p className="mb-3 text-sm text-ink-500">
           The student drags the orange point along the axis (or uses arrow keys
           / Home / End for keyboard access). Every snap calls{' '}
@@ -304,7 +303,7 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-7" title="custom-html — the escape hatch">
+      <Section kicker="Interactive Widgets" title="custom-html">
         <p className="mb-3 text-sm text-ink-500">
           The last piece of the framework: an admin-only registry kind whose
           single config field is a raw HTML string. With this in the registry,
@@ -331,11 +330,11 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
-      <Section kicker="Interactive Widgets · IW-2" title="thermo-piston (legacy Class-11 sim, re-skinned)">
+      <Section kicker="Interactive Widgets" title="thermo-piston">
         <p className="mb-3 text-sm text-ink-500">
-          The first non-stub widget on the framework: a re-implementation of
-          Cabinet question <code>1/1/11/3/44/22</code> (Class-11 Thermodynamics,
-          First Law). Same physics (ΔU = ΔQ − ΔW) and the same slider /
+          A re-implementation of Cabinet question <code>1/1/11/3/44/22</code>
+          (Class-11 Thermodynamics, First Law). Same physics (ΔU = ΔQ − ΔW)
+          and the same slider /
           piston / readout story as the legacy — but no jQuery, no embedded
           <code>&lt;script&gt;</code>, no Bootstrap glyphicons. ~280 KB of
           vendor head dropped; ~3 KB of vanilla SVG took its place. Per-student

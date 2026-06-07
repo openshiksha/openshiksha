@@ -22,8 +22,8 @@ export default defineWidget({
   kind: '_hello',
   version: 1,
   meta: {
-    title: 'Hello widget (framework loop proof)',
-    description: 'The simplest possible widget — renders one line via the IW-1c runtime.',
+    title: 'Hello widget',
+    description: 'The simplest possible widget — renders one line through the widget runtime.',
     answerProducing: false,
   },
   render: ({ mount, config }) => {

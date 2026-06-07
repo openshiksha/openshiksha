@@ -21,7 +21,7 @@ npm run widget:new my-widget
 That single command:
 
 1. Creates `src/widgets/my-widget/{index.ts, params.schema.json, README.md}`
-   from a tiny stub.
+   from a tiny starter implementation.
 2. Patches `src/widgets/registry.ts` (import + entry) at the
    `widget:new` anchor comments.
 3. Prints the one remaining manual step (the server-side

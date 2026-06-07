@@ -70,7 +70,7 @@ export function WidgetDevPage() {
       <header className="border-b border-ink-100 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-7">
           <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
-            Interactive Widgets · IW-8
+            Interactive Widgets
           </p>
           <h1 className="font-display text-3xl font-semibold text-ink-900">Widget dev playground</h1>
         </div>

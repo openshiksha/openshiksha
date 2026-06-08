@@ -64,6 +64,34 @@ shows the Auto-summary badge + note. Trigger a failing generate → red error li
 
 ---
 
+## 2026-06-07 — Parent intelligence dashboard: AI-generated label + stub note
+
+**Surface:** Parent intelligence dashboard (`NarrativeCard`, parent
+`ParentInsightsPage`).
+
+**Gap (checklist #3 copy/tone, #7 provider transparency):**
+The weekly parent summary narrative (`summary_text`) was shown with **no
+indication it was AI-generated**, and when the provider cascade fell back to the
+deterministic, data-derived stub (`model_used === 'stub'`) the stub text was
+presented identically to genuine LLM output — exactly the inconsistency already
+fixed on the teacher `WeeklyReportPanel`.
+
+**Fix:**
+- `NarrativeCard` now shows a `Badge` in the card header: `✨ AI-generated`
+  (brand tone) for a real LLM, or `Auto-summary` (neutral tone) when
+  `model_used === 'stub'`, plus a small "AI was unavailable, so this summary was
+  built directly from your child's practice data" note under the narrative.
+- `model_used` was already on the `ParentProgressSummary` type/serializer — no
+  backend change needed.
+- New test file `NarrativeCard.test.tsx` covers the AI-generated label and the
+  stub auto-summary path (checklist #8).
+
+**Verify:** Open the parent insights page. With a provider key set the weekly
+summary card shows the ✨ AI-generated badge; with no key the stub summary shows
+the Auto-summary badge + note.
+
+---
+
 ## Remaining gaps (audit notes — not yet addressed)
 
 - **Natural language explanations** — backend `SubpartExplanationViewSet` is
@@ -71,11 +99,10 @@ shows the Auto-summary badge + note. Trigger a failing generate → red error li
   `frontend_modern`**. The post-grading student feedback surface appears to be
   unwired in the V2 app. Needs UX placement work (inline after feedback) — sizeable,
   flag before treating as polish vs. feature.
-- **Parent summaries (`NarrativeCard`) + interventions (`InterventionsPanel`)**
-  still display LLM narrative text with **no AI-generated / stub badge**, unlike
-  the now-fixed `WeeklyReportPanel`. Both already receive `model_used` from their
-  serializers — apply the same `✨ AI-generated` vs `Auto-summary` badge for
-  consistency (one surface per run). `NarrativeCard` has no badge at all;
-  `InterventionsPanel` only has a footer disclaimer line.
+- **Interventions (`InterventionsPanel`)** still displays LLM narrative text
+  with only a footer disclaimer line, unlike the now-fixed `WeeklyReportPanel`
+  and `NarrativeCard`. It already receives `model_used` from its serializer —
+  apply the same `✨ AI-generated` vs `Auto-summary` badge for consistency (next
+  candidate, one surface per run). _(`NarrativeCard` badge done 2026-06-07.)_
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.

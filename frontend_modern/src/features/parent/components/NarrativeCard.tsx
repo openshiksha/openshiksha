@@ -1,3 +1,4 @@
+import { Badge } from '@/shared/ui';
 import type { ParentProgressSummary } from '../useParentSummary';
 
 interface Props {
@@ -21,6 +22,10 @@ const StatTile = ({ label, value }: { label: string; value: string }) => (
 
 export const NarrativeCard = ({ summary }: Props) => {
   const weekRange = `${formatDate(summary.week_start)} – ${formatDate(summary.week_end)}`;
+  // The provider cascade falls back to a deterministic, data-derived summary when
+  // no LLM key is configured. That narrative is still useful, but parents must not
+  // see it presented as genuine AI output (provider-cascade transparency).
+  const isStub = summary.model_used === 'stub';
   const deltaPct = Math.round(summary.score_delta * 100);
   const deltaSign = summary.score_delta > 0 ? '+' : '';
   const deltaColor =
@@ -39,11 +44,20 @@ export const NarrativeCard = ({ summary }: Props) => {
           </p>
           <p className="text-sm text-ink-500 mt-1">{weekRange}</p>
         </div>
+        <Badge tone={isStub ? 'neutral' : 'brand'}>
+          {isStub ? 'Auto-summary' : '✨ AI-generated'}
+        </Badge>
       </div>
 
       <p className="mt-4 text-ink-800 leading-relaxed whitespace-pre-line">
         {summary.summary_text}
       </p>
+      {isStub && (
+        <p className="mt-2 text-xs text-ink-400">
+          AI was unavailable, so this summary was built directly from your child's
+          practice data.
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile label="Questions" value={String(summary.ticks_recorded)} />

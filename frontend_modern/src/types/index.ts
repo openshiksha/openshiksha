@@ -223,6 +223,8 @@ export interface Assignment {
   student_count: number;
   my_submission?: Submission | null;
   child_submission_status?: 'submitted' | 'not_submitted' | null;
+  closed_at?: string | null;
+  status?: 'active' | 'overdue' | 'closed';
 }
 
 export interface Subject {

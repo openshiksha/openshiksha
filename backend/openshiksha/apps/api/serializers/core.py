@@ -581,6 +581,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     submission_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
     child_submission_status = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
     # ``my_submission`` is the student's own submission row, surfaced on
     # *every* assignment payload (list + detail) so the dashboard can group
     # rows into Due Soon / Overdue / Completed without an extra round-trip
@@ -609,8 +610,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "child_submission_status",
             "target_student",
             "my_submission",
+            "closed_at",
+            "status",
         ]
-        read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
+        read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate", "closed_at", "status"]
 
     def get_my_submission(self, obj) -> dict | None:
         """Return the current student's own Submission (if any).
@@ -737,6 +740,14 @@ class SubmissionSerializer(serializers.ModelSerializer):
             assignment = attrs.get("assignment")
             if assignment and Submission.objects.filter(assignment=assignment, student=user).exists():
                 raise serializers.ValidationError("You have already submitted this assignment.")
+
+        # Block writes (create or update) when the target assignment is closed.
+        # Reads remain unaffected — students should still see closed assignments.
+        assignment = attrs.get("assignment") or (self.instance and self.instance.assignment)
+        if assignment is not None and assignment.is_closed:
+            raise serializers.ValidationError(
+                {"detail": "This assignment is closed and no longer accepts submissions."}
+            )
 
         return attrs
 

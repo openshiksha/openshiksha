@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherAssignmentDetail } from './useTeacherAssignmentDetail';
 import { useQuestionMistakes } from './useQuestionMistakes';
 import {
   Badge,
+  Button,
   EmptyState,
   LoadingSpinner,
   SectionHeading,
@@ -89,8 +91,21 @@ export const TeacherAssignmentDetailPage = () => {
   const navigate = useNavigate();
   const assignmentId = id ? parseInt(id, 10) : 0;
 
-  const { metaQuery, submissionsQuery } = useTeacherAssignmentDetail(assignmentId);
+  const { metaQuery, submissionsQuery, updateDueAtMutation, closeMutation, reopenMutation } =
+    useTeacherAssignmentDetail(assignmentId);
   const { data: mistakes } = useQuestionMistakes(metaQuery.data?.subject_room);
+
+  // Draft holds the user's edit; null means "show server value".
+  // datetime-local input expects "YYYY-MM-DDTHH:mm" in local time.
+  const [dueAtDraft, setDueAtDraft] = useState<string | null>(null);
+  const serverDueAtLocal = (() => {
+    const dueAt = metaQuery.data?.due_at;
+    if (!dueAt) return '';
+    const d = new Date(dueAt);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
+  const dueAtValue = dueAtDraft ?? serverDueAtLocal;
 
   const isLoading = metaQuery.isLoading || submissionsQuery.isLoading;
   const isError = metaQuery.isError || submissionsQuery.isError;
@@ -135,6 +150,24 @@ export const TeacherAssignmentDetailPage = () => {
   });
   const overdue = isOverdue(assignment.due_at);
   const submissionPct = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
+  const status = assignment.status ?? (overdue ? 'overdue' : 'active');
+  const isClosed = status === 'closed';
+
+  const statusBadge = isClosed ? (
+    <Badge tone="neutral">Closed</Badge>
+  ) : status === 'overdue' ? (
+    <Badge tone="urgent">Overdue</Badge>
+  ) : (
+    <Badge tone="brand">Active</Badge>
+  );
+
+  const handleDueAtSave = () => {
+    if (!dueAtValue) return;
+    const iso = new Date(dueAtValue).toISOString();
+    updateDueAtMutation.mutate(iso, {
+      onSuccess: () => setDueAtDraft(null),
+    });
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
@@ -150,14 +183,58 @@ export const TeacherAssignmentDetailPage = () => {
           as="h1"
           eyebrow={assignment.subject_room_display}
           title={assignment.problem_set.title}
-          action={
-            overdue ? (
-              <Badge tone="urgent">Overdue</Badge>
-            ) : (
-              <Badge tone="brand">Active</Badge>
-            )
-          }
+          action={statusBadge}
         />
+
+        {/* Lifecycle controls — due-date edit + close / reopen */}
+        <div
+          className="mt-5 flex flex-wrap items-end gap-3 rounded-xl border border-ink-100 bg-paper-50 p-4"
+          data-testid="lifecycle-controls"
+        >
+          <label className="flex flex-col text-xs font-semibold uppercase tracking-wide text-ink-500">
+            Due date
+            <input
+              type="datetime-local"
+              value={dueAtValue}
+              onChange={(e) => setDueAtDraft(e.target.value)}
+              disabled={isClosed || updateDueAtMutation.isPending}
+              className="mt-1 rounded-lg border border-ink-200 bg-paper px-3 py-1.5 text-sm font-normal normal-case text-ink-900"
+              data-testid="due-at-input"
+            />
+          </label>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDueAtSave}
+            disabled={isClosed || updateDueAtMutation.isPending}
+            data-testid="due-at-save"
+          >
+            {updateDueAtMutation.isPending ? 'Saving…' : 'Save due date'}
+          </Button>
+          <div className="ml-auto">
+            {isClosed ? (
+              <Button
+                variant="brand"
+                size="sm"
+                onClick={() => reopenMutation.mutate()}
+                disabled={reopenMutation.isPending}
+                data-testid="reopen-button"
+              >
+                {reopenMutation.isPending ? 'Reopening…' : 'Reopen assignment'}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => closeMutation.mutate()}
+                disabled={closeMutation.isPending}
+                data-testid="close-button"
+              >
+                {closeMutation.isPending ? 'Closing…' : 'Close assignment'}
+              </Button>
+            )}
+          </div>
+        </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat

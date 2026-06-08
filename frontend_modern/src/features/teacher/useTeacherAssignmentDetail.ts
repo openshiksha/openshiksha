@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import type { Assignment, Submission } from '@/types/index';
 
@@ -20,7 +20,24 @@ const fetchAssignmentSubmissions = async (id: number): Promise<SubmissionWithStu
   return response.data;
 };
 
+const patchAssignmentDueAt = async (id: number, dueAt: string): Promise<Assignment> => {
+  const response = await apiClient.patch<Assignment>(`/assignments/${id}/`, { due_at: dueAt });
+  return response.data;
+};
+
+const closeAssignment = async (id: number): Promise<Assignment> => {
+  const response = await apiClient.post<Assignment>(`/assignments/${id}/close/`);
+  return response.data;
+};
+
+const reopenAssignment = async (id: number): Promise<Assignment> => {
+  const response = await apiClient.post<Assignment>(`/assignments/${id}/reopen/`);
+  return response.data;
+};
+
 export const useTeacherAssignmentDetail = (id: number) => {
+  const queryClient = useQueryClient();
+
   const metaQuery = useQuery<Assignment>({
     queryKey: ['teacher-assignment', id],
     queryFn: () => fetchAssignmentMeta(id),
@@ -35,5 +52,25 @@ export const useTeacherAssignmentDetail = (id: number) => {
     enabled: !!id,
   });
 
-  return { metaQuery, submissionsQuery };
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['teacher-assignment', id] });
+    queryClient.invalidateQueries({ queryKey: ['teacher-assignments'] });
+  };
+
+  const updateDueAtMutation = useMutation({
+    mutationFn: (dueAt: string) => patchAssignmentDueAt(id, dueAt),
+    onSuccess: invalidate,
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => closeAssignment(id),
+    onSuccess: invalidate,
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: () => reopenAssignment(id),
+    onSuccess: invalidate,
+  });
+
+  return { metaQuery, submissionsQuery, updateDueAtMutation, closeMutation, reopenMutation };
 };

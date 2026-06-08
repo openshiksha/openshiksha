@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Input } from '@/shared/ui';
 import { AuthLayout } from './AuthLayout';
 import { useRegisterSchoolMutation } from './useRegisterMutation';
@@ -16,13 +16,15 @@ function extractError(err: unknown): string {
 
 export const RegisterSchoolPage = () => {
   const mutation = useRegisterSchoolMutation();
+  const [searchParams] = useSearchParams();
+  const prefillCode = (searchParams.get('code') ?? '').toUpperCase().slice(0, 8);
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
     username: '',
     password: '',
     email: '',
-    join_code: '',
+    join_code: prefillCode,
   });
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>

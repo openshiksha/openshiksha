@@ -2,6 +2,17 @@ name: CI/CD Pipeline
 # This workflow is triggered on pushes to the repository.
 on: push
 
+# Cancel in-progress CI runs when a newer commit lands on the same feature
+# branch — the older run's results are stale anyway, and waiting on them
+# burns minutes and delays feedback. Long-lived branches that gate deploys
+# (modernization / qa / prod) are excluded: their runs build and publish
+# images and roll out to k3s, so cancelling mid-flight could leave the
+# cluster pointing at a half-pushed image. For those, each push runs to
+# completion and the most recent one wins by ordering.
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
+
 jobs:
     workflow-lint:
         name: Workflow Lint (actionlint)

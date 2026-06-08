@@ -189,8 +189,10 @@ export const CreateAssignmentPage = () => {
   const daysOut = daysFromToday(dueDate);
 
   // ── Main UI ──────────────────────────────────────────────────────────────
+  // Extra bottom padding on small screens leaves room for the sticky mobile
+  // action bar so the last form field doesn't sit underneath it.
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 lg:px-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 pb-28 lg:px-6 lg:pb-8">
       {/* Header */}
       <SectionHeading
         as="h1"
@@ -208,7 +210,7 @@ export const CreateAssignmentPage = () => {
         }
       />
 
-      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-12">
+      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-12" data-testid="create-assignment-form">
         {/* Form column */}
         <div className="space-y-4 lg:col-span-5 xl:col-span-4">
           {/* Step 1: Class */}
@@ -300,7 +302,7 @@ export const CreateAssignmentPage = () => {
               min={minDate}
               onChange={(e) => setDueDate(e.target.value)}
             />
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="mr-1 text-xs font-medium text-ink-500">Quick set:</span>
               {datePresets.map((p) => (
                 <button
@@ -308,7 +310,8 @@ export const CreateAssignmentPage = () => {
                   type="button"
                   onClick={() => setDueDate(p.iso)}
                   className={[
-                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                    // ~44px tall on mobile (touch-target spec); slimmer on desktop.
+                    'inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors sm:px-3 sm:py-1 sm:text-xs',
                     dueDate === p.iso
                       ? 'bg-brand-600 text-white shadow-soft'
                       : 'bg-ink-50 text-ink-700 hover:bg-ink-100',
@@ -341,6 +344,29 @@ export const CreateAssignmentPage = () => {
             submitting={createAssignment.isPending}
             error={createAssignment.isError}
           />
+        </div>
+
+        {/* Sticky mobile action bar — desktop has the publish button inside
+            the preview Card; on phones the preview is too long to scroll to,
+            so we surface the same action above the system nav. */}
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-paper/95 px-4 py-3 shadow-lift backdrop-blur lg:hidden"
+          data-testid="mobile-publish-bar"
+        >
+          <Button
+            type="submit"
+            size="lg"
+            disabled={!isFormValid || createAssignment.isPending}
+            className="w-full"
+          >
+            {createAssignment.isPending && <LoadingSpinner size="sm" />}
+            {createAssignment.isPending ? 'Publishing…' : 'Publish Assignment'}
+          </Button>
+          {!isFormValid && (
+            <p className="mt-1.5 text-center text-xs text-ink-500">
+              Complete all three steps to publish.
+            </p>
+          )}
         </div>
       </form>
     </div>

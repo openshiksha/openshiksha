@@ -739,6 +739,11 @@ class Assignment(models.Model):
         validators=FRACTION_VALIDATOR,
         help_text="Fraction of students who have submitted (0.0–1.0)",
     )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When set, the assignment no longer accepts submissions.",
+    )
 
     class Meta:
         db_table = "assignments"
@@ -749,6 +754,20 @@ class Assignment(models.Model):
 
     def __str__(self):
         return f"Assignment: {self.problem_set.title} → {self.subject_room} (due {self.due_at.date()})"
+
+    @property
+    def is_closed(self) -> bool:
+        return self.closed_at is not None
+
+    @property
+    def status(self) -> str:
+        if self.closed_at is not None:
+            return "closed"
+        from django.utils import timezone
+
+        if self.due_at < timezone.now():
+            return "overdue"
+        return "active"
 
 
 class Submission(models.Model):

@@ -838,6 +838,32 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         serializer = SubmissionSerializer(subs, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], url_path="close")
+    def close(self, request, pk=None):
+        """POST /api/assignments/{id}/close/ — teacher stops accepting submissions."""
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Forbidden."}, status=403)
+        assignment = self.get_object()  # already scoped to assigned_by=user
+        if assignment.closed_at is None:
+            from django.utils import timezone
+
+            assignment.closed_at = timezone.now()
+            assignment.save(update_fields=["closed_at"])
+        serializer = self.get_serializer(assignment)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="reopen")
+    def reopen(self, request, pk=None):
+        """POST /api/assignments/{id}/reopen/ — teacher resumes accepting submissions."""
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Forbidden."}, status=403)
+        assignment = self.get_object()
+        if assignment.closed_at is not None:
+            assignment.closed_at = None
+            assignment.save(update_fields=["closed_at"])
+        serializer = self.get_serializer(assignment)
+        return Response(serializer.data)
+
 
 class SubmissionViewSet(viewsets.ModelViewSet):
     """

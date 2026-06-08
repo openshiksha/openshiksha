@@ -205,8 +205,9 @@ class AssignmentAdmin(admin.ModelAdmin):
         "due_at",
         "average_score",
         "completion_rate",
+        "closed_at",
     ]
-    list_filter = ["subject_room__subject", "subject_room__classroom__school"]
+    list_filter = ["subject_room__subject", "subject_room__classroom__school", "closed_at"]
     search_fields = ["problem_set__title", "subject_room__classroom__school__name", "target_student__username"]
     raw_id_fields = ["assigned_by", "target_student"]
     readonly_fields = ["assigned_at", "average_score", "completion_rate"]

@@ -86,3 +86,16 @@ describe('CreateAssignmentPage deep-link preselection', () => {
     );
   });
 });
+
+describe('CreateAssignmentPage — mobile sticky action bar (TW-7)', () => {
+  it('renders a sticky Publish button on mobile, hidden on desktop via lg:hidden', async () => {
+    renderAt('/teacher/assignments/new');
+    const bar = await screen.findByTestId('mobile-publish-bar');
+    // The sticky bar should be lg-hidden so desktop keeps the inline preview button.
+    expect(bar.className).toMatch(/lg:hidden/);
+    // It must hold a submit-type button (so it triggers the form's onSubmit).
+    const submit = bar.querySelector('button[type="submit"]');
+    expect(submit).not.toBeNull();
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
+  });
+});

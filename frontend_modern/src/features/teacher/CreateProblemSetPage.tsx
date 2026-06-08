@@ -318,8 +318,9 @@ export const CreateProblemSetPage = () => {
   }
 
   // ── Main UI ──────────────────────────────────────────────────────────────
+  // Mobile: extra bottom padding leaves room for the sticky mobile action bar.
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 pb-28 lg:px-6 lg:pb-8">
       {/* Header */}
       <SectionHeading
         as="h1"
@@ -539,8 +540,8 @@ export const CreateProblemSetPage = () => {
       {/* Selected questions strip */}
       <SelectedStrip selectedQuestions={selectedQuestions} onRemove={removeQuestion} />
 
-      {/* Submit */}
-      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-ink-100 pt-5">
+      {/* Submit — desktop layout (inline action row). */}
+      <div className="hidden flex-wrap items-center justify-end gap-3 border-t border-ink-100 pt-5 lg:flex">
         {!canSubmit && (
           <p className="text-xs text-ink-400">
             Fill in title, subject, chapter, and select at least one question.
@@ -557,6 +558,34 @@ export const CreateProblemSetPage = () => {
           {createProblemSet.isPending && <LoadingSpinner size="sm" />}
           Create Problem Set
         </Button>
+      </div>
+
+      {/* Sticky mobile action bar — the inline submit lives at the bottom of
+          a long page, requiring a lot of scrolling on phones. Surface the
+          same action above the system nav so it's always one tap away. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-paper/95 px-4 py-3 shadow-lift backdrop-blur lg:hidden"
+        data-testid="mobile-create-bar"
+      >
+        {createProblemSet.isError && (
+          <p className="mb-1.5 text-center text-xs font-medium text-rose-600">
+            Failed to create. Please try again.
+          </p>
+        )}
+        <Button
+          size="lg"
+          onClick={handleSubmit}
+          disabled={!canSubmit || createProblemSet.isPending}
+          className="w-full"
+        >
+          {createProblemSet.isPending && <LoadingSpinner size="sm" />}
+          {createProblemSet.isPending ? 'Creating…' : `Create${selectedQuestionIds.size > 0 ? ` (${selectedQuestionIds.size})` : ''}`}
+        </Button>
+        {!canSubmit && (
+          <p className="mt-1.5 text-center text-xs text-ink-500">
+            Pick a subject, chapter, title, and at least one question.
+          </p>
+        )}
       </div>
     </div>
   );

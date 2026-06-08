@@ -6,10 +6,11 @@
 > that selection straight into an assignment, edit it safely, publish, and then
 > watch it land — without ever re-finding what they were just looking at.
 >
-> **Status:** 🟢 **Active** (promoted 2026-06-07, user-directed). The teacher
-> dashboard rework ([#248](https://github.com/openshiksha/openshiksha/pull/248))
-> fixed the worst breakage; this initiative makes the whole teacher surface
-> coherent.
+> **Status:** 🟡 **Mostly closed — TW-2 blocked.** All unblocked increments
+> (TW-1, TW-3, TW-4, TW-5, TW-6, TW-7) shipped 2026-06-07. The remaining
+> increment, **TW-2 (editable preview)**, is hard-blocked on
+> [Authoring Integrity & Versioning](authoring-integrity-versioning.md) Phase 1
+> snapshots. Pick this initiative back up when AIV-1..3 lands.
 
 **Last updated:** 2026-06-07
 
@@ -118,8 +119,18 @@ a pile of pages, and closes the seams in reviewable increments.
   edges.
 - **DoD:** create-assignment and preview are usable one-handed on a phone.
 
-**Suggested order:** TW-1 (now) → TW-3 ∥ TW-4 ∥ TW-5 (independent polish) →
-TW-2 (after Authoring Integrity Phase 1) → TW-6 → TW-7.
+**Shipping order taken (2026-06-07):** TW-1 → TW-5 ∥ TW-4 ∥ TW-3a → TW-3b →
+TW-6 → TW-7. **TW-2 remains the only open increment** and is gated by
+Authoring Integrity Phase 1.
+
+> **Removed from backlog:** The earlier draft of this initiative also listed
+> a **TW-T** Playwright continuity smoke test. We dropped it after shipping
+> TW-3/4/5/6/7: the seams it would have covered (URL params + three small
+> mutations) are already well-tested via Vitest + pytest, and standing up the
+> backend-dependent Playwright project to drive a full login → close flow
+> would have been a disproportionate infra change for one smoke test. Worth
+> reconsidering only if the continuity flow grows (multi-step wizards,
+> optimistic UI, websockets).
 
 ---
 
@@ -152,4 +163,10 @@ TW-2 (after Authoring Integrity Phase 1) → TW-6 → TW-7.
 | Date | Increment | PR | Notes |
 |---|---|---|---|
 | 2026-06-07 | Dashboard rework: fixed join code (subject-teacher auth + dedupe), read-only student preview, decluttered insights behind a disclosure, problem-sets section. | [#248](https://github.com/openshiksha/openshiksha/pull/248) | The breakage-fix slice. Motivated this initiative. |
-| 2026-06-07 | **TW-1** — Assign continuity (`?problemSet=` / `?room=` deep links + preselection) + "preview actual questions as a student" link before publish. | _this PR_ | Closes the dead-end Assign flow and the blind-publish gap. Editable preview (TW-2) is deferred to after Authoring Integrity Phase 1 so edits stay safe. |
+| 2026-06-07 | **TW-1** — Assign continuity (`?problemSet=` / `?room=` deep links + preselection) + "preview actual questions as a student" link before publish. | [#250](https://github.com/openshiksha/openshiksha/pull/250) | Closes the dead-end Assign flow and the blind-publish gap. |
+| 2026-06-07 | **TW-5** — Join-code UX (expiry display, shareable link, regenerate confirmation). | [#261](https://github.com/openshiksha/openshiksha/pull/261) | Backend already serialized `expires_at`; this surfaces it and adds the share path. |
+| 2026-06-07 | **TW-4** — Dashboard *Needs attention* strip (overdue / ungraded / low-completion with explicit precedence + deep-links). | [#262](https://github.com/openshiksha/openshiksha/pull/262) | Hidden when nothing needs attention — no dead weight. |
+| 2026-06-07 | **TW-3a** — `Assignment.closed_at` + close/reopen API actions + serialized `status` + submission-write guard. | [#263](https://github.com/openshiksha/openshiksha/pull/263) | Backend foundation. Reads remain unaffected (students still see closed assignments labelled as such). |
+| 2026-06-07 | **TW-3b** — Inline due-date editor + Close/Reopen controls on `TeacherAssignmentDetailPage`; status badge reflects closed state. | [#264](https://github.com/openshiksha/openshiksha/pull/264) | Built on TW-3a. Closes the TW-3 DoD. |
+| 2026-06-07 | **TW-6** — Question-bank ↔ authoring continuity: filters live in the URL, "Use in new set" seeds the builder, both Edit and Use-in-new-set carry `returnTo`. | [#265](https://github.com/openshiksha/openshiksha/pull/265) | No more context loss when moving between bank, set builder, and question editor. |
+| 2026-06-07 | **TW-7** — Mobile teacher pass: `lg:hidden` sticky submit bars on `CreateAssignmentPage` + `CreateProblemSetPage`, 44 px date-preset touch targets. | [#266](https://github.com/openshiksha/openshiksha/pull/266) | Closes the last unblocked TW increment. |

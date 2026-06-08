@@ -8,6 +8,7 @@ import { WeeklyReportPanel } from './WeeklyReportPanel';
 import { InterventionsPanel } from './InterventionsPanel';
 import { QuestionQualityPanel } from './QuestionQualityPanel';
 import { ClassroomCodeWidget } from './ClassroomCodeWidget';
+import { NeedsAttentionPanel } from './NeedsAttentionPanel';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { Button, Card, EmptyState, SectionHeading, Stat } from '@/shared/ui';
 import type { Assignment } from '@/types/index';
@@ -127,6 +128,9 @@ export const TeacherDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Needs attention — surfaces overdue / ungraded / low-completion before the room cards */}
+      <NeedsAttentionPanel assignments={assignments} />
 
       {/* Headline stats */}
       {(subjectRooms?.length ?? 0) > 0 && (

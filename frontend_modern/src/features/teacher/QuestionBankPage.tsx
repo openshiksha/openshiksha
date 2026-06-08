@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuestionList } from './useQuestionList';
 import { useSubjects } from './useSubjects';
 import { useChapters } from './useChapters';
@@ -271,16 +271,60 @@ const AddToProblemSetSheet = ({
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
+/**
+ * TW-6: filter state lives in the URL so the back-button restores the same
+ * search after the teacher visits the editor or set builder. Keys are short
+ * (`q`, `subject`, `chapter`, `diff`, `focus`) to keep the URL tidy.
+ */
+const numberOrEmpty = (raw: string | null): number | '' => {
+  if (!raw) return '';
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : '';
+};
+
 export const QuestionBankPage = () => {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<number | ''>('');
-  const [selectedChapter, setSelectedChapter] = useState<number | ''>('');
-  const [selectedDifficulty, setSelectedDifficulty] = useState<number | ''>('');
-  const [focusedQuestionId, setFocusedQuestionId] = useState<number | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get('q') ?? '';
+  const selectedSubject = numberOrEmpty(searchParams.get('subject'));
+  const selectedChapter = numberOrEmpty(searchParams.get('chapter'));
+  const selectedDifficulty = numberOrEmpty(searchParams.get('diff'));
+  const focusedQuestionId = (() => {
+    const raw = searchParams.get('focus');
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  // useDeferredValue gives us "debounce-ish" behaviour without an effect:
+  // search updates the URL immediately for back/forward to round-trip,
+  // and the heavy filtered query reads `deferredSearch` which lags behind
+  // until rendering catches up.
+  const deferredSearch = useDeferredValue(search);
   const [modalQuestion, setModalQuestion] = useState<Question | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Merge-style URL updater — pass `null` to remove a key.
+  const updateParams = (patch: Record<string, string | number | null | ''>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null || value === '') next.delete(key);
+          else next.set(key, String(value));
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const setSearch = (value: string) => updateParams({ q: value });
+  const setSelectedSubject = (value: number | '') =>
+    updateParams({ subject: value, chapter: null });
+  const setSelectedChapter = (value: number | '') => updateParams({ chapter: value });
+  const setSelectedDifficulty = (value: number | '') => updateParams({ diff: value });
+  const setFocusedQuestionId = (value: number | null) => updateParams({ focus: value });
 
   const { data: subjects } = useSubjects();
   // Chapter list is scoped to the selected subject; disabled until a subject
@@ -290,17 +334,16 @@ export const QuestionBankPage = () => {
     selectedSubject !== '' ? (selectedSubject as number) : undefined,
   );
   const { data: questions, isLoading } = useQuestionList({
-    search: debouncedSearch || undefined,
+    search: deferredSearch || undefined,
     subject: selectedSubject !== '' ? (selectedSubject as number) : undefined,
     chapter: selectedChapter !== '' ? (selectedChapter as number) : undefined,
     difficulty: selectedDifficulty !== '' ? (selectedDifficulty as number) : undefined,
   });
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 300);
-  };
+  const handleSearchChange = (value: string) => setSearch(value);
+
+  // Pass current URL state forward so the editor / set builder can return here.
+  const currentReturnTo = `/teacher/questions?${searchParams.toString()}`;
 
   const hasFilters =
     !!search ||
@@ -309,11 +352,7 @@ export const QuestionBankPage = () => {
     selectedDifficulty !== '';
 
   const clearFilters = () => {
-    setSearch('');
-    setDebouncedSearch('');
-    setSelectedSubject('');
-    setSelectedChapter('');
-    setSelectedDifficulty('');
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
 
   const focusedQuestion = useMemo(
@@ -458,7 +497,11 @@ export const QuestionBankPage = () => {
                       question={q}
                       focused={focusedQuestionId === q.id}
                       onFocus={() => setFocusedQuestionId(q.id)}
-                      onEdit={() => navigate(`/teacher/questions/${q.id}/edit`)}
+                      onEdit={() =>
+                        navigate(
+                          `/teacher/questions/${q.id}/edit?returnTo=${encodeURIComponent(currentReturnTo)}`,
+                        )
+                      }
                     />
                   ))}
                 </div>
@@ -479,13 +522,28 @@ export const QuestionBankPage = () => {
                   <p className="text-xs text-ink-500">
                     Reuse this question in any of your problem sets.
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/teacher/questions/${focusedQuestion.id}/edit`)}
+                      onClick={() =>
+                        navigate(
+                          `/teacher/questions/${focusedQuestion.id}/edit?returnTo=${encodeURIComponent(currentReturnTo)}`,
+                        )
+                      }
                     >
                       Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        navigate(
+                          `/teacher/problem-sets/new?seedQuestion=${focusedQuestion.id}&returnTo=${encodeURIComponent(currentReturnTo)}`,
+                        )
+                      }
+                    >
+                      Use in new set
                     </Button>
                     <Button size="sm" onClick={() => setModalQuestion(focusedQuestion)}>
                       + Add to problem set

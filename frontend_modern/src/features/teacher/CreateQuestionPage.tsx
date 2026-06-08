@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingSpinner } from '@/shared/ui';
 import { RichContent } from '@/shared/ui/RichContent';
 import { WidgetGalleryPanel } from './WidgetGalleryPanel';
@@ -457,6 +457,11 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   const { id } = useParams<{ id: string }>();
   const editId = editMode && id ? Number(id) : undefined;
 
+  // TW-6: when launched from the question bank we receive `?returnTo=` so the
+  // Back / "Back to question bank" actions land on the exact same search.
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo') ?? '/teacher/questions';
+
   const { data: subjectRooms } = useSubjectRooms();
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
   const [selectedChapterId, setSelectedChapterId] = useState<number | ''>('');
@@ -686,7 +691,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </button>
             )}
             <button
-              onClick={() => navigate('/teacher/questions')}
+              onClick={() => navigate(returnTo)}
               className="px-4 py-2 rounded-lg border border-ink-200 text-ink-700 text-sm font-medium hover:bg-ink-50"
             >
               Back to question bank
@@ -717,7 +722,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
           </p>
         </div>
         <button
-          onClick={() => navigate('/teacher/questions')}
+          onClick={() => navigate(returnTo)}
           className="text-sm text-ink-500 hover:text-ink-700"
         >
           ← Back

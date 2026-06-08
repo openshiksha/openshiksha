@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubjectRooms } from './useSubjectRooms';
 import { useChapters } from './useChapters';
+import { useQuestion } from './useQuestion';
 import { useQuestionList } from './useQuestionList';
 import { useCreateProblemSet } from './useCreateProblemSet';
 import { previewFromQuestionText } from './previewFromQuestionText';
@@ -157,7 +158,20 @@ const SelectedStrip = ({
 
 export const CreateProblemSetPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: subjectRooms } = useSubjectRooms();
+
+  // TW-6: a teacher can land here with ?seedQuestion=<id> from the question
+  // bank's "Use in new set" action. Pre-fetch that question so we can seed
+  // the subject / chapter / selection before the picker renders.
+  const seedQuestionId = (() => {
+    const raw = searchParams.get('seedQuestion');
+    if (!raw) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  })();
+  const returnTo = searchParams.get('returnTo');
+  const { data: seedQuestion } = useQuestion(seedQuestionId);
 
   const [title, setTitle] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
@@ -166,6 +180,18 @@ export const CreateProblemSetPage = () => {
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<number>>(new Set());
   const [focusedQuestionId, setFocusedQuestionId] = useState<number | null>(null);
   const [successId, setSuccessId] = useState<number | null>(null);
+
+  // One-shot seed: when the question loads, pre-fill subject/chapter and
+  // mark it as selected. Tracked via a ref-style state guard so a later user
+  // edit (e.g. changing subject) doesn't get clobbered on the next render.
+  const [seededFromId, setSeededFromId] = useState<number | undefined>(undefined);
+  if (seedQuestion && seededFromId !== seedQuestion.id) {
+    setSeededFromId(seedQuestion.id);
+    setSelectedSubjectId(seedQuestion.subject);
+    setSelectedChapterId(seedQuestion.chapter);
+    setSelectedQuestionIds(new Set([seedQuestion.id]));
+    setFocusedQuestionId(seedQuestion.id);
+  }
 
   // Filters within the picker
   const [searchQuery, setSearchQuery] = useState('');
@@ -275,9 +301,15 @@ export const CreateProblemSetPage = () => {
           action={
             <div className="flex flex-wrap justify-center gap-3">
               <Button onClick={() => navigate('/teacher/assignments/new')}>Assign it now</Button>
-              <Button variant="ghost" onClick={() => navigate('/teacher')}>
-                Back to dashboard
-              </Button>
+              {returnTo ? (
+                <Button variant="ghost" onClick={() => navigate(returnTo)}>
+                  Back to question bank
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => navigate('/teacher')}>
+                  Back to dashboard
+                </Button>
+              )}
             </div>
           }
         />

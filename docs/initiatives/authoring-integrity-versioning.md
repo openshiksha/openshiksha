@@ -7,14 +7,13 @@
 > the assigned, frozen copy are clearly separate, and moving changes from one to
 > the other is an explicit, reviewable act.
 >
-> **Status:** 🟢 **Active** — Phase 1 + Phase 2 done.
-> Phase 1 (AIV-1..3) 2026-06-08 across [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274);
-> Phase 2 2026-06-09 with **AIV-4** in [#276](https://github.com/openshiksha/openshiksha/pull/276)
-> (editable preview + `remove-question` API + safety regression test) and
-> **AIV-5** in [#277](https://github.com/openshiksha/openshiksha/pull/277)
-> (assignment-level snapshot preview + drift banner). Editing is safe by
-> construction and the editable-preview ask is delivered end-to-end.
-> Next bet is **Phase 3** (AIV-6/7/8 — guarded re-sync, `ProblemSetVersion`, audit UI).
+> **Status:** ✅ **Done.** All three phases shipped 2026-06-08/09.
+> Phase 1 (AIV-1..3) in [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274);
+> Phase 2 (AIV-4/5) in [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277);
+> Phase 3 (AIV-6/7/8) in [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281).
+> Editing never silently rewrites assigned content; teachers can preview, edit,
+> re-sync (with blast-radius preview + undo), and audit version history. The
+> initiative's full DoD is reached.
 
 **Last updated:** 2026-06-09
 
@@ -239,3 +238,7 @@ real silent-data-corruption risk even if editable preview never ships.
 | 2026-06-09 | **AIV-4 done** — `ProblemSetPreviewPage` gains an edit mode (per-question Remove + Edit-question deep-link + Add-question entry to the bank, AIV-3b banner when in use). Backend adds `remove-question` to mirror `add-question`, plus an API-level regression test pinning the property that makes TW-2 safe by construction: mutating the live question list does NOT change any pre-existing assignment's snapshot. Reorder is deferred (would need a through-table; doesn't belong in this atomic slice). Also shipped Teacher Workspace **TW-2** — the editable preview the user asked for, end-to-end. | [#276](https://github.com/openshiksha/openshiksha/pull/276) | One PR closes two initiative increments. `created_by_me` flag added so the frontend doesn't re-derive the creator-only rule. |
 | 2026-06-09 | **AIV-5 done** — `snapshot_has_drifted(snapshot, problem_set)` helper + `snapshot_drift` field on `AssignmentDetailSerializer`. Teacher `TeacherAssignmentDetailPage` gains a collapsible "What students see · snapshot" section rendering the frozen content + an amber drift banner deep-linking to the live preview when the set has moved past the snapshot. | [#277](https://github.com/openshiksha/openshiksha/pull/277) | Independent of AIV-4 (could land first). Drift detection ignores volatile fields (`captured_at`, `problem_set_title`). |
 | 2026-06-09 | **Phase 2 closed.** Editable preview is delivered; teachers can see "what was assigned" vs "what the live set looks like now". Teacher Workspace's North Star is reached. Next bet: **Phase 3** (AIV-6 guarded re-sync → AIV-7 `ProblemSetVersion` → AIV-8 audit UI). | — | The initiative now turns to the durable versioning model. |
+| 2026-06-09 | **AIV-6 done** — `AssignmentSnapshotHistory` model + `diff_snapshots` helper + three actions on `AssignmentViewSet`: `resync-preview` (read-only blast radius), `resync` (atomic snapshot swap; drops stale ticks + queues `grade_submission` only when `answer_changes` is non-empty), `undo-resync` (restores the most recent history row). Frontend: `ResyncAssignmentModal` mounted off the drift banner, plus an Undo bar when history exists. | [#279](https://github.com/openshiksha/openshiksha/pull/279) | Closes the "drift shown but not actionable" gap left by AIV-5. 12 backend tests + 12 vitests. |
+| 2026-06-09 | **AIV-7 done** — `ProblemSetVersion(problem_set, version_number, content_hash, content, created_at, created_by)` immutable, deduplicated content versions; `unique_together(problem_set, content_hash)` enforces dedup. `Assignment.problem_set_version` FK (nullable for backfill safety). Helpers: `_content_hash` (sha256 of canonical-JSON `questions`), `get_or_create_version_for` (select-for-update, idempotent factory), `resolve_assignment_content` (single source of truth: FK content → legacy JSONField fallback). All capture sites + all reader sites switched. Migrations 0025 (schema) + 0026 (idempotent dedup backfill of every legacy snapshot). | [#280](https://github.com/openshiksha/openshiksha/pull/280) | Heaviest PR of the batch — 85 tests pass, no regressions. `assigned_content` retained as deprecated fallback so legacy data keeps working through the cutover. |
+| 2026-06-09 | **AIV-8 done** — `versions` + `version_diff` actions on `ProblemSetViewSet`; `versions` annotates `Count('assignments')` so the list is N+1-free, `version_diff` defaults `against` to the prior version. Frontend: new `ProblemSetVersionsPage` (timeline + click-to-select target → click-to-select against → structured diff summary), `/teacher/problem-sets/:id/versions` route, and a *View version history* button on the preview page. | [#281](https://github.com/openshiksha/openshiksha/pull/281) | Builds entirely on AIV-7's table; reuses `diff_snapshots` for the diff. 7 backend tests + 4 vitests. |
+| 2026-06-09 | **Phase 3 closed → initiative ✅ Done.** All eight AIV increments shipped; the DoD is met end-to-end. Editing never silently rewrites assigned content; re-sync is opt-in with preview + undo; assignments pin immutable, deduplicated versions; version history is auditable + diffable. | — | Initiative status flipped from Active to Done; no successor increments queued. |

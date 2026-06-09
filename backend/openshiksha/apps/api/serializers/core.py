@@ -754,15 +754,25 @@ class AssignmentDetailSerializer(AssignmentSerializer):
     problem-set's ``questions`` array is built from the snapshot — so a student
     always sees exactly what they were assigned, even after the live set
     drifts. Response shape is preserved 1:1 with the live path.
+
+    AIV-5: also surfaces ``snapshot_drift`` — true when the live set has moved
+    past the frozen snapshot. Lets the teacher UI flag "this assignment's
+    content predates the latest edits" without re-fetching the live set.
     """
 
     # ``my_submission`` is inherited from AssignmentSerializer now — the
     # detail serializer only swaps the problem-set serializer for the
     # student-safe variant that hides ``correct_answer``.
     problem_set = ProblemSetStudentDetailSerializer(read_only=True)
+    snapshot_drift = serializers.SerializerMethodField()
 
     class Meta(AssignmentSerializer.Meta):
-        fields = AssignmentSerializer.Meta.fields
+        fields = AssignmentSerializer.Meta.fields + ["snapshot_drift"]
+
+    def get_snapshot_drift(self, obj) -> bool:
+        from openshiksha.apps.core.snapshots import snapshot_has_drifted
+
+        return snapshot_has_drifted(obj.assigned_content, obj.problem_set)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -1,17 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
-import type { Assignment, Submission } from '@/types/index';
+import type { AssignmentDetail, Submission } from '@/types/index';
 
 export interface SubmissionWithStudent extends Submission {
   student_name: string;
 }
 
-export interface TeacherAssignmentDetail extends Assignment {
+export interface TeacherAssignmentDetail extends AssignmentDetail {
   submissions: SubmissionWithStudent[];
 }
 
-const fetchAssignmentMeta = async (id: number): Promise<Assignment> => {
-  const response = await apiClient.get<Assignment>(`/assignments/${id}/`);
+const fetchAssignmentMeta = async (id: number): Promise<AssignmentDetail> => {
+  // The retrieve endpoint serves AssignmentDetailSerializer — it embeds the
+  // snapshot-rendered problem-set + questions (AIV-2b) and ``snapshot_drift``
+  // (AIV-5). The list endpoint uses AssignmentSerializer (no questions); only
+  // the detail view carries this richer shape.
+  const response = await apiClient.get<AssignmentDetail>(`/assignments/${id}/`);
   return response.data;
 };
 
@@ -21,7 +25,7 @@ const fetchAssignmentSubmissions = async (id: number): Promise<SubmissionWithStu
 };
 
 export const useTeacherAssignmentDetail = (id: number) => {
-  const metaQuery = useQuery<Assignment>({
+  const metaQuery = useQuery<AssignmentDetail>({
     queryKey: ['teacher-assignment', id],
     queryFn: () => fetchAssignmentMeta(id),
     staleTime: 60 * 1000,

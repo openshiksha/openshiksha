@@ -233,6 +233,17 @@ export interface Assignment {
   child_submission_status?: 'submitted' | 'not_submitted' | null;
   closed_at?: string | null;
   status?: 'active' | 'overdue' | 'closed';
+  /**
+   * AIV-5: true when the live ProblemSet has moved past this assignment's
+   * frozen ``assigned_content`` snapshot. Drives the drift banner on the
+   * teacher assignment detail view; students never see this field act on
+   * anything because they grade and render from the snapshot regardless.
+   */
+  snapshot_drift?: boolean;
+}
+
+export interface AssignmentDetail extends Assignment {
+  problem_set: ProblemSetWithQuestions;
 }
 
 export interface Subject {

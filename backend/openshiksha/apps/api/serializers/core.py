@@ -553,6 +553,10 @@ class ProblemSetSerializer(serializers.ModelSerializer):
     # response on freshly created rows).
     assigned_count = serializers.SerializerMethodField()
     has_graded_submissions = serializers.SerializerMethodField()
+    # TW-2 / AIV-4: signals whether the current teacher created this set so the
+    # editable preview can show / hide its add+remove affordances without the
+    # frontend having to re-derive the rule (creator == request.user).
+    created_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = ProblemSet
@@ -573,6 +577,7 @@ class ProblemSetSerializer(serializers.ModelSerializer):
             "source_assignment",
             "assigned_count",
             "has_graded_submissions",
+            "created_by_me",
             "created_at",
         ]
 
@@ -590,6 +595,13 @@ class ProblemSetSerializer(serializers.ModelSerializer):
         if anno is not None:
             return bool(anno)
         return Submission.objects.filter(assignment__problem_set=obj, score__isnull=False).exists()
+
+    def get_created_by_me(self, obj) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        return obj.created_by_id == user.pk
 
 
 class ProblemSetDetailSerializer(ProblemSetSerializer):

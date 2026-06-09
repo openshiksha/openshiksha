@@ -92,6 +92,46 @@ describe('InterventionsPanel', () => {
     );
   });
 
+  it('labels real LLM strategies as AI-generated', async () => {
+    mockGet.mockResolvedValue({ data: { results: [SUGGESTION] } });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+
+    expect(screen.getByText('✨ AI-generated')).toBeDefined();
+    expect(screen.queryByText('Auto-strategy')).toBeNull();
+  });
+
+  it('labels stub-mode strategies as Auto-strategy with a fallback note', async () => {
+    mockGet.mockResolvedValue({
+      data: { results: [{ ...SUGGESTION, model_used: 'stub' }] },
+    });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+
+    expect(screen.getByText('Auto-strategy')).toBeDefined();
+    expect(screen.getByText(/AI was unavailable/)).toBeDefined();
+    expect(screen.queryByText('✨ AI-generated')).toBeNull();
+  });
+
+  it('surfaces a friendly error when generation fails', async () => {
+    mockGet.mockResolvedValue({ data: { results: [] } });
+    mockPost.mockRejectedValue(new Error('boom'));
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText(/No struggling students flagged/)).toBeDefined());
+
+    fireEvent.click(screen.getByText('Generate'));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't generate suggestions just now/)).toBeDefined()
+    );
+  });
+
   it('shows an empty state and a Generate action when there are no suggestions', async () => {
     mockGet.mockResolvedValue({ data: { results: [] } });
     mockPost.mockResolvedValue({ data: {} });

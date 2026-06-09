@@ -310,6 +310,120 @@ class TestGradeSubmissionTask:
 
     @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
     @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_grade_uses_snapshot_when_present(self, mock_prof, mock_agg, db, assignment, student, subpart_a, subpart_b):
+        """AIV-2a: when ``Assignment.assigned_content`` is populated, grading
+        sources ``correct_answer``/``subpart_type``/``variable_constraints`` from
+        the snapshot, not the live ``QuestionSubpart`` row.
+        """
+        from openshiksha.apps.core.models import Submission
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        assignment.assigned_content = build_assignment_snapshot(assignment.problem_set)
+        assignment.save(update_fields=["assigned_content"])
+
+        submission = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={str(subpart_a.id): 2, str(subpart_b.id): 4},  # both correct against snapshot
+        )
+        result = grade_submission(submission.pk)
+        assert result["score"] == pytest.approx(1.0)
+        assert result["ticks_created"] == 2
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_grade_against_snapshot_ignores_live_answer_edit(
+        self, mock_prof, mock_agg, db, assignment, student, subpart_a, subpart_b
+    ):
+        """AIV-2a GOLDEN TEST: editing the live ``correct_answer`` AFTER an
+        assignment was given must NOT change how that assignment is graded —
+        the snapshot is the source of truth.
+
+        Without AIV-2a this test fails: the grader reads the live ``correct_answer``
+        and the student who was correct becomes wrong on re-grade.
+        """
+        from openshiksha.apps.core.models import Submission
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        # Snapshot taken at assign time → frozen correct answers are 2 and 4.
+        assignment.assigned_content = build_assignment_snapshot(assignment.problem_set)
+        assignment.save(update_fields=["assigned_content"])
+
+        # Teacher edits the live answers after the fact.
+        subpart_a.correct_answer = {"answer": 999}
+        subpart_a.save(update_fields=["correct_answer"])
+        subpart_b.correct_answer = {"answer": 999}
+        subpart_b.save(update_fields=["correct_answer"])
+
+        # Student submits the ORIGINAL correct answers (2 and 4).
+        submission = Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={str(subpart_a.id): 2, str(subpart_b.id): 4},
+        )
+        result = grade_submission(submission.pk)
+
+        # Graded against the snapshot ⇒ still 1.0.
+        assert result["score"] == pytest.approx(1.0)
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
+    def test_new_assignment_after_live_edit_uses_new_answer(
+        self,
+        mock_prof,
+        mock_agg,
+        db,
+        problem_set,
+        subject_room,
+        teacher,
+        student,
+        subpart_a,
+        subpart_b,
+    ):
+        """AIV-2a corollary: a NEW assignment created after a live edit grades
+        against the *new* answer. Snapshots are per-assignment, not global.
+        """
+        from openshiksha.apps.core.models import Assignment, Submission
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot
+        from openshiksha.apps.core.tasks import grade_submission
+
+        mock_agg.delay = MagicMock()
+        mock_prof.delay = MagicMock()
+
+        # Teacher edits live answers BEFORE creating the new assignment.
+        subpart_a.correct_answer = {"answer": 7}
+        subpart_a.save(update_fields=["correct_answer"])
+        subpart_b.correct_answer = {"answer": 8}
+        subpart_b.save(update_fields=["correct_answer"])
+
+        new_assignment = Assignment.objects.create(
+            problem_set=problem_set,
+            subject_room=subject_room,
+            assigned_by=teacher,
+            due_at=timezone.now() + timedelta(days=7),
+            number=2,
+            assigned_content=build_assignment_snapshot(problem_set),
+        )
+
+        # Student submits the NEW correct answers (7 and 8).
+        submission = Submission.objects.create(
+            assignment=new_assignment,
+            student=student,
+            answers={str(subpart_a.id): 7, str(subpart_b.id): 8},
+        )
+        result = grade_submission(submission.pk)
+        assert result["score"] == pytest.approx(1.0)
+
+    @patch("openshiksha.apps.core.tasks._update_assignment_aggregates")
+    @patch("openshiksha.apps.core.tasks.update_proficiency")
     def test_grade_submission_partial_answers(self, mock_prof, mock_agg, assignment, student, subpart_a, subpart_b):
         """If student only answered one subpart, completion should be 0.5."""
         from openshiksha.apps.core.models import Submission

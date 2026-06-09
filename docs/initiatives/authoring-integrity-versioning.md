@@ -7,10 +7,11 @@
 > the assigned, frozen copy are clearly separate, and moving changes from one to
 > the other is an explicit, reviewable act.
 >
-> **Status:** ⚪ **Proposed** (written 2026-06-07). Promote when it's the right
-> next bet after the current top initiative (Performance Budget).
+> **Status:** 🟢 **Active** — promoted 2026-06-08 to the top initiative. It is
+> the only unblocked next bet (every other initiative is Done/Paused) and gates
+> Teacher Workspace's last increment, TW-2. Phase 1 (AIV-1..3) is in flight.
 
-**Last updated:** 2026-06-07
+**Last updated:** 2026-06-08
 
 ---
 
@@ -223,3 +224,4 @@ real silent-data-corruption risk even if editable preview never ships.
 | Date | Increment | PR | Notes |
 |---|---|---|---|
 | 2026-06-07 | Initiative drafted (⚪ Proposed). Root-caused the live-content grading risk; chose snapshot-first (Approach A) → versioning (Approach B). | _(this docs PR)_ | Motivated by the editable-preview ask on [#248](https://github.com/openshiksha/openshiksha/pull/248). Phase 1 (AIV-1..3) is independently shippable and is the priority — it removes a silent data-corruption risk. |
+| 2026-06-08 | **Promoted to top initiative (🟢 Active).** Planned Phase 1 as a 5-PR batch: AIV-1 (snapshot model + capture in both creation paths + backfill) → AIV-2a (grade from snapshot + golden test) ∥ AIV-2b (serve snapshot to student) ∥ AIV-3a (edit-safety flags) → AIV-3b (edit-safety UI notice). | _(plan: [docs/daily-plans/2026-06-08-plan.md](../daily-plans/2026-06-08-plan.md))_ | Only unblocked next bet; gates TW-2. Re-confirmed in code: `grade_submission` reads live content ([tasks.py:52,84](../../backend/openshiksha/apps/core/tasks.py)); two creation paths to instrument — `AssignmentViewSet.perform_create` and `_create_remedial_assignment`. |

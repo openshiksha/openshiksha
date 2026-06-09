@@ -4,14 +4,17 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-07 — **Teacher Workspace mostly closed.** All
-unblocked TW increments shipped today across **#250, #261–#266**
-(TW-1, TW-5, TW-4, TW-3a, TW-3b, TW-6, TW-7). The previously-planned **TW-T**
-Playwright continuity smoke was **dropped from the backlog** — the seams it
-covers are already exercised by Vitest + pytest, and a backend-dependent
-Playwright project is disproportionate infra for one smoke test. **TW-2**
-(editable preview) is the only open increment and remains blocked on
-[Authoring Integrity](authoring-integrity-versioning.md) Phase 1 snapshots.
+**Last updated:** 2026-06-08 — **Authoring Integrity promoted to top
+initiative.** Teacher Workspace's only open increment (**TW-2**, editable
+preview) is hard-blocked on Authoring Integrity **Phase 1** snapshots, and every
+other initiative is Done/Paused — so Phase 1 is the unambiguous next bet. It also
+fixes a verified silent-data-corruption bug: `grade_submission` grades against
+**live** content, so editing a set/answer retroactively re-grades already-assigned
+work. Today's batch ships **AIV-1..3** (per-assignment content snapshots →
+grade/serve from the snapshot → edit-safety UI). Earlier (2026-06-07): all
+unblocked TW increments shipped across **#250, #261–#266** (TW-1, TW-5, TW-4,
+TW-3a, TW-3b, TW-6, TW-7); the planned **TW-T** Playwright smoke was dropped
+(seams already covered by Vitest + pytest).
 Earlier today: **Performance Budget done** (PERF-01..04 + PERF-06
 in [#251](https://github.com/openshiksha/openshiksha/pull/251)–[#255](https://github.com/openshiksha/openshiksha/pull/255);
 [#256](https://github.com/openshiksha/openshiksha/pull/256) for the DOMPurify
@@ -20,7 +23,8 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Teacher Workspace](teacher-workspace.md) | Paused | All unblocked increments shipped 2026-06-07: TW-1 ([#250](https://github.com/openshiksha/openshiksha/pull/250)), TW-5 ([#261](https://github.com/openshiksha/openshiksha/pull/261)), TW-4 ([#262](https://github.com/openshiksha/openshiksha/pull/262)), TW-3a ([#263](https://github.com/openshiksha/openshiksha/pull/263)), TW-3b ([#264](https://github.com/openshiksha/openshiksha/pull/264)), TW-6 ([#265](https://github.com/openshiksha/openshiksha/pull/265)), TW-7 ([#266](https://github.com/openshiksha/openshiksha/pull/266)). TW-T smoke test dropped (see initiative doc). | **TW-2** (editable preview) — blocked on [Authoring Integrity](authoring-integrity-versioning.md) Phase 1 snapshots. Unpause this initiative when AIV-1..3 lands. |
+| 1 | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Active | Promoted 2026-06-08. Root-caused: `grade_submission` reads **live** content, so editing a set/question retroactively re-grades already-assigned work. Phase 1 (Approach A — copy-on-assign snapshot) removes the bug and unblocks TW-2. | **Phase 1: AIV-1** (`Assignment.assigned_content` snapshot + backfill) → **AIV-2a** (grade from snapshot + golden test) ∥ **AIV-2b** (serve snapshot to student) ∥ **AIV-3a** (edit-safety flags) → **AIV-3b** (edit-safety UI notice). |
+| 2 | [Teacher Workspace](teacher-workspace.md) | Paused | All unblocked increments shipped 2026-06-07: TW-1 ([#250](https://github.com/openshiksha/openshiksha/pull/250)), TW-5 ([#261](https://github.com/openshiksha/openshiksha/pull/261)), TW-4 ([#262](https://github.com/openshiksha/openshiksha/pull/262)), TW-3a ([#263](https://github.com/openshiksha/openshiksha/pull/263)), TW-3b ([#264](https://github.com/openshiksha/openshiksha/pull/264)), TW-6 ([#265](https://github.com/openshiksha/openshiksha/pull/265)), TW-7 ([#266](https://github.com/openshiksha/openshiksha/pull/266)). TW-T smoke test dropped (see initiative doc). | **TW-2** (editable preview) — blocked on [Authoring Integrity](authoring-integrity-versioning.md) Phase 1 snapshots. Unpause this initiative when AIV-1..3 lands. |
 | - | [Performance Budget](performance-budget.md) | Done | Closed 2026-06-07. PERF-01..04 + PERF-06 shipped in one batch ([#251](https://github.com/openshiksha/openshiksha/pull/251)–[#255](https://github.com/openshiksha/openshiksha/pull/255)); follow-up ([#256](https://github.com/openshiksha/openshiksha/pull/256)) dropped `ReactQueryDevtools` in prod, added a measurement harness, and fixed a `@/shared/ui` barrel-export leak that was dragging DOMPurify into the entry chunk. Entry chunk **855 → 93 kB / 247 → 29 kB gzip** (88% gzip drop); vendor split, route-level `React.lazy`, lazy KaTeX behind `<RichContent>`, CI budget guard at 160 kB. Measured `/login` FCP under Slow 4G + 4× CPU: 4.4 s. | - |
 | - | [Interactive Widgets Framework](interactive-widgets-framework.md) | Paused | Tier 1 **Configure** is usable (`WidgetGalleryPanel` + registry schemas). Tier 3 **Code** is usable (`defineWidget`, `npm run widget:new`, `npm run widget:dev -- <kind>`, `/widgets/dev`, docs). First-party library currently includes `_hello`, `thermo-piston`, `number-line`, `function-plotter`, `fraction-bar`, plus admin-only `custom-html`; all render through the same sandboxed iframe and answer-producing widgets report through the shared protocol. | Defer **IW-9 - IW-11** until product discovery proves Widget Studio is more valuable than more first-party/developer-authored widgets. |
 | - | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | Done | M1-M7 are closed for the current scope. Mobile shell now has role-aware bottom tabs, account drawer, safe-area/dynamic-viewport padding, large touch targets, responsive surface audit, and focused a11y baseline. Legacy parity gaps are closed or explicitly skipped. Only optional activation remains: run the [seed-visual-baselines](../../.github/workflows/seed-visual-baselines.yaml) workflow once for M6-03 baselines. | - |

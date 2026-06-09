@@ -622,6 +622,32 @@ class ProblemSetStudentDetailSerializer(ProblemSetSerializer):
         fields = ProblemSetSerializer.Meta.fields + ["questions"]
 
 
+class ProblemSetVersionSummarySerializer(serializers.Serializer):
+    """
+    AIV-8: lightweight row for the version-history list. ``assignment_count``
+    is annotated by the viewset's queryset to keep the list endpoint N+1-free.
+    """
+
+    id = serializers.IntegerField()
+    version_number = serializers.IntegerField()
+    content_hash = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    created_by_name = serializers.SerializerMethodField()
+    question_count = serializers.SerializerMethodField()
+    assignment_count = serializers.IntegerField()
+
+    def get_created_by_name(self, obj) -> str | None:
+        if obj.created_by_id is None:
+            return None
+        # ``created_by`` is the User row; fall back to username when no name set.
+        user = obj.created_by
+        full = (user.get_full_name() or "").strip()
+        return full or user.username
+
+    def get_question_count(self, obj) -> int:
+        return len((obj.content or {}).get("questions") or [])
+
+
 class AssignmentSerializer(serializers.ModelSerializer):
     problem_set = ProblemSetSerializer(read_only=True)
     problem_set_id = serializers.PrimaryKeyRelatedField(

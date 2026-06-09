@@ -40,6 +40,7 @@ const CreateAssignmentPage = lazyNamed(() => import('./features/teacher/CreateAs
 const CreateQuestionPage = lazyNamed(() => import('./features/teacher/CreateQuestionPage'), 'CreateQuestionPage');
 const CreateProblemSetPage = lazyNamed(() => import('./features/teacher/CreateProblemSetPage'), 'CreateProblemSetPage');
 const ProblemSetPreviewPage = lazyNamed(() => import('./features/teacher/ProblemSetPreviewPage'), 'ProblemSetPreviewPage');
+const ProblemSetVersionsPage = lazyNamed(() => import('./features/teacher/ProblemSetVersionsPage'), 'ProblemSetVersionsPage');
 const TeacherAssignmentDetailPage = lazyNamed(() => import('./features/teacher/TeacherAssignmentDetailPage'), 'TeacherAssignmentDetailPage');
 const QuestionBankPage = lazyNamed(() => import('./features/teacher/QuestionBankPage'), 'QuestionBankPage');
 const ParentDashboard = lazyNamed(() => import('./features/parent/ParentDashboard'), 'ParentDashboard');
@@ -226,6 +227,17 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <ProblemSetPreviewPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/problem-sets/:id/versions"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <ProblemSetVersionsPage />
               </AppShell>
             </ProtectedRoute>
           }

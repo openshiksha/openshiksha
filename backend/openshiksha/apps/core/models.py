@@ -744,6 +744,16 @@ class Assignment(models.Model):
         blank=True,
         help_text="When set, the assignment no longer accepts submissions.",
     )
+    assigned_content = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Frozen copy of the problem set's questions at assign time. Source "
+            "of truth for grading and rendering this assignment — editing the "
+            "live ProblemSet/Question/Subpart afterwards leaves this snapshot "
+            "untouched. See apps.core.snapshots.build_assignment_snapshot."
+        ),
+    )
 
     class Meta:
         db_table = "assignments"

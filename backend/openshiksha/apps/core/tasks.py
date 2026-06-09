@@ -531,12 +531,17 @@ def _create_remedial_assignment(submission_id: int) -> None:
     remedial_ps.questions.set(wrong_question_ids)
 
     due = timezone.now() + timedelta(days=3)
+    # AIV-1: snapshot remedial content at creation time so the grader and
+    # student renderer read from the frozen copy, not the live remedial set.
+    from openshiksha.apps.core.snapshots import build_assignment_snapshot
+
     Assignment.objects.create(
         problem_set=remedial_ps,
         subject_room=orig.subject_room,
         assigned_by=orig.assigned_by,
         due_at=due,
         target_student=submission.student,
+        assigned_content=build_assignment_snapshot(remedial_ps),
     )
 
     # Email student about the new remedial assignment

@@ -682,6 +682,11 @@ class AssignmentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
         validated_data["assigned_by"] = request.user
+        # AIV-1: freeze the problem set's questions at assign time so the
+        # grader and student renderer can never be affected by later edits.
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot
+
+        validated_data["assigned_content"] = build_assignment_snapshot(validated_data["problem_set"])
         return super().create(validated_data)
 
 

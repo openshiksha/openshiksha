@@ -92,6 +92,37 @@ the Auto-summary badge + note.
 
 ---
 
+## 2026-06-08 — Interventions: AI-generated label + generation error state
+
+**Surface:** Intervention suggestions (teacher dashboard `InterventionsPanel`).
+
+**Gaps (checklist #1 error states, #3 copy/tone, #7 provider transparency):**
+1. Each per-student `strategy_text` is LLM-written but was shown with **no
+   indication it was AI-generated** — the same inconsistency already fixed on
+   `WeeklyReportPanel` and `NarrativeCard`. When the cascade fell back to the
+   deterministic stub (`model_used === 'stub'`) the strategy was presented
+   identically to genuine AI output.
+2. `useGenerateInterventions` **silently swallowed errors**: a failing generate
+   POST left the panel in its prior state with no feedback, so a teacher couldn't
+   tell the click had failed.
+
+**Fix:**
+- Each `SuggestionCard` now shows a `Badge` above the strategy: `✨ AI-generated`
+  (brand tone) for a real LLM, or `Auto-strategy` (neutral tone) plus an "AI was
+  unavailable, so this strategy was built directly from <student>'s learning-gap
+  data" note when `model_used === 'stub'`. `model_used` was already on the
+  `InterventionSuggestion` type/serializer — no backend change needed.
+- Added a friendly inline error ("Couldn't generate suggestions just now. Please
+  try again in a moment.") shown when `generate.isError`.
+- Extended `InterventionsPanel.test.tsx` with the AI-generated label, the stub
+  Auto-strategy + note path, and the generation-error path (checklist #8).
+
+**Verify:** Expand "Intervention Suggestions" on the teacher dashboard. With a
+provider key set each card shows the ✨ AI-generated badge; with no key cards show
+the Auto-strategy badge + note. Trigger a failing generate → red error line.
+
+---
+
 ## Remaining gaps (audit notes — not yet addressed)
 
 - **Natural language explanations** — backend `SubpartExplanationViewSet` is
@@ -99,10 +130,8 @@ the Auto-summary badge + note.
   `frontend_modern`**. The post-grading student feedback surface appears to be
   unwired in the V2 app. Needs UX placement work (inline after feedback) — sizeable,
   flag before treating as polish vs. feature.
-- **Interventions (`InterventionsPanel`)** still displays LLM narrative text
-  with only a footer disclaimer line, unlike the now-fixed `WeeklyReportPanel`
-  and `NarrativeCard`. It already receives `model_used` from its serializer —
-  apply the same `✨ AI-generated` vs `Auto-summary` badge for consistency (next
-  candidate, one surface per run). _(`NarrativeCard` badge done 2026-06-07.)_
+- **Interventions (`InterventionsPanel`)** — ✅ done 2026-06-08. Per-card
+  `✨ AI-generated` vs `Auto-strategy` badge + stub note, plus a generation-error
+  state, now consistent with `WeeklyReportPanel` and `NarrativeCard`.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.

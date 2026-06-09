@@ -213,7 +213,14 @@ export const ProblemSetPreviewPage = () => {
         </div>
       )}
 
-      <div className="flex justify-end border-t border-ink-100 pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-5">
+        <Button
+          variant="ghost"
+          onClick={() => setId != null && navigate(`/teacher/problem-sets/${setId}/versions`)}
+          data-testid="view-versions"
+        >
+          View version history
+        </Button>
         <Button variant="ghost" onClick={() => navigate('/teacher')}>
           Back to dashboard
         </Button>

@@ -750,6 +750,72 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
         problem_set.questions.add(question)
         return Response({"detail": "Question added.", "question_id": question.id, "problem_set_id": problem_set.id})
 
+    @action(detail=True, methods=["get"], url_path="versions")
+    def versions(self, request, pk=None):
+        """
+        GET /api/v1/problem-sets/<id>/versions/
+
+        AIV-8: list immutable ``ProblemSetVersion`` rows for this set, newest
+        first, with the number of assignments pinned to each version. Read-only.
+        """
+        from django.db.models import Count
+
+        from openshiksha.apps.api.serializers.core import ProblemSetVersionSummarySerializer
+        from openshiksha.apps.core.models import ProblemSetVersion
+
+        problem_set = get_object_or_404(self.get_queryset(), pk=pk)
+        rows = (
+            ProblemSetVersion.objects.filter(problem_set=problem_set)
+            .select_related("created_by")
+            .annotate(assignment_count=Count("assignments"))
+            .order_by("-version_number")
+        )
+        return Response(
+            {
+                "problem_set_id": problem_set.pk,
+                "versions": ProblemSetVersionSummarySerializer(rows, many=True).data,
+            }
+        )
+
+    @action(detail=True, methods=["get"], url_path=r"versions/(?P<version_pk>[0-9]+)/diff")
+    def version_diff(self, request, pk=None, version_pk=None):
+        """
+        GET /api/v1/problem-sets/<id>/versions/<version_pk>/diff/?against=<other_version_pk>
+
+        AIV-8: structured diff between two versions of this problem set.
+        ``against`` defaults to the previous version (by version_number) when
+        omitted so the common "what changed from the prior version" path is
+        one fewer round-trip. Read-only.
+        """
+        from openshiksha.apps.core.models import ProblemSetVersion
+        from openshiksha.apps.core.snapshots import diff_snapshots
+
+        problem_set = get_object_or_404(self.get_queryset(), pk=pk)
+        target = get_object_or_404(ProblemSetVersion, pk=version_pk, problem_set=problem_set)
+
+        against_pk = request.query_params.get("against")
+        if against_pk:
+            against = get_object_or_404(ProblemSetVersion, pk=against_pk, problem_set=problem_set)
+        else:
+            against = (
+                ProblemSetVersion.objects.filter(problem_set=problem_set, version_number__lt=target.version_number)
+                .order_by("-version_number")
+                .first()
+            )
+
+        return Response(
+            {
+                "target": {"id": target.pk, "version_number": target.version_number},
+                "against": (
+                    {"id": against.pk, "version_number": against.version_number} if against is not None else None
+                ),
+                "diff": diff_snapshots(
+                    against.content if against is not None else None,
+                    target.content,
+                ),
+            }
+        )
+
     @action(detail=True, methods=["post"], url_path="remove-question")
     def remove_question(self, request, pk=None):
         """

@@ -154,6 +154,10 @@ export interface Question {
   stem_text?: string;
   tags: QuestionTag[];
   subparts: QuestionSubpart[];
+  /** AIV-3a: number of assignments using a problem set that contains this question. */
+  assigned_count?: number;
+  /** AIV-3a: true when at least one graded submission exists against an assignment using this question. */
+  has_graded_submissions?: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -185,6 +189,10 @@ export interface ProblemSet {
   is_active: boolean;
   is_remedial: boolean;
   source_assignment: number | null;
+  /** AIV-3a: number of assignments using this set. */
+  assigned_count?: number;
+  /** AIV-3a: true when at least one graded submission exists against an assignment using this set. */
+  has_graded_submissions?: boolean;
 }
 
 export interface ProblemSetWithQuestions extends ProblemSet {

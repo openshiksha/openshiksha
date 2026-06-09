@@ -94,6 +94,23 @@ def build_assignment_snapshot(problem_set: "ProblemSet") -> dict[str, Any]:
     }
 
 
+def snapshot_has_drifted(snapshot: dict[str, Any] | None, problem_set: "ProblemSet") -> bool:
+    """
+    AIV-5: report whether the live ``problem_set`` has drifted from a frozen
+    ``snapshot`` (i.e. anything the renderer or grader cares about has
+    changed since assign time). A no-snapshot assignment is treated as not
+    drifted — there's nothing to drift from.
+
+    Compares the snapshot's ``questions`` block to a freshly-built one,
+    ignoring volatile keys (``captured_at``, ``problem_set_title``) that
+    don't affect what students see or how grading runs.
+    """
+    if not snapshot or not snapshot.get("questions"):
+        return False
+    fresh = build_assignment_snapshot(problem_set)
+    return snapshot.get("questions") != fresh.get("questions")
+
+
 def render_snapshot_for_student(
     snapshot: dict[str, Any],
     *,

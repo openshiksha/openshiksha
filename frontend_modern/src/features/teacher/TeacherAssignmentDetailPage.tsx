@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherAssignmentDetail } from './useTeacherAssignmentDetail';
 import { useQuestionMistakes } from './useQuestionMistakes';
+import { AssignmentSnapshotPreview } from './AssignmentSnapshotPreview';
 import {
   Badge,
   EmptyState,
@@ -191,6 +192,11 @@ export const TeacherAssignmentDetailPage = () => {
           <p className="mt-1 text-xs text-ink-400">{Math.round(submissionPct)}% submitted</p>
         </div>
       </div>
+
+      <AssignmentSnapshotPreview
+        problemSet={assignment.problem_set}
+        snapshotDrift={assignment.snapshot_drift === true}
+      />
 
       <div className="os-card overflow-hidden p-0">
         <div className="border-b border-ink-100 px-6 py-4">

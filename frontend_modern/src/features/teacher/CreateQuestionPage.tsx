@@ -9,6 +9,7 @@ import { useChapters } from './useChapters';
 import { useCreateQuestion } from './useCreateQuestion';
 import { useUpdateQuestion } from './useUpdateQuestion';
 import { useQuestion } from './useQuestion';
+import { EditSafetyBanner } from './EditSafetyBanner';
 import { useGenerateQuestions } from './useGenerateQuestions';
 import { useUploadQuestionImage } from './useUploadQuestionImage';
 import type {
@@ -730,6 +731,16 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
       </div>
 
       <div className="space-y-6">
+        {/* AIV-3b: edit-safety notice. Snapshots (AIV-1/2) make editing safe,
+            so this is informational, not a gate. */}
+        {editMode && existingQuestion && (
+          <EditSafetyBanner
+            assignedCount={existingQuestion.assigned_count ?? 0}
+            hasGradedSubmissions={existingQuestion.has_graded_submissions ?? false}
+            noun="this question"
+          />
+        )}
+
         {/* Chapter selection */}
         <div className="bg-white rounded-xl border border-ink-100 p-5 space-y-4">
           <h2 className="font-semibold text-ink-800">Chapter</h2>

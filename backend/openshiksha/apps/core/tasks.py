@@ -48,7 +48,11 @@ def grade_submission(self, submission_id: int) -> dict:
     assignment = submission.assignment
     problem_set = assignment.problem_set
     subject_room = assignment.subject_room
-    snapshot = assignment.assigned_content
+    # AIV-7: route through resolve_assignment_content so the grader reads the
+    # ProblemSetVersion FK when set and falls back to assigned_content when not.
+    from openshiksha.apps.core.snapshots import resolve_assignment_content
+
+    snapshot = resolve_assignment_content(assignment)
 
     # AIV-2a: prefer the per-assignment snapshot — it pins the exact
     # correct_answer/subpart_type/variable_constraints the student was given,
@@ -599,8 +603,10 @@ def _create_remedial_assignment(submission_id: int) -> None:
     due = timezone.now() + timedelta(days=3)
     # AIV-1: snapshot remedial content at creation time so the grader and
     # student renderer read from the frozen copy, not the live remedial set.
-    from openshiksha.apps.core.snapshots import build_assignment_snapshot
+    # AIV-7: also pin a deduplicated ProblemSetVersion FK.
+    from openshiksha.apps.core.snapshots import build_assignment_snapshot, get_or_create_version_for
 
+    version, _ = get_or_create_version_for(remedial_ps, created_by=orig.assigned_by)
     Assignment.objects.create(
         problem_set=remedial_ps,
         subject_room=orig.subject_room,
@@ -608,6 +614,7 @@ def _create_remedial_assignment(submission_id: int) -> None:
         due_at=due,
         target_student=submission.student,
         assigned_content=build_assignment_snapshot(remedial_ps),
+        problem_set_version=version,
     )
 
     # Email student about the new remedial assignment

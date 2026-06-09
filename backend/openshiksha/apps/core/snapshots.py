@@ -111,6 +111,69 @@ def snapshot_has_drifted(snapshot: dict[str, Any] | None, problem_set: "ProblemS
     return snapshot.get("questions") != fresh.get("questions")
 
 
+def _content_hash(snapshot: dict[str, Any]) -> str:
+    """
+    AIV-7: stable hash over the meaningful part of a snapshot — the ``questions``
+    block. Excludes volatile fields like ``captured_at`` and ``problem_set_title``
+    so equivalent content always hashes the same and ``ProblemSetVersion``'s
+    ``unique_together(problem_set, content_hash)`` actually dedups.
+    """
+    import hashlib
+    import json
+
+    canonical = json.dumps(snapshot.get("questions") or [], sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def get_or_create_version_for(problem_set, *, created_by=None):
+    """
+    AIV-7: idempotent factory for ``ProblemSetVersion`` rows. Builds a fresh
+    snapshot of the live ``problem_set``, hashes the meaningful content, and
+    returns the existing row for that hash if it exists — minting a new one
+    with the next ``version_number`` otherwise.
+
+    ``created_by`` is recorded on new rows for audit; ignored on cache hits.
+    Returns a tuple ``(version, created)`` mirroring Django's get_or_create.
+    """
+    from django.db import transaction
+    from django.db.models import Max
+
+    from openshiksha.apps.core.models import ProblemSetVersion
+
+    fresh = build_assignment_snapshot(problem_set)
+    h = _content_hash(fresh)
+
+    with transaction.atomic():
+        existing = ProblemSetVersion.objects.select_for_update().filter(problem_set=problem_set, content_hash=h).first()
+        if existing is not None:
+            return existing, False
+        next_number = (
+            ProblemSetVersion.objects.filter(problem_set=problem_set).aggregate(m=Max("version_number"))["m"] or 0
+        ) + 1
+        version = ProblemSetVersion.objects.create(
+            problem_set=problem_set,
+            version_number=next_number,
+            content_hash=h,
+            content=fresh,
+            created_by=created_by,
+        )
+        return version, True
+
+
+def resolve_assignment_content(assignment) -> dict[str, Any] | None:
+    """
+    AIV-7: single source of truth for "what was assigned." Reads
+    ``assignment.problem_set_version.content`` when the FK is populated and
+    falls back to the legacy ``assigned_content`` JSONField otherwise. Every
+    snapshot reader (grader, student serializer, drift check, diff helpers)
+    routes through this so the cutover from JSONField to FK is atomic.
+    """
+    version = getattr(assignment, "problem_set_version", None)
+    if version is not None:
+        return version.content
+    return getattr(assignment, "assigned_content", None)
+
+
 def diff_snapshots(old: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:
     """
     AIV-6: structured diff for the re-sync blast-radius preview. Compares two

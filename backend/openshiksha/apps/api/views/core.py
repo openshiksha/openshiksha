@@ -927,10 +927,14 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Forbidden."}, status=403)
         assignment = self.get_object()
 
-        from openshiksha.apps.core.snapshots import build_assignment_snapshot, diff_snapshots
+        from openshiksha.apps.core.snapshots import (
+            build_assignment_snapshot,
+            diff_snapshots,
+            resolve_assignment_content,
+        )
 
         fresh = build_assignment_snapshot(assignment.problem_set)
-        diff = diff_snapshots(assignment.assigned_content, fresh)
+        diff = diff_snapshots(resolve_assignment_content(assignment), fresh)
 
         graded_count = assignment.submissions.filter(score__isnull=False).count()
         submitted_count = assignment.submissions.filter(submitted_at__isnull=False).count()
@@ -972,19 +976,29 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         from django.db import transaction
 
         from openshiksha.apps.core.models import AssignmentSnapshotHistory
-        from openshiksha.apps.core.snapshots import build_assignment_snapshot, diff_snapshots
+        from openshiksha.apps.core.snapshots import (
+            build_assignment_snapshot,
+            diff_snapshots,
+            get_or_create_version_for,
+            resolve_assignment_content,
+        )
 
         fresh = build_assignment_snapshot(assignment.problem_set)
-        diff = diff_snapshots(assignment.assigned_content, fresh)
+        prior = resolve_assignment_content(assignment)
+        diff = diff_snapshots(prior, fresh)
 
-        prior = assignment.assigned_content
         regrade_ids: list[int] = []
 
         with transaction.atomic():
             if prior:
                 AssignmentSnapshotHistory.objects.create(assignment=assignment, content=prior, replaced_by=request.user)
+            # AIV-7: bump the version FK alongside the legacy JSONField so all
+            # readers see the new content. The FK becomes the new canonical
+            # source; ``assigned_content`` is kept populated for safety.
+            version, _ = get_or_create_version_for(assignment.problem_set, created_by=request.user)
+            assignment.problem_set_version = version
             assignment.assigned_content = fresh
-            assignment.save(update_fields=["assigned_content"])
+            assignment.save(update_fields=["assigned_content", "problem_set_version"])
 
             if diff["answer_changes"]:
                 from openshiksha.apps.edge.models import Tick

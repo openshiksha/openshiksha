@@ -914,6 +914,129 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(assignment)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["get"], url_path="resync-preview")
+    def resync_preview(self, request, pk=None):
+        """
+        GET /api/v1/assignments/{id}/resync-preview/
+
+        AIV-6: shows the blast-radius of re-syncing this assignment's content to
+        the live ``ProblemSet``. Returns a structured diff plus counts of how
+        many submissions would be re-graded. Read-only; never mutates state.
+        """
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Forbidden."}, status=403)
+        assignment = self.get_object()
+
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot, diff_snapshots
+
+        fresh = build_assignment_snapshot(assignment.problem_set)
+        diff = diff_snapshots(assignment.assigned_content, fresh)
+
+        graded_count = assignment.submissions.filter(score__isnull=False).count()
+        submitted_count = assignment.submissions.filter(submitted_at__isnull=False).count()
+
+        return Response(
+            {
+                "assignment_id": assignment.pk,
+                "has_drift": (
+                    bool(diff["questions_added"])
+                    or bool(diff["questions_removed"])
+                    or bool(diff["answer_changes"])
+                    or bool(diff["content_changes"])
+                ),
+                "diff": diff,
+                "affected": {
+                    "submitted_count": submitted_count,
+                    "graded_count": graded_count,
+                    # If any answer changes, every graded submission needs re-grading
+                    # because their per-subpart ticks were computed against the old key.
+                    "regrade_on_apply": graded_count if diff["answer_changes"] else 0,
+                },
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="resync")
+    def resync(self, request, pk=None):
+        """
+        POST /api/v1/assignments/{id}/resync/
+
+        AIV-6: re-snapshot this assignment from the live ``ProblemSet``,
+        archiving the prior snapshot in ``AssignmentSnapshotHistory``. If the
+        diff contains answer changes, queues a re-grade for every already-graded
+        submission so scores reflect the new key. Reversible via ``undo-resync``.
+        """
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Forbidden."}, status=403)
+        assignment = self.get_object()
+
+        from django.db import transaction
+
+        from openshiksha.apps.core.models import AssignmentSnapshotHistory
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot, diff_snapshots
+
+        fresh = build_assignment_snapshot(assignment.problem_set)
+        diff = diff_snapshots(assignment.assigned_content, fresh)
+
+        prior = assignment.assigned_content
+        regrade_ids: list[int] = []
+
+        with transaction.atomic():
+            if prior:
+                AssignmentSnapshotHistory.objects.create(assignment=assignment, content=prior, replaced_by=request.user)
+            assignment.assigned_content = fresh
+            assignment.save(update_fields=["assigned_content"])
+
+            if diff["answer_changes"]:
+                from openshiksha.apps.edge.models import Tick
+
+                regrade_ids = list(assignment.submissions.filter(score__isnull=False).values_list("id", flat=True))
+                # Drop the stale ticks; the grade_submission task will rebuild
+                # them against the new snapshot.
+                Tick.objects.filter(submission_id__in=regrade_ids).delete()
+
+        # Queue re-grading outside the transaction so failures don't roll back
+        # the snapshot swap (which itself is the recovery point — undo restores).
+        if regrade_ids:
+            from openshiksha.apps.core.tasks import grade_submission
+
+            for sub_id in regrade_ids:
+                grade_submission.delay(sub_id)
+
+        serializer = self.get_serializer(assignment)
+        return Response(
+            {
+                "assignment": serializer.data,
+                "applied_diff": diff,
+                "regraded_submission_count": len(regrade_ids),
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="undo-resync")
+    def undo_resync(self, request, pk=None):
+        """
+        POST /api/v1/assignments/{id}/undo-resync/
+
+        AIV-6: restore the most recent superseded snapshot, removing its
+        history row. Idempotent: if no history exists, returns 404.
+        """
+        if request.user.role != UserRole.TEACHER:
+            return Response({"detail": "Forbidden."}, status=403)
+        assignment = self.get_object()
+
+        from django.db import transaction
+
+        last = assignment.snapshot_history.first()  # ordering is -replaced_at
+        if last is None:
+            return Response({"detail": "No prior snapshot to restore."}, status=status.HTTP_404_NOT_FOUND)
+
+        with transaction.atomic():
+            assignment.assigned_content = last.content
+            assignment.save(update_fields=["assigned_content"])
+            last.delete()
+
+        serializer = self.get_serializer(assignment)
+        return Response({"assignment": serializer.data, "restored_at": last.replaced_at.isoformat()})
+
 
 class SubmissionViewSet(viewsets.ModelViewSet):
     """

@@ -765,14 +765,20 @@ class AssignmentDetailSerializer(AssignmentSerializer):
     # student-safe variant that hides ``correct_answer``.
     problem_set = ProblemSetStudentDetailSerializer(read_only=True)
     snapshot_drift = serializers.SerializerMethodField()
+    has_resync_history = serializers.SerializerMethodField()
 
     class Meta(AssignmentSerializer.Meta):
-        fields = AssignmentSerializer.Meta.fields + ["snapshot_drift"]
+        fields = AssignmentSerializer.Meta.fields + ["snapshot_drift", "has_resync_history"]
 
     def get_snapshot_drift(self, obj) -> bool:
         from openshiksha.apps.core.snapshots import snapshot_has_drifted
 
         return snapshot_has_drifted(obj.assigned_content, obj.problem_set)
+
+    def get_has_resync_history(self, obj) -> bool:
+        # AIV-6: surface whether undo is available. ``snapshot_history`` is the
+        # related_name on AssignmentSnapshotHistory.assignment.
+        return obj.snapshot_history.exists()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

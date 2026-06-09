@@ -194,8 +194,10 @@ export const TeacherAssignmentDetailPage = () => {
       </div>
 
       <AssignmentSnapshotPreview
+        assignmentId={assignment.id}
         problemSet={assignment.problem_set}
         snapshotDrift={assignment.snapshot_drift === true}
+        hasResyncHistory={assignment.has_resync_history === true}
       />
 
       <div className="os-card overflow-hidden p-0">

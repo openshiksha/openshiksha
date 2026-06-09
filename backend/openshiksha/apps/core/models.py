@@ -841,6 +841,47 @@ class Submission(models.Model):
         return f"Submission: {self.student} → {self.assignment}"
 
 
+class AssignmentSnapshotHistory(models.Model):
+    """
+    AIV-6: one row per superseded snapshot for an assignment.
+
+    Re-sync ("Update this assignment to the latest content") replaces
+    ``Assignment.assigned_content`` with a fresh snapshot of the live
+    ``ProblemSet``. We record the *prior* snapshot here before swapping so the
+    action is reversible — Undo restores the most recent history row.
+
+    Sorted by ``replaced_at`` descending. The newest row is the "undo target";
+    older rows are kept for audit. Nothing reads from history except the undo
+    path; grading and rendering always go through ``Assignment.assigned_content``.
+    """
+
+    assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.CASCADE,
+        related_name="snapshot_history",
+    )
+    content = models.JSONField(help_text="The snapshot that was replaced (immutable).")
+    replaced_at = models.DateTimeField(auto_now_add=True)
+    replaced_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assignment_resyncs",
+        help_text="Teacher who triggered the re-sync that displaced this snapshot.",
+    )
+
+    class Meta:
+        db_table = "assignment_snapshot_history"
+        ordering = ["-replaced_at"]
+        indexes = [
+            models.Index(fields=["assignment", "-replaced_at"]),
+        ]
+
+    def __str__(self):
+        return f"Snapshot history for assignment {self.assignment_id} @ {self.replaced_at:%Y-%m-%d %H:%M}"
+
+
 class AssignmentReminder(models.Model):
     """
     Log of due-date reminder emails sent for an assignment to a student.

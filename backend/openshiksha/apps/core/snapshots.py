@@ -94,6 +94,105 @@ def build_assignment_snapshot(problem_set: "ProblemSet") -> dict[str, Any]:
     }
 
 
+def render_snapshot_for_student(
+    snapshot: dict[str, Any],
+    *,
+    student_id: int | None,
+    include_solutions: bool,
+) -> list[dict[str, Any]]:
+    """
+    Render a snapshot's ``questions`` list into the student-facing shape that
+    ``QuestionWithSubpartsStudentSerializer`` would have produced for the live
+    set — but sourced from the frozen snapshot so live edits never bleed
+    through. ``correct_answer`` is stripped (student-safe); per-student MCQ
+    option shuffling and ``{{var}}`` substitution are applied through the same
+    croupier helpers used on the live path.
+
+    Returns a list ready to drop into ``ProblemSetStudentDetailSerializer``'s
+    ``questions`` field. Response shape is preserved 1:1 with the live path.
+    """
+    from openshiksha.apps.api.croupier import (
+        shuffle_options_for_student,
+        substitute_variables,
+        substitute_variables_for_student,
+    )
+
+    out: list[dict[str, Any]] = []
+    for q in snapshot.get("questions") or []:
+        first_sp = (q.get("subparts") or [None])[0]
+        rendered_stem = q.get("stem_text") or ""
+        if rendered_stem and "{{" in rendered_stem and student_id and first_sp:
+            constraints = first_sp.get("variable_constraints")
+            if constraints:
+                from openshiksha.apps.api.croupier import sample_variable_values
+
+                values = sample_variable_values(constraints, student_id, first_sp["subpart_id"])
+                rendered_stem = substitute_variables(rendered_stem, values)
+
+        subparts_out: list[dict[str, Any]] = []
+        for sp in q.get("subparts") or []:
+            sp_data: dict[str, Any] = {
+                "id": sp["subpart_id"],
+                "index": sp.get("index", 0),
+                "subpart_type": sp.get("subpart_type") or "",
+                "tags": [],  # snapshot doesn't carry tags; student-safe to omit
+                "question_text": sp.get("question_text") or "",
+                "options": sp.get("options"),
+                "image_url": sp.get("image_url") or "",
+                "hint_text": sp.get("hint_text") or "",
+                "is_interactive": bool(sp.get("is_interactive")),
+                "interactive_html": sp.get("interactive_html") or "",
+                "widget_kind": sp.get("widget_kind") or "",
+                "widget_config": sp.get("widget_config") or {},
+            }
+            if include_solutions:
+                sp_data["solution_text"] = sp.get("solution_text") or ""
+
+            constraints = sp.get("variable_constraints")
+            if constraints and student_id:
+                subst_text, subst_options, sampled_values = substitute_variables_for_student(
+                    sp_data["question_text"],
+                    sp_data.get("options"),
+                    constraints,
+                    student_id,
+                    sp["subpart_id"],
+                )
+                sp_data["question_text"] = subst_text
+                if subst_options is not None:
+                    sp_data["options"] = subst_options
+                if sp_data["interactive_html"]:
+                    sp_data["interactive_html"] = substitute_variables(sp_data["interactive_html"], sampled_values)
+                if "solution_text" in sp_data and sp_data["solution_text"]:
+                    sp_data["solution_text"] = substitute_variables(sp_data["solution_text"], sampled_values)
+                if sp_data["hint_text"]:
+                    sp_data["hint_text"] = substitute_variables(sp_data["hint_text"], sampled_values)
+
+            # MCQ option shuffle (same per-(student_id, subpart_id) shuffle as live path).
+            sp_type = sp_data["subpart_type"]
+            if sp_type in ("mcq", "multi_select") and student_id and sp_data.get("options"):
+                sp_data["options"] = shuffle_options_for_student(sp_data["options"], student_id, sp["subpart_id"])
+
+            subparts_out.append(sp_data)
+
+        out.append(
+            {
+                "id": q["question_id"],
+                "standard": None,
+                "subject": None,
+                "chapter": None,
+                "question_type": q.get("question_type") or "",
+                "question_type_display": (q.get("question_type") or "").replace("_", " ").title(),
+                "difficulty": q.get("difficulty"),
+                "stem_text": rendered_stem,
+                "tags": [],
+                "subparts": subparts_out,
+                "is_active": True,
+                "created_at": snapshot.get("captured_at"),
+            }
+        )
+    return out
+
+
 def iter_snapshot_subparts(snapshot: dict[str, Any] | None):
     """
     Yield ``(question_dict, subpart_dict)`` pairs from a snapshot, in the same

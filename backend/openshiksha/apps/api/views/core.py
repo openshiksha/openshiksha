@@ -335,13 +335,24 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        from django.db.models import Q
+        from django.db.models import Count, Exists, OuterRef, Q
+
+        from openshiksha.apps.core.models import Submission as SubmissionModel
 
         user = self.request.user
         base_qs = (
             Question.objects.filter(is_active=True)
             .select_related("standard", "subject", "chapter")
             .prefetch_related("tags", "subparts__tags")
+        )
+
+        # AIV-3a: edit-safety flag annotations — avoid N+1 on list views.
+        graded_subs_using = SubmissionModel.objects.filter(
+            assignment__problem_set__questions=OuterRef("pk"), score__isnull=False
+        )
+        base_qs = base_qs.annotate(
+            assigned_count_anno=Count("problem_sets__assignments", distinct=True),
+            has_graded_submissions_anno=Exists(graded_subs_using),
         )
 
         if hasattr(user, "school") and user.school:
@@ -665,7 +676,9 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        from django.db.models import Q
+        from django.db.models import Count, Exists, OuterRef, Q
+
+        from openshiksha.apps.core.models import Submission as SubmissionModel
 
         qs = ProblemSet.objects.filter(is_active=True).select_related("standard", "subject", "chapter")
 
@@ -681,6 +694,14 @@ class ProblemSetViewSet(viewsets.ModelViewSet):
             qs = qs.filter(subject_id=subject)
         if standard := params.get("standard"):
             qs = qs.filter(standard_id=standard)
+
+        # AIV-3a: annotate edit-safety flags so the serializer reads them off
+        # the queryset row instead of issuing one query per ProblemSet.
+        graded_subs = SubmissionModel.objects.filter(assignment__problem_set=OuterRef("pk"), score__isnull=False)
+        qs = qs.annotate(
+            assigned_count_anno=Count("assignments", distinct=True),
+            has_graded_submissions_anno=Exists(graded_subs),
+        )
 
         return qs
 

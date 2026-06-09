@@ -298,6 +298,10 @@ class QuestionSerializer(serializers.ModelSerializer):
     chapter_name = serializers.CharField(source="chapter.name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     standard_number = serializers.IntegerField(source="standard.number", read_only=True)
+    # AIV-3a — see ProblemSetSerializer for rationale. "In use" here means a
+    # problem set that contains this question is referenced by an Assignment.
+    assigned_count = serializers.SerializerMethodField()
+    has_graded_submissions = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -315,9 +319,23 @@ class QuestionSerializer(serializers.ModelSerializer):
             "stem_text",
             "tags",
             "subparts",
+            "assigned_count",
+            "has_graded_submissions",
             "is_active",
             "created_at",
         ]
+
+    def get_assigned_count(self, obj) -> int:
+        anno = getattr(obj, "assigned_count_anno", None)
+        if anno is not None:
+            return int(anno)
+        return Assignment.objects.filter(problem_set__questions=obj).count()
+
+    def get_has_graded_submissions(self, obj) -> bool:
+        anno = getattr(obj, "has_graded_submissions_anno", None)
+        if anno is not None:
+            return bool(anno)
+        return Submission.objects.filter(assignment__problem_set__questions=obj, score__isnull=False).exists()
 
 
 class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
@@ -527,6 +545,14 @@ class ProblemSetSerializer(serializers.ModelSerializer):
     question_count = serializers.SerializerMethodField()
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     chapter_name = serializers.CharField(source="chapter.name", read_only=True)
+    # AIV-3a: edit-safety read flags. Integrity is already guaranteed by AIV-1/2
+    # (snapshots); these flags exist only to drive teacher UX so the editor can
+    # say "this is in use" and mean it. Backed by queryset annotations on
+    # ProblemSetViewSet.get_queryset to avoid N+1 on list endpoints; falls back
+    # to a single per-row query when the annotation isn't present (e.g. POST
+    # response on freshly created rows).
+    assigned_count = serializers.SerializerMethodField()
+    has_graded_submissions = serializers.SerializerMethodField()
 
     class Meta:
         model = ProblemSet
@@ -545,11 +571,25 @@ class ProblemSetSerializer(serializers.ModelSerializer):
             "is_active",
             "is_remedial",
             "source_assignment",
+            "assigned_count",
+            "has_graded_submissions",
             "created_at",
         ]
 
     def get_question_count(self, obj) -> int:
         return obj.questions.count()
+
+    def get_assigned_count(self, obj) -> int:
+        anno = getattr(obj, "assigned_count_anno", None)
+        if anno is not None:
+            return int(anno)
+        return obj.assignments.count()
+
+    def get_has_graded_submissions(self, obj) -> bool:
+        anno = getattr(obj, "has_graded_submissions_anno", None)
+        if anno is not None:
+            return bool(anno)
+        return Submission.objects.filter(assignment__problem_set=obj, score__isnull=False).exists()
 
 
 class ProblemSetDetailSerializer(ProblemSetSerializer):

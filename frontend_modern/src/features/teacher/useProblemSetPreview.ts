@@ -17,6 +17,11 @@ export interface ProblemSetStudentPreview {
   estimated_minutes: number | null;
   question_count: number;
   questions: Question[];
+  /** AIV-3a edit-safety flags (also on the regular detail endpoint). */
+  assigned_count?: number;
+  has_graded_submissions?: boolean;
+  /** Whether the current teacher created this set — determines edit affordances. */
+  created_by_me?: boolean;
 }
 
 const fetchPreview = async (id: number): Promise<ProblemSetStudentPreview> => {

@@ -45,59 +45,125 @@ def grade_submission(self, submission_id: int) -> dict:
         return {"error": "Submission not found"}
 
     answers = submission.answers  # {str(subpart_id): answer_value}
-    problem_set = submission.assignment.problem_set
-    subject_room = submission.assignment.subject_room
+    assignment = submission.assignment
+    problem_set = assignment.problem_set
+    subject_room = assignment.subject_room
+    snapshot = assignment.assigned_content
 
-    # Load all subparts for this problem set's questions in one query
-    question_ids = list(problem_set.questions.values_list("id", flat=True))
-    subparts = list(
-        QuestionSubpart.objects.filter(question__in=question_ids)
-        .select_related("question")
-        .order_by("question_id", "index")
-    )
+    # AIV-2a: prefer the per-assignment snapshot — it pins the exact
+    # correct_answer/subpart_type/variable_constraints the student was given,
+    # so editing the live ProblemSet/Question afterwards cannot retroactively
+    # re-grade past work. Fall back to the live set only for legacy rows the
+    # 0023 backfill couldn't reach (defensive; should be unreachable in prod).
+    if snapshot and snapshot.get("questions"):
+        # Snapshot path. Tick still FKs the live QuestionSubpart row (we need a
+        # row to point at and the subpart_id is preserved in the snapshot), but
+        # the *grading inputs* come from the frozen copy.
+        snap_subparts: list[dict] = []
+        for q in snapshot["questions"]:
+            for sp in q.get("subparts") or []:
+                snap_subparts.append({"question_id": q["question_id"], **sp})
 
-    # Group subpart counts per question for SubjectRoomQuestionMistake
-    subpart_count_by_question: dict[int, int] = {}
-    for sp in subparts:
-        subpart_count_by_question[sp.question_id] = subpart_count_by_question.get(sp.question_id, 0) + 1
+        live_subpart_ids = [s["subpart_id"] for s in snap_subparts]
+        live_by_id = {
+            sp.id: sp for sp in QuestionSubpart.objects.filter(id__in=live_subpart_ids).select_related("question")
+        }
 
-    total_subparts = len(subparts)
-    attempted = 0
-    total_mark = 0.0
-    ticks_to_create = []
+        subpart_count_by_question: dict[int, int] = {}
+        for s in snap_subparts:
+            qid = s["question_id"]
+            subpart_count_by_question[qid] = subpart_count_by_question.get(qid, 0) + 1
 
-    student_id = submission.student_id
+        total_subparts = len(snap_subparts)
+        attempted = 0
+        total_mark = 0.0
+        ticks_to_create = []
+        student_id = submission.student_id
 
-    for subpart in subparts:
-        answer_key = str(subpart.id)
-        if answer_key not in answers:
-            continue
+        for s in snap_subparts:
+            sp_id = s["subpart_id"]
+            answer_key = str(sp_id)
+            if answer_key not in answers:
+                continue
+            live_sp = live_by_id.get(sp_id)
+            if live_sp is None:
+                # Subpart was deleted post-assign. We still graded it as
+                # 0 (attempted but no FK target) to keep totals consistent.
+                attempted += 1
+                continue
 
-        attempted += 1
-        student_answer = answers[answer_key]
-        # M7-03: grade on the per-subpart type, falling back to the question
-        # type for hand-authored rows that predate subpart_type.
-        grading_type = subpart.subpart_type or subpart.question.question_type
-        mark = _grade_subpart(
-            grading_type,
-            student_answer,
-            subpart.correct_answer,
-            student_id=student_id,
-            subpart_id=subpart.id,
-            original_options=subpart.options,
-            variable_constraints=subpart.variable_constraints,
-        )
-        total_mark += mark
-
-        ticks_to_create.append(
-            Tick(
-                student=submission.student,
-                question_subpart=subpart,
-                submission=submission,
-                subject_room=subject_room,
-                mark=mark,
+            attempted += 1
+            student_answer = answers[answer_key]
+            # M7-03: snapshot subpart_type falls back to the live question
+            # type for hand-authored rows that predate subpart_type.
+            grading_type = s.get("subpart_type") or live_sp.question.question_type
+            mark = _grade_subpart(
+                grading_type,
+                student_answer,
+                s.get("correct_answer") or {},
+                student_id=student_id,
+                subpart_id=sp_id,
+                original_options=s.get("options"),
+                variable_constraints=s.get("variable_constraints"),
             )
+            total_mark += mark
+
+            ticks_to_create.append(
+                Tick(
+                    student=submission.student,
+                    question_subpart=live_sp,
+                    submission=submission,
+                    subject_room=subject_room,
+                    mark=mark,
+                )
+            )
+    else:
+        # Legacy / no-snapshot fallback — graded against the live set.
+        question_ids = list(problem_set.questions.values_list("id", flat=True))
+        subparts = list(
+            QuestionSubpart.objects.filter(question__in=question_ids)
+            .select_related("question")
+            .order_by("question_id", "index")
         )
+
+        subpart_count_by_question = {}
+        for sp in subparts:
+            subpart_count_by_question[sp.question_id] = subpart_count_by_question.get(sp.question_id, 0) + 1
+
+        total_subparts = len(subparts)
+        attempted = 0
+        total_mark = 0.0
+        ticks_to_create = []
+        student_id = submission.student_id
+
+        for subpart in subparts:
+            answer_key = str(subpart.id)
+            if answer_key not in answers:
+                continue
+
+            attempted += 1
+            student_answer = answers[answer_key]
+            grading_type = subpart.subpart_type or subpart.question.question_type
+            mark = _grade_subpart(
+                grading_type,
+                student_answer,
+                subpart.correct_answer,
+                student_id=student_id,
+                subpart_id=subpart.id,
+                original_options=subpart.options,
+                variable_constraints=subpart.variable_constraints,
+            )
+            total_mark += mark
+
+            ticks_to_create.append(
+                Tick(
+                    student=submission.student,
+                    question_subpart=subpart,
+                    submission=submission,
+                    subject_room=subject_room,
+                    mark=mark,
+                )
+            )
 
     # Bulk-create all ticks in one DB round trip
     created_ticks = Tick.objects.bulk_create(ticks_to_create)

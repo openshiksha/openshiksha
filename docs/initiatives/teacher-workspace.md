@@ -6,13 +6,14 @@
 > that selection straight into an assignment, edit it safely, publish, and then
 > watch it land — without ever re-finding what they were just looking at.
 >
-> **Status:** 🟡 **Mostly closed — TW-2 blocked.** All unblocked increments
-> (TW-1, TW-3, TW-4, TW-5, TW-6, TW-7) shipped 2026-06-07. The remaining
-> increment, **TW-2 (editable preview)**, is hard-blocked on
-> [Authoring Integrity & Versioning](authoring-integrity-versioning.md) Phase 1
-> snapshots. Pick this initiative back up when AIV-1..3 lands.
+> **Status:** 🟢 **Active — TW-2 unblocked.** All other increments (TW-1,
+> TW-3, TW-4, TW-5, TW-6, TW-7) shipped 2026-06-07. Authoring Integrity
+> **Phase 1 landed 2026-06-08**
+> ([#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)),
+> so editing problem-set content is now safe by construction — assigned content
+> is frozen at assign time. **TW-2 (editable preview)** is the next bet.
 
-**Last updated:** 2026-06-07
+**Last updated:** 2026-06-08
 
 ---
 
@@ -120,8 +121,9 @@ a pile of pages, and closes the seams in reviewable increments.
 - **DoD:** create-assignment and preview are usable one-handed on a phone.
 
 **Shipping order taken (2026-06-07):** TW-1 → TW-5 ∥ TW-4 ∥ TW-3a → TW-3b →
-TW-6 → TW-7. **TW-2 remains the only open increment** and is gated by
-Authoring Integrity Phase 1.
+TW-6 → TW-7. **TW-2 is the only open increment**; Authoring Integrity Phase 1
+landed 2026-06-08 ([#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274))
+so TW-2 is now unblocked and is this initiative's next bet.
 
 > **Removed from backlog:** The earlier draft of this initiative also listed
 > a **TW-T** Playwright continuity smoke test. We dropped it after shipping
@@ -170,3 +172,4 @@ Authoring Integrity Phase 1.
 | 2026-06-07 | **TW-3b** — Inline due-date editor + Close/Reopen controls on `TeacherAssignmentDetailPage`; status badge reflects closed state. | [#264](https://github.com/openshiksha/openshiksha/pull/264) | Built on TW-3a. Closes the TW-3 DoD. |
 | 2026-06-07 | **TW-6** — Question-bank ↔ authoring continuity: filters live in the URL, "Use in new set" seeds the builder, both Edit and Use-in-new-set carry `returnTo`. | [#265](https://github.com/openshiksha/openshiksha/pull/265) | No more context loss when moving between bank, set builder, and question editor. |
 | 2026-06-07 | **TW-7** — Mobile teacher pass: `lg:hidden` sticky submit bars on `CreateAssignmentPage` + `CreateProblemSetPage`, 44 px date-preset touch targets. | [#266](https://github.com/openshiksha/openshiksha/pull/266) | Closes the last unblocked TW increment. |
+| 2026-06-08 | **TW-2 unblocked.** Authoring Integrity Phase 1 (AIV-1..3) landed across [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274): per-assignment content snapshot + capture in both creation paths + backfill, grader and student-detail serializer both read from the snapshot, `assigned_count`/`has_graded_submissions` flags + non-blocking edit-safety banner. Editing a question or problem set can no longer silently re-grade or re-write what students were given. | — | Initiative re-promoted to 🟢 Active; TW-2 (editable preview) is the next bet. |

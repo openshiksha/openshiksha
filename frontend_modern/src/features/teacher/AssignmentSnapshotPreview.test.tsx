@@ -10,7 +10,23 @@ vi.mock('../student/QuestionCard', () => ({
   ),
 }));
 
-const renderPreview = (overrides: Partial<{ drift: boolean }> & { questions?: unknown[] } = {}) => {
+const mockUndo = vi.fn();
+vi.mock('./useAssignmentResync', () => ({
+  useUndoResync: () => ({ mutate: mockUndo, isPending: false }),
+  useResyncPreview: () => ({ data: undefined, isLoading: false, isError: false }),
+  useApplyResync: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+}));
+
+// ResyncAssignmentModal does its own preview fetching; keep this test focused
+// on the surface that mounts it. We don't need its real internals.
+vi.mock('./ResyncAssignmentModal', () => ({
+  ResyncAssignmentModal: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="resync-modal" /> : null,
+}));
+
+const renderPreview = (
+  overrides: Partial<{ drift: boolean; hasResyncHistory: boolean }> & { questions?: unknown[] } = {},
+) => {
   const problemSet = {
     id: 9,
     title: 'Algebra',
@@ -28,8 +44,10 @@ const renderPreview = (overrides: Partial<{ drift: boolean }> & { questions?: un
   return render(
     <MemoryRouter>
       <AssignmentSnapshotPreview
+        assignmentId={7}
         problemSet={problemSet}
         snapshotDrift={overrides.drift ?? false}
+        hasResyncHistory={overrides.hasResyncHistory ?? false}
       />
     </MemoryRouter>,
   );
@@ -38,7 +56,6 @@ const renderPreview = (overrides: Partial<{ drift: boolean }> & { questions?: un
 describe('<AssignmentSnapshotPreview />', () => {
   it('starts collapsed and reveals the question cards on toggle', () => {
     renderPreview();
-    // Collapsed: no question card rendered yet.
     expect(screen.queryByTestId('qcard-101')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('snapshot-toggle'));
     expect(screen.getByTestId('qcard-101')).toBeInTheDocument();
@@ -48,6 +65,7 @@ describe('<AssignmentSnapshotPreview />', () => {
   it('does not render the drift banner when the snapshot matches the live set', () => {
     renderPreview({ drift: false });
     expect(screen.queryByTestId('snapshot-drift-banner')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('open-resync-modal')).not.toBeInTheDocument();
   });
 
   it('renders the drift banner with a link to the live preview when drift is true', () => {
@@ -57,6 +75,26 @@ describe('<AssignmentSnapshotPreview />', () => {
     expect(banner).toHaveTextContent(/live set has changed/i);
     const link = screen.getByRole('link', { name: /compare with the live set/i });
     expect(link).toHaveAttribute('href', '/teacher/problem-sets/9/preview');
+  });
+
+  it('opens the resync modal when the drift-banner action is clicked', () => {
+    renderPreview({ drift: true });
+    expect(screen.queryByTestId('resync-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('open-resync-modal'));
+    expect(screen.getByTestId('resync-modal')).toBeInTheDocument();
+  });
+
+  it('renders the undo bar when there is prior resync history and calls the mutation', () => {
+    mockUndo.mockReset();
+    renderPreview({ hasResyncHistory: true });
+    expect(screen.getByTestId('undo-resync-bar')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('undo-resync'));
+    expect(mockUndo).toHaveBeenCalled();
+  });
+
+  it('does not render the undo bar when there is no resync history', () => {
+    renderPreview({ hasResyncHistory: false });
+    expect(screen.queryByTestId('undo-resync-bar')).not.toBeInTheDocument();
   });
 
   it('renders an empty-state message when the snapshot has no questions', () => {

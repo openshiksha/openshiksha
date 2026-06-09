@@ -111,6 +111,81 @@ def snapshot_has_drifted(snapshot: dict[str, Any] | None, problem_set: "ProblemS
     return snapshot.get("questions") != fresh.get("questions")
 
 
+def diff_snapshots(old: dict[str, Any] | None, new: dict[str, Any]) -> dict[str, Any]:
+    """
+    AIV-6: structured diff for the re-sync blast-radius preview. Compares two
+    snapshot dicts (typically an assignment's current frozen snapshot vs a
+    fresh one built from the live set) and reports:
+
+    - ``questions_added``    — question_ids present in ``new`` but not ``old``
+    - ``questions_removed``  — question_ids present in ``old`` but not ``new``
+    - ``answer_changes``     — subparts whose ``correct_answer`` changed; each
+      row carries ``{subpart_id, question_id, before, after}`` so the UI can
+      explain *what* changes when a student is re-graded
+    - ``content_changes``    — subparts whose ``question_text``/``options``/
+      ``variable_constraints``/widget config changed but whose answer didn't.
+      Affects what the student would see but not how grading scores them.
+
+    Output is JSON-safe and intended for both API responses and structured logs.
+    """
+    old = old or {}
+    old_qs = {q["question_id"]: q for q in old.get("questions") or []}
+    new_qs = {q["question_id"]: q for q in new.get("questions") or []}
+
+    questions_added = sorted(set(new_qs) - set(old_qs))
+    questions_removed = sorted(set(old_qs) - set(new_qs))
+
+    answer_changes: list[dict[str, Any]] = []
+    content_changes: list[dict[str, Any]] = []
+
+    cosmetic_keys = (
+        "question_text",
+        "options",
+        "variable_constraints",
+        "widget_kind",
+        "widget_config",
+        "image_url",
+    )
+
+    for qid in set(old_qs) & set(new_qs):
+        old_subparts = {sp["subpart_id"]: sp for sp in old_qs[qid].get("subparts") or []}
+        new_subparts = {sp["subpart_id"]: sp for sp in new_qs[qid].get("subparts") or []}
+        for sp_id in set(old_subparts) | set(new_subparts):
+            old_sp = old_subparts.get(sp_id)
+            new_sp = new_subparts.get(sp_id)
+            if not old_sp or not new_sp:
+                # Subpart added/removed under a shared question — counts as
+                # answer-affecting because grading scope changes.
+                answer_changes.append(
+                    {
+                        "subpart_id": sp_id,
+                        "question_id": qid,
+                        "before": old_sp.get("correct_answer") if old_sp else None,
+                        "after": new_sp.get("correct_answer") if new_sp else None,
+                    }
+                )
+                continue
+            if old_sp.get("correct_answer") != new_sp.get("correct_answer"):
+                answer_changes.append(
+                    {
+                        "subpart_id": sp_id,
+                        "question_id": qid,
+                        "before": old_sp.get("correct_answer"),
+                        "after": new_sp.get("correct_answer"),
+                    }
+                )
+                continue
+            if any(old_sp.get(k) != new_sp.get(k) for k in cosmetic_keys):
+                content_changes.append({"subpart_id": sp_id, "question_id": qid})
+
+    return {
+        "questions_added": questions_added,
+        "questions_removed": questions_removed,
+        "answer_changes": answer_changes,
+        "content_changes": content_changes,
+    }
+
+
 def render_snapshot_for_student(
     snapshot: dict[str, Any],
     *,

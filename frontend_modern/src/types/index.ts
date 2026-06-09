@@ -240,6 +240,8 @@ export interface Assignment {
    * anything because they grade and render from the snapshot regardless.
    */
   snapshot_drift?: boolean;
+  /** AIV-6: at least one prior snapshot is in ``AssignmentSnapshotHistory``, so undo is offered. */
+  has_resync_history?: boolean;
 }
 
 export interface AssignmentDetail extends Assignment {

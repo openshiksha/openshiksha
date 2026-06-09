@@ -697,6 +697,11 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
     Uses ProblemSetStudentDetailSerializer so correct_answer is never exposed
     to students via the assignment detail endpoint.
+
+    AIV-2b: when ``Assignment.assigned_content`` is populated, the embedded
+    problem-set's ``questions`` array is built from the snapshot — so a student
+    always sees exactly what they were assigned, even after the live set
+    drifts. Response shape is preserved 1:1 with the live path.
     """
 
     # ``my_submission`` is inherited from AssignmentSerializer now — the
@@ -706,6 +711,26 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
     class Meta(AssignmentSerializer.Meta):
         fields = AssignmentSerializer.Meta.fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        snapshot = getattr(instance, "assigned_content", None)
+        if not (snapshot and snapshot.get("questions")):
+            return data
+
+        from openshiksha.apps.core.snapshots import render_snapshot_for_student
+
+        request = self.context.get("request")
+        student_id = request.user.id if (request and request.user.is_authenticated) else None
+        include_solutions = bool(self.context.get("include_solutions"))
+
+        if isinstance(data.get("problem_set"), dict):
+            data["problem_set"]["questions"] = render_snapshot_for_student(
+                snapshot,
+                student_id=student_id,
+                include_solutions=include_solutions,
+            )
+        return data
 
 
 class SubmissionSerializer(serializers.ModelSerializer):

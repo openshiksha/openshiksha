@@ -683,6 +683,61 @@ class ProblemSet(models.Model):
         return f"{self.title} (Std {self.standard.number}, {self.subject.name}, Ch {self.chapter.name} #{self.number})"
 
 
+class ProblemSetVersion(models.Model):
+    """
+    AIV-7: immutable, deduplicated content version for a ``ProblemSet``.
+
+    Every assignment created (or re-synced) points at one of these rows via
+    ``Assignment.problem_set_version``. Identical content under the same set
+    is stored once — ``unique_together = [problem_set, content_hash]`` plus
+    ``get_or_create_version_for(problem_set)`` enforces dedup.
+
+    Rows are **never mutated** after creation. The grader, the student
+    serializer, the drift check, and the diff/re-sync flow all read
+    ``self.content`` here in preference to the per-assignment
+    ``Assignment.assigned_content`` snapshot kept for backward compatibility.
+    """
+
+    problem_set = models.ForeignKey(
+        "ProblemSet",
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    version_number = models.PositiveIntegerField(
+        help_text="1-based ordinal within the parent set, assigned at creation time.",
+    )
+    content_hash = models.CharField(
+        max_length=64,
+        help_text="sha256 over the canonical (sort_keys) JSON of the questions block. Drives dedup.",
+    )
+    content = models.JSONField(
+        help_text="Frozen snapshot dict — the same shape build_assignment_snapshot() returns.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="problem_set_versions_created",
+        help_text=(
+            "Teacher whose action minted this version (assigned the set, or re-synced "
+            "an assignment). Null for backfilled rows."
+        ),
+    )
+
+    class Meta:
+        db_table = "problem_set_versions"
+        unique_together = [["problem_set", "content_hash"]]
+        ordering = ["problem_set_id", "version_number"]
+        indexes = [
+            models.Index(fields=["problem_set", "-version_number"]),
+        ]
+
+    def __str__(self):
+        return f"{self.problem_set_id}@v{self.version_number}"
+
+
 class Assignment(models.Model):
     """
     An assignment of a ProblemSet to a SubjectRoom.
@@ -751,7 +806,22 @@ class Assignment(models.Model):
             "Frozen copy of the problem set's questions at assign time. Source "
             "of truth for grading and rendering this assignment — editing the "
             "live ProblemSet/Question/Subpart afterwards leaves this snapshot "
-            "untouched. See apps.core.snapshots.build_assignment_snapshot."
+            "untouched. See apps.core.snapshots.build_assignment_snapshot. "
+            "AIV-7: kept for backward compatibility; the canonical content "
+            "source is now ``problem_set_version`` below. New writers populate "
+            "both fields so readers can still fall back when the FK is null."
+        ),
+    )
+    problem_set_version = models.ForeignKey(
+        "ProblemSetVersion",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assignments",
+        help_text=(
+            "AIV-7: the deduplicated, immutable content version this assignment "
+            "pins. Preferred source of truth; falls back to ``assigned_content`` "
+            "when null (legacy rows the backfill couldn't reach)."
         ),
     )
 

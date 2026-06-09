@@ -736,9 +736,14 @@ class AssignmentSerializer(serializers.ModelSerializer):
         validated_data["assigned_by"] = request.user
         # AIV-1: freeze the problem set's questions at assign time so the
         # grader and student renderer can never be affected by later edits.
-        from openshiksha.apps.core.snapshots import build_assignment_snapshot
+        # AIV-7: also pin a deduplicated ProblemSetVersion FK. Both fields are
+        # populated so legacy fallback paths keep working.
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot, get_or_create_version_for
 
-        validated_data["assigned_content"] = build_assignment_snapshot(validated_data["problem_set"])
+        problem_set = validated_data["problem_set"]
+        version, _ = get_or_create_version_for(problem_set, created_by=request.user)
+        validated_data["problem_set_version"] = version
+        validated_data["assigned_content"] = build_assignment_snapshot(problem_set)
         return super().create(validated_data)
 
 
@@ -771,9 +776,11 @@ class AssignmentDetailSerializer(AssignmentSerializer):
         fields = AssignmentSerializer.Meta.fields + ["snapshot_drift", "has_resync_history"]
 
     def get_snapshot_drift(self, obj) -> bool:
-        from openshiksha.apps.core.snapshots import snapshot_has_drifted
+        from openshiksha.apps.core.snapshots import resolve_assignment_content, snapshot_has_drifted
 
-        return snapshot_has_drifted(obj.assigned_content, obj.problem_set)
+        # AIV-7: read from the ProblemSetVersion FK when populated; falls back
+        # to assigned_content for legacy assignments the backfill missed.
+        return snapshot_has_drifted(resolve_assignment_content(obj), obj.problem_set)
 
     def get_has_resync_history(self, obj) -> bool:
         # AIV-6: surface whether undo is available. ``snapshot_history`` is the
@@ -782,11 +789,11 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        snapshot = getattr(instance, "assigned_content", None)
+        from openshiksha.apps.core.snapshots import render_snapshot_for_student, resolve_assignment_content
+
+        snapshot = resolve_assignment_content(instance)
         if not (snapshot and snapshot.get("questions")):
             return data
-
-        from openshiksha.apps.core.snapshots import render_snapshot_for_student
 
         request = self.context.get("request")
         student_id = request.user.id if (request and request.user.is_authenticated) else None

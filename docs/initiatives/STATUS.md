@@ -4,18 +4,23 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-08 — **Authoring Integrity Phase 1 done.** AIV-1..3
-shipped across [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274):
-per-assignment content snapshot + backfill ([#270](https://github.com/openshiksha/openshiksha/pull/270)),
-grader reads the snapshot ([#271](https://github.com/openshiksha/openshiksha/pull/271))
-with the golden re-grade-after-edit regression test, student-detail serves the
-snapshot ([#272](https://github.com/openshiksha/openshiksha/pull/272)),
-`assigned_count` + `has_graded_submissions` flags ([#273](https://github.com/openshiksha/openshiksha/pull/273)),
-non-blocking edit-safety banner on `CreateQuestionPage` ([#274](https://github.com/openshiksha/openshiksha/pull/274)).
-The silent-data-corruption hole is closed and **TW-2 (editable preview) is
-unblocked** — Teacher Workspace promoted back to Active. Phase 1 is the unambiguous
-next bet's Done; next-up is **TW-2** under Teacher Workspace, then AIV Phase 2
-(editable + assignment-level preview) → Phase 3 (versioning + guarded re-sync).
+**Last updated:** 2026-06-09 — **Teacher Workspace closed, Authoring Integrity
+Phase 2 done.** TW-2 (editable preview) shipped alongside the matching
+**AIV-4** in [#276](https://github.com/openshiksha/openshiksha/pull/276): the
+preview now has an edit mode (remove / edit / add questions) backed by a new
+`remove-question` endpoint, with an API-level regression test pinning the
+property that makes it safe — mutating the live set does not change any
+pre-existing assignment's snapshot. **AIV-5** in
+[#277](https://github.com/openshiksha/openshiksha/pull/277): teachers viewing an
+assignment now see a collapsible "What students see · snapshot" section + an
+amber drift banner when the live set has moved past the snapshot. Phase 2 closes
+the editable-preview ask the initiative was originally promoted to enable.
+Earlier (2026-06-08): **Phase 1 (AIV-1..3)** shipped across
+[#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)
+— snapshot foundation, grader reads snapshot (golden re-grade-after-edit test),
+student-detail serves snapshot, edit-safety flags + banner; the
+silent-data-corruption hole closed. Next bet is **AIV Phase 3** (versioning +
+guarded re-sync).
 Earlier (2026-06-07): all unblocked TW increments shipped across **#250, #261–#266**
 (TW-1, TW-5, TW-4, TW-3a, TW-3b, TW-6, TW-7); the planned **TW-T** Playwright smoke
 was dropped (seams already covered by Vitest + pytest). Earlier batch:
@@ -27,8 +32,8 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Teacher Workspace](teacher-workspace.md) | Active | Unpaused 2026-06-08 after Authoring Integrity Phase 1 shipped. All other increments (TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7) closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | **TW-2** (editable problem-set preview) — now safe by construction (AIV-1/2 snapshots make every edit a future-only change). |
-| 2 | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Active | **Phase 1 done 2026-06-08.** AIV-1..3 shipped in [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274): snapshot foundation, grader reads snapshot (golden re-grade-after-edit test), student-detail serves snapshot, `assigned_count` + `has_graded_submissions` flags, edit-safety banner. Silent-data-corruption hole closed; TW-2 unblocked. | **Phase 2: AIV-4** (editable problem-set preview backend hook) + **AIV-5** (assignment-level preview that renders from the snapshot). Then **Phase 3** (AIV-6 guarded re-sync, AIV-7 `ProblemSetVersion`, AIV-8 audit UI). |
+| 1 | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Active | **Phase 1 + Phase 2 done.** Phase 1 (AIV-1..3) in [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274): snapshot foundation, grader + student-detail read snapshot, edit-safety flags + banner. Phase 2: **AIV-4** in [#276](https://github.com/openshiksha/openshiksha/pull/276) (editable preview + `remove-question` endpoint + API-level safety test) and **AIV-5** in [#277](https://github.com/openshiksha/openshiksha/pull/277) (assignment-level snapshot preview + drift banner). | **Phase 3: AIV-6** (guarded re-sync — opt-in action that re-snapshots an assignment from the live set, with a blast-radius preview + optional re-grade) → **AIV-7** (`ProblemSetVersion`; assignments pin a version, dedup storage) → **AIV-8** (version history + audit UI). |
+| - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). The last open increment is in; the initiative's North Star (authoring → assigning → monitoring as one preview-driven flow) is reached. Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |
 | - | [Performance Budget](performance-budget.md) | Done | Closed 2026-06-07. PERF-01..04 + PERF-06 shipped in one batch ([#251](https://github.com/openshiksha/openshiksha/pull/251)–[#255](https://github.com/openshiksha/openshiksha/pull/255)); follow-up ([#256](https://github.com/openshiksha/openshiksha/pull/256)) dropped `ReactQueryDevtools` in prod, added a measurement harness, and fixed a `@/shared/ui` barrel-export leak that was dragging DOMPurify into the entry chunk. Entry chunk **855 → 93 kB / 247 → 29 kB gzip** (88% gzip drop); vendor split, route-level `React.lazy`, lazy KaTeX behind `<RichContent>`, CI budget guard at 160 kB. Measured `/login` FCP under Slow 4G + 4× CPU: 4.4 s. | - |
 | - | [Interactive Widgets Framework](interactive-widgets-framework.md) | Paused | Tier 1 **Configure** is usable (`WidgetGalleryPanel` + registry schemas). Tier 3 **Code** is usable (`defineWidget`, `npm run widget:new`, `npm run widget:dev -- <kind>`, `/widgets/dev`, docs). First-party library currently includes `_hello`, `thermo-piston`, `number-line`, `function-plotter`, `fraction-bar`, plus admin-only `custom-html`; all render through the same sandboxed iframe and answer-producing widgets report through the shared protocol. | Defer **IW-9 - IW-11** until product discovery proves Widget Studio is more valuable than more first-party/developer-authored widgets. |
 | - | [V2 "Chalk & Unlock" design overhaul](2026-design-system-v2.md) | Done | M1-M7 are closed for the current scope. Mobile shell now has role-aware bottom tabs, account drawer, safe-area/dynamic-viewport padding, large touch targets, responsive surface audit, and focused a11y baseline. Legacy parity gaps are closed or explicitly skipped. Only optional activation remains: run the [seed-visual-baselines](../../.github/workflows/seed-visual-baselines.yaml) workflow once for M6-03 baselines. | - |

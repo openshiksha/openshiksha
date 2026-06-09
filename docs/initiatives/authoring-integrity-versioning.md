@@ -7,13 +7,16 @@
 > the assigned, frozen copy are clearly separate, and moving changes from one to
 > the other is an explicit, reviewable act.
 >
-> **Status:** 🟢 **Active** — Phase 1 (AIV-1..3) **done 2026-06-08** across
-> [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274).
-> Silent-data-corruption hole is closed; TW-2 (editable preview) is unblocked.
-> Next bet is **Phase 2** (AIV-4 + AIV-5) — editable + assignment-level preview
-> that renders from the snapshot.
+> **Status:** 🟢 **Active** — Phase 1 + Phase 2 done.
+> Phase 1 (AIV-1..3) 2026-06-08 across [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274);
+> Phase 2 2026-06-09 with **AIV-4** in [#276](https://github.com/openshiksha/openshiksha/pull/276)
+> (editable preview + `remove-question` API + safety regression test) and
+> **AIV-5** in [#277](https://github.com/openshiksha/openshiksha/pull/277)
+> (assignment-level snapshot preview + drift banner). Editing is safe by
+> construction and the editable-preview ask is delivered end-to-end.
+> Next bet is **Phase 3** (AIV-6/7/8 — guarded re-sync, `ProblemSetVersion`, audit UI).
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-09
 
 ---
 
@@ -233,3 +236,6 @@ real silent-data-corruption risk even if editable preview never ships.
 | 2026-06-08 | **AIV-3a done** — read-only `assigned_count` + `has_graded_submissions` flags on `ProblemSetSerializer` + `QuestionSerializer`, backed by `Count` + `Exists` annotations so list endpoints stay N+1-free. Falls back to per-row query when annotation absent (POST responses). | [#273](https://github.com/openshiksha/openshiksha/pull/273) | UX-only signal — integrity is guaranteed by AIV-1/2; this just makes "edit is future-only" legible to the editor. |
 | 2026-06-08 | **AIV-3b done** — non-blocking edit-safety banner on `CreateQuestionPage` in edit mode. Says "this question is used in N assignment(s); edits apply to future assignments only" with stronger wording when graded submissions exist. Nothing is disabled. | [#274](https://github.com/openshiksha/openshiksha/pull/274) | Closes Phase 1's Definition of Done. ProblemSet edit surface will reuse the same component when TW-2 ships. |
 | 2026-06-08 | **Phase 1 closed.** Silent-data-corruption hole is gone; TW-2 (editable preview) is unblocked. Teacher Workspace promoted back to Active. Next bet: **Phase 2** (AIV-4 editable + AIV-5 assignment-level preview rendering from the snapshot). | — | All five PRs landed clean. |
+| 2026-06-09 | **AIV-4 done** — `ProblemSetPreviewPage` gains an edit mode (per-question Remove + Edit-question deep-link + Add-question entry to the bank, AIV-3b banner when in use). Backend adds `remove-question` to mirror `add-question`, plus an API-level regression test pinning the property that makes TW-2 safe by construction: mutating the live question list does NOT change any pre-existing assignment's snapshot. Reorder is deferred (would need a through-table; doesn't belong in this atomic slice). Also shipped Teacher Workspace **TW-2** — the editable preview the user asked for, end-to-end. | [#276](https://github.com/openshiksha/openshiksha/pull/276) | One PR closes two initiative increments. `created_by_me` flag added so the frontend doesn't re-derive the creator-only rule. |
+| 2026-06-09 | **AIV-5 done** — `snapshot_has_drifted(snapshot, problem_set)` helper + `snapshot_drift` field on `AssignmentDetailSerializer`. Teacher `TeacherAssignmentDetailPage` gains a collapsible "What students see · snapshot" section rendering the frozen content + an amber drift banner deep-linking to the live preview when the set has moved past the snapshot. | [#277](https://github.com/openshiksha/openshiksha/pull/277) | Independent of AIV-4 (could land first). Drift detection ignores volatile fields (`captured_at`, `problem_set_title`). |
+| 2026-06-09 | **Phase 2 closed.** Editable preview is delivered; teachers can see "what was assigned" vs "what the live set looks like now". Teacher Workspace's North Star is reached. Next bet: **Phase 3** (AIV-6 guarded re-sync → AIV-7 `ProblemSetVersion` → AIV-8 audit UI). | — | The initiative now turns to the durable versioning model. |

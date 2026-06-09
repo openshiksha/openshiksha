@@ -6,14 +6,14 @@
 > that selection straight into an assignment, edit it safely, publish, and then
 > watch it land — without ever re-finding what they were just looking at.
 >
-> **Status:** 🟢 **Active — TW-2 unblocked.** All other increments (TW-1,
-> TW-3, TW-4, TW-5, TW-6, TW-7) shipped 2026-06-07. Authoring Integrity
-> **Phase 1 landed 2026-06-08**
-> ([#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)),
-> so editing problem-set content is now safe by construction — assigned content
-> is frozen at assign time. **TW-2 (editable preview)** is the next bet.
+> **Status:** ✅ **Done.** TW-2 (editable preview) shipped 2026-06-09 in
+> [#276](https://github.com/openshiksha/openshiksha/pull/276) on top of
+> Authoring Integrity Phase 1 ([#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)).
+> All other increments (TW-1, TW-3, TW-4, TW-5, TW-6, TW-7) closed 2026-06-07.
+> The initiative's North Star — authoring → assigning → monitoring as one
+> continuous, preview-driven flow — is reached.
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-09
 
 ---
 
@@ -120,10 +120,9 @@ a pile of pages, and closes the seams in reviewable increments.
   edges.
 - **DoD:** create-assignment and preview are usable one-handed on a phone.
 
-**Shipping order taken (2026-06-07):** TW-1 → TW-5 ∥ TW-4 ∥ TW-3a → TW-3b →
-TW-6 → TW-7. **TW-2 is the only open increment**; Authoring Integrity Phase 1
-landed 2026-06-08 ([#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274))
-so TW-2 is now unblocked and is this initiative's next bet.
+**Shipping order taken:** TW-1 → TW-5 ∥ TW-4 ∥ TW-3a → TW-3b → TW-6 → TW-7
+(2026-06-07) → TW-2 (2026-06-09, after Authoring Integrity Phase 1 unblocked it).
+All seven increments shipped; the initiative is closed.
 
 > **Removed from backlog:** The earlier draft of this initiative also listed
 > a **TW-T** Playwright continuity smoke test. We dropped it after shipping
@@ -173,3 +172,4 @@ so TW-2 is now unblocked and is this initiative's next bet.
 | 2026-06-07 | **TW-6** — Question-bank ↔ authoring continuity: filters live in the URL, "Use in new set" seeds the builder, both Edit and Use-in-new-set carry `returnTo`. | [#265](https://github.com/openshiksha/openshiksha/pull/265) | No more context loss when moving between bank, set builder, and question editor. |
 | 2026-06-07 | **TW-7** — Mobile teacher pass: `lg:hidden` sticky submit bars on `CreateAssignmentPage` + `CreateProblemSetPage`, 44 px date-preset touch targets. | [#266](https://github.com/openshiksha/openshiksha/pull/266) | Closes the last unblocked TW increment. |
 | 2026-06-08 | **TW-2 unblocked.** Authoring Integrity Phase 1 (AIV-1..3) landed across [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274): per-assignment content snapshot + capture in both creation paths + backfill, grader and student-detail serializer both read from the snapshot, `assigned_count`/`has_graded_submissions` flags + non-blocking edit-safety banner. Editing a question or problem set can no longer silently re-grade or re-write what students were given. | — | Initiative re-promoted to 🟢 Active; TW-2 (editable preview) is the next bet. |
+| 2026-06-09 | **TW-2 done** — `ProblemSetPreviewPage` gains an edit mode for the set's creator: per-question Remove + Edit-question deep-link, an Add-question entry to the bank, and the AIV-3b `EditSafetyBanner` when the set is already in use. Backend adds `remove-question` (mirror of `add-question`) and an API-level regression test pinning the property that makes editable preview safe: mutating the live question list does NOT change any pre-existing assignment's snapshot. Reorder is deferred (would need a through-table or `position` field). Also closes Authoring Integrity AIV-4. | [#276](https://github.com/openshiksha/openshiksha/pull/276) | One PR closes two initiative increments. Initiative North Star reached; status flipped to ✅ Done. |

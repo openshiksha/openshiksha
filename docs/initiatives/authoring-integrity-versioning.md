@@ -7,9 +7,11 @@
 > the assigned, frozen copy are clearly separate, and moving changes from one to
 > the other is an explicit, reviewable act.
 >
-> **Status:** 🟢 **Active** — promoted 2026-06-08 to the top initiative. It is
-> the only unblocked next bet (every other initiative is Done/Paused) and gates
-> Teacher Workspace's last increment, TW-2. Phase 1 (AIV-1..3) is in flight.
+> **Status:** 🟢 **Active** — Phase 1 (AIV-1..3) **done 2026-06-08** across
+> [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274).
+> Silent-data-corruption hole is closed; TW-2 (editable preview) is unblocked.
+> Next bet is **Phase 2** (AIV-4 + AIV-5) — editable + assignment-level preview
+> that renders from the snapshot.
 
 **Last updated:** 2026-06-08
 
@@ -225,3 +227,9 @@ real silent-data-corruption risk even if editable preview never ships.
 |---|---|---|---|
 | 2026-06-07 | Initiative drafted (⚪ Proposed). Root-caused the live-content grading risk; chose snapshot-first (Approach A) → versioning (Approach B). | _(this docs PR)_ | Motivated by the editable-preview ask on [#248](https://github.com/openshiksha/openshiksha/pull/248). Phase 1 (AIV-1..3) is independently shippable and is the priority — it removes a silent data-corruption risk. |
 | 2026-06-08 | **Promoted to top initiative (🟢 Active).** Planned Phase 1 as a 5-PR batch: AIV-1 (snapshot model + capture in both creation paths + backfill) → AIV-2a (grade from snapshot + golden test) ∥ AIV-2b (serve snapshot to student) ∥ AIV-3a (edit-safety flags) → AIV-3b (edit-safety UI notice). | _(plan: [docs/daily-plans/2026-06-08-plan.md](../daily-plans/2026-06-08-plan.md))_ | Only unblocked next bet; gates TW-2. Re-confirmed in code: `grade_submission` reads live content ([tasks.py:52,84](../../backend/openshiksha/apps/core/tasks.py)); two creation paths to instrument — `AssignmentViewSet.perform_create` and `_create_remedial_assignment`. |
+| 2026-06-08 | **AIV-1 done** — `Assignment.assigned_content` JSONField, `apps.core.snapshots.build_assignment_snapshot()`, captured in both creation paths (`AssignmentSerializer.create` + `_create_remedial_assignment`), backfilled every existing assignment from its live set. Byte-identical-after-live-edit regression test pins the integrity invariant. | [#270](https://github.com/openshiksha/openshiksha/pull/270) | Zero behaviour change on its own — readers still hit the live set. Foundation for AIV-2a/2b. |
+| 2026-06-08 | **AIV-2a done** — `grade_submission` reads `subpart_type`, `correct_answer`, `variable_constraints` from the assignment snapshot; falls back to the live set only for legacy rows the backfill couldn't reach. Ships the **golden regression test** (edit live `correct_answer` → re-grade unchanged) + per-assignment corollary (a new assignment after the same edit grades against the new answer). | [#271](https://github.com/openshiksha/openshiksha/pull/271) | The silent-corruption hole is closed at the grader. |
+| 2026-06-08 | **AIV-2b done** — student assignment-detail serializer (`AssignmentDetailSerializer.to_representation`) renders `problem_set.questions` from the snapshot via `render_snapshot_for_student`. Same croupier shuffle + `{{var}}` substitution as the live path; response shape preserved 1:1; no `correct_answer` leak. | [#272](https://github.com/openshiksha/openshiksha/pull/272) | Student sees exactly what they were assigned, even after the live set drifts. |
+| 2026-06-08 | **AIV-3a done** — read-only `assigned_count` + `has_graded_submissions` flags on `ProblemSetSerializer` + `QuestionSerializer`, backed by `Count` + `Exists` annotations so list endpoints stay N+1-free. Falls back to per-row query when annotation absent (POST responses). | [#273](https://github.com/openshiksha/openshiksha/pull/273) | UX-only signal — integrity is guaranteed by AIV-1/2; this just makes "edit is future-only" legible to the editor. |
+| 2026-06-08 | **AIV-3b done** — non-blocking edit-safety banner on `CreateQuestionPage` in edit mode. Says "this question is used in N assignment(s); edits apply to future assignments only" with stronger wording when graded submissions exist. Nothing is disabled. | [#274](https://github.com/openshiksha/openshiksha/pull/274) | Closes Phase 1's Definition of Done. ProblemSet edit surface will reuse the same component when TW-2 ships. |
+| 2026-06-08 | **Phase 1 closed.** Silent-data-corruption hole is gone; TW-2 (editable preview) is unblocked. Teacher Workspace promoted back to Active. Next bet: **Phase 2** (AIV-4 editable + AIV-5 assignment-level preview rendering from the snapshot). | — | All five PRs landed clean. |

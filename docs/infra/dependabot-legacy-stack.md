@@ -16,8 +16,9 @@ reaches the repo's default branch (`qa`) via the normal `modernization` → `qa`
 
 ## History
 
-On 2026-06-05 every open Dependabot alert (75 at the time) pointed at the
-legacy py2 manifest. They were deferred rather than bumped because:
+On 2026-06-05 every open Dependabot alert (75 at the time; 74 at resolution,
+10 critical / 41 high / 22 moderate / 1 low) pointed at the legacy py2
+manifest. They were deferred rather than bumped because:
 
 1. **No Python-2-compatible patched versions existed** for most advisories
    (Django 1.11 was the last py2 LTS; `pycrypto` was abandoned with no patch;

@@ -13,10 +13,11 @@ or runnable:
   has shipped `backend/Dockerfile.prod` + `frontend_modern/Dockerfile.prod`
   instead since the deploy modernization.
 - `pip-requirements.txt` (repo root) — the py2 dependency manifest. This was
-  the target of **every open Dependabot security alert** (3 open at time of
-  change: idna GHSA-65pc-fj4g-8rjx, urllib3 GHSA-qccp-gfcp-xxvc **high**,
-  Pillow GHSA-wjx4-4jcj-g98j; 75 historically). None were fixable in place —
-  the patched versions require Python 3.
+  the target of **every open Dependabot security alert — all 74 of them**
+  (10 critical / 41 high / 22 moderate / 1 low; newest three: idna
+  GHSA-65pc-fj4g-8rjx, urllib3 GHSA-qccp-gfcp-xxvc, Pillow
+  GHSA-wjx4-4jcj-g98j). None were fixable in place — the patched versions
+  require Python 3.
 - `scripts/collab/update.sh` and `scripts/collab/virtualenv_cleanup.sh` —
   interactive py2 virtualenv helpers that `pip install -r pip-requirements.txt`.
 

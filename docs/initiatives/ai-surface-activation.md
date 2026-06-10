@@ -62,11 +62,11 @@ the platform earns trust by always labelling what is AI vs. data-derived.
 
 | ID | Increment | Status |
 |----|-----------|--------|
-| ASA-1 | `DueForReviewPanel` consistency: loading skeleton + explanatory empty state (same pattern as #283) | ☐ |
-| ASA-2 | Recommendation rows click-through → `/student/browse/chapter/:id` ("Practice" affordance per row) | ☐ |
-| ASA-3 | SRS drill repeat-review guard: second pass in one sitting is practice-only, never a second SM-2 update | ☐ |
-| ASA-4 | Wire `/ai/explanations/` into post-submit assignment feedback (per-subpart "Explain" → generate → poll → labelled explanation) | ☐ |
-| ASA-5 | Teacher `MisconceptionClustersPanel` on dashboard (list + refresh + AI labels) | ☐ |
+| ASA-1 | `DueForReviewPanel` consistency: loading skeleton + explanatory empty state (same pattern as #283) | ✅ [#285](https://github.com/openshiksha/openshiksha/pull/285) |
+| ASA-2 | Recommendation rows click-through → `/student/browse/chapter/:id` ("Practice" affordance per row) | ✅ [#286](https://github.com/openshiksha/openshiksha/pull/286) |
+| ASA-3 | SRS drill repeat-review guard: second pass in one sitting is practice-only, never a second SM-2 update | ✅ [#287](https://github.com/openshiksha/openshiksha/pull/287) |
+| ASA-4 | Wire `/ai/explanations/` into post-submit assignment feedback (per-subpart "Explain" → generate → poll → labelled explanation) | ✅ [#288](https://github.com/openshiksha/openshiksha/pull/288) |
+| ASA-5 | Teacher `MisconceptionClustersPanel` on dashboard (list + refresh + AI labels) | ✅ [#289](https://github.com/openshiksha/openshiksha/pull/289) |
 | ASA-6 | Assignment draft builder UI (`/ai/assignment-drafts/`): generate → review rationale → approve into a real Assignment / dismiss | ☐ |
 | ASA-7 | Open-response grading UI (`/ai/open-rubrics/` + `/ai/open-grades/`) — teacher review surface | ☐ |
 | ASA-8 | Explanations on the SRS drill result screen (reuse ASA-4's hook/panel) | ☐ |
@@ -99,3 +99,8 @@ frontend consumer; every AI surface passes the checklist audit; recommendations
 | Date | Increment | PR | Learning |
 |------|-----------|----|----------|
 | 2026-06-09 | Initiative promoted; ASA-1..5 planned as today's batch | — | Seeded by the polish-backlog audit: 4 endpoint groups had no consumer. |
+| 2026-06-09 | ASA-1 — DueForReviewPanel skeleton + empty state | [#285](https://github.com/openshiksha/openshiksha/pull/285) | `useSpacedRepetitionDue` already exposed `isLoading`/`isError`; pure pattern copy from #283. |
+| 2026-06-09 | ASA-2 — recommendation rows → chapter practice | [#286](https://github.com/openshiksha/openshiksha/pull/286) | `chapter` was on the payload all along; pill styling shared with DueForReviewPanel keeps the action language consistent. |
+| 2026-06-09 | ASA-3 — SRS repeat-review guard | [#287](https://github.com/openshiksha/openshiksha/pull/287) | Plan's "grade locally" assumption was wrong (no client-side correctness); practice rounds are unscored — the guard (one SM-2 update per sitting) is what matters. ASA-9 stays for defence-in-depth. |
+| 2026-06-09 | ASA-4 — post-submit answer explanations | [#288](https://github.com/openshiksha/openshiksha/pull/288) | Serializer lacked `model_used` (1-line fix). Per-subpart correctness doesn't exist in the API — derived conservatively from overall score; per-subpart grade breakdown is a backlog candidate. |
+| 2026-06-09 | ASA-5 — teacher misconception clusters panel | [#289](https://github.com/openshiksha/openshiksha/pull/289) | Cluster serializer has no `model_used` (aggregation, not generation) — no badge needed. InterventionsPanel pattern copied wholesale; 2 of 4 dark endpoint groups now lit. |

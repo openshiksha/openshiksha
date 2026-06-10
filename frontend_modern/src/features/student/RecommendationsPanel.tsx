@@ -82,11 +82,19 @@ export const RecommendationsPanel = () => {
                 <p className="text-xs text-ink-500 mt-0.5">{rec.reason_display}</p>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-sm font-semibold text-ink-700">
-                {Math.round(rec.score_snapshot * 100)}%
-              </p>
-              <p className="text-xs text-ink-400">your score</p>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-ink-700">
+                  {Math.round(rec.score_snapshot * 100)}%
+                </p>
+                <p className="text-xs text-ink-400">your score</p>
+              </div>
+              <Link
+                to={`/student/browse/chapter/${rec.chapter}`}
+                className="text-xs font-semibold text-brand-700 hover:text-white border border-brand-200 rounded-full px-3 py-1 hover:bg-brand-600 hover:border-brand-600 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              >
+                Practice
+              </Link>
             </div>
           </div>
         ))}

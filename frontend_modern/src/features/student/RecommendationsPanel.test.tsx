@@ -104,6 +104,25 @@ describe('RecommendationsPanel', () => {
     expect(screen.getByText(/~20 min/)).toBeDefined();
   });
 
+  it('links each recommendation row to chapter practice', async () => {
+    const second: ContentRecommendation = {
+      ...REC,
+      id: 12,
+      chapter: 9,
+      chapter_name: 'Polynomials',
+      priority: 3,
+      priority_display: 'Medium',
+    };
+    mockEndpoints({ recommendations: [REC, second], plan: PLAN });
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText('Fractions')).toBeDefined());
+    const links = screen.getAllByRole('link', { name: /^practice$/i });
+    expect(links.length).toBe(2);
+    expect(links[0].getAttribute('href')).toBe('/student/browse/chapter/4');
+    expect(links[1].getAttribute('href')).toBe('/student/browse/chapter/9');
+  });
+
   it('explains what unlocks recommendations when there are none yet', async () => {
     mockEndpoints({ recommendations: [], plan: null });
     renderPanel();

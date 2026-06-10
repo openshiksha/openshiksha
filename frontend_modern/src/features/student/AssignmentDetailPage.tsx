@@ -219,6 +219,7 @@ export const AssignmentDetailPage = () => {
               answers={answers}
               onAnswerChange={handleAnswerChange}
               isSubmitted={isSubmitted}
+              explanationScore={submitScore}
             />
           ))}
         </div>

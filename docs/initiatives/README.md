@@ -80,8 +80,11 @@ Each `docs/initiatives/<id>.md` contains, in this order:
 
 See [`STATUS.md`](STATUS.md) for the live priority order and headline progress.
 
-There is no active initiative at the moment. The previous top initiative,
-[`interactive-widgets-framework.md`](interactive-widgets-framework.md), is
+The active top initiative is
+[`ai-surface-activation.md`](ai-surface-activation.md) (promoted 2026-06-09):
+wire the four shipped-but-unconsumed `/ai/` endpoint groups into the product
+and finish the polish/consistency pass on the live AI surfaces.
+[`interactive-widgets-framework.md`](interactive-widgets-framework.md) remains
 paused after IW-8: configure/code widgets are shipped, while Widget Studio is
 deferred pending product validation.
 

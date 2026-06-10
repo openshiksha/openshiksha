@@ -276,6 +276,7 @@ class SubpartExplanationSerializer(serializers.ModelSerializer):
             "explanation_text",
             "language",
             "grade_level",
+            "model_used",
             "generated_at",
         ]
         read_only_fields = fields

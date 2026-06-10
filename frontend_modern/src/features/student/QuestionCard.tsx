@@ -4,6 +4,7 @@ import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { RichContent } from '@/shared/ui/RichContent';
 import { getWidgetModule } from '@/widgets/registry';
 import { useHints } from './useHints';
+import { ExplanationPanel } from './ExplanationPanel';
 
 interface QuestionCardProps {
   question: Question;
@@ -11,6 +12,14 @@ interface QuestionCardProps {
   answers: Record<string, string>;
   onAnswerChange: (subpartId: number, value: string) => void;
   isSubmitted: boolean;
+  /**
+   * Graded submission's overall score (0–1). Providing it enables the
+   * post-submit "Explain this answer" affordance per subpart. Per-subpart
+   * correctness isn't exposed by the API, so the explanation's framing is
+   * derived from the overall score (correct only on a perfect score —
+   * conservative, the "what went wrong" framing still teaches).
+   */
+  explanationScore?: number | null;
 }
 
 /**
@@ -232,6 +241,7 @@ export const QuestionCard = ({
   answers,
   onAnswerChange,
   isSubmitted,
+  explanationScore,
 }: QuestionCardProps) => {
   const handleChange = useCallback(
     (subpartId: number, value: string) => onAnswerChange(subpartId, value),
@@ -379,6 +389,14 @@ export const QuestionCard = ({
                 label="Show worked solution"
                 content={subpart.solution_text}
                 tone="solution"
+              />
+            )}
+
+            {isSubmitted && explanationScore !== undefined && (
+              <ExplanationPanel
+                subpartId={subpart.id}
+                studentAnswer={value}
+                isCorrect={explanationScore != null && explanationScore >= 0.999}
               />
             )}
           </div>

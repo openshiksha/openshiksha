@@ -123,6 +123,41 @@ the Auto-strategy badge + note. Trigger a failing generate → red error line.
 
 ---
 
+## 2026-06-09 — Content recommendations: loading skeleton + empty state + SPA links
+
+**Surface:** Content recommendations (student dashboard `RecommendationsPanel`).
+
+**Gaps (checklist #2 loading states, #4 empty states, #6 V2 consistency):**
+1. The panel returned `null` while loading, so on every dashboard visit the
+   card **popped in after the fetch** and shoved the "Due for Review" panel
+   down — exactly the flash-of-empty-space the checklist forbids.
+2. With zero recommendations the panel rendered nothing at all, so a new
+   student **never learns the feature exists** and gets no explanation of what
+   unlocks it (checklist #4: never a blank section without explanation).
+3. Errors were silently swallowed into the same hidden state (now an explicit,
+   commented decision: the assignments list already surfaces connectivity
+   problems, so the panel steps aside on error rather than stacking banners).
+4. Footer links used raw `<a href>` → **full page reloads** instead of SPA
+   navigation; priority chips were hand-rolled spans instead of the shared
+   `Badge`. The bare score percentage had no label.
+
+**Fix:**
+- Added a shape-matched `Skeleton` card (header + 3 rows) during load.
+- Added a compact empty-state card: "No suggestions yet — answer a few
+  assignment questions and we'll point you to the chapters worth revisiting."
+- Replaced `<a>` with react-router `Link`; priority chips now use the V2
+  `Badge` (1=urgent, 2=attention, 3=brand, 4=neutral); score now labelled
+  "your score".
+- New test file `RecommendationsPanel.test.tsx` covers the skeleton, the
+  populated render, the empty state, and the hide-on-error path (checklist #8).
+
+**Verify:** Student dashboard → "What to Practice Next" shows a skeleton while
+loading, real rows with badges + labelled scores when data exists, and the
+explanatory empty card for a fresh student. Footer links navigate without a
+full reload.
+
+---
+
 ## Remaining gaps (audit notes — not yet addressed)
 
 - **Natural language explanations** — backend `SubpartExplanationViewSet` is
@@ -135,3 +170,19 @@ the Auto-strategy badge + note. Trigger a failing generate → red error line.
   state, now consistent with `WeeklyReportPanel` and `NarrativeCard`.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.
+- **Unwired backend surfaces (2026-06-09 audit)** — besides `/ai/explanations/`,
+  three more AI endpoints have **no `frontend_modern` consumer at all**:
+  `/ai/misconception-clusters/` (class misconception insights),
+  `/ai/assignment-drafts/` (assignment draft builder), and
+  `/ai/open-rubrics/` + `/ai/open-grades/` (open-response grading). Wiring each
+  is UI-build work, not polish — flagging here rather than building.
+- **Content recommendations rows are inert** — each row shows chapter + reason
+  but offers no click-through to actually practice that chapter
+  (`problem_set` is on the payload but unused). Needs a routing decision
+  (browse-by-chapter vs problem-set link); small feature, not pure polish.
+- **SRS drill result screen** — "Review again" lets a student immediately
+  resubmit the same drill, which re-runs the SM-2 update and can double-move
+  the interval in one sitting. Worth a guard or copy tweak on a future run.
+- **`DueForReviewPanel`** — same render-`null`-while-loading pop-in pattern
+  that was just fixed on `RecommendationsPanel`; lower impact (panel is below
+  the fold) but should be made consistent on a future run.

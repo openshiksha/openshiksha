@@ -10,7 +10,12 @@ import { useMarkReviewed, useSRSDrill, type SRSReviewResult } from './useSRSDril
  * 2. Student answers each subpart in a familiar QuestionCard
  * 3. Submit POSTs {answers} to /mark-reviewed/ → server grades + updates SM-2
  * 4. Result screen shows score and next review date
+ *
+ * Only the first completed pass per visit updates the SM-2 schedule; repeat
+ * passes are practice-only so one sitting can never double-move the interval.
  */
+type DrillPhase = 'review' | 'reviewResult' | 'practice' | 'practiceResult';
+
 export const SRSDrillPage = () => {
   const { entryId } = useParams<{ entryId: string }>();
   const navigate = useNavigate();
@@ -21,6 +26,7 @@ export const SRSDrillPage = () => {
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<SRSReviewResult | null>(null);
+  const [phase, setPhase] = useState<DrillPhase>('review');
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((v) => v && v.trim().length > 0).length,
@@ -37,10 +43,26 @@ export const SRSDrillPage = () => {
 
   const handleSubmit = () => {
     if (!drill || answeredCount === 0) return;
+    if (phase === 'practice') {
+      // Practice round: the SM-2 schedule was already updated this visit —
+      // never fire a second mark-reviewed for the same sitting.
+      setPhase('practiceResult');
+      return;
+    }
     markReviewed(
       { entryId: drill.entry_id, answers },
-      { onSuccess: (data) => setResult(data) },
+      {
+        onSuccess: (data) => {
+          setResult(data);
+          setPhase('reviewResult');
+        },
+      },
     );
+  };
+
+  const startPracticeRound = () => {
+    setAnswers({});
+    setPhase('practice');
   };
 
   if (isLoading) {
@@ -78,7 +100,7 @@ export const SRSDrillPage = () => {
     );
   }
 
-  if (result) {
+  if (phase === 'reviewResult' && result) {
     const pct = Math.round(result.score * 100);
     const passed = result.score >= 0.6;
     return (
@@ -105,14 +127,39 @@ export const SRSDrillPage = () => {
           </p>
           <div className="flex flex-wrap gap-2 justify-center">
             <Button onClick={() => navigate('/student')}>Back to Dashboard</Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setAnswers({});
-                setResult(null);
-              }}
-            >
-              Review again
+            <Button variant="ghost" onClick={startPracticeRound}>
+              Practice again
+            </Button>
+          </div>
+          <p className="text-xs text-ink-400 mt-3">
+            Extra practice won&apos;t change your review schedule.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'practiceResult' && result) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-10">
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-8 text-center">
+          <div className="text-5xl mb-4" aria-hidden>
+            💪
+          </div>
+          <h2 className="text-2xl font-display font-semibold text-ink-900 mb-2">
+            Practice round complete!
+          </h2>
+          <p className="text-ink-700 mb-1">
+            Nice extra rep on <span className="font-semibold">{drill.chapter_name}</span>
+          </p>
+          <p className="text-sm text-ink-500 mb-6">
+            Practice rounds don&apos;t change your schedule — your next review stays on{' '}
+            {result.next_review_date}.
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <Button onClick={() => navigate('/student')}>Back to Dashboard</Button>
+            <Button variant="ghost" onClick={startPracticeRound}>
+              Practice again
             </Button>
           </div>
         </div>
@@ -163,6 +210,11 @@ export const SRSDrillPage = () => {
         />
       ) : (
         <>
+          {phase === 'practice' && (
+            <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-800">
+              Practice round — extra practice won&apos;t change your review schedule.
+            </div>
+          )}
           <div className="mb-4 flex items-center justify-between text-xs text-ink-500">
             <span>
               {answeredCount} / {totalSubparts} answered
@@ -192,7 +244,11 @@ export const SRSDrillPage = () => {
               onClick={handleSubmit}
               disabled={isPending || answeredCount === 0}
             >
-              {isPending ? 'Submitting…' : 'Submit Review'}
+              {isPending
+                ? 'Submitting…'
+                : phase === 'practice'
+                  ? 'Finish Practice'
+                  : 'Submit Review'}
             </Button>
             {answeredCount === 0 && (
               <p className="text-xs text-center text-ink-400 mt-2">

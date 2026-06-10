@@ -5,10 +5,13 @@ React/Vite frontend + Celery + Postgres + Redis) gets to qa and prod on the
 `k3s-personal-server` cluster.
 
 > **The legacy root `Dockerfile` (Python 2.7 / Django 1.11 / nginx-in-image)
-> is no longer built or deployed.** CI used to publish it; merging
-> `modernization` → `qa` would fail because the Debian Buster repos it
-> depends on were archived in mid-2024. The legacy file is still in the repo
-> for reference but is excluded from the pipeline.
+> is no longer built or deployed — and as of 2026-06-09 it has been deleted
+> from the repo** along with `pip-requirements.txt` and the
+> `scripts/collab/` venv helpers (see
+> [docs/changes/2026-06-09-legacy-py2-retirement.md](../changes/2026-06-09-legacy-py2-retirement.md)).
+> CI used to publish it; merging `modernization` → `qa` would fail because
+> the Debian Buster repos it depends on were archived in mid-2024. Recover
+> it from git history if ever needed.
 
 ## What's running
 

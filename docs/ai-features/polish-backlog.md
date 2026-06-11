@@ -250,7 +250,7 @@ While loading → a pulsing report-card skeleton.
 
 ---
 
-## Remaining gaps (audit notes — updated 2026-06-10)
+## Remaining gaps (audit notes — updated 2026-06-11, ASA closed)
 
 - ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`
   (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10) now
@@ -266,16 +266,14 @@ While loading → a pulsing report-card skeleton.
   delayed refetch lands; could clear once new data arrives. Minor.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.
-- **Unwired backend surfaces** — `/ai/assignment-drafts/` (assignment draft
-  builder) and `/ai/open-rubrics/` + `/ai/open-grades/` (open-response
-  grading) still have **no `frontend_modern` consumer**. Wiring each is
-  UI-build work (ASA-6/ASA-7 batch-anchors), not polish.
-  ✅ `/ai/explanations/` wired 2026-06-09 (ASA-4, `ExplanationPanel`);
-  ✅ `/ai/misconception-clusters/` wired 2026-06-09 (ASA-5).
-- **`ExplanationPanel` provenance label is a bare span** — uses a hand-rolled
-  uppercase span for `✨ AI-generated` / `Auto-explanation` instead of the
-  shared `Badge` used by `InterventionsPanel`/`WeeklyReportPanel`/`NarrativeCard`.
-  Cosmetic consistency tweak for a future run.
+- ✅ **Unwired backend surfaces — all four groups lit.**
+  `/ai/explanations/` (ASA-4, 2026-06-09), `/ai/misconception-clusters/`
+  (ASA-5, 2026-06-09), `/ai/assignment-drafts/` (ASA-6, #297),
+  `/ai/open-rubrics/` + `/ai/open-grades/` (ASA-7, #301 + #302). The
+  repeatable audit now lives in
+  [endpoint-consumer-map.md](endpoint-consumer-map.md).
+- ✅ **`ExplanationPanel` provenance label** — fixed 2026-06-11 (#300): all
+  five surfaces now use the shared `AIBadge` primitive from `@/shared/ui`.
 - ✅ **Content recommendations click-through** — done 2026-06-09 (ASA-2).
 - ✅ **SRS drill repeat-review guard** — done 2026-06-09 (ASA-3).
 - ✅ **`DueForReviewPanel` skeleton/empty states** — done 2026-06-09 (ASA-1).

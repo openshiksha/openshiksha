@@ -1,7 +1,7 @@
 # AI Surface Activation
 
-**Status:** 🟢 Active (promoted 2026-06-09)
-**Owner docs:** [`docs/ai-features/polish-backlog.md`](../ai-features/polish-backlog.md) (audit trail that seeded this initiative)
+**Status:** ✅ Done (closed 2026-06-11 — North Star reached; see "DoD audit & close" below)
+**Owner docs:** [`docs/ai-features/polish-backlog.md`](../ai-features/polish-backlog.md) (audit trail that seeded this initiative) · [`docs/ai-features/endpoint-consumer-map.md`](../ai-features/endpoint-consumer-map.md) (the repeatable audit)
 
 ## North Star
 
@@ -68,7 +68,7 @@ the platform earns trust by always labelling what is AI vs. data-derived.
 | ASA-4 | Wire `/ai/explanations/` into post-submit assignment feedback (per-subpart "Explain" → generate → poll → labelled explanation) | ✅ [#288](https://github.com/openshiksha/openshiksha/pull/288) |
 | ASA-5 | Teacher `MisconceptionClustersPanel` on dashboard (list + refresh + AI labels) | ✅ [#289](https://github.com/openshiksha/openshiksha/pull/289) |
 | ASA-6 | Assignment draft builder UI (`/ai/assignment-drafts/`): generate → review rationale → approve into a real Assignment / dismiss | ✅ [#297](https://github.com/openshiksha/openshiksha/pull/297) |
-| ASA-7 | Open-response grading UI (`/ai/open-rubrics/` + `/ai/open-grades/`) — teacher review surface | ☐ |
+| ASA-7 | Open-response grading UI (`/ai/open-rubrics/` + `/ai/open-grades/`) — teacher review surface | ✅ [#301](https://github.com/openshiksha/openshiksha/pull/301) (queue) + [#302](https://github.com/openshiksha/openshiksha/pull/302) (rubrics + record) |
 | ASA-8 | Explanations on the SRS drill result screen (reuse ASA-4's hook/panel) | ✅ [#296](https://github.com/openshiksha/openshiksha/pull/296) |
 | ASA-9 | Backend idempotency guard for repeat SRS review in one day (defence-in-depth behind ASA-3) | ✅ [#295](https://github.com/openshiksha/openshiksha/pull/295) |
 
@@ -85,14 +85,50 @@ the platform earns trust by always labelling what is AI vs. data-derived.
 frontend consumer; every AI surface passes the checklist audit; recommendations
 → practice loop closes in one click.
 
-## Continuous Improvement pool
+## Continuous Improvement pool (resolved at close)
 
-- Unify the `✨ AI-generated` / `Auto-…` badge + stub-note into one shared
-  `AIBadge` component (currently re-implemented in 3+ panels).
-- Extract a `useAsyncGeneration` hook for the POST-202-then-poll pattern.
-- Sweep remaining raw `<a href>` SPA-internal links in feature panels.
-- Add an `/ai/` endpoint-to-consumer map in `docs/ai-features/` and keep it
-  current (the audit that found this gap should be repeatable).
+- ✅ Shared `AIBadge` component — [#300](https://github.com/openshiksha/openshiksha/pull/300);
+  adopted at all five call sites incl. `ExplanationPanel`'s bare span.
+- ✅ Raw `<a href>` sweep — verified 2026-06-11: zero remain in feature
+  panels (only the intentional `/design` showcase examples).
+- ✅ `/ai/` endpoint-to-consumer map —
+  [`docs/ai-features/endpoint-consumer-map.md`](../ai-features/endpoint-consumer-map.md),
+  with a maintenance rule (update in the same PR that adds/consumes an
+  endpoint).
+- ↪ **Carried over (maintenance, not DoD):** extract a `useAsyncGeneration`
+  hook — the 202-then-poll pattern now lives in 4 places
+  (`ExplanationPanel`, `WeeklyReportPanel`, `AssignmentDraftsPanel`,
+  `OpenResponseGradingPage`). All four are tested and working; the extraction
+  is a pure refactor best done as a standalone PR by whichever change next
+  touches one of them.
+
+## DoD audit & close (2026-06-11)
+
+**Initiative DoD, point by point:**
+
+1. **No `/ai/` endpoint group without a frontend consumer** — ✅ The four dark
+   groups from the 2026-06-09 audit are all lit: `/ai/explanations/` (ASA-4,
+   #288), `/ai/misconception-clusters/` (ASA-5, #289),
+   `/ai/assignment-drafts/` (ASA-6, #297), `/ai/open-rubrics/` +
+   `/ai/open-grades/` (ASA-7, #301 + #302). Full verification in the
+   [endpoint-consumer map](../ai-features/endpoint-consumer-map.md): 17
+   endpoints directly consumed, 4 are data-feeders consumed indirectly by
+   design, 1 (`/ai/predictions/`) is API-only — documented as a future
+   product call, outside the audit's four groups.
+2. **Every AI surface passes the checklist audit** — ✅ Error-as-empty-state
+   eliminated on every panel (sweep finished #293/#294/#299); shape-matched
+   skeletons everywhere; provider transparency unified behind `AIBadge`
+   (#300); every async generation shows a working state with retry; every
+   new UI shipped with a Vitest file. Two cosmetic notes remain in
+   `polish-backlog.md` (cluster cards can't badge provenance without a model
+   field; refresh confirmation lingers) — both recorded there as minor.
+3. **Recommendations → practice loop closes in one click** — ✅ ASA-2 (#286);
+   the same one-click principle now also covers drafts → assignment (ASA-6)
+   and response → reviewed grade (ASA-7).
+
+**Closing inventory:** ASA-1..9 all shipped across #285–#289, #293–#302
+(15 feature/polish PRs + 3 docs PRs). Backend untouched except two justified
+additions: the ASA-9 idempotency guard and the room-roster picker action.
 
 ## Progress Ledger
 
@@ -109,3 +145,8 @@ frontend consumer; every AI surface passes the checklist audit; recommendations
 | 2026-06-10 | ASA-9 — server-side same-day SM-2 guard | [#295](https://github.com/openshiksha/openshiksha/pull/295) | "Grade, don't schedule": guarded calls still grade answers but skip schedule/ticks/streak. Additive `already_reviewed_today` flag; no migration needed. |
 | 2026-06-10 | ASA-8 — explanations on drill result screens | [#296](https://github.com/openshiksha/openshiksha/pull/296) | Zero new hooks — rendering the answered questions read-only via `QuestionCard` unlocked ASA-4's ExplanationPanel *and* worked-solution reveal for free. Practice rounds pass `null` score (ungraded client-side). |
 | 2026-06-10 | ASA-6 — assignment drafts panel (batch anchor) | [#297](https://github.com/openshiksha/openshiksha/pull/297) | 3 of 4 dark endpoint groups lit; only ASA-7 remains. Per-room mounting beat the planned room-dropdown (siblings set the convention). Third re-implementation of 202-then-poll — `useAsyncGeneration` extraction is now clearly worth it. |
+| 2026-06-11 | Re-land #294 (WeeklyReportPanel polish) | [#299](https://github.com/openshiksha/openshiksha/pull/299) | **Process lesson:** #294 was merged into its stack-parent branch, not `modernization` — its content never landed. Stacked PRs must be retargeted to the mainline before merging; cherry-pick recovered it cleanly. |
+| 2026-06-11 | Shared `AIBadge` + adoption (CI pool) | [#300](https://github.com/openshiksha/openshiksha/pull/300) | Labels unchanged → all existing badge tests passed untouched. `isAIStub` lives in its own module to keep the component file fast-refresh-clean. |
+| 2026-06-11 | ASA-7a — open-response grading queue | [#301](https://github.com/openshiksha/openshiksha/pull/301) | Last dark group lit. Review form defaults to the AI's score so accepting is one click; the stub (keyword-heuristic) path carries a stronger caveat than other stub surfaces. |
+| 2026-06-11 | ASA-7b — rubric authoring + record-response | [#302](https://github.com/openshiksha/openshiksha/pull/302) | Completes ASA-7 and the backlog. One genuinely missing API surfaced: no teacher-facing room roster — added `GET /subject-rooms/{id}/students/` (students 404, can't enumerate classmates). Rubric editing lives where responses are recorded, so the no-rubric nudge lands at the decision moment. |
+| 2026-06-11 | **Initiative closed** — endpoint map + DoD audit | [#303](https://github.com/openshiksha/openshiksha/pull/303) | North Star reached: 17 `/ai/` endpoints directly consumed, 4 indirect by design, 1 documented as API-only (`/ai/predictions/` — future product call). `useAsyncGeneration` carried to maintenance. |

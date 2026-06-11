@@ -255,6 +255,110 @@ class TestMarkReviewedAction:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Same-day idempotency guard (ASA-9)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+class TestMarkReviewedSameDayGuard:
+    def test_second_review_same_day_leaves_schedule_unchanged(self):
+        student = make_user(role="student", username="srs_guard_student")
+        entry, _ = _make_entry(student)
+        client = _client_for(student)
+        url = f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/"
+
+        first = client.post(url, data=json.dumps({"score": 0.9}), content_type="application/json")
+        assert first.status_code == 200
+        assert first.json()["already_reviewed_today"] is False
+        entry.refresh_from_db()
+        ef, reps, interval, next_review = (
+            entry.easiness_factor,
+            entry.repetitions,
+            entry.interval_days,
+            entry.next_review_date,
+        )
+
+        second = client.post(url, data=json.dumps({"score": 1.0}), content_type="application/json")
+        assert second.status_code == 200
+        assert second.json()["already_reviewed_today"] is True
+        entry.refresh_from_db()
+        assert entry.easiness_factor == ef
+        assert entry.repetitions == reps
+        assert entry.interval_days == interval
+        assert entry.next_review_date == next_review
+
+    def test_review_on_a_later_day_still_updates(self):
+        from datetime import timedelta
+
+        student = make_user(role="student", username="srs_guard_later_day")
+        entry, _ = _make_entry(student)
+        entry.last_reviewed_at = timezone.now() - timedelta(days=2)
+        entry.save()
+
+        client = _client_for(student)
+        response = client.post(
+            f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/",
+            data=json.dumps({"score": 0.9}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json()["already_reviewed_today"] is False
+        entry.refresh_from_db()
+        assert entry.repetitions == 1
+
+    def test_guarded_call_still_grades_answers(self):
+        student = make_user(role="student", username="srs_guard_grades")
+        entry, chapter = _make_entry(student)
+        _, subpart = _make_question_with_subpart(chapter, qtype="numeric", correct="42", options=None)
+        client = _client_for(student)
+        url = f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/"
+
+        client.post(url, data=json.dumps({"score": 0.9}), content_type="application/json")
+
+        response = client.post(
+            url,
+            data=json.dumps({"answers": {str(subpart.id): "42"}}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["already_reviewed_today"] is True
+        assert body["score"] == 1.0
+        # Practice round only — the schedule stayed where the first review put it.
+        entry.refresh_from_db()
+        assert entry.repetitions == 1
+
+    def test_guarded_call_does_not_double_count_proficiency_ticks(self):
+        from openshiksha.apps.edge.models import Tick
+
+        student = make_user(role="student", username="srs_guard_ticks")
+        entry, chapter = _make_entry(student, subject_name="Physics_Guard", chapter_name="Waves_Guard")
+        _, subpart = _make_question_with_subpart(chapter, qtype="numeric", correct="7", options=None)
+        _make_subject_room_for(student, chapter.subject)
+
+        client = _client_for(student)
+        url = f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/"
+        payload = json.dumps({"answers": {str(subpart.id): "7"}})
+
+        client.post(url, data=payload, content_type="application/json")
+        assert Tick.objects.filter(student=student).count() == 1
+
+        client.post(url, data=payload, content_type="application/json")
+        assert Tick.objects.filter(student=student).count() == 1
+
+    def test_guarded_call_still_validates_bad_bodies(self):
+        student = make_user(role="student", username="srs_guard_400")
+        entry, _ = _make_entry(student)
+        client = _client_for(student)
+        url = f"/api/v1/ai/spaced-repetition/{entry.id}/mark-reviewed/"
+
+        client.post(url, data=json.dumps({"score": 0.9}), content_type="application/json")
+
+        response = client.post(url, data=json.dumps({}), content_type="application/json")
+        assert response.status_code == 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # SRS → Proficiency + Streak integration
 # ─────────────────────────────────────────────────────────────────────────────
 

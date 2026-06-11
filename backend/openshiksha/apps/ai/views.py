@@ -528,6 +528,14 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         Updates SM-2 schedule:
           score >= 0.6 → successful recall, interval grows
           score <  0.6 → failed recall, reset to interval=1
+
+        Idempotency contract (ASA-9): the SM-2 schedule mutates at most once
+        per entry per local day. If the entry was already reviewed today, the
+        call still grades submitted answers (the practice round stays useful)
+        but skips the schedule update, the proficiency ticks and the streak,
+        and returns 200 with `"already_reviewed_today": true` alongside the
+        unchanged entry. Normal calls return the same shape with the flag set
+        to false.
         """
         entry = self.get_object()
         if entry.student_id != request.user.id:
@@ -536,6 +544,10 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         from datetime import timedelta
 
         from django.utils import timezone
+
+        already_reviewed_today = (
+            entry.last_reviewed_at is not None and timezone.localdate(entry.last_reviewed_at) == timezone.localdate()
+        )
 
         from openshiksha.apps.core.models import QuestionSubpart
         from openshiksha.apps.core.tasks import _grade_subpart
@@ -590,6 +602,16 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
                     {"detail": "Provide either answers (object) or score (0.0–1.0)."},
                     status=400,
                 )
+
+        if already_reviewed_today:
+            # Defence-in-depth (ASA-9): the client already avoids the double
+            # call in-app (ASA-3), but the server must guarantee one sitting
+            # can never compound the interval/easiness-factor. Grade, don't
+            # schedule — and don't double-count proficiency or streak either.
+            data = self.get_serializer(entry).data
+            data["score"] = round(score, 4)
+            data["already_reviewed_today"] = True
+            return Response(data)
 
         if score >= 0.60:
             if entry.repetitions == 0:
@@ -656,6 +678,7 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
 
         data = self.get_serializer(entry).data
         data["score"] = round(score, 4)
+        data["already_reviewed_today"] = False
         return Response(data)
 
     @action(detail=False, methods=["get"], url_path="due")

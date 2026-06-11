@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, Skeleton } from '@/shared/ui';
+import { AIBadge, Badge, Button, Skeleton, isAIStub } from '@/shared/ui';
 import {
   errorDetail,
   useAssignmentDrafts,
@@ -96,9 +96,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
   const dismiss = useDismissAssignmentDraft(subjectRoomId);
   const regenerate = useGenerateAssignmentDraft(subjectRoomId);
   const [approving, setApproving] = useState(false);
-  // Like the sibling panels: the deterministic fallback selection is still
-  // useful, but must never read as genuine AI output (provider transparency).
-  const isStub = draft.model_used === 'stub';
+  const isStub = isAIStub(draft.model_used);
 
   if (draft.status === 'pending') {
     return (
@@ -169,9 +167,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
         <p className="font-display text-base text-ink-900 leading-tight min-w-0">
           {draft.title || 'Practice set'}
         </p>
-        <Badge tone={isStub ? 'neutral' : 'brand'} className="shrink-0">
-          {isStub ? 'Auto-drafted' : '✨ AI-generated'}
-        </Badge>
+        <AIBadge modelUsed={draft.model_used} stubLabel="Auto-drafted" className="shrink-0" />
       </div>
 
       {draft.rationale_text && (

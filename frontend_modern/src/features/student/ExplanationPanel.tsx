@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RichContent } from '@/shared/ui/RichContent';
-import { Skeleton } from '@/shared/ui';
+import { AIBadge, Skeleton, isAIStub } from '@/shared/ui';
 import { useExplanationList, useGenerateExplanation } from './useExplanation';
 
 interface ExplanationPanelProps {
@@ -75,16 +75,14 @@ export const ExplanationPanel = ({
   }
 
   if (explanation) {
-    const isStub = explanation.model_used === 'stub';
+    const isStub = isAIStub(explanation.model_used);
     return (
       <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50 p-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-medium text-brand-800">
             {isCorrect ? 'Why this answer is right' : 'Where this went wrong'}
           </span>
-          <span className="text-[10px] font-medium uppercase tracking-wide text-ink-400">
-            {isStub ? 'Auto-explanation' : '✨ AI-generated'}
-          </span>
+          <AIBadge modelUsed={explanation.model_used} stubLabel="Auto-explanation" />
         </div>
         <div className="text-sm text-ink-800 leading-relaxed">
           <RichContent text={explanation.explanation_text} variant="block" />

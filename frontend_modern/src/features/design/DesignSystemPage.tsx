@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Badge,
+  AIBadge,
   Skeleton,
   LoadingSpinner,
   Input,
@@ -143,6 +144,17 @@ export const DesignSystemPage = () => (
           <Badge tone="success">On track</Badge>
           <Badge tone="attention">Needs practice</Badge>
           <Badge tone="urgent">Sharp drop</Badge>
+        </Card>
+        <p className="mt-4 mb-3 text-sm text-ink-500">
+          AI provenance — <code>&lt;AIBadge /&gt;</code> labels every AI surface honestly:
+          brand for genuine LLM output, a neutral <em>Auto-…</em> label when the provider
+          cascade fell back to the deterministic stub.
+        </p>
+        <Card className="flex flex-wrap gap-2">
+          <AIBadge modelUsed="claude-sonnet-4-6" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-summary" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-strategy" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-explanation" />
         </Card>
       </Section>
 

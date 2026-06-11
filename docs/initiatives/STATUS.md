@@ -4,21 +4,29 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-10 — **ASA batch 2 shipped:
-[#293](https://github.com/openshiksha/openshiksha/pull/293)–[#297](https://github.com/openshiksha/openshiksha/pull/297)**
-(per [2026-06-10-plan.md](../daily-plans/2026-06-10-plan.md)). Teachers can now
-generate, review and approve **AI-drafted assignments** straight from the
-dashboard (#297 — first `/ai/assignment-drafts/` consumer; **3 of 4 dark
-endpoint groups lit**); SRS drill result screens offer per-subpart AI
-explanations (#296); the server now guarantees one SM-2 update per entry per
-day (#295); and the error-as-empty-state sweep is **complete** across all
-teacher AI panels (#293 `InterventionsPanel`, #294 `WeeklyReportPanel`).
-Remaining: ASA-7 (open-response grading UI — last dark group, its own
-batch-anchor run), then the continuous-improvement pool (shared `AIBadge`,
-`useAsyncGeneration`) and the initiative DoD audit.
+**Last updated:** 2026-06-11 — **AI Surface Activation closed — North Star
+reached** ([#299](https://github.com/openshiksha/openshiksha/pull/299)–[#303](https://github.com/openshiksha/openshiksha/pull/303)).
+The closing batch lit the **last dark `/ai/` endpoint group**: teachers get an
+open-response **AI grading queue** at `/teacher/grading` (#301 — AI suggests a
+score/feedback/criterion breakdown, the teacher finalises every grade) plus
+inline **rubric authoring + record-response** (#302, first `/ai/open-rubrics/`
+consumer, with a teacher-only room-roster API). The provenance vocabulary is
+unified behind a shared **`AIBadge`** primitive (#300), #294's orphaned
+WeeklyReportPanel polish was re-landed (#299 — stacked-PR process lesson in
+the ledger), and the close (#303) added the repeatable
+[endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit:
+**17 `/ai/` endpoints directly consumed, 4 indirect by design, 1 documented
+API-only** (`/ai/predictions/`, future product call). `useAsyncGeneration`
+extraction carried to maintenance. **Every active initiative is now Done or
+Paused — no unblocked next bet on the board until a new initiative is
+promoted.** Candidate seeds: an `/ai/predictions/` teacher surface, or the
+deferred Widget Studio discovery.
 
-Earlier same day — ASA batch 2 planned; #291 (misconception-panel
-error/skeleton polish) merged in the morning.
+Earlier (2026-06-10) — ASA batch 2 shipped
+([#293](https://github.com/openshiksha/openshiksha/pull/293)–[#297](https://github.com/openshiksha/openshiksha/pull/297)):
+AI-drafted assignments panel (ASA-6), drill-result explanations (ASA-8),
+server-side SM-2 same-day guard (ASA-9), and the error-as-empty-state sweep
+across the teacher AI panels.
 
 Earlier (2026-06-09 evening) — **ASA first batch shipped: ASA-1..5
 across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289).**
@@ -65,7 +73,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [AI Surface Activation](ai-surface-activation.md) | Active | **ASA-1..5 shipped 2026-06-09** ([#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289)): panel-state polish, recommendation click-through, SRS repeat-review guard, and first consumers for `/ai/explanations/` + `/ai/misconception-clusters/`. 2 of 4 dark endpoint groups lit. | **Batch 2 (planned 2026-06-10):** ASA-6 draft builder (anchor) + ASA-8 + ASA-9 + InterventionsPanel/WeeklyReportPanel error-state polish. Then ASA-7 (open-response grading UI, own batch-anchor) |
+| - | [AI Surface Activation](ai-surface-activation.md) | Done | **Closed 2026-06-11 — North Star reached.** ASA-1..9 shipped across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289), [#293](https://github.com/openshiksha/openshiksha/pull/293)–[#302](https://github.com/openshiksha/openshiksha/pull/302): all four dark `/ai/` endpoint groups lit (explanations, misconception clusters, assignment drafts, open-response grading), error-as-empty-state sweep complete, shared `AIBadge` provenance, server-side SRS guard. Close ([#303](https://github.com/openshiksha/openshiksha/pull/303)): [endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit — 17 endpoints directly consumed, 4 indirect by design, 1 API-only (`/ai/predictions/`). | `useAsyncGeneration` refactor carried to maintenance; `/ai/predictions/` surface is a future product call |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |
 | - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |
 | - | [Performance Budget](performance-budget.md) | Done | Closed 2026-06-07. PERF-01..04 + PERF-06 shipped in one batch ([#251](https://github.com/openshiksha/openshiksha/pull/251)–[#255](https://github.com/openshiksha/openshiksha/pull/255)); follow-up ([#256](https://github.com/openshiksha/openshiksha/pull/256)) dropped `ReactQueryDevtools` in prod, added a measurement harness, and fixed a `@/shared/ui` barrel-export leak that was dragging DOMPurify into the entry chunk. Entry chunk **855 → 93 kB / 247 → 29 kB gzip** (88% gzip drop); vendor split, route-level `React.lazy`, lazy KaTeX behind `<RichContent>`, CI budget guard at 160 kB. Measured `/login` FCP under Slow 4G + 4× CPU: 4.4 s. | - |

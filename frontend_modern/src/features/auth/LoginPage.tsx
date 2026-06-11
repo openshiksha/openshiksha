@@ -37,7 +37,7 @@ export const LoginPage = () => {
             student exactly what to learn next.
           </p>
         </div>
-        <p className="text-sm text-ink-300">Non-profit · CBSE · English &amp; हिन्दी</p>
+        <p className="text-sm text-ink-300">CBSE · Classes 7–10 · English &amp; हिन्दी</p>
       </div>
 
       {/* ── Form panel (paper) ─────────────────────────────────────────── */}

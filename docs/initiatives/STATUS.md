@@ -4,7 +4,14 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-09 (evening) — **ASA first batch shipped: ASA-1..5
+**Last updated:** 2026-06-10 — **ASA batch 2 planned**
+([2026-06-10-plan.md](../daily-plans/2026-06-10-plan.md)): ASA-6 assignment-draft
+builder (anchor — lights the 3rd dark endpoint group), ASA-8 drill explanations,
+ASA-9 SRS server-side repeat guard, plus the last two error-as-empty-state
+panels (`InterventionsPanel`, `WeeklyReportPanel`). #291 (misconception-panel
+error/skeleton polish) merged this morning.
+
+Earlier (2026-06-09 evening) — **ASA first batch shipped: ASA-1..5
 across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289).**
 Students now get post-submit AI answer explanations (first `/ai/explanations/`
 consumer, #288); teachers get class misconception clusters (first
@@ -49,7 +56,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [AI Surface Activation](ai-surface-activation.md) | Active | **ASA-1..5 shipped 2026-06-09** ([#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289)): panel-state polish, recommendation click-through, SRS repeat-review guard, and first consumers for `/ai/explanations/` + `/ai/misconception-clusters/`. 2 of 4 dark endpoint groups lit. | ASA-6 (assignment-draft builder UI — full generate→review→approve workflow, batch-anchor) → ASA-7 (open-response grading UI) → ASA-8/9 cleanups |
+| 1 | [AI Surface Activation](ai-surface-activation.md) | Active | **ASA-1..5 shipped 2026-06-09** ([#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289)): panel-state polish, recommendation click-through, SRS repeat-review guard, and first consumers for `/ai/explanations/` + `/ai/misconception-clusters/`. 2 of 4 dark endpoint groups lit. | **Batch 2 (planned 2026-06-10):** ASA-6 draft builder (anchor) + ASA-8 + ASA-9 + InterventionsPanel/WeeklyReportPanel error-state polish. Then ASA-7 (open-response grading UI, own batch-anchor) |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |
 | - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |
 | - | [Performance Budget](performance-budget.md) | Done | Closed 2026-06-07. PERF-01..04 + PERF-06 shipped in one batch ([#251](https://github.com/openshiksha/openshiksha/pull/251)–[#255](https://github.com/openshiksha/openshiksha/pull/255)); follow-up ([#256](https://github.com/openshiksha/openshiksha/pull/256)) dropped `ReactQueryDevtools` in prod, added a measurement harness, and fixed a `@/shared/ui` barrel-export leak that was dragging DOMPurify into the entry chunk. Entry chunk **855 → 93 kB / 247 → 29 kB gzip** (88% gzip drop); vendor split, route-level `React.lazy`, lazy KaTeX behind `<RichContent>`, CI budget guard at 160 kB. Measured `/login` FCP under Slow 4G + 4× CPU: 4.4 s. | - |

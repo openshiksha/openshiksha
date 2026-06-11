@@ -7,6 +7,7 @@ import { ClassHealthPanel } from './ClassHealthPanel';
 import { WeeklyReportPanel } from './WeeklyReportPanel';
 import { InterventionsPanel } from './InterventionsPanel';
 import { MisconceptionClustersPanel } from './MisconceptionClustersPanel';
+import { AssignmentDraftsPanel } from './AssignmentDraftsPanel';
 import { QuestionQualityPanel } from './QuestionQualityPanel';
 import { ClassroomCodeWidget } from './ClassroomCodeWidget';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
@@ -83,6 +84,7 @@ const RoomInsights = ({ subjectRoomId }: { subjectRoomId: number }) => {
           <WeeklyReportPanel subjectRoomId={subjectRoomId} />
           <InterventionsPanel subjectRoomId={subjectRoomId} />
           <MisconceptionClustersPanel subjectRoomId={subjectRoomId} />
+          <AssignmentDraftsPanel subjectRoomId={subjectRoomId} />
           <QuestionQualityPanel subjectRoomId={subjectRoomId} />
         </div>
       )}

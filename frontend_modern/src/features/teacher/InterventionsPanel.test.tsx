@@ -132,6 +132,55 @@ describe('InterventionsPanel', () => {
     );
   });
 
+  it('shows shape-matched skeletons — not the empty state — while the list loads', async () => {
+    let resolveGet!: (value: { data: { results: InterventionSuggestion[] } }) => void;
+    mockGet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGet = resolve;
+        })
+    );
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/No struggling students flagged/)).toBeNull();
+
+    resolveGet({ data: { results: [SUGGESTION] } });
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+  });
+
+  it('shows an error with retry — not the empty state — when the list fetch fails', async () => {
+    mockGet.mockRejectedValue(new Error('network down'));
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load suggestions just now/)).toBeDefined()
+    );
+    // A failed fetch must not read as "no struggling students in this class".
+    expect(screen.queryByText(/No struggling students flagged/)).toBeNull();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeDefined();
+  });
+
+  it('recovers when retry succeeds after a failed list fetch', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    mockGet.mockResolvedValue({ data: { results: [SUGGESTION] } });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load suggestions just now/)).toBeDefined()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+    expect(screen.queryByText(/Couldn't load suggestions just now/)).toBeNull();
+  });
+
   it('shows an empty state and a Generate action when there are no suggestions', async () => {
     mockGet.mockResolvedValue({ data: { results: [] } });
     mockPost.mockResolvedValue({ data: {} });

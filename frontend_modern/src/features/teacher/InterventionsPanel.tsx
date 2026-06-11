@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button } from '@/shared/ui';
+import { Badge, Button, Skeleton } from '@/shared/ui';
 import {
   useGenerateInterventions,
   useInterventions,
@@ -121,6 +121,28 @@ const SuggestionCard = ({ item, subjectRoomId }: CardProps) => {
   );
 };
 
+// Mirrors the SuggestionCard layout so the list doesn't reflow when data lands.
+const SuggestionCardSkeleton = () => (
+  <div className="rounded-xl border border-ink-100 bg-paper p-4">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Skeleton w="w-1/2" h="h-5" />
+        <Skeleton w="w-1/3" h="h-3" />
+      </div>
+      <Skeleton w="w-20" h="h-5" rounded="rounded-full" />
+    </div>
+    <div className="mt-3 space-y-1.5">
+      <Skeleton w="w-24" h="h-5" rounded="rounded-full" />
+      <Skeleton w="w-full" h="h-3" />
+      <Skeleton w="w-5/6" h="h-3" />
+    </div>
+    <div className="mt-3 flex gap-1.5">
+      <Skeleton w="w-24" h="h-5" rounded="rounded-full" />
+      <Skeleton w="w-20" h="h-5" rounded="rounded-full" />
+    </div>
+  </div>
+);
+
 interface Props {
   subjectRoomId: number;
 }
@@ -132,7 +154,12 @@ interface Props {
  */
 export const InterventionsPanel = ({ subjectRoomId }: Props) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: suggestions, isLoading } = useInterventions(subjectRoomId, isExpanded);
+  const {
+    data: suggestions,
+    isLoading,
+    isError,
+    refetch,
+  } = useInterventions(subjectRoomId, isExpanded);
   const generate = useGenerateInterventions(subjectRoomId);
 
   // Open suggestions sort first (already priority-ordered from the API).
@@ -151,15 +178,37 @@ export const InterventionsPanel = ({ subjectRoomId }: Props) => {
 
       {isExpanded && (
         <div className="mt-3 space-y-3">
-          {isLoading && <p className="text-xs text-ink-400 py-2">Loading suggestions…</p>}
+          {isLoading && (
+            <>
+              <SuggestionCardSkeleton />
+              <SuggestionCardSkeleton />
+            </>
+          )}
 
-          {!isLoading && active.length === 0 && (
+          {/* A failed fetch must not masquerade as "no struggling students" —
+              that would tell the teacher their class is fine when we just
+              couldn't reach the server. */}
+          {!isLoading && isError && (
+            <p className="text-xs text-rose-600 py-2">
+              Couldn&apos;t load suggestions just now.{' '}
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+              >
+                Retry
+              </button>
+            </p>
+          )}
+
+          {!isLoading && !isError && active.length === 0 && (
             <div className="text-xs text-ink-500 py-2">
               No struggling students flagged yet. Generate suggestions from current learning-gap data.
             </div>
           )}
 
           {!isLoading &&
+            !isError &&
             active.map((item) => (
               <SuggestionCard key={item.id} item={item} subjectRoomId={subjectRoomId} />
             ))}

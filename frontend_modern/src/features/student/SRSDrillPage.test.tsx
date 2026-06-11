@@ -19,17 +19,31 @@ vi.mock('@/api/client', () => ({
 }));
 
 // The drill page only forwards answers into QuestionCard; the card's own
-// rendering (KaTeX, option shuffling) is covered by its own tests.
+// rendering (KaTeX, option shuffling) and the ExplanationPanel behaviour
+// (generate → poll → explanation / error+retry) are covered by their own
+// test files. Here we assert the page-level wiring: result screens render
+// the cards read-only with the explanationScore that unlocks the per-subpart
+// "Explain this answer" affordance (ASA-8).
 vi.mock('./QuestionCard', () => ({
   QuestionCard: ({
     onAnswerChange,
+    isSubmitted,
+    explanationScore,
   }: {
     onAnswerChange: (subpartId: number, value: string) => void;
-  }) => (
-    <button type="button" onClick={() => onAnswerChange(101, '42')}>
-      Answer subpart
-    </button>
-  ),
+    isSubmitted: boolean;
+    explanationScore?: number | null;
+  }) =>
+    isSubmitted ? (
+      <p>
+        submitted-card score:
+        {explanationScore === undefined ? 'undefined' : String(explanationScore)}
+      </p>
+    ) : (
+      <button type="button" onClick={() => onAnswerChange(101, '42')}>
+        Answer subpart
+      </button>
+    ),
 }));
 
 const DRILL: SRSDrillData = {
@@ -135,5 +149,54 @@ describe('SRSDrillPage repeat-review guard', () => {
     }
 
     expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SRSDrillPage result-screen explanations (ASA-8)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGet.mockResolvedValue({ data: DRILL });
+    mockPost.mockResolvedValue({ data: REVIEW_RESULT });
+  });
+
+  it('does not render the answer review while the drill is in progress', async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Polynomials')).toBeDefined());
+    expect(screen.queryByText('Go over your answers')).toBeNull();
+    expect(screen.queryByText(/submitted-card/)).toBeNull();
+  });
+
+  it('review result shows the answered questions with the graded score for explanations', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Polynomials')).toBeDefined());
+    await user.click(screen.getByText('Answer subpart'));
+    await user.click(screen.getByRole('button', { name: 'Submit Review' }));
+    await waitFor(() => expect(screen.getByText('Great review!')).toBeDefined());
+
+    expect(screen.getByText('Go over your answers')).toBeDefined();
+    // The graded score flows into QuestionCard, which unlocks the per-subpart
+    // ExplanationPanel affordance exactly as on assignments (ASA-4).
+    expect(screen.getByText(/submitted-card score:0\.8/)).toBeDefined();
+  });
+
+  it('practice result shows the answer review with a null score (round is ungraded)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Polynomials')).toBeDefined());
+    await user.click(screen.getByText('Answer subpart'));
+    await user.click(screen.getByRole('button', { name: 'Submit Review' }));
+    await waitFor(() => expect(screen.getByText('Great review!')).toBeDefined());
+
+    await user.click(screen.getByRole('button', { name: 'Practice again' }));
+    await user.click(screen.getByText('Answer subpart'));
+    await user.click(screen.getByRole('button', { name: 'Finish Practice' }));
+    await waitFor(() => expect(screen.getByText('Practice round complete!')).toBeDefined());
+
+    expect(screen.getByText('Go over your answers')).toBeDefined();
+    expect(screen.getByText(/submitted-card score:null/)).toBeDefined();
   });
 });

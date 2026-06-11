@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useWeeklyReport } from './useWeeklyReport';
-import { Badge, Button, Skeleton } from '@/shared/ui';
+import { AIBadge, Button, Skeleton, isAIStub } from '@/shared/ui';
 
 const triggerWeeklyReport = async (subjectRoomId: number): Promise<void> => {
   await apiClient.post('/ai/weekly-reports/generate/', { subject_room_id: subjectRoomId });
@@ -59,10 +59,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
     }
   };
 
-  // The provider cascade falls back to a deterministic, data-derived summary when
-  // no LLM key is configured. That text is still useful, but we must not present
-  // it as genuine AI output (provider-cascade transparency).
-  const isStub = report?.model_used === 'stub';
+  const isStub = isAIStub(report?.model_used);
 
   return (
     <div className="mt-3 border-t border-ink-100 pt-3">
@@ -126,9 +123,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
                 <p className="text-xs font-semibold text-brand-800">
                   Week of {formatDate(report.week_start)} – {formatDate(report.week_end)}
                 </p>
-                <Badge tone={isStub ? 'neutral' : 'brand'}>
-                  {isStub ? 'Auto-summary' : '✨ AI-generated'}
-                </Badge>
+                <AIBadge modelUsed={report.model_used} stubLabel="Auto-summary" />
               </div>
               <p className="mt-1.5 text-sm leading-relaxed text-ink-700">
                 {report.summary_text}

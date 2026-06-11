@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Skeleton } from '@/shared/ui';
+import { AIBadge, Badge, Button, Skeleton, isAIStub } from '@/shared/ui';
 import {
   useGenerateInterventions,
   useInterventions,
@@ -27,10 +27,7 @@ interface CardProps {
 const SuggestionCard = ({ item, subjectRoomId }: CardProps) => {
   const setStatus = useSetInterventionStatus(subjectRoomId);
   const busy = setStatus.isPending;
-  // The provider cascade falls back to a deterministic, data-derived strategy when
-  // no LLM key is configured. That guidance is still useful, but teachers must not
-  // see it presented as genuine AI output (provider-cascade transparency).
-  const isStub = item.model_used === 'stub';
+  const isStub = isAIStub(item.model_used);
 
   return (
     <div className="rounded-xl border border-ink-100 bg-paper p-4">
@@ -45,9 +42,7 @@ const SuggestionCard = ({ item, subjectRoomId }: CardProps) => {
       </div>
 
       <div className="mt-3">
-        <Badge tone={isStub ? 'neutral' : 'brand'}>
-          {isStub ? 'Auto-strategy' : '✨ AI-generated'}
-        </Badge>
+        <AIBadge modelUsed={item.model_used} stubLabel="Auto-strategy" />
         <p className="mt-2 text-sm text-ink-700 leading-relaxed">{item.strategy_text}</p>
         {isStub && (
           <p className="mt-1 text-xs text-ink-400">

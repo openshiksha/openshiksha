@@ -14,6 +14,8 @@ export { Logo } from './Logo';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Badge } from './Badge';
+export { AIBadge } from './AIBadge';
+export { isAIStub } from './aiProvenance';
 export { Skeleton } from './Skeleton';
 export { LoadingSpinner } from './LoadingSpinner';
 export { ErrorBoundary } from './ErrorBoundary';

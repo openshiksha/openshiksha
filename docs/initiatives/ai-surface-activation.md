@@ -67,10 +67,10 @@ the platform earns trust by always labelling what is AI vs. data-derived.
 | ASA-3 | SRS drill repeat-review guard: second pass in one sitting is practice-only, never a second SM-2 update | ✅ [#287](https://github.com/openshiksha/openshiksha/pull/287) |
 | ASA-4 | Wire `/ai/explanations/` into post-submit assignment feedback (per-subpart "Explain" → generate → poll → labelled explanation) | ✅ [#288](https://github.com/openshiksha/openshiksha/pull/288) |
 | ASA-5 | Teacher `MisconceptionClustersPanel` on dashboard (list + refresh + AI labels) | ✅ [#289](https://github.com/openshiksha/openshiksha/pull/289) |
-| ASA-6 | Assignment draft builder UI (`/ai/assignment-drafts/`): generate → review rationale → approve into a real Assignment / dismiss | ☐ |
+| ASA-6 | Assignment draft builder UI (`/ai/assignment-drafts/`): generate → review rationale → approve into a real Assignment / dismiss | ✅ [#297](https://github.com/openshiksha/openshiksha/pull/297) |
 | ASA-7 | Open-response grading UI (`/ai/open-rubrics/` + `/ai/open-grades/`) — teacher review surface | ☐ |
-| ASA-8 | Explanations on the SRS drill result screen (reuse ASA-4's hook/panel) | ☐ |
-| ASA-9 | Backend idempotency guard for repeat SRS review in one day (defence-in-depth behind ASA-3) | ☐ |
+| ASA-8 | Explanations on the SRS drill result screen (reuse ASA-4's hook/panel) | ✅ [#296](https://github.com/openshiksha/openshiksha/pull/296) |
+| ASA-9 | Backend idempotency guard for repeat SRS review in one day (defence-in-depth behind ASA-3) | ✅ [#295](https://github.com/openshiksha/openshiksha/pull/295) |
 
 ## Definition of Done (per increment)
 
@@ -104,3 +104,8 @@ frontend consumer; every AI surface passes the checklist audit; recommendations
 | 2026-06-09 | ASA-3 — SRS repeat-review guard | [#287](https://github.com/openshiksha/openshiksha/pull/287) | Plan's "grade locally" assumption was wrong (no client-side correctness); practice rounds are unscored — the guard (one SM-2 update per sitting) is what matters. ASA-9 stays for defence-in-depth. |
 | 2026-06-09 | ASA-4 — post-submit answer explanations | [#288](https://github.com/openshiksha/openshiksha/pull/288) | Serializer lacked `model_used` (1-line fix). Per-subpart correctness doesn't exist in the API — derived conservatively from overall score; per-subpart grade breakdown is a backlog candidate. |
 | 2026-06-09 | ASA-5 — teacher misconception clusters panel | [#289](https://github.com/openshiksha/openshiksha/pull/289) | Cluster serializer has no `model_used` (aggregation, not generation) — no badge needed. InterventionsPanel pattern copied wholesale; 2 of 4 dark endpoint groups now lit. |
+| 2026-06-10 | Polish — `InterventionsPanel` list-error + skeletons | [#293](https://github.com/openshiksha/openshiksha/pull/293) | Pure pattern copy of #291; `useQuery` already exposed `isError`/`refetch`. |
+| 2026-06-10 | Polish — `WeeklyReportPanel` list-error + skeletons | [#294](https://github.com/openshiksha/openshiksha/pull/294) | Stacked on #293 (shared polish-backlog doc). Error-as-empty-state sweep now **complete** across all teacher AI panels. Hook's 404→null mapping meant only real failures hit the error path. |
+| 2026-06-10 | ASA-9 — server-side same-day SM-2 guard | [#295](https://github.com/openshiksha/openshiksha/pull/295) | "Grade, don't schedule": guarded calls still grade answers but skip schedule/ticks/streak. Additive `already_reviewed_today` flag; no migration needed. |
+| 2026-06-10 | ASA-8 — explanations on drill result screens | [#296](https://github.com/openshiksha/openshiksha/pull/296) | Zero new hooks — rendering the answered questions read-only via `QuestionCard` unlocked ASA-4's ExplanationPanel *and* worked-solution reveal for free. Practice rounds pass `null` score (ungraded client-side). |
+| 2026-06-10 | ASA-6 — assignment drafts panel (batch anchor) | [#297](https://github.com/openshiksha/openshiksha/pull/297) | 3 of 4 dark endpoint groups lit; only ASA-7 remains. Per-room mounting beat the planned room-dropdown (siblings set the convention). Third re-implementation of 202-then-poll — `useAsyncGeneration` extraction is now clearly worth it. |

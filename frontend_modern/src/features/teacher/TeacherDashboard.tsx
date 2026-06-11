@@ -121,6 +121,9 @@ export const TeacherDashboard = () => {
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/grading')}>
+            ✨ AI grading
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/questions/new')}>
             + Question
           </Button>

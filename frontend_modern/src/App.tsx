@@ -43,6 +43,7 @@ const ProblemSetPreviewPage = lazyNamed(() => import('./features/teacher/Problem
 const ProblemSetVersionsPage = lazyNamed(() => import('./features/teacher/ProblemSetVersionsPage'), 'ProblemSetVersionsPage');
 const TeacherAssignmentDetailPage = lazyNamed(() => import('./features/teacher/TeacherAssignmentDetailPage'), 'TeacherAssignmentDetailPage');
 const QuestionBankPage = lazyNamed(() => import('./features/teacher/QuestionBankPage'), 'QuestionBankPage');
+const OpenResponseGradingPage = lazyNamed(() => import('./features/teacher/OpenResponseGradingPage'), 'OpenResponseGradingPage');
 const ParentDashboard = lazyNamed(() => import('./features/parent/ParentDashboard'), 'ParentDashboard');
 const ParentInsightsPage = lazyNamed(() => import('./features/parent/ParentInsightsPage'), 'ParentInsightsPage');
 const ParentInsightsLandingPage = lazyNamed(() => import('./features/parent/ParentInsightsLandingPage'), 'ParentInsightsLandingPage');
@@ -260,6 +261,17 @@ function App() {
             <ProtectedRoute>
               <AppShell>
                 <QuestionBankPage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/teacher/grading"
+          element={
+            <ProtectedRoute>
+              <AppShell>
+                <OpenResponseGradingPage />
               </AppShell>
             </ProtectedRoute>
           }

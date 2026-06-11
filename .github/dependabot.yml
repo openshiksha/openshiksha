@@ -12,6 +12,16 @@ updates:
       - "backend"
     commit-message:
       prefix: "deps"
+    # Batch routine version bumps into one PR per week. Majors stay as
+    # individual PRs (they need real review), and security updates keep
+    # Dependabot's default one-PR-per-advisory behaviour so they remain
+    # individually visible and fast to merge.
+    groups:
+      backend-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
 
   # Frontend npm dependencies
   - package-ecosystem: "npm"
@@ -25,6 +35,12 @@ updates:
       - "frontend"
     commit-message:
       prefix: "deps"
+    groups:
+      frontend-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions workflow dependencies
   - package-ecosystem: "github-actions"
@@ -38,3 +54,10 @@ updates:
       - "ci"
     commit-message:
       prefix: "ci"
+    # Actions bumps are low-risk pin updates; one monthly PR covers them all,
+    # majors included — the workflow-lint (actionlint) job catches breakage.
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"

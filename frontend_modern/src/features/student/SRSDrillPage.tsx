@@ -9,7 +9,9 @@ import { useMarkReviewed, useSRSDrill, type SRSReviewResult } from './useSRSDril
  * 1. Load chapter questions via /ai/spaced-repetition/{id}/review/
  * 2. Student answers each subpart in a familiar QuestionCard
  * 3. Submit POSTs {answers} to /mark-reviewed/ → server grades + updates SM-2
- * 4. Result screen shows score and next review date
+ * 4. Result screen shows score and next review date, plus the answered
+ *    questions read-only so the student can ask for an AI explanation per
+ *    subpart (ASA-8 — same ExplanationPanel affordance as assignments)
  *
  * Only the first completed pass per visit updates the SM-2 schedule; repeat
  * passes are practice-only so one sitting can never double-move the interval.
@@ -64,6 +66,36 @@ export const SRSDrillPage = () => {
     setAnswers({});
     setPhase('practice');
   };
+
+  // Answered questions, read-only, under the result card — the moment of
+  // seeing right/wrong is exactly when /ai/explanations/ is useful. The
+  // per-subpart "Explain" affordance comes from QuestionCard's ASA-4 wiring:
+  // pass the graded score for the review round; practice rounds are never
+  // graded client-side, so pass null (conservative "went wrong" framing).
+  const renderAnswerReview = (explanationScore: number | null) =>
+    drill && drill.questions.length > 0 ? (
+      <div className="mt-8">
+        <h3 className="font-display text-lg font-semibold text-ink-900 mb-1">
+          Go over your answers
+        </h3>
+        <p className="text-sm text-ink-500 mb-4">
+          Ask for an explanation under any question to see the why behind it.
+        </p>
+        <div className="space-y-4">
+          {drill.questions.map((question, idx) => (
+            <QuestionCard
+              key={question.id}
+              question={question}
+              questionNumber={idx + 1}
+              answers={answers}
+              onAnswerChange={handleAnswerChange}
+              isSubmitted
+              explanationScore={explanationScore}
+            />
+          ))}
+        </div>
+      </div>
+    ) : null;
 
   if (isLoading) {
     return (
@@ -135,6 +167,7 @@ export const SRSDrillPage = () => {
             Extra practice won&apos;t change your review schedule.
           </p>
         </div>
+        {renderAnswerReview(result.score)}
       </div>
     );
   }
@@ -163,6 +196,7 @@ export const SRSDrillPage = () => {
             </Button>
           </div>
         </div>
+        {renderAnswerReview(null)}
       </div>
     );
   }

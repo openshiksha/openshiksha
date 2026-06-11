@@ -4,12 +4,21 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-10 — **ASA batch 2 planned**
-([2026-06-10-plan.md](../daily-plans/2026-06-10-plan.md)): ASA-6 assignment-draft
-builder (anchor — lights the 3rd dark endpoint group), ASA-8 drill explanations,
-ASA-9 SRS server-side repeat guard, plus the last two error-as-empty-state
-panels (`InterventionsPanel`, `WeeklyReportPanel`). #291 (misconception-panel
-error/skeleton polish) merged this morning.
+**Last updated:** 2026-06-10 — **ASA batch 2 shipped:
+[#293](https://github.com/openshiksha/openshiksha/pull/293)–[#297](https://github.com/openshiksha/openshiksha/pull/297)**
+(per [2026-06-10-plan.md](../daily-plans/2026-06-10-plan.md)). Teachers can now
+generate, review and approve **AI-drafted assignments** straight from the
+dashboard (#297 — first `/ai/assignment-drafts/` consumer; **3 of 4 dark
+endpoint groups lit**); SRS drill result screens offer per-subpart AI
+explanations (#296); the server now guarantees one SM-2 update per entry per
+day (#295); and the error-as-empty-state sweep is **complete** across all
+teacher AI panels (#293 `InterventionsPanel`, #294 `WeeklyReportPanel`).
+Remaining: ASA-7 (open-response grading UI — last dark group, its own
+batch-anchor run), then the continuous-improvement pool (shared `AIBadge`,
+`useAsyncGeneration`) and the initiative DoD audit.
+
+Earlier same day — ASA batch 2 planned; #291 (misconception-panel
+error/skeleton polish) merged in the morning.
 
 Earlier (2026-06-09 evening) — **ASA first batch shipped: ASA-1..5
 across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289).**

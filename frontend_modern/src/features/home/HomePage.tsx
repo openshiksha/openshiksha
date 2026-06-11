@@ -66,7 +66,7 @@ export const HomePage = () => (
       <div className="mx-auto max-w-6xl px-6 pb-20 pt-32 sm:pt-40">
         <div className="max-w-3xl">
           <p className="animate-fade-up text-sm font-semibold uppercase tracking-[0.2em] text-brand-400">
-            Non-profit · CBSE · Classes 7–10
+            CBSE · Classes 7–10 · English &amp; हिन्दी
           </p>
           <h1
             className="animate-fade-up mt-4 font-display text-5xl font-semibold leading-[1.05] text-white text-balance sm:text-6xl"
@@ -122,7 +122,7 @@ export const HomePage = () => (
           </h2>
           <div className="mt-5 space-y-4 text-ink-600 leading-relaxed">
             <p>
-              OpenShiksha is a non-profit platform built to improve concept
+              OpenShiksha is a learning platform built to improve concept
               retention and learning outcomes. We cover classes 7–10 Maths and
               Science, with refreshers from class 1, all aligned to the CBSE board
               and available in English and Hindi.
@@ -131,8 +131,8 @@ export const HomePage = () => (
               Our <span className="font-semibold text-ink-800">Open Model</span> lets
               any student sign up and learn for free. Our{' '}
               <span className="font-semibold text-ink-800">Partnership Model</span>{' '}
-              gives schools and non-profits the dashboards to run virtual
-              classrooms and make data-driven decisions.
+              gives schools and educational organisations the dashboards to run
+              virtual classrooms and make data-driven decisions.
             </p>
           </div>
         </div>

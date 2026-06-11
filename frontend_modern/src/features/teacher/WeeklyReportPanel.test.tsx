@@ -79,6 +79,55 @@ describe('WeeklyReportPanel', () => {
     expect(screen.queryByText('✨ AI-generated')).toBeNull();
   });
 
+  it('shows a shape-matched skeleton — not the empty state — while the report loads', async () => {
+    let resolveGet!: (value: { data: WeeklyClassReport }) => void;
+    mockGet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGet = resolve;
+        })
+    );
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Weekly AI Summary'));
+
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/No weekly summary yet/)).toBeNull();
+
+    resolveGet({ data: REPORT });
+    await waitFor(() => expect(screen.getByText(/improving in algebra/)).toBeDefined());
+  });
+
+  it('shows an error with retry — not the empty state — when the list fetch fails', async () => {
+    mockGet.mockRejectedValue(new Error('network down'));
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Weekly AI Summary'));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load the weekly summary just now/)).toBeDefined()
+    );
+    // A failed fetch must not read as "no report exists — go generate one".
+    expect(screen.queryByText(/No weekly summary yet/)).toBeNull();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeDefined();
+  });
+
+  it('recovers when retry succeeds after a failed list fetch', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    mockGet.mockResolvedValue({ data: REPORT });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Weekly AI Summary'));
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load the weekly summary just now/)).toBeDefined()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => expect(screen.getByText(/improving in algebra/)).toBeDefined());
+    expect(screen.queryByText(/Couldn't load the weekly summary just now/)).toBeNull();
+  });
+
   it('surfaces an error when generation fails instead of silently reverting', async () => {
     mockGet.mockRejectedValue({ response: { status: 404 } });
     mockPost.mockRejectedValue(new Error('boom'));

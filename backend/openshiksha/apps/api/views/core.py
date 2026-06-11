@@ -645,6 +645,20 @@ class SubjectRoomViewSet(viewsets.ModelViewSet):
             {"unenrolled": [s.id for s in students], "invalid_ids": invalid_ids, "student_count": room.students.count()}
         )
 
+    @action(detail=True, methods=["get"], url_path="students")
+    def students(self, request, pk=None):
+        """
+        GET /api/v1/subject-rooms/{id}/students/ — the room's roster, for
+        teacher pickers (e.g. recording an open response for AI grading).
+        Students can see their own rooms via get_queryset but must not be able
+        to enumerate classmates, so the action is teacher/admin-only.
+        """
+        if request.user.role not in (UserRole.TEACHER, UserRole.ADMIN):
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        room = self.get_object()  # get_queryset already scopes to own/school rooms
+        roster = room.students.order_by("first_name", "last_name", "username")
+        return Response({"results": [{"id": s.id, "full_name": s.full_name, "username": s.username} for s in roster]})
+
 
 class ProblemSetViewSet(viewsets.ModelViewSet):
     """

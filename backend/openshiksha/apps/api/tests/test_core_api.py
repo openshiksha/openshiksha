@@ -325,6 +325,32 @@ class TestSubjectRoomVisibility:
         assert subject_room.pk not in ids
 
 
+class TestSubjectRoomStudentsAction:
+    """GET /api/subject-rooms/{id}/students/ — roster for teacher pickers (ASA-7b)."""
+
+    def test_teacher_lists_own_room_roster(self, api_client, teacher, student, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        rows = response.data["results"]
+        assert {"id", "full_name", "username"} <= set(rows[0].keys())
+        assert student.pk in [r["id"] for r in rows]
+
+    def test_other_teacher_cannot_see_roster(self, api_client, other_teacher, subject_room):
+        api_client.force_authenticate(user=other_teacher)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        # get_queryset scopes to the teacher's own rooms → 404, not a leak
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_student_cannot_enumerate_classmates(self, api_client, student, subject_room):
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 class TestSubjectRoomPermissions:
     def test_teacher_can_create_subject_room(self, api_client, teacher, classroom, subject):
         api_client.force_authenticate(user=teacher)

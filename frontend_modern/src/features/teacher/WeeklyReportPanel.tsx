@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useWeeklyReport } from './useWeeklyReport';
-import { Badge, Button } from '@/shared/ui';
+import { Badge, Button, Skeleton } from '@/shared/ui';
 
 const triggerWeeklyReport = async (subjectRoomId: number): Promise<void> => {
   await apiClient.post('/ai/weekly-reports/generate/', { subject_room_id: subjectRoomId });
@@ -9,6 +9,22 @@ const triggerWeeklyReport = async (subjectRoomId: number): Promise<void> => {
 
 const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+// Mirrors the report card layout (title + badge, then summary lines) so the
+// expanded section doesn't reflow when the report lands.
+const ReportCardSkeleton = () => (
+  <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-3">
+    <div className="flex items-start justify-between gap-2">
+      <Skeleton w="w-1/3" h="h-4" />
+      <Skeleton w="w-24" h="h-5" rounded="rounded-full" />
+    </div>
+    <div className="mt-2 space-y-1.5">
+      <Skeleton w="w-full" h="h-3" />
+      <Skeleton w="w-full" h="h-3" />
+      <Skeleton w="w-2/3" h="h-3" />
+    </div>
+  </div>
+);
 
 interface Props {
   subjectRoomId: number;
@@ -19,7 +35,12 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError, setGenError] = useState(false);
 
-  const { data: report, isLoading, refetch } = useWeeklyReport(subjectRoomId, isExpanded);
+  const {
+    data: report,
+    isLoading,
+    isError,
+    refetch,
+  } = useWeeklyReport(subjectRoomId, isExpanded);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -60,11 +81,25 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
 
       {isExpanded && (
         <div className="mt-3">
-          {isLoading && (
-            <p className="py-2 text-xs text-ink-400">Loading weekly summary…</p>
+          {isLoading && <ReportCardSkeleton />}
+
+          {/* A failed fetch must not masquerade as "no summary yet" — that
+              would invite the teacher to regenerate a report that may already
+              exist, instead of telling them we couldn't reach the server. */}
+          {!isLoading && isError && (
+            <p className="py-2 text-xs text-rose-600">
+              Couldn&apos;t load the weekly summary just now.{' '}
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+              >
+                Retry
+              </button>
+            </p>
           )}
 
-          {!isLoading && !report && (
+          {!isLoading && !isError && !report && (
             <div className="py-2 text-xs text-ink-400">
               No weekly summary yet. Generate one from this week's practice activity.
               <Button
@@ -85,7 +120,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
             </p>
           )}
 
-          {!isLoading && report && (
+          {!isLoading && !isError && report && (
             <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-3">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold text-brand-800">

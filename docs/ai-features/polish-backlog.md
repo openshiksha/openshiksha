@@ -218,13 +218,44 @@ While loading → two pulsing card skeletons.
 
 ---
 
+## 2026-06-10 — Weekly report: list-error state + skeleton loading
+
+**Surface:** Weekly class reports (teacher dashboard `WeeklyReportPanel`).
+
+**Gaps (checklist #1 error states, #2 loading states):**
+1. The list query's `isError` was never read, so a **failed fetch rendered the
+   empty state** — "No weekly summary yet. Generate one…" — inviting the
+   teacher to regenerate a report that may already exist, instead of saying
+   the server was unreachable. (Only a 404 means "no report yet"; the hook
+   already maps that to a successful `null`.)
+2. Loading was a bare "Loading weekly summary…" text line, so the expanded
+   section reflowed when the report card landed.
+
+**Fix:**
+- Destructured `isError` from `useWeeklyReport`; a failed fetch now shows
+  "Couldn't load the weekly summary just now." with an inline **Retry**
+  button. The empty state only renders on a *successful* `null` response.
+- Added `ReportCardSkeleton` (mirrors the report card: title line + badge
+  pill + 3 body lines, on the same brand-tinted card) shown while loading.
+- List-error and generate-error stay visually distinct: list-error replaces
+  the content area; generate-error remains the inline rose box under the
+  Generate/Regenerate button.
+- Tests: skeleton not the empty state while loading; failed fetch shows the
+  error + Retry (and not the empty state); retry recovers to the report
+  (checklist #8). Existing badge + generate-error tests untouched.
+
+**Verify:** Teacher dashboard → expand "Weekly AI Summary" with the API
+unreachable → red "Couldn't load…" line with Retry, not the generate prompt.
+While loading → a pulsing report-card skeleton.
+
+---
+
 ## Remaining gaps (audit notes — updated 2026-06-10)
 
-- **Error-as-empty-state in `WeeklyReportPanel`** — ignores the list query's
-  `isError`, so a failed fetch renders "No weekly summary yet"; loading is
-  bare text instead of a skeleton. Same misleading pattern fixed on
-  `MisconceptionClustersPanel` (#291) and `InterventionsPanel` (this run).
-  ✅ `InterventionsPanel` fixed 2026-06-10 (this entry).
+- ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`
+  (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10) now
+  all distinguish a failed fetch from a genuinely empty response and use
+  shape-matched skeletons while loading.
 - **Misconception cluster cards lack AI provenance** — `sample_diagnosis` /
   `sample_remediation_tip` are copied from LLM-generated `StudentMisconception`
   rows but `ClassMisconceptionCluster` carries no `model_used`, so the cards

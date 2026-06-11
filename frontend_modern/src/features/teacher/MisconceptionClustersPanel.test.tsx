@@ -59,7 +59,9 @@ describe('MisconceptionClustersPanel', () => {
     expect(mockGet).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: /class misconceptions/i }));
-    expect(screen.getByText(/loading misconceptions/i)).toBeDefined();
+    // Shape-matched skeleton cards, not bare text, while the list loads.
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no misconception patterns detected yet/i)).toBeNull();
 
     resolveGet({ data: { results: [CLUSTER] } });
     await waitFor(() =>
@@ -91,6 +93,40 @@ describe('MisconceptionClustersPanel', () => {
     await waitFor(() =>
       expect(screen.getByText(/no misconception patterns detected yet/i)).toBeDefined()
     );
+  });
+
+  it('shows an error with retry — not the empty state — when the list fetch fails', async () => {
+    const user = userEvent.setup();
+    mockGet.mockRejectedValue(new Error('network down'));
+
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /class misconceptions/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load misconception patterns/i)).toBeDefined()
+    );
+    // A failed fetch must not read as "your class has no misconceptions".
+    expect(screen.queryByText(/no misconception patterns detected yet/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeDefined();
+  });
+
+  it('recovers when retry succeeds after a failed list fetch', async () => {
+    const user = userEvent.setup();
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    mockGet.mockResolvedValue({ data: [CLUSTER] });
+
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /class misconceptions/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load misconception patterns/i)).toBeDefined()
+    );
+
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Adds denominators when adding fractions')).toBeDefined()
+    );
+    expect(screen.queryByText(/couldn't load misconception patterns/i)).toBeNull();
   });
 
   it('queues a refresh and confirms the recompute is underway', async () => {

@@ -158,31 +158,65 @@ full reload.
 
 ---
 
-## Remaining gaps (audit notes — not yet addressed)
+## 2026-06-10 — Class misconception insights: list-error state + skeleton loading
 
-- **Natural language explanations** — backend `SubpartExplanationViewSet` is
-  registered (`/ai/explanations/`) but is **not consumed anywhere in
-  `frontend_modern`**. The post-grading student feedback surface appears to be
-  unwired in the V2 app. Needs UX placement work (inline after feedback) — sizeable,
-  flag before treating as polish vs. feature.
-- **Interventions (`InterventionsPanel`)** — ✅ done 2026-06-08. Per-card
-  `✨ AI-generated` vs `Auto-strategy` badge + stub note, plus a generation-error
-  state, now consistent with `WeeklyReportPanel` and `NarrativeCard`.
+**Surface:** Class misconception insights (teacher dashboard
+`MisconceptionClustersPanel`, shipped the previous day in ASA-5 / #289).
+
+**Gaps (checklist #1 error states, #2 loading states):**
+1. The list query's `isError` was never read, so a **failed fetch rendered the
+   empty state** — "No misconception patterns detected yet" — telling the
+   teacher their class looks clean when the server was simply unreachable.
+   An error must never masquerade as an all-clear.
+2. Loading was a bare "Loading misconceptions…" text line instead of the
+   shape-matched skeleton its sibling student panels adopted in ASA-1, so the
+   expanded section reflowed when data landed.
+
+**Fix:**
+- Destructured `isError`/`refetch` from `useMisconceptionClusters`; a failed
+  fetch now shows "Couldn't load misconception patterns just now." with an
+  inline **Retry** button (same pattern as `ExplanationPanel`). The empty
+  state only renders on a *successful* empty response.
+- Added `ClusterCardSkeleton` (mirrors the `ClusterCard` layout: label line +
+  badge pill + two body lines + footer line) shown twice while loading.
+- Tests: loading shows skeletons not the empty state; failed fetch shows the
+  error + Retry (and not the empty state); retry recovers to real data
+  (checklist #8).
+
+**Verify:** Teacher dashboard → expand "Class Misconceptions" with the API
+unreachable → red "Couldn't load…" line with Retry, not the empty state.
+While loading → two pulsing card skeletons.
+
+---
+
+## Remaining gaps (audit notes — updated 2026-06-10)
+
+- **Error-as-empty-state in `InterventionsPanel` and `WeeklyReportPanel`** —
+  both ignore the list query's `isError`, so a failed fetch renders "No
+  struggling students flagged yet" / "No weekly summary yet". Same misleading
+  pattern just fixed on `MisconceptionClustersPanel`; both also use bare-text
+  loading instead of skeletons. Prime candidate for the next polish run
+  (one panel per PR).
+- **Misconception cluster cards lack AI provenance** — `sample_diagnosis` /
+  `sample_remediation_tip` are copied from LLM-generated `StudentMisconception`
+  rows but `ClassMisconceptionCluster` carries no `model_used`, so the cards
+  can't show the `✨ AI-generated` vs stub badge used everywhere else. Needs a
+  model field + migration → guardrailed out of polish runs; note for ASA.
+- **Refresh confirmation lingers** — `MisconceptionClustersPanel`'s
+  "Recomputing from recent submissions…" status stays visible after the
+  delayed refetch lands; could clear once new data arrives. Minor.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.
-- **Unwired backend surfaces (2026-06-09 audit)** — besides `/ai/explanations/`,
-  three more AI endpoints have **no `frontend_modern` consumer at all**:
-  `/ai/misconception-clusters/` (class misconception insights),
-  `/ai/assignment-drafts/` (assignment draft builder), and
-  `/ai/open-rubrics/` + `/ai/open-grades/` (open-response grading). Wiring each
-  is UI-build work, not polish — flagging here rather than building.
-- **Content recommendations rows are inert** — each row shows chapter + reason
-  but offers no click-through to actually practice that chapter
-  (`problem_set` is on the payload but unused). Needs a routing decision
-  (browse-by-chapter vs problem-set link); small feature, not pure polish.
-- **SRS drill result screen** — "Review again" lets a student immediately
-  resubmit the same drill, which re-runs the SM-2 update and can double-move
-  the interval in one sitting. Worth a guard or copy tweak on a future run.
-- **`DueForReviewPanel`** — same render-`null`-while-loading pop-in pattern
-  that was just fixed on `RecommendationsPanel`; lower impact (panel is below
-  the fold) but should be made consistent on a future run.
+- **Unwired backend surfaces** — `/ai/assignment-drafts/` (assignment draft
+  builder) and `/ai/open-rubrics/` + `/ai/open-grades/` (open-response
+  grading) still have **no `frontend_modern` consumer**. Wiring each is
+  UI-build work (ASA-6/ASA-7 batch-anchors), not polish.
+  ✅ `/ai/explanations/` wired 2026-06-09 (ASA-4, `ExplanationPanel`);
+  ✅ `/ai/misconception-clusters/` wired 2026-06-09 (ASA-5).
+- **`ExplanationPanel` provenance label is a bare span** — uses a hand-rolled
+  uppercase span for `✨ AI-generated` / `Auto-explanation` instead of the
+  shared `Badge` used by `InterventionsPanel`/`WeeklyReportPanel`/`NarrativeCard`.
+  Cosmetic consistency tweak for a future run.
+- ✅ **Content recommendations click-through** — done 2026-06-09 (ASA-2).
+- ✅ **SRS drill repeat-review guard** — done 2026-06-09 (ASA-3).
+- ✅ **`DueForReviewPanel` skeleton/empty states** — done 2026-06-09 (ASA-1).

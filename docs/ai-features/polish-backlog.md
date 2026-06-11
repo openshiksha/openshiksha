@@ -189,14 +189,42 @@ While loading → two pulsing card skeletons.
 
 ---
 
+## 2026-06-10 — Interventions: list-error state + skeleton loading
+
+**Surface:** Intervention suggestions (teacher dashboard `InterventionsPanel`).
+
+**Gaps (checklist #1 error states, #2 loading states):**
+1. The list query's `isError` was never read, so a **failed fetch rendered the
+   empty state** — "No struggling students flagged yet" — telling the teacher
+   no one needs help when the server was simply unreachable.
+2. Loading was a bare "Loading suggestions…" text line instead of a
+   shape-matched skeleton, so the expanded section reflowed when data landed.
+
+**Fix:**
+- Destructured `isError`/`refetch` from `useInterventions`; a failed fetch now
+  shows "Couldn't load suggestions just now." with an inline **Retry** button
+  (same recipe as `MisconceptionClustersPanel` / #291). The empty state only
+  renders on a *successful* empty response.
+- Added `SuggestionCardSkeleton` (mirrors the `SuggestionCard` layout: name +
+  meta lines, priority pill, badge + strategy lines, chapter chips) shown
+  twice while loading.
+- Tests: loading shows skeletons not the empty state; failed fetch shows the
+  error + Retry (and not the empty state); retry recovers to real data
+  (checklist #8). Existing generate-error tests untouched.
+
+**Verify:** Teacher dashboard → expand "Intervention Suggestions" with the API
+unreachable → red "Couldn't load…" line with Retry, not the empty state.
+While loading → two pulsing card skeletons.
+
+---
+
 ## Remaining gaps (audit notes — updated 2026-06-10)
 
-- **Error-as-empty-state in `InterventionsPanel` and `WeeklyReportPanel`** —
-  both ignore the list query's `isError`, so a failed fetch renders "No
-  struggling students flagged yet" / "No weekly summary yet". Same misleading
-  pattern just fixed on `MisconceptionClustersPanel`; both also use bare-text
-  loading instead of skeletons. Prime candidate for the next polish run
-  (one panel per PR).
+- **Error-as-empty-state in `WeeklyReportPanel`** — ignores the list query's
+  `isError`, so a failed fetch renders "No weekly summary yet"; loading is
+  bare text instead of a skeleton. Same misleading pattern fixed on
+  `MisconceptionClustersPanel` (#291) and `InterventionsPanel` (this run).
+  ✅ `InterventionsPanel` fixed 2026-06-10 (this entry).
 - **Misconception cluster cards lack AI provenance** — `sample_diagnosis` /
   `sample_remediation_tip` are copied from LLM-generated `StudentMisconception`
   rows but `ClassMisconceptionCluster` carries no `model_used`, so the cards

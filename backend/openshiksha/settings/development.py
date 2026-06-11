@@ -33,6 +33,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Logging - More verbose in development
 LOGGING["root"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
 LOGGING["loggers"]["django"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
+# django.template at DEBUG floods the console with internal VariableDoesNotExist
+# tracebacks every time Django renders its own technical 404/500 pages — pages
+# whose templates probe optional context keys by design. The flood buries the
+# *real* exception several screens up, so keep this one logger at INFO.
+LOGGING["loggers"]["django.template"] = {  # noqa: F405  # type: ignore[index]
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+}
 
 # Email - Console backend for development
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

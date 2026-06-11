@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AIBadge, Badge, Button, EmptyState, Skeleton, isAIStub } from '@/shared/ui';
 import { useSubjectRooms } from './useSubjectRooms';
+import { RecordResponsePanel } from './RecordResponsePanel';
 import {
   gradeErrorDetail,
   useOpenGrades,
@@ -301,6 +302,8 @@ export const OpenResponseGradingPage = () => {
           Open-ended answers, graded by AI, finalised by you. Nothing counts until you review it.
         </p>
       </div>
+
+      <RecordResponsePanel />
 
       <div className="flex flex-wrap items-center gap-2">
         <select

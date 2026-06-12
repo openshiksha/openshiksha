@@ -30,10 +30,13 @@ images only picked up fixes when someone rebuilt for an unrelated reason.
 
 ## Dependabot alert triage (same run)
 
-All 3 open alerts (idna GHSA-65pc-fj4g-8rjx, urllib3 GHSA-qccp-gfcp-xxvc,
-pillow GHSA-wjx4-4jcj-g98j) point at the deleted legacy `pip-requirements.txt`,
-which still exists on the default branch `qa` (322 commits behind
-`modernization`). Per `docs/infra/dependabot-legacy-stack.md` they auto-resolve
-at the next `modernization → qa` promotion. The modern stack is clean: Pillow
-is pinned at the patched 12.2.0, and idna/urllib3 are unpinned transitives that
-resolve to patched versions (pip-audit in CI is green).
+All **74** open alerts point at the deleted legacy `pip-requirements.txt`
+(verified via paginated API query grouped by manifest path), which still
+exists on the default branch `qa` (322 commits behind `modernization`). Per
+`docs/infra/dependabot-legacy-stack.md` they auto-resolve at the next
+`modernization → qa` promotion. The three newest (idna GHSA-65pc-fj4g-8rjx,
+urllib3 GHSA-qccp-gfcp-xxvc, pillow GHSA-wjx4-4jcj-g98j) were spot-checked
+against the modern stack: Pillow is pinned at the patched 12.2.0, and
+idna/urllib3 are unpinned transitives that resolve to patched versions
+(pip-audit in CI is green). No open alert targets `backend/requirements.txt`,
+`frontend_modern/package.json`, or the workflows.

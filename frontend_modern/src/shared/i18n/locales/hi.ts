@@ -201,6 +201,28 @@ export const hi: LocaleDict = {
   'explanation.regenerateInLocale': 'हिंदी में समझाएँ',
   'explanation.regenerating': 'फिर से लिखी जा रही है…',
 
+  // ── Parent dashboard ─────────────────────────────────────────────────
+  'parent.title': 'अभिभावक डैशबोर्ड',
+  'parent.description': 'अपने बच्चों की पढ़ाई की प्रगति देखें।',
+  'parent.noChildrenTitle': 'आपके खाते से कोई बच्चा नहीं जुड़ा है',
+  'parent.noChildrenDescription': 'अपने बच्चों के खाते जोड़ने के लिए स्कूल एडमिन से कहें।',
+  'parent.gradeShort': 'कक्षा {grade}',
+  'parent.grade': 'कक्षा {grade}',
+  'parent.overview': '{name} की प्रगति-झलक',
+  'parent.viewInsights': 'इनसाइट्स देखें →',
+  'parent.tabProgress': 'प्रगति',
+  'parent.tabAssignments': 'असाइनमेंट',
+  'parent.noProgressTitle': 'अभी कोई प्रगति नहीं',
+  'parent.noProgressDescription': '{name} ने अभी तक कोई असाइनमेंट जमा नहीं किया है।',
+  'parent.noAssignmentsDescription': 'शिक्षक के असाइनमेंट बनाते ही वे यहाँ दिखेंगे।',
+  'parent.questionsPractisedOne': '{count} प्रश्न का अभ्यास हुआ',
+  'parent.questionsPractisedMany': '{count} प्रश्नों का अभ्यास हुआ',
+  'parent.statusSubmitted': 'जमा हो गया',
+  'parent.statusOverdue': 'समय निकल गया',
+  'parent.statusPending': 'बाकी है',
+  'parent.overdueOn': 'समय निकल गया — {date}',
+  'parent.dueOn': 'अंतिम तिथि {date}',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count} दिन की स्ट्रीक',
   'streak.tierStarter': 'जोश में',

@@ -4,6 +4,7 @@ import { useChildren } from './useChildren';
 import { useChildProficiency } from './useChildProficiency';
 import { useChildAssignments } from './useChildAssignments';
 import { Badge, Card, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
+import { useI18n, useT } from '@/shared/i18n';
 import type { User, StudentProficiency, Assignment } from '@/types/index';
 
 interface SubjectGroup {
@@ -25,6 +26,7 @@ const groupBySubject = (records: StudentProficiency[]): SubjectGroup[] => {
 };
 
 const ProficiencyBar = ({ record }: { record: StudentProficiency }) => {
+  const t = useT();
   const pct = Math.round(record.score * 100);
   const barColor = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-400' : 'bg-rose-400';
 
@@ -41,13 +43,16 @@ const ProficiencyBar = ({ record }: { record: StudentProficiency }) => {
         />
       </div>
       <p className="text-xs text-ink-400 mt-1">
-        {record.tick_count} question{record.tick_count !== 1 ? 's' : ''} practised
+        {t(record.tick_count === 1 ? 'parent.questionsPractisedOne' : 'parent.questionsPractisedMany', {
+          count: record.tick_count,
+        })}
       </p>
     </div>
   );
 };
 
 const ChildView = ({ child }: { child: User }) => {
+  const t = useT();
   const { data: records, isLoading } = useChildProficiency(child.id);
 
   if (isLoading) {
@@ -61,8 +66,8 @@ const ChildView = ({ child }: { child: User }) => {
   if (!records || records.length === 0) {
     return (
       <EmptyState
-        title="No progress yet"
-        description={`${child.first_name || child.username} hasn't submitted any assignments yet.`}
+        title={t('parent.noProgressTitle')}
+        description={t('parent.noProgressDescription', { name: child.first_name || child.username })}
       />
     );
   }
@@ -95,12 +100,14 @@ const AssignmentStatusBadge = ({
   status: Assignment['child_submission_status'];
   isOverdue: boolean;
 }) => {
-  if (status === 'submitted') return <Badge tone="success">Submitted</Badge>;
-  if (isOverdue) return <Badge tone="urgent">Overdue</Badge>;
-  return <Badge tone="attention">Pending</Badge>;
+  const t = useT();
+  if (status === 'submitted') return <Badge tone="success">{t('parent.statusSubmitted')}</Badge>;
+  if (isOverdue) return <Badge tone="urgent">{t('parent.statusOverdue')}</Badge>;
+  return <Badge tone="attention">{t('parent.statusPending')}</Badge>;
 };
 
 const ChildAssignmentsView = ({ child }: { child: User }) => {
+  const { t, locale } = useI18n();
   const { data: assignments, isLoading } = useChildAssignments(child.id);
 
   if (isLoading) {
@@ -114,8 +121,8 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
   if (!assignments || assignments.length === 0) {
     return (
       <EmptyState
-        title="No assignments yet"
-        description="Assignments will appear here once the teacher creates them."
+        title={t('assignments.emptyTitle')}
+        description={t('parent.noAssignmentsDescription')}
       />
     );
   }
@@ -131,7 +138,7 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
         const dueDate = new Date(a.due_at);
         const isOverdue = dueDate < now;
         const isSubmitted = a.child_submission_status === 'submitted';
-        const dueFmt = dueDate.toLocaleDateString('en-IN', {
+        const dueFmt = dueDate.toLocaleDateString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
           day: 'numeric',
           month: 'short',
           year: 'numeric',
@@ -151,8 +158,9 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
                 isOverdue && !isSubmitted ? 'text-rose-600 font-medium' : 'text-ink-400'
               }`}
             >
-              {isOverdue && !isSubmitted ? 'Overdue — ' : 'Due '}
-              {dueFmt}
+              {isOverdue && !isSubmitted
+                ? t('parent.overdueOn', { date: dueFmt })
+                : t('parent.dueOn', { date: dueFmt })}
             </p>
           </Card>
         );
@@ -162,6 +170,7 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
 };
 
 export const ParentDashboard = () => {
+  const t = useT();
   const { data: children, isLoading } = useChildren();
   const [selectedChildId, setSelectedChildId] = useState<number | undefined>();
   const [activeTab, setActiveTab] = useState<'progress' | 'assignments'>('progress');
@@ -180,10 +189,10 @@ export const ParentDashboard = () => {
   if (!children || children.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <SectionHeading as="h1" title="Parent Dashboard" className="mb-6" />
+        <SectionHeading as="h1" title={t('parent.title')} className="mb-6" />
         <EmptyState
-          title="No children linked to your account"
-          description="Ask the school admin to link your children's accounts."
+          title={t('parent.noChildrenTitle')}
+          description={t('parent.noChildrenDescription')}
         />
       </div>
     );
@@ -193,8 +202,8 @@ export const ParentDashboard = () => {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <SectionHeading
         as="h1"
-        title="Parent Dashboard"
-        description="Monitor your children's learning progress."
+        title={t('parent.title')}
+        description={t('parent.description')}
         className="mb-6"
       />
 
@@ -212,7 +221,9 @@ export const ParentDashboard = () => {
             >
               {child.first_name || child.username}
               {child.grade != null && (
-                <span className="ml-1 opacity-70">Gr.{child.grade}</span>
+                <span className="ml-1 opacity-70">
+                  {t('parent.gradeShort', { grade: child.grade })}
+                </span>
               )}
             </button>
           ))}
@@ -224,17 +235,19 @@ export const ParentDashboard = () => {
           <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-lg font-display font-semibold text-ink-800">
-                {selectedChild.first_name || selectedChild.username}'s Overview
+                {t('parent.overview', { name: selectedChild.first_name || selectedChild.username })}
               </h2>
               {selectedChild.grade != null && (
-                <p className="text-sm text-ink-500">Grade {selectedChild.grade}</p>
+                <p className="text-sm text-ink-500">
+                  {t('parent.grade', { grade: selectedChild.grade })}
+                </p>
               )}
             </div>
             <Link
               to={`/parent/insights/${selectedChild.id}`}
               className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
-              View Insights →
+              {t('parent.viewInsights')}
             </Link>
           </div>
 
@@ -250,7 +263,7 @@ export const ParentDashboard = () => {
                     : 'border-transparent text-ink-500 hover:text-ink-700'
                 }`}
               >
-                {tab === 'progress' ? 'Progress' : 'Assignments'}
+                {tab === 'progress' ? t('parent.tabProgress') : t('parent.tabAssignments')}
               </button>
             ))}
           </div>

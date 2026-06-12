@@ -68,11 +68,11 @@ just never lets anyone ask for it.
 
 | ID | Increment | Status |
 |----|-----------|--------|
-| LA-1 | i18n foundation: `src/shared/i18n/` provider + `useT()` + en/hi locale files + navbar/drawer language switcher + `<html lang>` sync + pilot migration (auth pages) | ⬜ planned 2026-06-11 |
-| LA-2 | `User.preferred_language` + profile API + ProfilePage selector + login seeding | ⬜ planned 2026-06-11 |
-| LA-3 | Student core loop chrome in Hindi: dashboard, assignment list/detail, panels | ⬜ planned 2026-06-11 |
-| LA-4 | AI content in the reader's language: explanations + parent-summary language wiring (+ regenerate-on-language-change) | ⬜ planned 2026-06-11 |
-| LA-5 | Key-parity CI guard (Vitest), Hindi glossary, parent + registration chrome | ⬜ planned 2026-06-11 |
+| LA-1 | i18n foundation: `src/shared/i18n/` provider + `useT()` + en/hi locale files + navbar/drawer language switcher + `<html lang>` sync + pilot migration (auth pages) | ✅ 2026-06-11 [#308](https://github.com/openshiksha/openshiksha/pull/308) |
+| LA-2 | `User.preferred_language` + profile API + ProfilePage selector + login seeding | ✅ 2026-06-11 [#309](https://github.com/openshiksha/openshiksha/pull/309) |
+| LA-3 | Student core loop chrome in Hindi: dashboard, assignment list/detail, panels | ✅ 2026-06-11 [#310](https://github.com/openshiksha/openshiksha/pull/310) |
+| LA-4 | AI content in the reader's language: explanations + parent-summary language wiring (+ regenerate-on-language-change) | ✅ 2026-06-11 [#311](https://github.com/openshiksha/openshiksha/pull/311) |
+| LA-5 | Key-parity CI guard (Vitest), Hindi glossary, parent + registration chrome (+ home page, added per user request) | ✅ 2026-06-11 [#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b |
 | LA-6 | Teacher surfaces chrome (dashboard panels, create-assignment, grading queue) | ⬜ |
 | LA-7 | Localized transactional emails (grading complete, remedial, due reminders, parent weekly) honoring `preferred_language` | ⬜ |
 | LA-8 | Number/date formatting via `Intl` keyed to locale (dates on cards, "due in X days") | ⬜ |
@@ -113,9 +113,24 @@ just never lets anyone ask for it.
 | Hint | संकेत | |
 | Explanation | व्याख्या | |
 | Teacher / Student / Parent | शिक्षक / विद्यार्थी / अभिभावक | |
+| Sign in / Log in | साइन इन करें / लॉग इन करें | transliterate — universal |
+| Username / Password | यूज़रनेम / पासवर्ड | transliterate |
+| Register / Create account | रजिस्टर करें / खाता बनाएँ | |
+| Overdue | समय निकल गया | "अतिदेय" too formal for K-12 |
+| Pending | बाकी है | |
+| Progress | प्रगति | |
+| Grace day | ग्रेस ✓ | product term, transliterate |
+| Classroom join code | क्लासरूम जॉइन कोड | transliterate — classroom English |
+| Insights | इनसाइट्स | transliterate — product term |
+| Learning path | लर्निंग पाथ | transliterate — product term |
 
 ## Progress Ledger (append-only)
 
 | Date | Increment | PR | Learning |
 |---|---|---|---|
 | 2026-06-11 | Initiative promoted; LA-1..5 planned as the first batch ([plan](../daily-plans/2026-06-11-plan.md)) | — | The backend has spoken Hindi since the explanations feature shipped, but no UI could ask for it — wire `language` params into the product the day they ship, or they sit dark like the `/ai/` groups did. |
+| 2026-06-11 | LA-1 — i18n foundation, EN\|हिं switcher, login pilot. Entry chunk 93→96.5 kB; hi dict is its own lazy chunk. | [#308](https://github.com/openshiksha/openshiksha/pull/308) | A no-provider English fallback in `useI18n` (instead of throwing) kept every existing component test wrapper-free — the migration cost stays linear in surfaces, not in test files. |
+| 2026-06-11 | LA-2 — `preferred_language` end-to-end; precedence device > profile > en; switcher PATCHes profile when authenticated. | [#309](https://github.com/openshiksha/openshiksha/pull/309) | Seeding from the profile must NOT write localStorage — otherwise the first login would mint a device override and later profile changes would never propagate. |
+| 2026-06-11 | LA-3 — student core loop chrome in Hindi (~60 keys); date-fns `hi` locale for relative dates, kept out of the entry chunk. | [#310](https://github.com/openshiksha/openshiksha/pull/310) | "3 दिन में" beats "in 3 days में" — localizing the chrome without the dates reads worse than not localizing at all; date-fns ships a tree-shakeable hi locale, no Intl machinery needed yet (LA-8). |
+| 2026-06-11 | LA-4 — explanations + parent summaries generate in the reader's language; regenerate-in-place affordance on language mismatch. | [#311](https://github.com/openshiksha/openshiksha/pull/311) | The backend already regenerated in place (`update_or_create` with `language` in defaults) — the "gap" was purely frontend. Read the task before writing backend code; two pinning tests were all the backend needed. |
+| 2026-06-11 | LA-5 — runtime parity guard (key sets + `{var}` placeholder drift); home page + all registration pages in Hindi (home added per user request); parent dashboard chrome (LA-5b). | [#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b | The anonymous journey (home → register → login) is the highest-leverage Hindi surface: it's what a non-English-speaking parent sees before anyone can help them. |

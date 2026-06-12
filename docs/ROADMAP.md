@@ -4,20 +4,24 @@
 > The per-day `docs/daily-plans/*.md` files are point-in-time snapshots; this
 > file is the living tracker. Update it whenever a PR merges.
 
-**Last updated:** 2026-05-30 (after class misconception insights branch)
+**Last updated:** 2026-06-11 (Language Access batch LA-1..5 — all four prior "Remaining" items now shipped)
 
 ---
 
 ## 🔜 Remaining (what's left)
 
-In priority order. Nothing below is started unless noted.
+The headline backlog is **clear** — every prior "Remaining" item has shipped
+(see Completed). Ongoing work is tracked on the
+[initiatives board](initiatives/STATUS.md); the active initiative is
+**[Language Access (i18n en/हिंदी)](initiatives/2026-language-access.md)**,
+whose next increments are LA-6 (teacher chrome), LA-7 (localized emails),
+LA-8 (`Intl` dates/numbers), LA-9 (third-language pilot).
 
-| # | Task | Type | Notes |
-|---|------|------|-------|
-| 1 | **P8 — operational bulk Cabinet import run** | Ops | The importer (`import_cabinet_questions`) shipped in PR #100. This is the *operational* run: clone `openshiksha-cabinet`, run the importer with a mapping file against real content. |
-| 2 | **Phase 2 — UI rebuild** | Frontend | Design-system pass to Linear/Vercel-quality polish; bottom tab bar on mobile. Large, follows the feature build-out. |
-| 3 | **Teacher AI Assistant (broader)** | AI | Weekly class reports (#95), class misconception insights, auto-assignment drafts, and open-ended/free-text grading (this PR) shipped. Remaining: teacher-facing dashboard cards surfacing these (cluster API, open-grade review queue). Future. |
-| 4 | **i18n toggle (`en` / `hi`) on parent insights** | Frontend | The parent-summary API already accepts `language`; expose a header toggle once a global language switcher lands. |
+Previously listed, now done:
+- ~~P8 — operational bulk Cabinet import run~~ → Cabinet Data Fidelity initiative closed 2026-06-04; `audit_cabinet_fidelity --strict` green on the real 646-question corpus.
+- ~~Phase 2 — UI rebuild~~ → V2 "Chalk & Unlock" design overhaul closed 2026-06-04 (M1–M7, PRs #188–#207).
+- ~~Teacher AI Assistant dashboard cards~~ → AI Surface Activation closed 2026-06-11 (ASA-1..9, #285–#303): misconception clusters, AI-drafted assignments, open-response grading queue all surfaced.
+- ~~i18n toggle (en/hi) on parent insights~~ → Language Access LA-1..5 (2026-06-11): global EN|हिं switcher, durable `preferred_language`, student/parent/public chrome in Hindi, AI explanations + parent summaries generate in the reader's language.
 
 ---
 

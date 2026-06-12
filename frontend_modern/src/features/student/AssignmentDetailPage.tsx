@@ -5,6 +5,7 @@ import { useSubmission, useCreateSubmission, usePatchSubmission } from './useSub
 import { QuestionCard } from './QuestionCard';
 import { VideosPanel } from './VideosPanel';
 import { Button, EmptyState, LoadingSpinner } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import type { Question } from '@/types/index';
 
 function countSubparts(questions: Question[]): number {
@@ -23,6 +24,7 @@ export const AssignmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const assignmentId = Number(id);
   const navigate = useNavigate();
+  const t = useT();
 
   const { data: assignment, isLoading: assignmentLoading, error: assignmentError } =
     useAssignmentDetail(assignmentId);
@@ -131,11 +133,11 @@ export const AssignmentDetailPage = () => {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16">
         <EmptyState
-          title="Assignment not found"
-          description="It may have been removed or you don't have access."
+          title={t('assignmentDetail.notFoundTitle')}
+          description={t('assignmentDetail.notFoundDescription')}
           action={
             <Button variant="ghost" size="sm" onClick={() => navigate('/student')}>
-              Back to dashboard
+              {t('assignmentDetail.backToDashboard')}
             </Button>
           }
         />
@@ -161,7 +163,7 @@ export const AssignmentDetailPage = () => {
           onClick={() => navigate('/student')}
           className="text-sm text-brand-700 font-medium hover:underline mb-3 flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
-          <span>&#8592;</span> Back to assignments
+          <span>&#8592;</span> {t('assignmentDetail.back')}
         </button>
         <p className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
           {assignment.problem_set.subject.name}
@@ -175,9 +177,7 @@ export const AssignmentDetailPage = () => {
       {!isSubmitted && total > 0 && (
         <div className="mb-6">
           <div className="flex justify-between text-xs text-ink-500 mb-1">
-            <span>
-              {answered} of {total} answered
-            </span>
+            <span>{t('assignmentDetail.answeredCount', { answered, total })}</span>
             <span>{Math.round((answered / total) * 100)}%</span>
           </div>
           <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
@@ -196,19 +196,21 @@ export const AssignmentDetailPage = () => {
               <p className="text-2xl font-display font-semibold text-ink-900">
                 {Math.round(submitScore * 100)}%
               </p>
-              <p className="text-sm text-ink-700 mt-0.5">Assignment submitted — nice work!</p>
+              <p className="text-sm text-ink-700 mt-0.5">{t('assignmentDetail.submittedNice')}</p>
             </>
           ) : (
             <>
-              <p className="font-display font-semibold text-brand-800">Submitted</p>
-              <p className="text-sm text-brand-700 mt-0.5">Grading in progress…</p>
+              <p className="font-display font-semibold text-brand-800">
+                {t('assignmentDetail.submittedTitle')}
+              </p>
+              <p className="text-sm text-brand-700 mt-0.5">{t('assignmentDetail.grading')}</p>
             </>
           )}
         </div>
       )}
 
       {questions.length === 0 ? (
-        <EmptyState title="No questions in this assignment" />
+        <EmptyState title={t('assignmentDetail.noQuestions')} />
       ) : (
         <div className="space-y-4">
           {questions.map((question: Question, idx: number) => (
@@ -237,7 +239,7 @@ export const AssignmentDetailPage = () => {
             onClick={() => setShowConfirm(true)}
             disabled={answered === 0}
           >
-            Submit assignment
+            {t('assignmentDetail.submit')}
           </Button>
         </div>
       )}
@@ -245,17 +247,20 @@ export const AssignmentDetailPage = () => {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
           <div className="os-card p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-display font-semibold text-ink-900">Submit assignment?</h3>
+            <h3 className="text-lg font-display font-semibold text-ink-900">
+              {t('assignmentDetail.confirmTitle')}
+            </h3>
             <p className="text-sm text-ink-500 mt-1">
-              You have answered {answered} of {total} questions. You cannot change your answers
-              after submitting.
+              {t('assignmentDetail.confirmBody', { answered, total })}
             </p>
             <div className="flex gap-3 mt-5 justify-end">
               <Button variant="ghost" size="sm" onClick={() => setShowConfirm(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button size="sm" onClick={handleSubmit} disabled={patchSubmission.isPending}>
-                {patchSubmission.isPending ? 'Submitting…' : 'Submit'}
+                {patchSubmission.isPending
+                  ? t('assignmentDetail.submitting')
+                  : t('assignmentDetail.confirmSubmit')}
               </Button>
             </div>
           </div>

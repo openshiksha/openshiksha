@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider, type Locale } from '@/shared/i18n';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import type { ContentRecommendation } from './useRecommendations';
 import type { PracticePlan } from './usePracticePlan';
@@ -67,13 +68,15 @@ function mockEndpoints({
   });
 }
 
-function renderPanel() {
+function renderPanel(locale: Locale = 'en') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <RecommendationsPanel />
-      </MemoryRouter>
+      <I18nProvider initialLocale={locale}>
+        <MemoryRouter>
+          <RecommendationsPanel />
+        </MemoryRouter>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
@@ -131,6 +134,18 @@ describe('RecommendationsPanel', () => {
       expect(screen.getByText(/answer a few assignment questions/i)).toBeDefined()
     );
     expect(screen.getByText('What to Practice Next')).toBeDefined();
+  });
+
+  it('renders the panel chrome in Hindi when the locale is hi', async () => {
+    mockEndpoints({ recommendations: [REC], plan: PLAN });
+    renderPanel('hi');
+
+    // Hindi dictionary loads via dynamic import — wait for the swap.
+    await waitFor(() => expect(screen.getByText('आगे किसका अभ्यास करें')).toBeDefined());
+    expect(screen.getByText('आपका स्कोर')).toBeDefined();
+    expect(screen.getByRole('link', { name: 'अभ्यास' })).toBeDefined();
+    // Authored content (chapter names) stays as authored.
+    expect(screen.getByText('Fractions')).toBeDefined();
   });
 
   it('hides the panel entirely when the fetch fails', async () => {

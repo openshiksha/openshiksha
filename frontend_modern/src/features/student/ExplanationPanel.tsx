@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RichContent } from '@/shared/ui/RichContent';
 import { AIBadge, Skeleton, isAIStub } from '@/shared/ui';
+import { useI18n, type Locale } from '@/shared/i18n';
 import { useExplanationList, useGenerateExplanation } from './useExplanation';
 
 interface ExplanationPanelProps {
@@ -19,8 +20,10 @@ interface ExplanationPanelProps {
  * triggering it the panel polls the student-scoped list until the explanation
  * row appears, then renders it with the standard AI-provenance badge.
  *
- * Explanations persist server-side: if one already exists for the subpart the
- * panel shows it directly and never re-generates.
+ * Explanations persist server-side and generate in the reader's language
+ * (LA-4). If a stored explanation's language differs from the active locale
+ * it is still rendered (never block content) with a regenerate affordance —
+ * the backend rewrites the same row in the requested language.
  */
 export const ExplanationPanel = ({
   subpartId,
@@ -29,14 +32,19 @@ export const ExplanationPanel = ({
   pollIntervalMs = 2000,
   maxPollAttempts = 15,
 }: ExplanationPanelProps) => {
+  const { t, locale } = useI18n();
   const [requested, setRequested] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  // Set while a language-change regeneration is in flight; polling continues
+  // until the stored row's language matches it.
+  const [regenLanguage, setRegenLanguage] = useState<Locale | null>(null);
 
   const listQuery = useExplanationList(subpartId, requested);
   const generate = useGenerateExplanation();
 
   const explanation = listQuery.data?.[0];
   const timedOut = attempts >= maxPollAttempts;
+  const awaitingRegen = !!regenLanguage && explanation?.language !== regenLanguage;
 
   // First list fetch came back empty → kick off generation exactly once
   // (generate.isIdle guards re-fires; reset() re-arms it for retry).
@@ -46,19 +54,33 @@ export const ExplanationPanel = ({
         subpart_id: subpartId,
         student_answer: studentAnswer,
         is_correct: isCorrect,
+        language: locale,
       });
     }
-  }, [requested, listQuery.isSuccess, explanation, generate, timedOut, subpartId, studentAnswer, isCorrect]);
+  }, [requested, listQuery.isSuccess, explanation, generate, timedOut, subpartId, studentAnswer, isCorrect, locale]);
 
-  // Poll the list while the Celery task runs; give up after maxPollAttempts.
+  // Poll the list while the Celery task runs (initial generation or a
+  // language regeneration); give up after maxPollAttempts.
   useEffect(() => {
-    if (!requested || explanation || !generate.isSuccess || timedOut) return;
+    if (!requested || !generate.isSuccess || timedOut) return;
+    if (explanation && !awaitingRegen) return;
     const timer = setTimeout(() => {
       setAttempts((n) => n + 1);
       void listQuery.refetch();
     }, pollIntervalMs);
     return () => clearTimeout(timer);
-  }, [requested, explanation, generate.isSuccess, timedOut, attempts, pollIntervalMs, listQuery]);
+  }, [requested, explanation, awaitingRegen, generate.isSuccess, timedOut, attempts, pollIntervalMs, listQuery]);
+
+  const handleRegenerate = () => {
+    setAttempts(0);
+    setRegenLanguage(locale);
+    generate.mutate({
+      subpart_id: subpartId,
+      student_answer: studentAnswer,
+      is_correct: isCorrect,
+      language: locale,
+    });
+  };
 
   if (!requested) {
     return (
@@ -68,7 +90,7 @@ export const ExplanationPanel = ({
           onClick={() => setRequested(true)}
           className="text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
         >
-          ✨ Explain this answer
+          {t('explanation.cta')}
         </button>
       </div>
     );
@@ -76,22 +98,34 @@ export const ExplanationPanel = ({
 
   if (explanation) {
     const isStub = isAIStub(explanation.model_used);
+    const languageMismatch = explanation.language !== locale;
+    const regenerating = (awaitingRegen || generate.isPending) && !timedOut;
     return (
       <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50 p-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-medium text-brand-800">
-            {isCorrect ? 'Why this answer is right' : 'Where this went wrong'}
+            {isCorrect ? t('explanation.whyRight') : t('explanation.whereWrong')}
           </span>
           <AIBadge modelUsed={explanation.model_used} stubLabel="Auto-explanation" />
         </div>
-        <div className="text-sm text-ink-800 leading-relaxed">
+        <div className="text-sm text-ink-800 leading-relaxed" lang={explanation.language}>
           <RichContent text={explanation.explanation_text} variant="block" />
         </div>
         {isStub && (
-          <p className="mt-1.5 text-[10px] text-ink-400">
-            Generated without an AI model — explanations get richer once AI is configured.
-          </p>
+          <p className="mt-1.5 text-[10px] text-ink-400">{t('explanation.stubNote')}</p>
         )}
+        {languageMismatch &&
+          (regenerating ? (
+            <p className="mt-2 text-xs text-brand-700">{t('explanation.regenerating')}</p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              className="mt-2 text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
+            >
+              {t('explanation.regenerateInLocale')}
+            </button>
+          ))}
       </div>
     );
   }
@@ -99,7 +133,7 @@ export const ExplanationPanel = ({
   if (generate.isError || listQuery.isError || timedOut) {
     return (
       <div className="mt-3 text-xs text-rose-600">
-        Couldn&apos;t fetch an explanation just now. Please try again in a moment.{' '}
+        {t('explanation.error')}{' '}
         <button
           type="button"
           onClick={() => {
@@ -109,7 +143,7 @@ export const ExplanationPanel = ({
           }}
           className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
         >
-          Retry
+          {t('explanation.retry')}
         </button>
       </div>
     );
@@ -117,7 +151,7 @@ export const ExplanationPanel = ({
 
   return (
     <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50 p-3">
-      <p className="text-xs text-brand-800 mb-2">Writing your explanation…</p>
+      <p className="text-xs text-brand-800 mb-2">{t('explanation.writing')}</p>
       <div className="space-y-1.5">
         <Skeleton w="w-full" h="h-3" />
         <Skeleton w="w-5/6" h="h-3" />

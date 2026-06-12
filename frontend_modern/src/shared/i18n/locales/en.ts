@@ -111,6 +111,18 @@ export const en = {
   'recommendations.emptyDescription':
     "No suggestions yet — answer a few assignment questions and we'll point you to the chapters worth revisiting.",
 
+  // ── Explanation panel (AI) ───────────────────────────────────────────
+  'explanation.cta': '✨ Explain this answer',
+  'explanation.whyRight': 'Why this answer is right',
+  'explanation.whereWrong': 'Where this went wrong',
+  'explanation.writing': 'Writing your explanation…',
+  'explanation.error': "Couldn't fetch an explanation just now. Please try again in a moment.",
+  'explanation.retry': 'Retry',
+  'explanation.stubNote':
+    'Generated without an AI model — explanations get richer once AI is configured.',
+  'explanation.regenerateInLocale': 'Explain in English',
+  'explanation.regenerating': 'Rewriting…',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count}-day streak',
   'streak.tierStarter': 'On Fire',

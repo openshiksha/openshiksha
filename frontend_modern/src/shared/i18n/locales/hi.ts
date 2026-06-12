@@ -113,6 +113,18 @@ export const hi: LocaleDict = {
   'recommendations.emptyDescription':
     'अभी कोई सुझाव नहीं — कुछ असाइनमेंट प्रश्नों के उत्तर दें, हम आपको दोहराने लायक अध्याय बताएँगे।',
 
+  // ── Explanation panel (AI) ───────────────────────────────────────────
+  'explanation.cta': '✨ इस उत्तर को समझाएँ',
+  'explanation.whyRight': 'यह उत्तर सही क्यों है',
+  'explanation.whereWrong': 'कहाँ गलती हुई',
+  'explanation.writing': 'आपकी व्याख्या लिखी जा रही है…',
+  'explanation.error': 'अभी व्याख्या नहीं मिल पाई। कृपया थोड़ी देर में फिर कोशिश करें।',
+  'explanation.retry': 'फिर कोशिश करें',
+  'explanation.stubNote':
+    'बिना AI मॉडल के बनाई गई — AI जुड़ने पर व्याख्याएँ और बेहतर होंगी।',
+  'explanation.regenerateInLocale': 'हिंदी में समझाएँ',
+  'explanation.regenerating': 'फिर से लिखी जा रही है…',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count} दिन की स्ट्रीक',
   'streak.tierStarter': 'जोश में',

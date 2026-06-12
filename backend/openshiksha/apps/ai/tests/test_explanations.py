@@ -455,6 +455,53 @@ def test_generate_explanation_for_subpart_task(setup):
     assert exp.is_correct is True
 
 
+@pytest.mark.django_db
+def test_generate_for_subpart_regenerates_in_place_on_language_change(setup):
+    """LA-4: requesting a different language replaces the stored explanation
+    (update_or_create on the (student, subpart, submission) key) instead of
+    duplicating it — an explanation exists in one language at a time."""
+    from openshiksha.apps.ai.models import SubpartExplanation
+    from openshiksha.apps.ai.tasks import generate_explanation_for_subpart
+
+    common = {
+        "student_id": setup["student"].pk,
+        "subpart_id": setup["subpart"].pk,
+        "student_answer": "B",
+        "is_correct": True,
+        "grade_level": 8,
+    }
+    with patch("openshiksha.apps.ai.llm_client.generate_explanation", return_value=MOCK_LLM_RESULT):
+        first = generate_explanation_for_subpart(**common, language="en")
+        second = generate_explanation_for_subpart(**common, language="hi")
+
+    assert first["explanation_id"] == second["explanation_id"]
+    assert SubpartExplanation.objects.filter(student=setup["student"], question_subpart=setup["subpart"]).count() == 1
+    exp = SubpartExplanation.objects.get(pk=second["explanation_id"])
+    assert exp.language == "hi"
+
+
+@pytest.mark.django_db
+def test_generate_for_subpart_same_language_is_idempotent(setup):
+    from openshiksha.apps.ai.models import SubpartExplanation
+    from openshiksha.apps.ai.tasks import generate_explanation_for_subpart
+
+    common = {
+        "student_id": setup["student"].pk,
+        "subpart_id": setup["subpart"].pk,
+        "student_answer": "B",
+        "is_correct": True,
+        "grade_level": 8,
+    }
+    with patch("openshiksha.apps.ai.llm_client.generate_explanation", return_value=MOCK_LLM_RESULT):
+        first = generate_explanation_for_subpart(**common, language="hi")
+        second = generate_explanation_for_subpart(**common, language="hi")
+
+    assert first["explanation_id"] == second["explanation_id"]
+    exp = SubpartExplanation.objects.get(pk=second["explanation_id"])
+    assert exp.language == "hi"
+    assert SubpartExplanation.objects.filter(student=setup["student"], question_subpart=setup["subpart"]).count() == 1
+
+
 # ─────────────────────────────────────────────────────────────
 # API tests
 # ─────────────────────────────────────────────────────────────

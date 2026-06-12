@@ -808,8 +808,68 @@ def test_enqueue_weekly_parent_summaries_fans_out_per_pair(setup):
         setup["parent"].pk,
         setup["child"].pk,
         week_start_iso=expected_week,
+        language="en",
         send_email=True,
     )
+
+
+@pytest.mark.django_db
+def test_enqueue_weekly_parent_summaries_passes_parent_language(setup):
+    """LA-7: a Hindi-preferring parent gets a Hindi AI summary from the Monday batch."""
+    from openshiksha.apps.ai.tasks import enqueue_weekly_parent_summaries
+
+    setup["parent"].preferred_language = "hi"
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.tasks.generate_parent_progress_summary.delay") as mock_delay:
+        enqueue_weekly_parent_summaries()
+
+    assert mock_delay.call_args.kwargs["language"] == "hi"
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_renders_hindi_chrome(setup, summary, settings):
+    """LA-7: email chrome follows parent.preferred_language; the AI narrative
+    text is embedded as stored (already language-aware via the generate task)."""
+    from django.core import mail
+
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox = []
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].preferred_language = "hi"
+    setup["parent"].save()
+
+    sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is True
+    assert len(mail.outbox) == 1
+    assert "साप्ताहिक लर्निंग समरी" in mail.outbox[0].subject
+    assert "Aanya" in mail.outbox[0].subject
+    body = mail.outbox[0].body
+    assert "नमस्ते" in body
+    assert "इनसाइट्स खोलें" in body
+    # The stored narrative passes through verbatim.
+    assert "Aanya did well this week." in body
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_english_default(setup, summary, settings):
+    from django.core import mail
+
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox = []
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].save()
+
+    sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is True
+    assert "weekly learning summary" in mail.outbox[0].subject
+    assert "Hi " in mail.outbox[0].body
 
 
 @pytest.mark.django_db

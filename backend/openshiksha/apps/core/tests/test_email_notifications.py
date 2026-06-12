@@ -133,6 +133,78 @@ class TestEmailHelpers:
 
 
 # ---------------------------------------------------------------------------
+# Localized emails (LA-7): preferred_language = "hi" renders Hindi
+# ---------------------------------------------------------------------------
+
+
+class TestEmailLocalization:
+    @pytest.fixture
+    def hindi_student(self, db, school):
+        from openshiksha.apps.core.models import User, UserRole
+
+        return User.objects.create_user(
+            username="hindi_student",
+            password="pass",
+            role=UserRole.STUDENT,
+            school=school,
+            email="hindi@test.example",
+            first_name="Asha",
+            preferred_language="hi",
+        )
+
+    def test_remedial_email_in_hindi(self, hindi_student):
+        from openshiksha.apps.core.emails import notify_remedial_assigned
+
+        notify_remedial_assigned(hindi_student, "Algebra", "May 27")
+
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].subject == "आपके लिए एक नया अभ्यास असाइनमेंट है"
+        body = mail.outbox[0].body
+        assert "नमस्ते Asha" in body
+        # Authored content (chapter name) and dates stay as passed.
+        assert "Algebra" in body
+        assert "May 27" in body
+
+    def test_grading_email_in_hindi(self, hindi_student):
+        from openshiksha.apps.core.emails import notify_grading_complete
+
+        notify_grading_complete(hindi_student, "Chapter 3 Test", 78)
+
+        assert len(mail.outbox) == 1
+        assert "जाँच लिया गया है" in mail.outbox[0].subject
+        assert "78%" in mail.outbox[0].subject
+        assert "स्कोर: 78%" in mail.outbox[0].body
+        assert "Chapter 3 Test" in mail.outbox[0].body
+
+    def test_reminder_email_in_hindi(self, hindi_student):
+        from openshiksha.apps.core.emails import notify_due_date_reminder
+
+        notify_due_date_reminder(hindi_student, "Chapter 3 Test", "May 27")
+
+        assert len(mail.outbox) == 1
+        assert "अंतिम तिथि" in mail.outbox[0].subject
+        assert "Chapter 3 Test" in mail.outbox[0].subject
+        assert "रिमाइंडर बंद कर सकते हैं" in mail.outbox[0].body
+
+    def test_english_remains_the_default(self, db, student_with_email):
+        from openshiksha.apps.core.emails import notify_grading_complete
+
+        assert student_with_email.preferred_language == "en"
+        notify_grading_complete(student_with_email, "Chapter 3 Test", 78)
+
+        assert mail.outbox[0].subject == "Your assignment has been graded: 78%"
+
+    def test_unknown_language_falls_back_to_english(self, db, student_with_email):
+        from openshiksha.apps.core.emails import notify_grading_complete
+
+        # Bypass model validation deliberately — the catalog must not crash.
+        student_with_email.preferred_language = "fr"
+        notify_grading_complete(student_with_email, "Chapter 3 Test", 78)
+
+        assert mail.outbox[0].subject == "Your assignment has been graded: 78%"
+
+
+# ---------------------------------------------------------------------------
 # Integration: email sent during grade_submission task
 # ---------------------------------------------------------------------------
 

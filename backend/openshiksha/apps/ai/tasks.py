@@ -1109,6 +1109,10 @@ def enqueue_weekly_parent_summaries(week_start_iso: str | None = None) -> dict:
                 parent.pk,
                 child.pk,
                 week_start_iso=week_start_iso,
+                # LA-7: the AI narrative generates in the parent's language —
+                # before this, the Monday batch always produced English even
+                # for Hindi-preferring parents.
+                language=getattr(parent, "preferred_language", "en") or "en",
                 send_email=True,
             )
             enqueued += 1

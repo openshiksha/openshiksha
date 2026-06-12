@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Logo } from '@/shared/ui';
+import { LanguageSwitcher } from '@/shared/i18n';
 import { UserRole } from '@/types/index';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -130,8 +131,9 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* Right: User avatar dropdown (desktop) + hamburger (mobile) */}
+          {/* Right: Language toggle + user avatar dropdown (desktop) + hamburger (mobile) */}
           <div className="flex items-center gap-2">
+            <LanguageSwitcher className="hidden sm:inline-flex" />
             {user && (
               <div className="relative hidden sm:block" ref={userMenuRef}>
                 <button
@@ -278,6 +280,9 @@ export const Navbar = () => {
             </p>
             <MobileNavLink to="/profile">Profile</MobileNavLink>
             {isStudent && <MobileNavLink to="/student/proficiency">My Progress</MobileNavLink>}
+            <div className="px-3 py-2">
+              <LanguageSwitcher />
+            </div>
 
             <div className="pt-2 border-t border-ink-100 mt-2">
               <button

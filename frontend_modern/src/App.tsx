@@ -12,6 +12,7 @@ import { NotFoundPage } from './features/shared/NotFoundPage';
 import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 import { ErrorBoundary } from './shared/ui';
+import { I18nProvider } from './shared/i18n';
 
 // Route-level code-splitting. Every page below is loaded on demand so a cold
 // open of /login (the K-12 student's first impression on a budget Android phone)
@@ -78,6 +79,7 @@ function App() {
     : '/login';
 
   return (
+    <I18nProvider>
     <Router>
       <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
@@ -349,6 +351,7 @@ function App() {
       </Suspense>
       </ErrorBoundary>
     </Router>
+    </I18nProvider>
   );
 }
 

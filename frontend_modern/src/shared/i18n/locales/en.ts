@@ -38,6 +38,82 @@ export const en = {
   'login.schoolQuestion': 'Are you a school?',
   'login.enquireLink': 'Enquire about OpenShiksha',
 
+  // ── Home (marketing) page ────────────────────────────────────────────
+  'home.login': 'Log in',
+  'home.loginArrow': 'Log in →',
+  'home.heroTitle': 'Unlock every child’s potential.',
+  'home.heroSubtitle':
+    'Adaptive learning and educational analytics for Maths & Science — free for students, and built for the teachers, parents, and schools who guide them.',
+  'home.startFree': 'Start free as a student',
+  'home.pillarPracticeTitle': 'Practice',
+  'home.pillarPracticeDesc':
+    'Unlimited, auto-generated questions in Maths & Science — no two students get the same paper.',
+  'home.pillarEvaluateTitle': 'Evaluate',
+  'home.pillarEvaluateDesc':
+    'Every answer is corrected automatically and instantly — no repetitive marking for teachers.',
+  'home.pillarAnalyseTitle': 'Analyse',
+  'home.pillarAnalyseDesc':
+    'Advanced analytics surface each child’s strengths, gaps, and what to practise next.',
+  'home.missionKicker': 'Our mission',
+  'home.missionTitle':
+    'Make practising Maths & Science genuinely engaging — for every student.',
+  'home.missionBody1':
+    'OpenShiksha is a learning platform built to improve concept retention and learning outcomes. We cover classes 7–10 Maths and Science, with refreshers from class 1, all aligned to the CBSE board and available in English and Hindi.',
+  'home.missionOpenPre': 'Our',
+  'home.missionOpenTerm': 'Open Model',
+  'home.missionOpenPost': 'lets any student sign up and learn for free. Our',
+  'home.missionPartnerTerm': 'Partnership Model',
+  'home.missionPartnerPost':
+    'gives schools and educational organisations the dashboards to run virtual classrooms and make data-driven decisions.',
+  'home.teacherAlt': 'A teacher helping students',
+  'home.startNowTitle': 'Start now',
+  'home.startNowSubtitle':
+    'Free for students, forever. A guided onboarding for schools and educational organisations.',
+  'home.studentsCardTitle': 'Students',
+  'home.studentsCardDesc': 'Create a free account and start practising today.',
+  'home.studentsCardCta': 'Sign up free →',
+  'home.schoolsCardTitle': 'Schools & organisations',
+  'home.schoolsCardDesc': 'Bring OpenShiksha to your classrooms.',
+  'home.schoolsCardCta': 'Enquire →',
+  'home.featuresTitle': 'Key features',
+  'home.feature1':
+    'Advanced analytics pinpoint strengths, weaknesses, and concepts that need attention.',
+  'home.feature2': 'Personalised feedback targets each student’s specific learning outcomes.',
+  'home.feature3':
+    'Formulaic templates generate near-infinite questions — unlimited practice, no copying.',
+  'home.feature4': 'Automated correction removes hours of repetitive marking for teachers.',
+  'home.feature5':
+    'A dedicated parent dashboard with weekly AI summaries keeps families engaged.',
+  'home.feature6': 'Works beautifully on low-cost mobiles and tablets, in English and Hindi.',
+  'home.footerSchools': 'For schools',
+
+  // ── Registration pages ───────────────────────────────────────────────
+  'register.title': 'Create your account',
+  'register.subtitle': 'How would you like to learn?',
+  'register.haveAccount': 'Already have an account?',
+  'register.signIn': 'Sign in',
+  'register.back': '← Back',
+  'register.joinSchoolTitle': 'Join a school',
+  'register.joinSchoolDesc':
+    'Use a classroom join code from your teacher to enroll automatically.',
+  'register.openTitle': 'Study independently',
+  'register.openDesc':
+    'Practice from the shared question bank at your own pace — no school needed.',
+  'register.openSubtitle': 'Access the shared question bank for free.',
+  'register.schoolTitle': 'Join your school',
+  'register.schoolSubtitle': 'Enter the join code from your teacher.',
+  'register.firstName': 'First name',
+  'register.lastName': 'Last name',
+  'register.username': 'Username',
+  'register.password': 'Password',
+  'register.emailOptional': 'Email (optional)',
+  'register.joinCode': 'Classroom join code',
+  'register.joinCodePlaceholder': 'e.g. ABC123',
+  'register.error': 'Registration failed. Please try again.',
+  'register.creating': 'Creating account…',
+  'register.startPractising': 'Start practising',
+  'register.createAccount': 'Create account',
+
   // ── Student dashboard ────────────────────────────────────────────────
   'dashboard.greeting': 'Hi, {name}!',
   'dashboard.title': 'Your dashboard',

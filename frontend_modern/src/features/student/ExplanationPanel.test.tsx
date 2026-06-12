@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider, type Locale } from '@/shared/i18n';
 import { ExplanationPanel } from './ExplanationPanel';
 import type { SubpartExplanation } from './useExplanation';
 
@@ -32,18 +33,23 @@ const EXPLANATION: SubpartExplanation = {
   generated_at: '2026-06-09T10:00:00Z',
 };
 
-function renderPanel(props?: Partial<Parameters<typeof ExplanationPanel>[0]>) {
+function renderPanel(
+  props?: Partial<Parameters<typeof ExplanationPanel>[0]>,
+  locale: Locale = 'en',
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ExplanationPanel
-        subpartId={101}
-        studentAnswer="41"
-        isCorrect={false}
-        pollIntervalMs={10}
-        maxPollAttempts={3}
-        {...props}
-      />
+      <I18nProvider initialLocale={locale}>
+        <ExplanationPanel
+          subpartId={101}
+          studentAnswer="41"
+          isCorrect={false}
+          pollIntervalMs={10}
+          maxPollAttempts={3}
+          {...props}
+        />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
@@ -73,6 +79,7 @@ describe('ExplanationPanel', () => {
         subpart_id: 101,
         student_answer: '41',
         is_correct: false,
+        language: 'en',
       })
     );
     expect(screen.getByText(/writing your explanation/i)).toBeDefined();
@@ -123,6 +130,63 @@ describe('ExplanationPanel', () => {
     mockGet.mockResolvedValue({ data: [EXPLANATION] });
     await user.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() => expect(screen.getByText(/6 × 7 is 42/)).toBeDefined());
+  });
+
+  it('generates in the active locale (hi)', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValue({ data: [] });
+    mockPost.mockResolvedValue({ data: { detail: 'queued' } });
+
+    renderPanel(undefined, 'hi');
+    // Hindi dictionary loads lazily; the CTA may briefly render in English.
+    await user.click(screen.getByRole('button', { name: /explain this answer|इस उत्तर को समझाएँ/i }));
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith(
+        '/ai/explanations/generate/',
+        expect.objectContaining({ language: 'hi' }),
+      )
+    );
+  });
+
+  it('renders a stale-language explanation with a regenerate affordance', async () => {
+    const user = userEvent.setup();
+    // Stored explanation is English; the active locale is Hindi.
+    mockGet.mockResolvedValue({ data: [EXPLANATION] });
+    mockPost.mockResolvedValue({ data: { detail: 'queued' } });
+
+    renderPanel(undefined, 'hi');
+    await user.click(screen.getByRole('button', { name: /explain this answer|इस उत्तर को समझाएँ/i }));
+
+    // Content is never blocked — the English text renders…
+    await waitFor(() => expect(screen.getByText(/6 × 7 is 42/)).toBeDefined());
+    // …with an affordance to rewrite it in the reader's language.
+    const regen = await screen.findByRole('button', { name: 'हिंदी में समझाएँ' });
+    await user.click(regen);
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith(
+        '/ai/explanations/generate/',
+        expect.objectContaining({ subpart_id: 101, language: 'hi' }),
+      )
+    );
+    // The panel polls until the row comes back in the requested language.
+    mockGet.mockResolvedValue({
+      data: [{ ...EXPLANATION, language: 'hi', explanation_text: '6 × 7 = 42 होता है।' }],
+    });
+    await waitFor(() => expect(screen.getByText(/42 होता है/)).toBeDefined());
+  });
+
+  it('shows no regenerate affordance when the languages match', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValue({ data: [EXPLANATION] });
+
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /explain this answer/i }));
+
+    await waitFor(() => expect(screen.getByText(/6 × 7 is 42/)).toBeDefined());
+    expect(screen.queryByText(/explain in english/i)).toBeNull();
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it('surfaces a generation failure instead of polling forever', async () => {

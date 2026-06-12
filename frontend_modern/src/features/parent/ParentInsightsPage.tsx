@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { Button, Card, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
+import { useI18n } from '@/shared/i18n';
 import { useChildren } from './useChildren';
 import { useLatestParentSummary, useGenerateParentSummary } from './useParentSummary';
 import { NarrativeCard } from './components/NarrativeCard';
@@ -22,11 +23,14 @@ export const ParentInsightsPage = () => {
     refetch,
   } = useLatestParentSummary(validChildId);
   const generate = useGenerateParentSummary();
+  const { locale } = useI18n();
 
   const handleGenerate = () => {
     if (!validChildId) return;
+    // The weekly summary generates in the reader's language (LA-4) — the
+    // backend prompts the LLM in Devanagari for 'hi'.
     generate.mutate(
-      { child_id: validChildId, language: 'en' },
+      { child_id: validChildId, language: locale },
       {
         onSuccess: () => {
           setTimeout(() => refetch(), 1500);

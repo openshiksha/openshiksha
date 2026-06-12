@@ -39,8 +39,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Fraunces"', 'Georgia', 'serif'],
+        // Noto Sans Devanagari sits behind Inter/Fraunces: neither covers
+        // Devanagari, so Hindi glyphs (the hi locale, हिन्दी in copy) fall
+        // through to it instead of an unstyled system font.
+        sans: ['Inter', '"Noto Sans Devanagari"', 'system-ui', 'sans-serif'],
+        display: ['"Fraunces"', '"Noto Sans Devanagari"', 'Georgia', 'serif'],
       },
       boxShadow: {
         // Warm-toned elevation (ink, not cold black) — the V2 surface system.

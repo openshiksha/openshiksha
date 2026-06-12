@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { authApi } from '@/api/auth';
 import { UserRole } from '@/types/index';
-import { Button, Card, Input, SectionHeading } from '@/shared/ui';
+import { Button, Card, Input, Select, SectionHeading } from '@/shared/ui';
+import { useI18n, type Locale } from '@/shared/i18n';
 import type { AxiosError } from 'axios';
 
 function extractError(err: unknown, fallback = 'Save failed. Please try again.'): string {
@@ -19,6 +20,7 @@ function extractError(err: unknown, fallback = 'Save failed. Please try again.')
 export const ProfilePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { setLocale } = useI18n();
 
   const [form, setForm] = useState({
     first_name: '',
@@ -27,6 +29,7 @@ export const ProfilePage = () => {
     phone_number: '',
   });
   const [emailRemindersOptOut, setEmailRemindersOptOut] = useState(false);
+  const [preferredLanguage, setPreferredLanguage] = useState<Locale>('en');
   const [savedMsg, setSavedMsg] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
@@ -49,13 +52,16 @@ export const ProfilePage = () => {
         phone_number: user.phone_number ?? '',
       });
       setEmailRemindersOptOut(user.email_reminders_opt_out ?? false);
+      setPreferredLanguage(user.preferred_language ?? 'en');
     }
   }
 
   const mutation = useMutation({
     mutationFn: authApi.updateProfile,
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ['auth'] });
+      // Apply the saved language preference to the live UI immediately.
+      if (updated.preferred_language) setLocale(updated.preferred_language);
       setSavedMsg(true);
       setTimeout(() => setSavedMsg(false), 3000);
     },
@@ -75,8 +81,9 @@ export const ProfilePage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = { ...form, preferred_language: preferredLanguage };
     mutation.mutate(
-      isStudent ? { ...form, email_reminders_opt_out: emailRemindersOptOut } : form
+      isStudent ? { ...payload, email_reminders_opt_out: emailRemindersOptOut } : payload
     );
   };
 
@@ -156,6 +163,20 @@ export const ProfilePage = () => {
               autoComplete="tel"
               placeholder="+91 9876543210"
             />
+
+            <Select
+              label="Language / भाषा"
+              id="preferred_language"
+              value={preferredLanguage}
+              onChange={(e) => setPreferredLanguage(e.target.value as Locale)}
+              disabled={mutation.isPending}
+              hint="Your preference follows you across devices."
+            >
+              <option value="en">English</option>
+              <option value="hi" lang="hi">
+                हिंदी (Hindi)
+              </option>
+            </Select>
 
             {isStudent && (
               <div className="pt-2 border-t border-ink-100">

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { I18nProvider, useI18n, resolveInitialLocale, LOCALE_STORAGE_KEY } from './index';
 import { useT } from './useT';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -73,6 +73,45 @@ describe('i18n', () => {
     const text = screen.getByTestId('title').textContent;
     expect([en['login.title'], hi['login.title']]).toContain(text);
     expect(text).not.toBe('');
+  });
+
+  it('seeds the locale from profileLocale when no device override exists', async () => {
+    render(
+      <I18nProvider profileLocale="hi">
+        <Probe />
+      </I18nProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('locale').textContent).toBe('hi');
+    });
+    // Seeding is not an explicit device choice — localStorage stays untouched.
+    expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('the device override wins over profileLocale', () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
+    render(
+      <I18nProvider profileLocale="hi">
+        <Probe />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId('locale').textContent).toBe('en');
+  });
+
+  it('fires onLocaleChange on explicit switches, not on seeding', async () => {
+    const onLocaleChange = vi.fn();
+    render(
+      <I18nProvider profileLocale="hi" onLocaleChange={onLocaleChange}>
+        <Probe />
+      </I18nProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('locale').textContent).toBe('hi');
+    });
+    expect(onLocaleChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('to-en'));
+    expect(onLocaleChange).toHaveBeenCalledWith('en');
   });
 
   it('resolveInitialLocale honors the localStorage device override', () => {

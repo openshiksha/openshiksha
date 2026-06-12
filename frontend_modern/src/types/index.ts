@@ -12,6 +12,7 @@ export interface User {
   grade?: number | null;
   phone_number?: string;
   email_reminders_opt_out?: boolean;
+  preferred_language?: 'en' | 'hi';
 }
 
 export interface ClassroomInviteCode {

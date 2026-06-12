@@ -40,6 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
             "grade",
             "phone_number",
             "email_reminders_opt_out",
+            "preferred_language",
         ]
         read_only_fields = ["id", "username", "role", "grade"]
 
@@ -51,7 +52,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone_number", "email_reminders_opt_out"]
+        fields = ["first_name", "last_name", "email", "phone_number", "email_reminders_opt_out", "preferred_language"]
 
     def validate_email(self, value):
         if not value:

@@ -42,6 +42,47 @@ updates:
           - "minor"
           - "patch"
 
+  # Backend Docker base images (Dockerfile + Dockerfile.prod: python:3.11-slim)
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "monthly"
+    target-branch: "modernization"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "deps"
+    # Patch/digest bumps of the base image are routine; group them monthly.
+    # A major (python 3.11 → 3.x) is a runtime upgrade that needs its own
+    # review against CI and mypy, so majors stay individual PRs.
+    groups:
+      backend-docker-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Frontend Docker base images (node:20-alpine builder, nginx runtime)
+  - package-ecosystem: "docker"
+    directory: "/frontend_modern"
+    schedule:
+      interval: "monthly"
+    target-branch: "modernization"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "deps"
+    groups:
+      frontend-docker-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
   # GitHub Actions workflow dependencies
   - package-ecosystem: "github-actions"
     directory: "/"

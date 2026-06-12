@@ -250,20 +250,67 @@ While loading → a pulsing report-card skeleton.
 
 ---
 
+## 2026-06-11 — Difficulty calibration: list-error state + skeleton loading + refresh feedback
+
+**Surface:** Difficulty calibration (teacher dashboard `QuestionQualityPanel`).
+First audit of this surface — it predates the error-as-empty-state sweep and
+was missed by it.
+
+**Gaps (checklist #1 error states, #2 loading states, #8 tests):**
+1. The list query's `isError` was never read, so a **failed fetch rendered the
+   empty state** — "No questions flagged yet" — telling the teacher their
+   question bank looks healthy when the server was simply unreachable. Same
+   anti-pattern already fixed in `MisconceptionClustersPanel`,
+   `InterventionsPanel`, and `WeeklyReportPanel`.
+2. Loading was a bare "Loading question analysis…" text line instead of a
+   shape-matched skeleton, so the expanded section reflowed when data landed.
+3. The refresh mutation **silently swallowed errors** (`refresh.isError` never
+   read) and gave no confirmation on success — after the button flicked back
+   from "Refreshing…" nothing told the teacher a recompute was underway.
+4. The panel had **no test file at all** — the only teacher AI panel without one.
+5. Minor: the collapse toggle lacked `aria-expanded` (all siblings have it).
+
+**Fix:**
+- Destructured `isError`/`refetch` from `useFlaggedCalibrations`; a failed
+  fetch now shows "Couldn't load the question analysis just now." with an
+  inline **Retry** button. The empty state only renders on a *successful*
+  empty response.
+- Added `CalibrationCardSkeleton` (mirrors the `CalibrationCard` layout:
+  title + meta lines, flag pill, hint line, three stat chips) shown twice
+  while loading.
+- `refresh.isError` → inline rose error; `refresh.isSuccess` → "Recalibrating
+  from recent answers — updated verdicts appear here shortly." status line
+  (same recipe as `MisconceptionClustersPanel`).
+- Added `aria-expanded` to the toggle.
+- New test file `QuestionQualityPanel.test.tsx` (7 tests): lazy fetch +
+  skeletons, card details + summary line, empty state, list-error + Retry
+  (not the empty state), retry recovery, refresh queue + status, refresh
+  failure (checklist #8).
+
+**Verify:** Teacher dashboard → expand "Question Quality" with the API
+unreachable → red "Couldn't load…" line with Retry, not the empty state.
+While loading → two pulsing card skeletons. Click Refresh → status line
+confirms the recompute; a failing refresh shows the inline error.
+
+---
+
 ## Remaining gaps (audit notes — updated 2026-06-11, ASA closed)
 
 - ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`
-  (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10) now
+  (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10), and
+  `QuestionQualityPanel` (2026-06-11, the one panel the sweep missed) now
   all distinguish a failed fetch from a genuinely empty response and use
-  shape-matched skeletons while loading.
+  shape-matched skeletons while loading. `AssignmentDraftsPanel` shipped with
+  the pattern built in (#297).
 - **Misconception cluster cards lack AI provenance** — `sample_diagnosis` /
   `sample_remediation_tip` are copied from LLM-generated `StudentMisconception`
   rows but `ClassMisconceptionCluster` carries no `model_used`, so the cards
   can't show the `✨ AI-generated` vs stub badge used everywhere else. Needs a
   model field + migration → guardrailed out of polish runs; note for ASA.
 - **Refresh confirmation lingers** — `MisconceptionClustersPanel`'s
-  "Recomputing from recent submissions…" status stays visible after the
-  delayed refetch lands; could clear once new data arrives. Minor.
+  "Recomputing from recent submissions…" status (and now
+  `QuestionQualityPanel`'s matching "Recalibrating…" line) stays visible
+  after the delayed refetch lands; could clear once new data arrives. Minor.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.
 - ✅ **Unwired backend surfaces — all four groups lit.**

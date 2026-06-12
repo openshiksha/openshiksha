@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button } from '@/shared/ui';
+import { Badge, Button, Skeleton } from '@/shared/ui';
 import {
   useCalibrationSummary,
   useFlaggedCalibrations,
@@ -78,6 +78,25 @@ const CalibrationCard = ({ item }: CardProps) => {
   );
 };
 
+// Mirrors the CalibrationCard layout so the list doesn't reflow when data lands.
+const CalibrationCardSkeleton = () => (
+  <div className="rounded-xl border border-ink-100 bg-paper p-4">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Skeleton w="w-2/3" h="h-5" />
+        <Skeleton w="w-1/2" h="h-3" />
+      </div>
+      <Skeleton w="w-20" h="h-5" rounded="rounded-full" />
+    </div>
+    <Skeleton w="w-5/6" h="h-3" className="mt-3" />
+    <div className="mt-3 flex gap-1.5">
+      <Skeleton w="w-28" h="h-5" rounded="rounded-full" />
+      <Skeleton w="w-28" h="h-5" rounded="rounded-full" />
+      <Skeleton w="w-24" h="h-5" rounded="rounded-full" />
+    </div>
+  </div>
+);
+
 interface Props {
   subjectRoomId: number;
 }
@@ -93,7 +112,12 @@ interface Props {
  */
 export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data: flagged, isLoading } = useFlaggedCalibrations(subjectRoomId, isExpanded);
+  const {
+    data: flagged,
+    isLoading,
+    isError,
+    refetch,
+  } = useFlaggedCalibrations(subjectRoomId, isExpanded);
   const { data: summary } = useCalibrationSummary(subjectRoomId, isExpanded);
   const refresh = useRefreshCalibrations(subjectRoomId);
 
@@ -103,6 +127,7 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
     <div className="mt-3 border-t border-ink-100 pt-3">
       <button
         onClick={() => setIsExpanded((v) => !v)}
+        aria-expanded={isExpanded}
         className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-800 transition-colors w-full text-left"
       >
         <span>Question Quality</span>
@@ -119,16 +144,51 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
             </p>
           )}
 
-          {isLoading && <p className="text-xs text-ink-400 py-2">Loading question analysis…</p>}
+          {isLoading && (
+            <>
+              <CalibrationCardSkeleton />
+              <CalibrationCardSkeleton />
+            </>
+          )}
 
-          {!isLoading && items.length === 0 && (
+          {/* A failed fetch must not masquerade as "no questions flagged" —
+              that would tell the teacher their question bank is healthy when
+              we just couldn't reach the server. */}
+          {!isLoading && isError && (
+            <p className="text-xs text-rose-600 py-2">
+              Couldn&apos;t load the question analysis just now.{' '}
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+              >
+                Retry
+              </button>
+            </p>
+          )}
+
+          {!isLoading && !isError && items.length === 0 && (
             <div className="text-xs text-ink-500 py-2">
               No questions flagged yet. Calibration needs a handful of student attempts per
               question — refresh once your class has practised.
             </div>
           )}
 
-          {!isLoading && items.map((item) => <CalibrationCard key={item.id} item={item} />)}
+          {!isLoading &&
+            !isError &&
+            items.map((item) => <CalibrationCard key={item.id} item={item} />)}
+
+          {refresh.isError && (
+            <p className="text-xs text-rose-600 pt-1">
+              Couldn&apos;t start the recalibration just now. Please try again in a moment.
+            </p>
+          )}
+
+          {refresh.isSuccess && (
+            <p className="text-xs text-ink-400 pt-1" role="status">
+              Recalibrating from recent answers — updated verdicts appear here shortly.
+            </p>
+          )}
 
           <div className="flex items-center justify-between pt-1">
             <p className="text-xs text-ink-400">

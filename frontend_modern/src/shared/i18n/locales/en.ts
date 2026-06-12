@@ -12,6 +12,10 @@ export const en = {
   // ── Common / switcher ────────────────────────────────────────────────
   'common.language': 'Language',
   'common.languageSwitchTo': 'Switch language to {language}',
+  'common.cancel': 'Cancel',
+  'common.practice': 'Practice',
+  'common.topicsOne': '{count} topic',
+  'common.topicsMany': '{count} topics',
 
   // ── Auth hero (chalkboard panel, shared by login + register) ─────────
   'auth.heroHeadline': 'Unlock learning, one question at a time.',
@@ -33,6 +37,89 @@ export const en = {
   'login.registerLink': 'Register',
   'login.schoolQuestion': 'Are you a school?',
   'login.enquireLink': 'Enquire about OpenShiksha',
+
+  // ── Student dashboard ────────────────────────────────────────────────
+  'dashboard.greeting': 'Hi, {name}!',
+  'dashboard.title': 'Your dashboard',
+  'dashboard.subtitle': 'Here are your assignments.',
+  'dashboard.myProgress': 'My progress →',
+  'dashboard.loadError': 'Failed to load assignments. Please refresh the page.',
+  'dashboard.openEmptyTitle': "You're not enrolled in a classroom yet",
+  'dashboard.openEmptyDescription':
+    'Browse the shared question bank to start practising on your own.',
+  'dashboard.browseSubjects': 'Browse subjects →',
+
+  // ── Assignment list (sections + empty state) ─────────────────────────
+  'assignments.emptyTitle': 'No assignments yet',
+  'assignments.emptyDescription': 'Your teacher will assign some soon. Check back later!',
+  'assignments.sectionOverdue': 'Overdue',
+  'assignments.sectionDueSoon': 'Due Soon',
+  'assignments.sectionUpcoming': 'Upcoming',
+  'assignments.sectionCompleted': 'Completed',
+
+  // ── Assignment card ──────────────────────────────────────────────────
+  'assignment.overdueBy': 'Overdue by {distance}',
+  'assignment.dueIn': 'Due {distance}',
+  'assignment.submittedAgo': 'Submitted {distance}',
+  'assignment.submitted': 'Submitted',
+  'assignment.remedialBadge': 'Remedial Practice',
+  'assignment.progress': 'Progress',
+  'assignment.ctaReview': 'Review',
+  'assignment.ctaContinue': 'Continue',
+  'assignment.ctaStart': 'Start',
+
+  // ── Assignment detail (work + submit flow) ───────────────────────────
+  'assignmentDetail.back': 'Back to assignments',
+  'assignmentDetail.answeredCount': '{answered} of {total} answered',
+  'assignmentDetail.submittedNice': 'Assignment submitted — nice work!',
+  'assignmentDetail.submittedTitle': 'Submitted',
+  'assignmentDetail.grading': 'Grading in progress…',
+  'assignmentDetail.notFoundTitle': 'Assignment not found',
+  'assignmentDetail.notFoundDescription': "It may have been removed or you don't have access.",
+  'assignmentDetail.backToDashboard': 'Back to dashboard',
+  'assignmentDetail.noQuestions': 'No questions in this assignment',
+  'assignmentDetail.submit': 'Submit assignment',
+  'assignmentDetail.confirmTitle': 'Submit assignment?',
+  'assignmentDetail.confirmBody':
+    'You have answered {answered} of {total} questions. You cannot change your answers after submitting.',
+  'assignmentDetail.confirmSubmit': 'Submit',
+  'assignmentDetail.submitting': 'Submitting…',
+
+  // ── Due for Review panel (SRS) ───────────────────────────────────────
+  'dueReview.title': 'Due for Review',
+  'dueReview.overdueCount': '{count} overdue',
+  'dueReview.statusOverdue': 'Overdue',
+  'dueReview.statusToday': 'Due today',
+  'dueReview.statusSoon': 'Coming up',
+  'dueReview.overdueSince': 'Overdue since {date}',
+  'dueReview.dueOn': 'Due {date}',
+  'dueReview.interval': 'every {days}d',
+  'dueReview.reviewedTimes': '{count}× reviewed',
+  'dueReview.moreTopics': '+{count} more topics',
+  'dueReview.emptyDescription':
+    'Nothing due yet — finish a few assignments and your review schedule will appear here.',
+  'dueReview.footer': 'Practice your assignments to push review dates forward.',
+
+  // ── Recommendations panel ────────────────────────────────────────────
+  'recommendations.title': 'What to Practice Next',
+  'recommendations.todaysPlan': "Today's plan: ~{minutes} min",
+  'recommendations.yourScore': 'your score',
+  'recommendations.planTopicsOne': '{count} topic in today’s plan',
+  'recommendations.planTopicsMany': '{count} topics in today’s plan',
+  'recommendations.viewProgress': 'View progress →',
+  'recommendations.viewLearningPath': 'View learning path →',
+  'recommendations.emptyDescription':
+    "No suggestions yet — answer a few assignment questions and we'll point you to the chapters worth revisiting.",
+
+  // ── Streak badge ─────────────────────────────────────────────────────
+  'streak.days': '{count}-day streak',
+  'streak.tierStarter': 'On Fire',
+  'streak.tierWeek': 'Week Warrior',
+  'streak.tierMonth': 'Month Master',
+  'streak.tierChampion': 'Champion',
+  'streak.best': 'best: {count}',
+  'streak.grace': 'grace ✓',
+  'streak.graceTitle': 'Grace day used — streak preserved through one missed day',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

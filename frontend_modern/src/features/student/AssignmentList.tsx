@@ -1,5 +1,6 @@
 import { isPast, parseISO, differenceInDays } from 'date-fns';
 import { EmptyState } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import type { Assignment } from '@/types/index';
 import { AssignmentCard } from './AssignmentCard';
 
@@ -38,13 +39,14 @@ function groupAssignments(assignments: Assignment[]): GroupedAssignments {
 }
 
 export const AssignmentList = ({ assignments }: AssignmentListProps) => {
+  const t = useT();
   const groups = groupAssignments(assignments);
 
   if (assignments.length === 0) {
     return (
       <EmptyState
-        title="No assignments yet"
-        description="Your teacher will assign some soon. Check back later!"
+        title={t('assignments.emptyTitle')}
+        description={t('assignments.emptyDescription')}
       />
     );
   }
@@ -52,7 +54,11 @@ export const AssignmentList = ({ assignments }: AssignmentListProps) => {
   return (
     <div className="space-y-8">
       {groups.overdue.length > 0 && (
-        <Section title="Overdue" count={groups.overdue.length} accent="urgent">
+        <Section
+          title={t('assignments.sectionOverdue')}
+          count={groups.overdue.length}
+          accent="urgent"
+        >
           {groups.overdue.map((a) => (
             <AssignmentCard key={a.id} assignment={a} />
           ))}
@@ -60,7 +66,11 @@ export const AssignmentList = ({ assignments }: AssignmentListProps) => {
       )}
 
       {groups.dueSoon.length > 0 && (
-        <Section title="Due Soon" count={groups.dueSoon.length} accent="attention">
+        <Section
+          title={t('assignments.sectionDueSoon')}
+          count={groups.dueSoon.length}
+          accent="attention"
+        >
           {groups.dueSoon.map((a) => (
             <AssignmentCard key={a.id} assignment={a} />
           ))}
@@ -68,7 +78,11 @@ export const AssignmentList = ({ assignments }: AssignmentListProps) => {
       )}
 
       {groups.upcoming.length > 0 && (
-        <Section title="Upcoming" count={groups.upcoming.length} accent="brand">
+        <Section
+          title={t('assignments.sectionUpcoming')}
+          count={groups.upcoming.length}
+          accent="brand"
+        >
           {groups.upcoming.map((a) => (
             <AssignmentCard key={a.id} assignment={a} />
           ))}
@@ -76,7 +90,11 @@ export const AssignmentList = ({ assignments }: AssignmentListProps) => {
       )}
 
       {groups.completed.length > 0 && (
-        <Section title="Completed" count={groups.completed.length} accent="success">
+        <Section
+          title={t('assignments.sectionCompleted')}
+          count={groups.completed.length}
+          accent="success"
+        >
           {groups.completed.map((a) => (
             <AssignmentCard key={a.id} assignment={a} />
           ))}

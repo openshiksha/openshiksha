@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
 import { Button, EmptyState } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import { AssignmentList } from './AssignmentList';
 import { useAssignments } from './useAssignments';
 import { useStreak } from './useStreak';
@@ -14,10 +15,13 @@ import { UserRole } from '@/types/index';
 export const StudentDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const t = useT();
   const { data: assignments, isLoading, isError } = useAssignments();
   const { data: streak } = useStreak();
 
-  const greeting = user?.first_name ? `Hi, ${user.first_name}!` : 'Your dashboard';
+  const greeting = user?.first_name
+    ? t('dashboard.greeting', { name: user.first_name })
+    : t('dashboard.title');
 
   return (
     <div>
@@ -35,14 +39,14 @@ export const StudentDashboard = () => {
               />
             </div>
           ) : (
-            <p className="mt-1 text-sm text-ink-500 sm:text-base">Here are your assignments.</p>
+            <p className="mt-1 text-sm text-ink-500 sm:text-base">{t('dashboard.subtitle')}</p>
           )}
         </div>
         <button
           onClick={() => navigate('/student/proficiency')}
           className="shrink-0 whitespace-nowrap text-sm font-semibold text-brand-700 hover:text-brand-800"
         >
-          My progress →
+          {t('dashboard.myProgress')}
         </button>
       </div>
 
@@ -61,16 +65,18 @@ export const StudentDashboard = () => {
           className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
           role="alert"
         >
-          Failed to load assignments. Please refresh the page.
+          {t('dashboard.loadError')}
         </div>
       )}
 
       {assignments && assignments.length === 0 && user?.role === UserRole.OPEN_STUDENT && (
         <EmptyState
-          title="You're not enrolled in a classroom yet"
-          description="Browse the shared question bank to start practising on your own."
+          title={t('dashboard.openEmptyTitle')}
+          description={t('dashboard.openEmptyDescription')}
           action={
-            <Button onClick={() => navigate('/student/browse')}>Browse subjects →</Button>
+            <Button onClick={() => navigate('/student/browse')}>
+              {t('dashboard.browseSubjects')}
+            </Button>
           }
         />
       )}

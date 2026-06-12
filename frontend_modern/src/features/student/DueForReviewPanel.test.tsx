@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider, type Locale } from '@/shared/i18n';
 import { DueForReviewPanel } from './DueForReviewPanel';
 import type { SRSEntry } from './useSpacedRepetitionDue';
 
@@ -45,13 +46,15 @@ function mockDueEntries(entries: SRSEntry[] | Error) {
   });
 }
 
-function renderPanel() {
+function renderPanel(locale: Locale = 'en') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <DueForReviewPanel />
-      </MemoryRouter>
+      <I18nProvider initialLocale={locale}>
+        <MemoryRouter>
+          <DueForReviewPanel />
+        </MemoryRouter>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
@@ -93,6 +96,18 @@ describe('DueForReviewPanel', () => {
       expect(screen.getByText(/finish a few assignments/i)).toBeDefined()
     );
     expect(screen.getByText('Due for Review')).toBeDefined();
+  });
+
+  it('renders the panel chrome in Hindi when the locale is hi', async () => {
+    mockDueEntries([ENTRY]);
+    renderPanel('hi');
+
+    // Hindi dictionary loads via dynamic import — wait for the swap.
+    await waitFor(() => expect(screen.getByText('दोहराव के लिए तैयार')).toBeDefined());
+    expect(screen.getByText('आज करना है')).toBeDefined();
+    expect(screen.getByRole('link', { name: 'अभ्यास' })).toBeDefined();
+    // Authored content stays as authored (initiative principle 1).
+    expect(screen.getByText('Polynomials')).toBeDefined();
   });
 
   it('hides the panel entirely when the fetch fails', async () => {

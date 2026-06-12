@@ -1,6 +1,8 @@
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button } from '@/shared/ui';
+import { useI18n } from '@/shared/i18n';
+import { dateFnsLocaleFor } from '@/shared/i18n/dateFnsLocale';
 import type { Assignment } from '@/types/index';
 
 interface AssignmentCardProps {
@@ -9,6 +11,8 @@ interface AssignmentCardProps {
 
 export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
   const navigate = useNavigate();
+  const { t, locale } = useI18n();
+  const dateLocale = dateFnsLocaleFor(locale);
   const { problem_set, due_at, my_submission } = assignment;
   const dueDate = parseISO(due_at);
   const isOverdue = isPast(dueDate);
@@ -17,18 +21,29 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
   const score = my_submission?.score;
 
   const dueDateLabel = isOverdue
-    ? `Overdue by ${formatDistanceToNow(dueDate)}`
-    : `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`;
+    ? t('assignment.overdueBy', { distance: formatDistanceToNow(dueDate, { locale: dateLocale }) })
+    : t('assignment.dueIn', {
+        distance: formatDistanceToNow(dueDate, { addSuffix: true, locale: dateLocale }),
+      });
 
   // Submitted assignments surface *when* they were submitted instead of the
   // due date — once you've turned it in, the due date is irrelevant and the
   // student wants to know "did I do this recently?" at a glance.
   const submittedLabel =
     isSubmitted && my_submission?.submitted_at
-      ? `Submitted ${formatDistanceToNow(parseISO(my_submission.submitted_at), { addSuffix: true })}`
-      : 'Submitted';
+      ? t('assignment.submittedAgo', {
+          distance: formatDistanceToNow(parseISO(my_submission.submitted_at), {
+            addSuffix: true,
+            locale: dateLocale,
+          }),
+        })
+      : t('assignment.submitted');
 
-  const cta = isSubmitted ? 'Review' : completion > 0 ? 'Continue' : 'Start';
+  const cta = isSubmitted
+    ? t('assignment.ctaReview')
+    : completion > 0
+      ? t('assignment.ctaContinue')
+      : t('assignment.ctaStart');
 
   return (
     <div
@@ -47,7 +62,7 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
               {problem_set.subject.name}
             </p>
             {problem_set.is_remedial && (
-              <Badge tone="attention">Remedial Practice</Badge>
+              <Badge tone="attention">{t('assignment.remedialBadge')}</Badge>
             )}
           </div>
           <h3 className="font-display font-semibold text-ink-900 truncate">
@@ -72,7 +87,7 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
       {!isSubmitted && completion > 0 && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-ink-500 mb-1">
-            <span>Progress</span>
+            <span>{t('assignment.progress')}</span>
             <span>{Math.round(completion * 100)}%</span>
           </div>
           <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">

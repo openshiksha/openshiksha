@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Badge, Skeleton } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import { useRecommendations } from './useRecommendations';
 import { usePracticePlan } from './usePracticePlan';
 
@@ -12,6 +13,7 @@ const PRIORITY_TONE: Record<number, 'urgent' | 'attention' | 'brand' | 'neutral'
 };
 
 export const RecommendationsPanel = () => {
+  const t = useT();
   const { data: recommendations, isLoading, isError } = useRecommendations();
   const { data: plan } = usePracticePlan();
 
@@ -46,12 +48,9 @@ export const RecommendationsPanel = () => {
     return (
       <div className="os-card p-5">
         <h2 className="text-base font-display font-semibold text-ink-900">
-          What to Practice Next
+          {t('recommendations.title')}
         </h2>
-        <p className="text-sm text-ink-500 mt-1">
-          No suggestions yet — answer a few assignment questions and we&apos;ll point you to the
-          chapters worth revisiting.
-        </p>
+        <p className="text-sm text-ink-500 mt-1">{t('recommendations.emptyDescription')}</p>
       </div>
     );
   }
@@ -59,10 +58,12 @@ export const RecommendationsPanel = () => {
   return (
     <div className="os-card border-brand-200 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-display font-semibold text-ink-900">What to Practice Next</h2>
+        <h2 className="text-base font-display font-semibold text-ink-900">
+          {t('recommendations.title')}
+        </h2>
         {plan && (
           <span className="text-xs text-ink-500">
-            Today&apos;s plan: ~{plan.estimated_minutes} min
+            {t('recommendations.todaysPlan', { minutes: plan.estimated_minutes })}
           </span>
         )}
       </div>
@@ -87,13 +88,13 @@ export const RecommendationsPanel = () => {
                 <p className="text-sm font-semibold text-ink-700">
                   {Math.round(rec.score_snapshot * 100)}%
                 </p>
-                <p className="text-xs text-ink-400">your score</p>
+                <p className="text-xs text-ink-400">{t('recommendations.yourScore')}</p>
               </div>
               <Link
                 to={`/student/browse/chapter/${rec.chapter}`}
                 className="text-xs font-semibold text-brand-700 hover:text-white border border-brand-200 rounded-full px-3 py-1 hover:bg-brand-600 hover:border-brand-600 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               >
-                Practice
+                {t('common.practice')}
               </Link>
             </div>
           </div>
@@ -103,21 +104,25 @@ export const RecommendationsPanel = () => {
       {plan && (
         <div className="mt-4 pt-3 border-t border-ink-100 flex items-center justify-between">
           <span className="text-xs text-ink-500">
-            {plan.recommendations.length} topic{plan.recommendations.length !== 1 ? 's' : ''} in
-            today&apos;s plan
+            {t(
+              plan.recommendations.length === 1
+                ? 'recommendations.planTopicsOne'
+                : 'recommendations.planTopicsMany',
+              { count: plan.recommendations.length },
+            )}
           </span>
           <div className="flex items-center gap-3">
             <Link
               to="/student/proficiency"
               className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-none focus-visible:underline"
             >
-              View progress →
+              {t('recommendations.viewProgress')}
             </Link>
             <Link
               to="/student/learning-path"
               className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-none focus-visible:underline"
             >
-              View learning path →
+              {t('recommendations.viewLearningPath')}
             </Link>
           </div>
         </div>

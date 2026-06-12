@@ -151,3 +151,39 @@ def test_student_can_update_phone_number(authed_client, student):
     assert res.status_code == 200
     student.refresh_from_db()
     assert student.phone_number == "+91 9876543210"
+
+
+# ---------------------------------------------------------------------------
+# preferred_language (Language Access / LA-2)
+# ---------------------------------------------------------------------------
+
+
+def test_preferred_language_defaults_to_english(authed_client, student):
+    assert student.preferred_language == "en"
+    res = authed_client.get("/api/v1/users/me/")
+    assert res.status_code == 200
+    assert res.json()["preferred_language"] == "en"
+
+
+@pytest.mark.parametrize("language", ["hi", "en"])
+def test_student_can_set_preferred_language(authed_client, student, language):
+    res = authed_client.patch(
+        "/api/v1/users/me/profile/",
+        {"preferred_language": language},
+        format="json",
+    )
+    assert res.status_code == 200
+    assert res.json()["preferred_language"] == language
+    student.refresh_from_db()
+    assert student.preferred_language == language
+
+
+def test_unsupported_language_returns_400(authed_client, student):
+    res = authed_client.patch(
+        "/api/v1/users/me/profile/",
+        {"preferred_language": "fr"},
+        format="json",
+    )
+    assert res.status_code == 400
+    student.refresh_from_db()
+    assert student.preferred_language == "en"

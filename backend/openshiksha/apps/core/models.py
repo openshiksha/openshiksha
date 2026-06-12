@@ -74,6 +74,15 @@ class User(AbstractUser):
         help_text="If True, the student will not receive assignment due-date reminder emails.",
     )
 
+    # Language Access (i18n) — the durable half of the locale precedence
+    # contract: device localStorage > this field > "en".
+    preferred_language = models.CharField(
+        max_length=8,
+        choices=[("en", "English"), ("hi", "Hindi")],
+        default="en",
+        help_text="Preferred UI/content language; follows the user across devices.",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

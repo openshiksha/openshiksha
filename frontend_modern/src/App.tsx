@@ -1,6 +1,8 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './shared/hooks/useAuth';
+import { authApi } from './api/auth';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { RegisterSchoolPage } from './features/auth/RegisterSchoolPage';
@@ -12,7 +14,7 @@ import { NotFoundPage } from './features/shared/NotFoundPage';
 import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 import { ErrorBoundary } from './shared/ui';
-import { I18nProvider } from './shared/i18n';
+import { I18nProvider, type Locale } from './shared/i18n';
 
 // Route-level code-splitting. Every page below is loaded on demand so a cold
 // open of /login (the K-12 student's first impression on a budget Android phone)
@@ -61,6 +63,22 @@ function RouteFallback() {
 
 function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // The switcher writes localStorage always; when authenticated we also PATCH
+  // the profile so the choice travels across devices (LA-2). Skipped when the
+  // profile already matches — avoids a redundant PATCH after ProfilePage saves.
+  const preferredLanguage = user?.preferred_language;
+  const { mutate: syncPreferredLanguage } = useMutation({
+    mutationFn: (preferred_language: Locale) => authApi.updateProfile({ preferred_language }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auth'] }),
+  });
+  const handleLocaleChange = useCallback(
+    (locale: Locale) => {
+      if (isAuthenticated && preferredLanguage !== locale) syncPreferredLanguage(locale);
+    },
+    [isAuthenticated, preferredLanguage, syncPreferredLanguage],
+  );
 
   if (isLoading) {
     return (
@@ -79,7 +97,7 @@ function App() {
     : '/login';
 
   return (
-    <I18nProvider>
+    <I18nProvider profileLocale={preferredLanguage} onLocaleChange={handleLocaleChange}>
     <Router>
       <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>

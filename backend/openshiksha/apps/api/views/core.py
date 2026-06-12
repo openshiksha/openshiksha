@@ -156,7 +156,14 @@ class UserViewSet(viewsets.GenericViewSet):
         """PATCH /api/v1/users/me/profile/ — update own profile fields."""
         from openshiksha.apps.api.serializers.core import UserProfileUpdateSerializer
 
-        ALLOWED_FIELDS = {"first_name", "last_name", "email", "phone_number", "email_reminders_opt_out"}
+        ALLOWED_FIELDS = {
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "email_reminders_opt_out",
+            "preferred_language",
+        }
         data = {k: v for k, v in request.data.items() if k in ALLOWED_FIELDS}
         serializer = UserProfileUpdateSerializer(request.user, data=data, partial=True)
         serializer.is_valid(raise_exception=True)

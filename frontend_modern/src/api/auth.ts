@@ -55,7 +55,10 @@ export const authApi = {
 
   updateProfile: async (
     data: Partial<
-      Pick<User, 'first_name' | 'last_name' | 'email' | 'phone_number' | 'email_reminders_opt_out'>
+      Pick<
+        User,
+        'first_name' | 'last_name' | 'email' | 'phone_number' | 'email_reminders_opt_out' | 'preferred_language'
+      >
     >
   ): Promise<User> => {
     const response = await apiClient.patch<User>('/users/me/profile/', data);

@@ -4,7 +4,21 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-11 — **AI Surface Activation closed — North Star
+**Last updated:** 2026-06-11 (evening) — **Language Access (i18n en/हिंदी)
+promoted as the new top initiative**
+([doc](2026-language-access.md), [plan](../daily-plans/2026-06-11-plan.md)).
+The board had no active bet after ASA closed this morning. Rationale: the
+en/hi toggle is the **last open ROADMAP item**, the backend LLM layer already
+accepts `language="hi"` on explanations + parent summaries (shipped dark —
+same lesson as ASA), and language access is mission-core for a K-12 platform
+in India. Other seeds deferred: `/ai/predictions/` surface is an explicit
+product call, Widget Studio needs product discovery, the AI-tutor branch is a
+5k-line rebase (not atomic). First batch **LA-1..5**: i18n foundation +
+switcher (no new dependency — perf budget defended), `User.preferred_language`
++ profile sync, student core-loop chrome in Hindi, AI content in the reader's
+language, key-parity CI guard + glossary + parent/auth chrome.
+
+Earlier (2026-06-11 morning) — **AI Surface Activation closed — North Star
 reached** ([#299](https://github.com/openshiksha/openshiksha/pull/299)–[#303](https://github.com/openshiksha/openshiksha/pull/303)).
 The closing batch lit the **last dark `/ai/` endpoint group**: teachers get an
 open-response **AI grading queue** at `/teacher/grading` (#301 — AI suggests a
@@ -73,6 +87,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
+| 1 | [Language Access — i18n en/हिंदी](2026-language-access.md) | **Active** | Promoted 2026-06-11. Backend already speaks Hindi (`language="hi"` on `/ai/explanations/` + parent summaries) but the frontend has zero i18n — no module, no switcher, no `preferred_language` on User. First batch LA-1..5 planned in [2026-06-11-plan.md](../daily-plans/2026-06-11-plan.md). | **LA-1** — i18n foundation (`src/shared/i18n/`), language switcher, auth-pages pilot |
 | - | [AI Surface Activation](ai-surface-activation.md) | Done | **Closed 2026-06-11 — North Star reached.** ASA-1..9 shipped across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289), [#293](https://github.com/openshiksha/openshiksha/pull/293)–[#302](https://github.com/openshiksha/openshiksha/pull/302): all four dark `/ai/` endpoint groups lit (explanations, misconception clusters, assignment drafts, open-response grading), error-as-empty-state sweep complete, shared `AIBadge` provenance, server-side SRS guard. Close ([#303](https://github.com/openshiksha/openshiksha/pull/303)): [endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit — 17 endpoints directly consumed, 4 indirect by design, 1 API-only (`/ai/predictions/`). | `useAsyncGeneration` refactor carried to maintenance; `/ai/predictions/` surface is a future product call |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |
 | - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |

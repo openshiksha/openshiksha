@@ -81,9 +81,11 @@ Each `docs/initiatives/<id>.md` contains, in this order:
 See [`STATUS.md`](STATUS.md) for the live priority order and headline progress.
 
 The active top initiative is
-[`ai-surface-activation.md`](ai-surface-activation.md) (promoted 2026-06-09):
-wire the four shipped-but-unconsumed `/ai/` endpoint groups into the product
-and finish the polish/consistency pass on the live AI surfaces.
+[`2026-language-access.md`](2026-language-access.md) (promoted 2026-06-11):
+make the product usable end-to-end in Hindi — i18n foundation, language
+switcher, `preferred_language` on User, UI chrome translation, and wiring the
+already-shipped `language` parameters on AI explanations and parent summaries.
+[`ai-surface-activation.md`](ai-surface-activation.md) closed 2026-06-11.
 [`interactive-widgets-framework.md`](interactive-widgets-framework.md) remains
 paused after IW-8: configure/code widgets are shipped, while Widget Studio is
 deferred pending product validation.

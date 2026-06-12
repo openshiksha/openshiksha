@@ -40,6 +40,82 @@ export const hi: LocaleDict = {
   'login.schoolQuestion': 'क्या आप एक स्कूल हैं?',
   'login.enquireLink': 'OpenShiksha के बारे में पूछें',
 
+  // ── Home (marketing) page ────────────────────────────────────────────
+  'home.login': 'लॉग इन करें',
+  'home.loginArrow': 'लॉग इन करें →',
+  'home.heroTitle': 'हर बच्चे की क्षमता को खोलिए।',
+  'home.heroSubtitle':
+    'गणित और विज्ञान के लिए अनुकूली शिक्षा और शैक्षिक एनालिटिक्स — विद्यार्थियों के लिए मुफ़्त, और उनका मार्गदर्शन करने वाले शिक्षकों, अभिभावकों और स्कूलों के लिए बनाया गया।',
+  'home.startFree': 'विद्यार्थी के रूप में मुफ़्त शुरू करें',
+  'home.pillarPracticeTitle': 'अभ्यास',
+  'home.pillarPracticeDesc':
+    'गणित और विज्ञान में असीमित, अपने-आप बनने वाले प्रश्न — किन्हीं दो विद्यार्थियों को एक जैसा पेपर नहीं मिलता।',
+  'home.pillarEvaluateTitle': 'जाँच',
+  'home.pillarEvaluateDesc':
+    'हर उत्तर की जाँच अपने-आप और तुरंत होती है — शिक्षकों के लिए दोहराव वाली कॉपी-जाँच नहीं।',
+  'home.pillarAnalyseTitle': 'विश्लेषण',
+  'home.pillarAnalyseDesc':
+    'उन्नत एनालिटिक्स हर बच्चे की मज़बूतियाँ, कमियाँ और आगे क्या अभ्यास करना है, सामने लाती है।',
+  'home.missionKicker': 'हमारा मिशन',
+  'home.missionTitle':
+    'गणित और विज्ञान का अभ्यास हर विद्यार्थी के लिए सचमुच रोचक बनाना।',
+  'home.missionBody1':
+    'OpenShiksha एक लर्निंग प्लेटफ़ॉर्म है जो अवधारणाओं की पकड़ और सीखने के परिणाम बेहतर करने के लिए बना है। हम कक्षा 7–10 का गणित और विज्ञान कवर करते हैं, कक्षा 1 से रिफ़्रेशर के साथ — सब CBSE बोर्ड के अनुरूप और English व हिंदी में उपलब्ध।',
+  'home.missionOpenPre': 'हमारा',
+  'home.missionOpenTerm': 'ओपन मॉडल',
+  'home.missionOpenPost': 'किसी भी विद्यार्थी को मुफ़्त साइन अप करके सीखने देता है। हमारा',
+  'home.missionPartnerTerm': 'पार्टनरशिप मॉडल',
+  'home.missionPartnerPost':
+    'स्कूलों और शैक्षिक संस्थाओं को वर्चुअल क्लासरूम चलाने और डेटा-आधारित निर्णय लेने के डैशबोर्ड देता है।',
+  'home.teacherAlt': 'विद्यार्थियों की मदद करते हुए एक शिक्षक',
+  'home.startNowTitle': 'अभी शुरू करें',
+  'home.startNowSubtitle':
+    'विद्यार्थियों के लिए हमेशा मुफ़्त। स्कूलों और शैक्षिक संस्थाओं के लिए मार्गदर्शित शुरुआत।',
+  'home.studentsCardTitle': 'विद्यार्थी',
+  'home.studentsCardDesc': 'मुफ़्त खाता बनाएँ और आज ही अभ्यास शुरू करें।',
+  'home.studentsCardCta': 'मुफ़्त साइन अप करें →',
+  'home.schoolsCardTitle': 'स्कूल और संस्थाएँ',
+  'home.schoolsCardDesc': 'OpenShiksha को अपनी कक्षाओं तक लाएँ।',
+  'home.schoolsCardCta': 'पूछताछ करें →',
+  'home.featuresTitle': 'मुख्य विशेषताएँ',
+  'home.feature1':
+    'उन्नत एनालिटिक्स मज़बूतियाँ, कमज़ोरियाँ और ध्यान माँगती अवधारणाएँ ठीक-ठीक बताती है।',
+  'home.feature2': 'व्यक्तिगत फ़ीडबैक हर विद्यार्थी के खास लर्निंग आउटकम पर केंद्रित होता है।',
+  'home.feature3':
+    'फ़ॉर्मूला-आधारित टेम्पलेट लगभग असीमित प्रश्न बनाते हैं — भरपूर अभ्यास, नकल नहीं।',
+  'home.feature4': 'स्वचालित जाँच शिक्षकों की घंटों की दोहराव वाली कॉपी-जाँच हटा देती है।',
+  'home.feature5':
+    'साप्ताहिक AI सारांश वाला अभिभावक डैशबोर्ड परिवारों को जोड़े रखता है।',
+  'home.feature6': 'कम कीमत के मोबाइल और टैबलेट पर भी बढ़िया चलता है — English और हिंदी में।',
+  'home.footerSchools': 'स्कूलों के लिए',
+
+  // ── Registration pages ───────────────────────────────────────────────
+  'register.title': 'अपना खाता बनाएँ',
+  'register.subtitle': 'आप कैसे सीखना चाहेंगे?',
+  'register.haveAccount': 'पहले से खाता है?',
+  'register.signIn': 'साइन इन करें',
+  'register.back': '← वापस',
+  'register.joinSchoolTitle': 'स्कूल से जुड़ें',
+  'register.joinSchoolDesc':
+    'अपने शिक्षक से मिला क्लासरूम जॉइन कोड इस्तेमाल करें — दाखिला अपने-आप हो जाएगा।',
+  'register.openTitle': 'अपने दम पर पढ़ें',
+  'register.openDesc':
+    'साझा प्रश्न बैंक से अपनी गति से अभ्यास करें — स्कूल की ज़रूरत नहीं।',
+  'register.openSubtitle': 'साझा प्रश्न बैंक मुफ़्त में इस्तेमाल करें।',
+  'register.schoolTitle': 'अपने स्कूल से जुड़ें',
+  'register.schoolSubtitle': 'अपने शिक्षक से मिला जॉइन कोड डालें।',
+  'register.firstName': 'पहला नाम',
+  'register.lastName': 'उपनाम',
+  'register.username': 'यूज़रनेम',
+  'register.password': 'पासवर्ड',
+  'register.emailOptional': 'ईमेल (वैकल्पिक)',
+  'register.joinCode': 'क्लासरूम जॉइन कोड',
+  'register.joinCodePlaceholder': 'जैसे ABC123',
+  'register.error': 'रजिस्ट्रेशन नहीं हो पाया। कृपया फिर कोशिश करें।',
+  'register.creating': 'खाता बन रहा है…',
+  'register.startPractising': 'अभ्यास शुरू करें',
+  'register.createAccount': 'खाता बनाएँ',
+
   // ── Student dashboard ────────────────────────────────────────────────
   'dashboard.greeting': 'नमस्ते, {name}!',
   'dashboard.title': 'आपका डैशबोर्ड',

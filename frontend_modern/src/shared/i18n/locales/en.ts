@@ -199,6 +199,29 @@ export const en = {
   'explanation.regenerateInLocale': 'Explain in English',
   'explanation.regenerating': 'Rewriting…',
 
+  // ── Parent dashboard ─────────────────────────────────────────────────
+  'parent.title': 'Parent Dashboard',
+  'parent.description': "Monitor your children's learning progress.",
+  'parent.noChildrenTitle': 'No children linked to your account',
+  'parent.noChildrenDescription': "Ask the school admin to link your children's accounts.",
+  'parent.gradeShort': 'Gr.{grade}',
+  'parent.grade': 'Grade {grade}',
+  'parent.overview': "{name}'s Overview",
+  'parent.viewInsights': 'View Insights →',
+  'parent.tabProgress': 'Progress',
+  'parent.tabAssignments': 'Assignments',
+  'parent.noProgressTitle': 'No progress yet',
+  'parent.noProgressDescription': "{name} hasn't submitted any assignments yet.",
+  'parent.noAssignmentsDescription':
+    'Assignments will appear here once the teacher creates them.',
+  'parent.questionsPractisedOne': '{count} question practised',
+  'parent.questionsPractisedMany': '{count} questions practised',
+  'parent.statusSubmitted': 'Submitted',
+  'parent.statusOverdue': 'Overdue',
+  'parent.statusPending': 'Pending',
+  'parent.overdueOn': 'Overdue — {date}',
+  'parent.dueOn': 'Due {date}',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count}-day streak',
   'streak.tierStarter': 'On Fire',

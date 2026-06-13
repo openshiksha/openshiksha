@@ -1,7 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { ProblemSetVersionsPage } from './ProblemSetVersionsPage';
 import type {
   VersionDiffResponse,
@@ -20,18 +21,20 @@ vi.mock('./useProblemSetVersions', () => ({
   ) => mockDiff(setId, targetId, againstId),
 }));
 
-const renderPage = () => {
+const renderPage = (locale: 'en' | 'hi' = 'en') => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/teacher/problem-sets/9/versions']}>
-        <Routes>
-          <Route
-            path="/teacher/problem-sets/:id/versions"
-            element={<ProblemSetVersionsPage />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <I18nProvider initialLocale={locale}>
+        <MemoryRouter initialEntries={['/teacher/problem-sets/9/versions']}>
+          <Routes>
+            <Route
+              path="/teacher/problem-sets/:id/versions"
+              element={<ProblemSetVersionsPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </I18nProvider>
     </QueryClientProvider>,
   );
 };
@@ -106,7 +109,7 @@ describe('<ProblemSetVersionsPage />', () => {
     expect(screen.getByTestId('version-row-1')).toHaveAttribute('data-state', 'against');
 
     expect(screen.getByTestId('diff-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('diff-lines')).toHaveTextContent(/1 answer\(s\) changed/);
+    expect(screen.getByTestId('diff-lines')).toHaveTextContent(/1 answer changed/);
   });
 
   it('shows "Identical content" when the diff is empty', () => {
@@ -120,6 +123,19 @@ describe('<ProblemSetVersionsPage />', () => {
     fireEvent.click(screen.getByTestId('version-row-2'));
     fireEvent.click(screen.getByTestId('version-row-1'));
     expect(screen.getByTestId('diff-no-changes')).toBeInTheDocument();
+  });
+
+  it('renders the page title in Hindi when the locale is हिं', async () => {
+    mockVersions.mockReturnValue({
+      data: { problem_set_id: 9, versions },
+      isLoading: false,
+      isError: false,
+    });
+    renderPage('hi');
+    // संस्करण इतिहास = "version history" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByText('संस्करण इतिहास')).toBeInTheDocument();
+    });
   });
 
   it('renders an empty state when the set has no versions', () => {

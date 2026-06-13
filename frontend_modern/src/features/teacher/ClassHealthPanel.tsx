@@ -3,11 +3,12 @@ import { apiClient } from '@/api/client';
 import { useClassInsights } from './useClassInsights';
 import type { ClassInsight } from './useClassInsights';
 import { Button } from '@/shared/ui';
+import { useI18n, type LocaleKey } from '@/shared/i18n';
 
-const STATUS_CONFIG: Record<ClassInsight['insight_type'], { dot: string; label: string }> = {
-  struggling: { dot: 'bg-rose-500', label: 'Struggling' },
-  at_risk: { dot: 'bg-amber-400', label: 'At Risk' },
-  proficient: { dot: 'bg-emerald-500', label: 'Proficient' },
+const STATUS_CONFIG: Record<ClassInsight['insight_type'], { dot: string; labelKey: LocaleKey }> = {
+  struggling: { dot: 'bg-rose-500', labelKey: 'teacher.statusStruggling' },
+  at_risk: { dot: 'bg-amber-400', labelKey: 'teacher.statusAtRisk' },
+  proficient: { dot: 'bg-emerald-500', labelKey: 'teacher.statusProficient' },
 };
 
 const triggerClassInsights = async (subjectRoomId: number): Promise<void> => {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
+  const { t, locale } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
 
@@ -43,7 +45,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
         onClick={() => setIsExpanded((v) => !v)}
         className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
-        <span>Class Health</span>
+        <span>{t('teacher.classHealth')}</span>
         <span
           className={`transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`}
           aria-hidden
@@ -55,12 +57,12 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
       {isExpanded && (
         <div className="mt-3">
           {isLoading && (
-            <p className="py-2 text-xs text-ink-400">Loading class health data…</p>
+            <p className="py-2 text-xs text-ink-400">{t('teacher.loadingClassHealth')}</p>
           )}
 
           {!isLoading && (!insights || insights.length === 0) && (
             <div className="py-2 text-xs text-ink-400">
-              No class health data yet. Insights appear after students complete assignments.
+              {t('teacher.noClassHealth')}
               <Button
                 variant="ghost"
                 size="sm"
@@ -68,7 +70,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                 disabled={isTriggering}
                 className="ml-2"
               >
-                {isTriggering ? 'Computing…' : 'Refresh'}
+                {isTriggering ? t('teacher.computing') : t('teacher.refresh')}
               </Button>
             </div>
           )}
@@ -79,10 +81,10 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
               <table className="w-full min-w-[22rem] text-xs">
                 <thead>
                   <tr className="border-b border-ink-100 text-ink-500">
-                    <th className="pb-1.5 text-left font-display font-semibold">Chapter</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">Avg</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">Struggling</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">Status</th>
+                    <th className="pb-1.5 text-left font-display font-semibold">{t('teacher.thChapter')}</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thAvg')}</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thStruggling')}</th>
+                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thStatus')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -108,7 +110,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                               aria-hidden
                               className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`}
                             />
-                            <span className="text-ink-600">{cfg.label}</span>
+                            <span className="text-ink-600">{t(cfg.labelKey)}</span>
                           </span>
                         </td>
                       </tr>
@@ -119,12 +121,11 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <p className="text-xs text-ink-400">
-                  Last updated:{' '}
-                  {new Date(insights[0].generated_at).toLocaleString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {t('teacher.lastUpdated', {
+                    datetime: new Date(insights[0].generated_at).toLocaleString(
+                      locale === 'hi' ? 'hi-IN' : 'en-IN',
+                      { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' },
+                    ),
                   })}
                 </p>
                 <Button
@@ -133,7 +134,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
                   onClick={handleRefresh}
                   disabled={isTriggering}
                 >
-                  {isTriggering ? 'Computing…' : 'Refresh'}
+                  {isTriggering ? t('teacher.computing') : t('teacher.refresh')}
                 </Button>
               </div>
             </>

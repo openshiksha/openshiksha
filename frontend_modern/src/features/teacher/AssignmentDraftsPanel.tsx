@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AIBadge, Badge, Button, Skeleton, isAIStub } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import {
   errorDetail,
   useAssignmentDrafts,
@@ -26,6 +27,7 @@ interface ApproveFormProps {
 }
 
 const ApproveForm = ({ draft, subjectRoomId, onCancel }: ApproveFormProps) => {
+  const t = useT();
   const approve = useApproveAssignmentDraft(subjectRoomId);
   const [dueDate, setDueDate] = useState(defaultDueDate());
   const [title, setTitle] = useState('');
@@ -46,7 +48,7 @@ const ApproveForm = ({ draft, subjectRoomId, onCancel }: ApproveFormProps) => {
       }}
     >
       <label className="block text-xs text-ink-600">
-        Due date
+        {t('teacher.dueDate')}
         <input
           type="date"
           required
@@ -57,12 +59,12 @@ const ApproveForm = ({ draft, subjectRoomId, onCancel }: ApproveFormProps) => {
         />
       </label>
       <label className="block text-xs text-ink-600">
-        Title <span className="text-ink-400">(optional — keeps the draft's title if blank)</span>
+        {t('teacher.titleLabel')} <span className="text-ink-400">{t('teacher.titleOptionalHint')}</span>
         <input
           type="text"
           value={title}
           maxLength={255}
-          placeholder={draft.title || 'Practice set'}
+          placeholder={draft.title || t('teacher.practiceSetDefault')}
           onChange={(e) => setTitle(e.target.value)}
           className="input-brand mt-1 block w-full text-sm"
         />
@@ -70,17 +72,17 @@ const ApproveForm = ({ draft, subjectRoomId, onCancel }: ApproveFormProps) => {
 
       {approve.isError && (
         <p className="text-xs text-rose-600">
-          {conflictDetail ?? "Couldn't approve the draft just now. Please try again in a moment."}
-          {conflictDetail?.includes('Regenerate') && ' Use "Try again" to build a fresh draft.'}
+          {conflictDetail ?? t('teacher.approveError')}
+          {conflictDetail?.includes('Regenerate') && ` ${t('teacher.useTryAgainHint')}`}
         </p>
       )}
 
       <div className="flex gap-2 pt-1">
         <Button type="submit" variant="brand" size="sm" disabled={approve.isPending || !dueDate}>
-          {approve.isPending ? 'Assigning…' : 'Assign to class'}
+          {approve.isPending ? t('teacher.assigning') : t('teacher.assignToClass')}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -93,6 +95,7 @@ interface CardProps {
 }
 
 const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
+  const t = useT();
   const dismiss = useDismissAssignmentDraft(subjectRoomId);
   const regenerate = useGenerateAssignmentDraft(subjectRoomId);
   const [approving, setApproving] = useState(false);
@@ -103,11 +106,9 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
       <div className="rounded-xl border border-ink-100 bg-paper p-4">
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-brand-500" aria-hidden />
-          <p className="text-sm text-ink-700">
-            Assembling a draft from your class&apos;s weak spots…
-          </p>
+          <p className="text-sm text-ink-700">{t('teacher.draftPending')}</p>
         </div>
-        <p className="mt-1 text-xs text-ink-400">This usually takes a few seconds.</p>
+        <p className="mt-1 text-xs text-ink-400">{t('teacher.draftPendingNote')}</p>
       </div>
     );
   }
@@ -115,7 +116,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
   if (draft.status === 'failed') {
     return (
       <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4">
-        <p className="text-sm text-ink-700">Couldn&apos;t put this draft together.</p>
+        <p className="text-sm text-ink-700">{t('teacher.draftFailed')}</p>
         {draft.error_detail && <p className="mt-1 text-xs text-ink-500">{draft.error_detail}</p>}
         <div className="mt-2">
           <Button
@@ -129,7 +130,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
               })
             }
           >
-            {regenerate.isPending ? 'Retrying…' : 'Try again'}
+            {regenerate.isPending ? t('teacher.retrying') : t('teacher.tryAgain')}
           </Button>
         </div>
       </div>
@@ -141,9 +142,9 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
       <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-base text-ink-900 leading-tight min-w-0">
-            {draft.title || 'Practice set'}
+            {draft.title || t('teacher.practiceSetDefault')}
           </p>
-          <Badge tone="success">Assigned</Badge>
+          <Badge tone="success">{t('teacher.assigned')}</Badge>
         </div>
         {draft.approved_assignment != null && (
           <p className="mt-2 text-xs text-ink-600">
@@ -151,9 +152,9 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
               to={`/teacher/assignments/${draft.approved_assignment}`}
               className="font-medium text-brand-700 hover:text-brand-800 underline"
             >
-              View the assignment
+              {t('teacher.viewAssignment')}
             </Link>{' '}
-            — your class can see it now.
+            — {t('teacher.classCanSee')}
           </p>
         )}
       </div>
@@ -165,7 +166,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
     <div className="rounded-xl border border-ink-100 bg-paper p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="font-display text-base text-ink-900 leading-tight min-w-0">
-          {draft.title || 'Practice set'}
+          {draft.title || t('teacher.practiceSetDefault')}
         </p>
         <AIBadge modelUsed={draft.model_used} stubLabel="Auto-drafted" className="shrink-0" />
       </div>
@@ -173,11 +174,7 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
       {draft.rationale_text && (
         <p className="mt-2 text-sm text-ink-700 leading-relaxed">{draft.rationale_text}</p>
       )}
-      {isStub && (
-        <p className="mt-1 text-xs text-ink-400">
-          AI was unavailable, so this draft was built directly from your class&apos;s practice data.
-        </p>
-      )}
+      {isStub && <p className="mt-1 text-xs text-ink-400">{t('teacher.stubDraftNote')}</p>}
 
       {draft.target_chapters.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -194,14 +191,15 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
       )}
 
       <p className="mt-2 text-xs text-ink-500">
-        {draft.question_count} question{draft.question_count !== 1 ? 's' : ''}
-        {draft.estimated_minutes > 0 && ` · ~${draft.estimated_minutes} min`}
+        {t(draft.question_count === 1 ? 'teacher.questionsCountOne' : 'teacher.questionsCountMany', {
+          count: draft.question_count,
+        })}
+        {draft.estimated_minutes > 0 &&
+          ` · ${t('teacher.minutesApprox', { minutes: draft.estimated_minutes })}`}
       </p>
 
       {dismiss.isError && (
-        <p className="mt-2 text-xs text-rose-600">
-          Couldn&apos;t dismiss the draft just now. Please try again in a moment.
-        </p>
+        <p className="mt-2 text-xs text-rose-600">{t('teacher.dismissDraftError')}</p>
       )}
 
       {approving ? (
@@ -214,10 +212,10 @@ const DraftCard = ({ draft, subjectRoomId }: CardProps) => {
             disabled={dismiss.isPending}
             onClick={() => dismiss.mutate({ id: draft.id })}
           >
-            Dismiss
+            {t('teacher.dismiss')}
           </Button>
           <Button variant="brand" size="sm" onClick={() => setApproving(true)}>
-            Approve…
+            {t('teacher.approveEllipsis')}
           </Button>
         </div>
       )}
@@ -256,6 +254,7 @@ interface Props {
  * loads when a teacher opens it.
  */
 export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
+  const t = useT();
   const [isExpanded, setIsExpanded] = useState(false);
   const {
     data: drafts,
@@ -278,7 +277,7 @@ export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
         aria-expanded={isExpanded}
         className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-800 transition-colors w-full text-left"
       >
-        <span>AI Assignment Drafts</span>
+        <span>{t('teacher.aiDrafts')}</span>
         {actionable.length > 0 && <Badge tone="brand">{actionable.length}</Badge>}
         <span className={`ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
       </button>
@@ -297,22 +296,19 @@ export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
               already be waiting for review. */}
           {!isLoading && isError && (
             <p className="text-xs text-rose-600 py-2">
-              Couldn&apos;t load drafts just now.{' '}
+              {t('teacher.draftsLoadError')}{' '}
               <button
                 type="button"
                 onClick={() => void refetch()}
                 className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
               >
-                Retry
+                {t('explanation.retry')}
               </button>
             </p>
           )}
 
           {!isLoading && !isError && visible.length === 0 && (
-            <div className="text-xs text-ink-500 py-2">
-              No drafts yet — let AI assemble a practice set from this class&apos;s weakest
-              chapters, then review and assign it.
-            </div>
+            <div className="text-xs text-ink-500 py-2">{t('teacher.noDrafts')}</div>
           )}
 
           {!isLoading &&
@@ -320,15 +316,13 @@ export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
             visible.map((d) => <DraftCard key={d.id} draft={d} subjectRoomId={subjectRoomId} />)}
 
           {generate.isError && (
-            <p className="text-xs text-rose-600 pt-1">
-              Couldn&apos;t start a draft just now. Please try again in a moment.
-            </p>
+            <p className="text-xs text-rose-600 pt-1">{t('teacher.draftStartError')}</p>
           )}
 
           <div className="flex flex-wrap items-end justify-between gap-2 pt-1">
             <div className="flex items-end gap-2">
               <label className="block text-xs text-ink-500">
-                Questions
+                {t('teacher.questionsLabel')}
                 <input
                   type="number"
                   min={1}
@@ -339,7 +333,7 @@ export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
                 />
               </label>
               <label className="block text-xs text-ink-500">
-                Difficulty
+                {t('teacher.difficultyLabel')}
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(Number(e.target.value))}
@@ -359,12 +353,10 @@ export const AssignmentDraftsPanel = ({ subjectRoomId }: Props) => {
               disabled={generate.isPending}
               onClick={() => generate.mutate({ size, target_difficulty: difficulty })}
             >
-              {generate.isPending ? 'Starting…' : 'Draft an assignment'}
+              {generate.isPending ? t('teacher.starting') : t('teacher.draftAssignment')}
             </Button>
           </div>
-          <p className="text-xs text-ink-400">
-            AI proposes, you decide — nothing reaches students until you approve it.
-          </p>
+          <p className="text-xs text-ink-400">{t('teacher.aiProposesFootnote')}</p>
         </div>
       )}
     </div>

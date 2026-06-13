@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Badge, Button, Skeleton } from '@/shared/ui';
+import { useT, type LocaleKey } from '@/shared/i18n';
 import {
   useCalibrationSummary,
   useFlaggedCalibrations,
@@ -17,13 +18,12 @@ const FLAG_TONE: Record<CalibrationFlag, 'urgent' | 'attention' | 'neutral' | 's
 };
 
 // Short, teacher-friendly gloss for each flag — why it surfaced and what to check.
-const FLAG_HINT: Record<CalibrationFlag, string> = {
-  too_hard: 'Almost no one got this right — check the wording or the keyed answer.',
-  too_easy: 'Almost everyone got this right — it adds little to the set.',
-  mislabeled: 'Behaves harder or easier than its authored difficulty label.',
-  low_discrimination:
-    'Stronger students did no better than weaker ones — often a mis-keyed answer.',
-  ok: 'Behaves as authored.',
+const FLAG_HINT: Record<CalibrationFlag, LocaleKey> = {
+  too_hard: 'teacher.flagTooHard',
+  too_easy: 'teacher.flagTooEasy',
+  mislabeled: 'teacher.flagMislabeled',
+  low_discrimination: 'teacher.flagLowDiscrimination',
+  ok: 'teacher.flagOk',
 };
 
 const pct = (v: number): string => `${Math.round(v * 100)}%`;
@@ -33,34 +33,38 @@ interface CardProps {
 }
 
 const CalibrationCard = ({ item }: CardProps) => {
+  const t = useT();
   const delta = item.difficulty_delta;
   return (
     <div className="rounded-xl border border-ink-100 bg-paper p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-display text-base text-ink-900 leading-tight truncate">
-            {item.question_preview || `Question #${item.question_id}`}
+            {item.question_preview || t('teacher.questionFallback', { id: item.question_id })}
           </p>
           <p className="text-xs text-ink-500 mt-0.5">
-            {item.chapter_name} · {item.sample_size} student
-            {item.sample_size !== 1 ? 's' : ''} · {pct(item.facility_index)} correct
+            {item.chapter_name} ·{' '}
+            {t(item.sample_size === 1 ? 'teacher.studentsCountOne' : 'teacher.studentsCountMany', {
+              count: item.sample_size,
+            })}{' '}
+            · {t('teacher.correctPct', { pct: pct(item.facility_index) })}
           </p>
         </div>
         <Badge tone={FLAG_TONE[item.flag]}>{item.flag_display}</Badge>
       </div>
 
-      <p className="mt-3 text-sm text-ink-700 leading-relaxed">{FLAG_HINT[item.flag]}</p>
+      <p className="mt-3 text-sm text-ink-700 leading-relaxed">{t(FLAG_HINT[item.flag])}</p>
 
       <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
         <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-0.5 text-ink-700">
-          Authored difficulty <span className="text-ink-400">{item.declared_difficulty}/5</span>
+          {t('teacher.authoredDifficulty')} <span className="text-ink-400">{item.declared_difficulty}/5</span>
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-0.5 text-ink-700">
-          Observed difficulty <span className="text-ink-400">{item.empirical_difficulty}/5</span>
+          {t('teacher.observedDifficulty')} <span className="text-ink-400">{item.empirical_difficulty}/5</span>
         </span>
         {delta !== 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-0.5 text-ink-700">
-            {delta > 0 ? 'Harder' : 'Easier'} than labelled
+            {delta > 0 ? t('teacher.harderThanLabelled') : t('teacher.easierThanLabelled')}
             <span className="text-ink-400">
               {delta > 0 ? '+' : ''}
               {delta}
@@ -69,7 +73,7 @@ const CalibrationCard = ({ item }: CardProps) => {
         )}
         {item.discrimination_index !== null && (
           <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-0.5 text-ink-700">
-            Discrimination
+            {t('teacher.discrimination')}
             <span className="text-ink-400">{item.discrimination_index.toFixed(2)}</span>
           </span>
         )}
@@ -111,6 +115,7 @@ interface Props {
  * Built on the V2 "Chalk & Unlock" primitives.
  */
 export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
+  const t = useT();
   const [isExpanded, setIsExpanded] = useState(false);
   const {
     data: flagged,
@@ -141,7 +146,7 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
         aria-expanded={isExpanded}
         className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-ink-800 transition-colors w-full text-left"
       >
-        <span>Question Quality</span>
+        <span>{t('teacher.questionQuality')}</span>
         {items.length > 0 && <Badge tone="attention">{items.length}</Badge>}
         <span className={`ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
       </button>
@@ -150,8 +155,12 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
         <div className="mt-3 space-y-3">
           {summary && summary.total_calibrated > 0 && (
             <p className="text-xs text-ink-500">
-              {summary.flagged} of {summary.total_calibrated} calibrated question
-              {summary.total_calibrated !== 1 ? 's' : ''} need a look.
+              {t(
+                summary.total_calibrated === 1
+                  ? 'teacher.calibrationSummaryOne'
+                  : 'teacher.calibrationSummaryMany',
+                { flagged: summary.flagged, total: summary.total_calibrated },
+              )}
             </p>
           )}
 
@@ -167,22 +176,19 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
               we just couldn't reach the server. */}
           {!isLoading && isError && (
             <p className="text-xs text-rose-600 py-2">
-              Couldn&apos;t load the question analysis just now.{' '}
+              {t('teacher.qualityLoadError')}{' '}
               <button
                 type="button"
                 onClick={() => void refetch()}
                 className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
               >
-                Retry
+                {t('explanation.retry')}
               </button>
             </p>
           )}
 
           {!isLoading && !isError && items.length === 0 && (
-            <div className="text-xs text-ink-500 py-2">
-              No questions flagged yet. Calibration needs a handful of student attempts per
-              question — refresh once your class has practised.
-            </div>
+            <div className="text-xs text-ink-500 py-2">{t('teacher.noFlagged')}</div>
           )}
 
           {!isLoading &&
@@ -190,28 +196,28 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
             items.map((item) => <CalibrationCard key={item.id} item={item} />)}
 
           {refresh.isError && (
-            <p className="text-xs text-rose-600 pt-1">
-              Couldn&apos;t start the recalibration just now. Please try again in a moment.
-            </p>
+            <p className="text-xs text-rose-600 pt-1">{t('teacher.recalibrateStartError')}</p>
           )}
 
           {refresh.isSuccess && (
             <p className="text-xs text-ink-400 pt-1" role="status">
-              Recalibrating from recent answers — updated verdicts appear here shortly.
+              {t('teacher.recalibrating')}
             </p>
           )}
 
           <div className="flex items-center justify-between pt-1">
-            <p className="text-xs text-ink-400">
-              Verdicts come from how your class actually answered — no AI guesswork.
-            </p>
+            <p className="text-xs text-ink-400">{t('teacher.qualityFootnote')}</p>
             <Button
               variant="ghost"
               size="sm"
               disabled={refresh.isPending}
               onClick={() => refresh.mutate()}
             >
-              {refresh.isPending ? 'Refreshing…' : items.length > 0 ? 'Refresh' : 'Calibrate'}
+              {refresh.isPending
+                ? t('teacher.refreshing')
+                : items.length > 0
+                  ? t('teacher.refresh')
+                  : t('teacher.calibrate')}
             </Button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -146,6 +146,37 @@ describe('MisconceptionClustersPanel', () => {
       })
     );
     await waitFor(() => expect(screen.getByRole('status')).toBeDefined());
+  });
+
+  it('clears the "Recomputing…" confirmation after a short delay', async () => {
+    // Spy on the dismiss timer rather than running fake timers (happy-dom +
+    // userEvent + waitFor don't compose with fake timers). We capture the
+    // scheduled self-dismiss callback and invoke it directly.
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const user = userEvent.setup();
+    mockGet.mockResolvedValue({ data: [CLUSTER] });
+    mockPost.mockResolvedValue({ data: { detail: 'queued' } });
+
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: /class misconceptions/i }));
+    await waitFor(() => expect(screen.getByText('4 students')).toBeDefined());
+
+    await user.click(screen.getByRole('button', { name: /refresh/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/recomputing from recent submissions/i)).toBeDefined()
+    );
+
+    // Pull the 6s self-dismiss callback the panel scheduled and fire it.
+    const dismiss = setTimeoutSpy.mock.calls.find(([, delay]) => delay === 6000)?.[0] as
+      | (() => void)
+      | undefined;
+    expect(dismiss).toBeDefined();
+    act(() => dismiss!());
+
+    await waitFor(() =>
+      expect(screen.queryByText(/recomputing from recent submissions/i)).toBeNull()
+    );
+    setTimeoutSpy.mockRestore();
   });
 
   it('shows an inline error when the refresh fails', async () => {

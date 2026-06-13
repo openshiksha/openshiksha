@@ -1,7 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { ProblemSetPreviewPage } from './ProblemSetPreviewPage';
 
 const mockPreview = vi.fn();
@@ -22,18 +23,20 @@ vi.mock('../student/QuestionCard', () => ({
   ),
 }));
 
-const renderAt = () => {
+const renderAt = (locale: 'en' | 'hi' = 'en') => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/teacher/problem-sets/7/preview']}>
-        <Routes>
-          <Route
-            path="/teacher/problem-sets/:id/preview"
-            element={<ProblemSetPreviewPage />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <I18nProvider initialLocale={locale}>
+        <MemoryRouter initialEntries={['/teacher/problem-sets/7/preview']}>
+          <Routes>
+            <Route
+              path="/teacher/problem-sets/:id/preview"
+              element={<ProblemSetPreviewPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </I18nProvider>
     </QueryClientProvider>,
   );
 };
@@ -108,6 +111,19 @@ describe('<ProblemSetPreviewPage />', () => {
     expect(screen.getByTestId('edit-safety-banner')).toBeInTheDocument();
     expect(screen.getByText(/used in 3 assignments\./i)).toBeInTheDocument();
     expect(screen.getByText(/graded against/i)).toBeInTheDocument();
+  });
+
+  it('renders the read-only banner in Hindi when the locale is हिं', async () => {
+    mockPreview.mockReturnValue({
+      data: { ...baseData, created_by_me: false, assigned_count: 0, has_graded_submissions: false },
+      isLoading: false,
+      isError: false,
+    });
+    renderAt('hi');
+    // विद्यार्थी प्रीव्यू = "Student preview" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByText(/विद्यार्थी प्रीव्यू/)).toBeInTheDocument();
+    });
   });
 
   it('does not call the mutation when the confirm dialog is dismissed', () => {

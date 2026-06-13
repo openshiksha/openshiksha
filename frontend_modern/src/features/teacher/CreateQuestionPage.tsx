@@ -737,7 +737,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
           <EditSafetyBanner
             assignedCount={existingQuestion.assigned_count ?? 0}
             hasGradedSubmissions={existingQuestion.has_graded_submissions ?? false}
-            noun="this question"
+            subject="question"
           />
         )}
 

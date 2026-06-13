@@ -684,6 +684,85 @@ export const en = {
   'recordResp.queuing': 'Queuing…',
   'recordResp.sendToAI': 'Send to AI grading',
 
+  // ── LA-6e-1: edit-safety banner ──────────────────────────────────────
+  'editSafety.usedQuestionOne': 'This question is used in 1 assignment.',
+  'editSafety.usedQuestionMany': 'This question is used in {count} assignments.',
+  'editSafety.usedSetOne': 'This problem set is used in 1 assignment.',
+  'editSafety.usedSetMany': 'This problem set is used in {count} assignments.',
+  'editSafety.body':
+    'Your edits apply to future assignments only — existing ones keep exactly what students were given.',
+  'editSafety.bodyGraded':
+    'Your edits apply to future assignments only — existing ones keep exactly what students were given and were graded against.',
+
+  // ── LA-6e-1: assignment snapshot preview ─────────────────────────────
+  'snapshot.heading': 'What students see · snapshot',
+  'snapshot.frozenNote': "Frozen at assign time — editing the set later doesn't change this view.",
+  'snapshot.hide': 'Hide',
+  'snapshot.show': 'Show',
+  'snapshot.driftTitle': 'The live set has changed since this assignment was given.',
+  'snapshot.driftBody':
+    'What students see and how this assignment grades come from the frozen snapshot above — newer assignments will use the updated set.',
+  'snapshot.driftCompareLink': 'Compare with the live set',
+  'snapshot.updateThis': 'Update this assignment…',
+  'snapshot.previewBeforeApply': "We'll show what changes before anything is applied.",
+  'snapshot.historyNote': 'This assignment was updated; an earlier snapshot is kept in history.',
+  'snapshot.undoLast': 'Undo last update',
+  'snapshot.undoing': 'Undoing…',
+  'snapshot.empty': "This assignment's snapshot is empty.",
+
+  // ── LA-6e-1: re-sync assignment modal ────────────────────────────────
+  'resync.title': 'Update this assignment to the latest content?',
+  'resync.subtitle': 'Re-snapshots from the live set. Reversible from this page.',
+  'resync.loadError': "Couldn't load the preview. Try again.",
+  'resync.noDrift': "The snapshot already matches the live set — there's nothing to re-sync.",
+  'resync.regradeOne':
+    '{count} graded submission will be re-graded against the new answer key. Some students may end up with different scores.',
+  'resync.regradeMany':
+    '{count} graded submissions will be re-graded against the new answer key. Some students may end up with different scores.',
+  'resync.noRegrade': 'No graded submissions will be re-graded — only what students see is changing.',
+  'resync.applyError': 'The re-sync failed. Try again.',
+  'resync.updating': 'Updating…',
+  'resync.updateAndRegrade': 'Update and re-grade {count}',
+  'resync.updateAssignment': 'Update assignment',
+  'resync.diffAddedOne': '{count} question added',
+  'resync.diffAddedMany': '{count} questions added',
+  'resync.diffRemovedOne': '{count} question removed',
+  'resync.diffRemovedMany': '{count} questions removed',
+  'resync.diffAnswerOne': '{count} answer changed',
+  'resync.diffAnswerMany': '{count} answers changed',
+  'resync.diffContentOne': '{count} other content edit (prompts, options, widgets)',
+  'resync.diffContentMany': '{count} other content edits (prompts, options, widgets)',
+
+  // ── LA-6e-1: problem-set preview page ────────────────────────────────
+  'psPreview.loadErrorTitle': "Couldn't load this preview",
+  'psPreview.loadErrorDesc':
+    'The problem set may have been removed, or you may not have access to it.',
+  'psPreview.backToDashboard': 'Back to dashboard',
+  'psPreview.confirmRemoveAssigned':
+    'Remove this question from the live set?\n\nExisting assignments keep it — they grade and render the frozen copy.',
+  'psPreview.confirmRemove': 'Remove this question from the set?',
+  'psPreview.editingTitle': 'Editing set · live changes',
+  'psPreview.readOnlyTitle': 'Student preview · read-only',
+  'psPreview.editingBody':
+    'Changes apply to future assignments only — existing ones keep what students were given.',
+  'psPreview.readOnlyBody':
+    "This is exactly how students see the set — answers hidden, variables filled in. You can't type or submit here.",
+  'psPreview.doneEditing': 'Done editing',
+  'psPreview.editSet': 'Edit set',
+  'psPreview.back': '← Back',
+  'psPreview.questionsOne': '{count} question',
+  'psPreview.questionsMany': '{count} questions',
+  'psPreview.emptyTitle': 'This set has no questions yet',
+  'psPreview.emptyEditingDesc': 'Use the Add question button below to start filling it in.',
+  'psPreview.emptyDesc': 'Add questions to the set, then preview again.',
+  'psPreview.editQuestion': 'Edit question',
+  'psPreview.removeFromSet': 'Remove from set',
+  'psPreview.addMoreTitle': 'Add more questions',
+  'psPreview.addMoreDesc':
+    "Pick from the question bank, or author a new question — you'll come back here when done.",
+  'psPreview.addQuestion': 'Add question',
+  'psPreview.viewVersions': 'View version history',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count}-day streak',
   'streak.tierStarter': 'On Fire',

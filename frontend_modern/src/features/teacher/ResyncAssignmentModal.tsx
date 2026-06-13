@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { LoadingSpinner } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import { useResyncPreview, useApplyResync } from './useAssignmentResync';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
  * source of truth until they click Apply.
  */
 export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }: Props) {
+  const t = useT();
   const preview = useResyncPreview(assignmentId, open);
   const apply = useApplyResync(assignmentId);
 
@@ -61,10 +63,10 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
       <div className="w-full max-w-lg overflow-hidden rounded-xl bg-paper shadow-lift">
         <div className="border-b border-ink-100 px-6 py-4">
           <h2 id="resync-title" className="font-display text-lg font-semibold text-ink-900">
-            Update this assignment to the latest content?
+            {t('resync.title')}
           </h2>
           <p className="mt-1 text-xs text-ink-500">
-            Re-snapshots from the live set. Reversible from this page.
+            {t('resync.subtitle')}
           </p>
         </div>
 
@@ -74,10 +76,10 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
               <LoadingSpinner size="md" />
             </div>
           ) : preview.isError || !preview.data ? (
-            <p className="text-sm text-red-700">Couldn't load the preview. Try again.</p>
+            <p className="text-sm text-red-700">{t('resync.loadError')}</p>
           ) : !hasDrift ? (
             <p className="text-sm text-ink-600">
-              The snapshot already matches the live set — there's nothing to re-sync.
+              {t('resync.noDrift')}
             </p>
           ) : (
             <>
@@ -90,20 +92,16 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
                 }`}
                 data-testid="resync-regrade-note"
               >
-                {regradeCount > 0 ? (
-                  <>
-                    <strong>{regradeCount}</strong> graded submission{regradeCount === 1 ? '' : 's'}{' '}
-                    will be <strong>re-graded</strong> against the new answer key. Some students may
-                    end up with different scores.
-                  </>
-                ) : (
-                  <>No graded submissions will be re-graded — only what students see is changing.</>
-                )}
+                {regradeCount > 0
+                  ? t(regradeCount === 1 ? 'resync.regradeOne' : 'resync.regradeMany', {
+                      count: regradeCount,
+                    })
+                  : t('resync.noRegrade')}
               </div>
             </>
           )}
           {apply.isError && (
-            <p className="text-sm text-red-700">The re-sync failed. Try again.</p>
+            <p className="text-sm text-red-700">{t('resync.applyError')}</p>
           )}
         </div>
 
@@ -113,7 +111,7 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
             onClick={onClose}
             className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-ink-50"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -123,10 +121,10 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
             className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
           >
             {apply.isPending
-              ? 'Updating…'
+              ? t('resync.updating')
               : regradeCount > 0
-                ? `Update and re-grade ${regradeCount}`
-                : 'Update assignment'}
+                ? t('resync.updateAndRegrade', { count: regradeCount })
+                : t('resync.updateAssignment')}
           </button>
         </div>
       </div>
@@ -139,16 +137,31 @@ function DiffSummary({
 }: {
   diff: NonNullable<ReturnType<typeof useResyncPreview>['data']>['diff'];
 }) {
+  const t = useT();
   const lines: string[] = [];
   if (diff.questions_added.length)
-    lines.push(`${diff.questions_added.length} question${diff.questions_added.length === 1 ? '' : 's'} added`);
+    lines.push(
+      t(diff.questions_added.length === 1 ? 'resync.diffAddedOne' : 'resync.diffAddedMany', {
+        count: diff.questions_added.length,
+      }),
+    );
   if (diff.questions_removed.length)
-    lines.push(`${diff.questions_removed.length} question${diff.questions_removed.length === 1 ? '' : 's'} removed`);
+    lines.push(
+      t(diff.questions_removed.length === 1 ? 'resync.diffRemovedOne' : 'resync.diffRemovedMany', {
+        count: diff.questions_removed.length,
+      }),
+    );
   if (diff.answer_changes.length)
-    lines.push(`${diff.answer_changes.length} answer${diff.answer_changes.length === 1 ? '' : 's'} changed`);
+    lines.push(
+      t(diff.answer_changes.length === 1 ? 'resync.diffAnswerOne' : 'resync.diffAnswerMany', {
+        count: diff.answer_changes.length,
+      }),
+    );
   if (diff.content_changes.length)
     lines.push(
-      `${diff.content_changes.length} other content edit${diff.content_changes.length === 1 ? '' : 's'} (prompts, options, widgets)`,
+      t(diff.content_changes.length === 1 ? 'resync.diffContentOne' : 'resync.diffContentMany', {
+        count: diff.content_changes.length,
+      }),
     );
   if (!lines.length) return null;
   return (

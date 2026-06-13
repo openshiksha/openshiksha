@@ -8,6 +8,7 @@ import { useCreateProblemSet } from './useCreateProblemSet';
 import { previewFromQuestionText } from './previewFromQuestionText';
 import { QuestionPreviewPanel } from './QuestionPreviewPanel';
 import { difficultyStars, typeLabel, typeTone } from './questionPreviewMeta';
+import { useT } from '@/shared/i18n';
 import {
   Badge,
   Button,
@@ -36,6 +37,7 @@ const QuestionRow = ({
   onToggle: () => void;
   onFocus: () => void;
 }) => {
+  const t = useT();
   const firstSubpart = question.subparts[0];
   const previewText = previewFromQuestionText(firstSubpart?.question_text);
 
@@ -64,7 +66,7 @@ const QuestionRow = ({
         checked={selected}
         onChange={onToggle}
         onClick={(e) => e.stopPropagation()}
-        aria-label={`Select question ${question.id}`}
+        aria-label={t('setForm.selectQuestionAria', { id: question.id })}
         className="mt-1 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-600 focus:ring-2 focus:ring-brand-500 focus:ring-offset-0"
       />
       <div className="min-w-0 flex-1">
@@ -73,16 +75,18 @@ const QuestionRow = ({
           <Badge tone={typeTone(question.question_type)}>{typeLabel(question.question_type)}</Badge>
           <span
             className="text-xs tracking-wider text-amber-500"
-            title={`Difficulty ${question.difficulty}/5`}
+            title={t('setForm.difficultyTitle', { n: question.difficulty })}
           >
             {difficultyStars(question.difficulty)}
           </span>
           {question.subparts.length > 1 && (
-            <span className="text-xs text-ink-400">{question.subparts.length} parts</span>
+            <span className="text-xs text-ink-400">
+              {t('setForm.partsCount', { count: question.subparts.length })}
+            </span>
           )}
           {firstSubpart?.is_interactive && (
             <Badge tone="urgent" className="!bg-violet-100 !text-violet-800">
-              Interactive
+              {t('setForm.interactive')}
             </Badge>
           )}
         </div>
@@ -112,6 +116,7 @@ const SelectedStrip = ({
   selectedQuestions: Question[];
   onRemove: (id: number) => void;
 }) => {
+  const t = useT();
   if (selectedQuestions.length === 0) return null;
   return (
     <Card className="!bg-brand-50/40 !ring-1 !ring-brand-100">
@@ -121,7 +126,11 @@ const SelectedStrip = ({
             {selectedQuestions.length}
           </span>
           <span className="text-sm text-ink-600">
-            {selectedQuestions.length === 1 ? 'question selected' : 'questions selected'}
+            {t(
+              selectedQuestions.length === 1
+                ? 'setForm.questionsSelectedOne'
+                : 'setForm.questionsSelectedMany',
+            )}
           </span>
         </div>
       </div>
@@ -140,7 +149,7 @@ const SelectedStrip = ({
             <button
               type="button"
               onClick={() => onRemove(q.id)}
-              aria-label={`Remove question ${q.id}`}
+              aria-label={t('setForm.removeQuestionAria', { id: q.id })}
               className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-rose-100 hover:text-rose-700"
             >
               <svg viewBox="0 0 8 8" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -158,6 +167,7 @@ const SelectedStrip = ({
 
 export const CreateProblemSetPage = () => {
   const navigate = useNavigate();
+  const t = useT();
   const [searchParams] = useSearchParams();
   const { data: subjectRooms } = useSubjectRooms();
 
@@ -290,24 +300,25 @@ export const CreateProblemSetPage = () => {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
         <EmptyState
-          title="Problem set created!"
-          description={
-            <>
-              <strong className="text-ink-700">{title}</strong> with{' '}
-              <strong className="text-ink-700">{selectedQuestionIds.size}</strong>{' '}
-              {selectedQuestionIds.size === 1 ? 'question' : 'questions'} is ready to assign.
-            </>
-          }
+          title={t('setForm.successTitle')}
+          description={t(
+            selectedQuestionIds.size === 1
+              ? 'setForm.successBodyOne'
+              : 'setForm.successBodyMany',
+            { title, count: selectedQuestionIds.size },
+          )}
           action={
             <div className="flex flex-wrap justify-center gap-3">
-              <Button onClick={() => navigate('/teacher/assignments/new')}>Assign it now</Button>
+              <Button onClick={() => navigate('/teacher/assignments/new')}>
+                {t('setForm.assignNow')}
+              </Button>
               {returnTo ? (
                 <Button variant="ghost" onClick={() => navigate(returnTo)}>
-                  Back to question bank
+                  {t('setForm.backToBank')}
                 </Button>
               ) : (
                 <Button variant="ghost" onClick={() => navigate('/teacher')}>
-                  Back to dashboard
+                  {t('assignForm.backToDashboard')}
                 </Button>
               )}
             </div>
@@ -324,32 +335,34 @@ export const CreateProblemSetPage = () => {
       {/* Header */}
       <SectionHeading
         as="h1"
-        eyebrow="Authoring"
-        title="Build Problem Set"
-        description="Group questions into an assignable set. Click a question to preview exactly how students will see it."
+        eyebrow={t('assignForm.eyebrow')}
+        title={t('setForm.title')}
+        description={t('setForm.description')}
         action={
           <button
             type="button"
             onClick={() => navigate('/teacher')}
             className="text-sm font-medium text-ink-500 hover:text-ink-800"
           >
-            ← Back
+            {t('assignForm.back')}
           </button>
         }
       />
 
       {/* Details card */}
       <Card className="space-y-4">
-        <h2 className="font-display text-lg font-semibold text-ink-900">Details</h2>
+        <h2 className="font-display text-lg font-semibold text-ink-900">
+          {t('setForm.details')}
+        </h2>
         <Input
-          label="Title"
-          placeholder="e.g. Quadratic Equations Practice Set 1"
+          label={t('teacher.titleLabel')}
+          placeholder={t('setForm.titlePlaceholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <div className="grid gap-3 sm:grid-cols-3">
           <Select
-            label="Subject"
+            label={t('setForm.subject')}
             value={selectedSubjectId}
             onChange={(e) => {
               setSelectedSubjectId(e.target.value ? Number(e.target.value) : '');
@@ -358,7 +371,7 @@ export const CreateProblemSetPage = () => {
               setFocusedQuestionId(null);
             }}
           >
-            <option value="">Select subject…</option>
+            <option value="">{t('setForm.selectSubject')}</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -366,7 +379,7 @@ export const CreateProblemSetPage = () => {
             ))}
           </Select>
           <Select
-            label="Chapter"
+            label={t('setForm.chapter')}
             value={selectedChapterId}
             onChange={(e) => {
               setSelectedChapterId(e.target.value ? Number(e.target.value) : '');
@@ -375,10 +388,10 @@ export const CreateProblemSetPage = () => {
             }}
             disabled={!selectedSubjectId || !chapters}
           >
-            <option value="">Select chapter…</option>
+            <option value="">{t('setForm.selectChapter')}</option>
             {chapters?.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} (Std {c.standard_number})
+                {t('setForm.chapterOption', { name: c.name, std: c.standard_number })}
               </option>
             ))}
           </Select>
@@ -386,8 +399,8 @@ export const CreateProblemSetPage = () => {
             type="number"
             min={1}
             max={180}
-            label="Estimated time (min)"
-            placeholder="e.g. 30"
+            label={t('setForm.estimatedTime')}
+            placeholder={t('setForm.estimatedPlaceholder')}
             value={estimatedMinutes}
             onChange={(e) => setEstimatedMinutes(e.target.value)}
           />
@@ -399,10 +412,15 @@ export const CreateProblemSetPage = () => {
         {/* Picker (left) */}
         <Card className="!p-0 lg:col-span-5 xl:col-span-4">
           <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4">
-            <h2 className="font-display text-lg font-semibold text-ink-900">Select Questions</h2>
+            <h2 className="font-display text-lg font-semibold text-ink-900">
+              {t('setForm.selectQuestions')}
+            </h2>
             {questions && (
               <span className="text-xs text-ink-400">
-                {filteredQuestions.length} of {questions.length}
+                {t('setForm.filteredOfTotal', {
+                  filtered: filteredQuestions.length,
+                  total: questions.length,
+                })}
               </span>
             )}
           </div>
@@ -411,7 +429,7 @@ export const CreateProblemSetPage = () => {
           {selectedSubjectId !== '' && (
             <div className="space-y-3 border-b border-ink-100 px-5 py-4">
               <Input
-                placeholder="Search question text…"
+                placeholder={t('setForm.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 leftIcon={
@@ -422,12 +440,14 @@ export const CreateProblemSetPage = () => {
                 }
               />
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-xs font-medium text-ink-500">Difficulty:</span>
+                <span className="mr-1 text-xs font-medium text-ink-500">
+                  {t('setForm.difficultyFilter')}
+                </span>
                 <FilterChip
                   active={difficultyFilter === null}
                   onClick={() => setDifficultyFilter(null)}
                 >
-                  Any
+                  {t('setForm.any')}
                 </FilterChip>
                 {[1, 2, 3, 4, 5].map((d) => (
                   <FilterChip
@@ -442,17 +462,19 @@ export const CreateProblemSetPage = () => {
               </div>
               {availableTypes.length > 1 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 text-xs font-medium text-ink-500">Type:</span>
+                  <span className="mr-1 text-xs font-medium text-ink-500">
+                    {t('setForm.typeFilter')}
+                  </span>
                   <FilterChip active={typeFilter === null} onClick={() => setTypeFilter(null)}>
-                    Any
+                    {t('setForm.any')}
                   </FilterChip>
-                  {availableTypes.map((t) => (
+                  {availableTypes.map((qType) => (
                     <FilterChip
-                      key={t}
-                      active={typeFilter === t}
-                      onClick={() => setTypeFilter(typeFilter === t ? null : t)}
+                      key={qType}
+                      active={typeFilter === qType}
+                      onClick={() => setTypeFilter(typeFilter === qType ? null : qType)}
                     >
-                      {typeLabel(t)}
+                      {typeLabel(qType)}
                     </FilterChip>
                   ))}
                 </div>
@@ -464,7 +486,7 @@ export const CreateProblemSetPage = () => {
           <div className="p-3">
             {!selectedSubjectId ? (
               <p className="py-10 text-center text-sm text-ink-400">
-                Select a subject to browse questions.
+                {t('setForm.selectSubjectToBrowse')}
               </p>
             ) : questionsLoading ? (
               <div className="space-y-2">
@@ -474,18 +496,18 @@ export const CreateProblemSetPage = () => {
               </div>
             ) : !questions || questions.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm text-ink-500">No questions found.</p>
+                <p className="text-sm text-ink-500">{t('setForm.noQuestions')}</p>
                 <button
                   type="button"
                   onClick={() => navigate('/teacher/questions/new')}
                   className="mt-2 text-sm font-medium text-brand-600 hover:text-brand-700"
                 >
-                  Author one →
+                  {t('setForm.authorOne')}
                 </button>
               </div>
             ) : filteredQuestions.length === 0 ? (
               <p className="py-10 text-center text-sm text-ink-400">
-                No matches for the current filters.
+                {t('setForm.noMatches')}
               </p>
             ) : (
               <div className="max-h-[36rem] space-y-1.5 overflow-y-auto pr-1">
@@ -513,20 +535,20 @@ export const CreateProblemSetPage = () => {
             return (
               <QuestionPreviewPanel
                 question={focusedQuestion}
-                emptyTitle="Pick a question to preview"
-                emptyDescription="Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all."
+                emptyTitle={t('setForm.previewEmptyTitle')}
+                emptyDescription={t('setForm.previewEmptyDesc')}
                 footer={
                   focusedQuestion ? (
                     <>
                       <p className="text-xs text-ink-500">
-                        {isSelected ? 'This question is in the set.' : 'Not in the set yet.'}
+                        {isSelected ? t('setForm.inSet') : t('setForm.notInSet')}
                       </p>
                       <Button
                         variant={isSelected ? 'ghost' : 'brand'}
                         size="sm"
                         onClick={() => toggleQuestion(focusedQuestion.id)}
                       >
-                        {isSelected ? 'Remove from set' : '+ Add to set'}
+                        {isSelected ? t('setForm.removeFromSet') : t('setForm.addToSet')}
                       </Button>
                     </>
                   ) : null
@@ -543,12 +565,10 @@ export const CreateProblemSetPage = () => {
       {/* Submit — desktop layout (inline action row). */}
       <div className="hidden flex-wrap items-center justify-end gap-3 border-t border-ink-100 pt-5 lg:flex">
         {!canSubmit && (
-          <p className="text-xs text-ink-400">
-            Fill in title, subject, chapter, and select at least one question.
-          </p>
+          <p className="text-xs text-ink-400">{t('setForm.fillAllDesktop')}</p>
         )}
         {createProblemSet.isError && (
-          <p className="text-xs font-medium text-rose-600">Failed to create. Please try again.</p>
+          <p className="text-xs font-medium text-rose-600">{t('assignForm.createFailed')}</p>
         )}
         <Button
           size="lg"
@@ -556,7 +576,7 @@ export const CreateProblemSetPage = () => {
           disabled={!canSubmit || createProblemSet.isPending}
         >
           {createProblemSet.isPending && <LoadingSpinner size="sm" />}
-          Create Problem Set
+          {t('setForm.create')}
         </Button>
       </div>
 
@@ -569,7 +589,7 @@ export const CreateProblemSetPage = () => {
       >
         {createProblemSet.isError && (
           <p className="mb-1.5 text-center text-xs font-medium text-rose-600">
-            Failed to create. Please try again.
+            {t('assignForm.createFailed')}
           </p>
         )}
         <Button
@@ -579,11 +599,13 @@ export const CreateProblemSetPage = () => {
           className="w-full"
         >
           {createProblemSet.isPending && <LoadingSpinner size="sm" />}
-          {createProblemSet.isPending ? 'Creating…' : `Create${selectedQuestionIds.size > 0 ? ` (${selectedQuestionIds.size})` : ''}`}
+          {createProblemSet.isPending
+            ? t('setForm.creating')
+            : `${t('setForm.createMobile')}${selectedQuestionIds.size > 0 ? ` (${selectedQuestionIds.size})` : ''}`}
         </Button>
         {!canSubmit && (
           <p className="mt-1.5 text-center text-xs text-ink-500">
-            Pick a subject, chapter, title, and at least one question.
+            {t('setForm.fillAllMobile')}
           </p>
         )}
       </div>

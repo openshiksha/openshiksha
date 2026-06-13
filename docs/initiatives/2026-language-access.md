@@ -73,10 +73,10 @@ just never lets anyone ask for it.
 | LA-3 | Student core loop chrome in Hindi: dashboard, assignment list/detail, panels | ✅ 2026-06-11 [#310](https://github.com/openshiksha/openshiksha/pull/310) |
 | LA-4 | AI content in the reader's language: explanations + parent-summary language wiring (+ regenerate-on-language-change) | ✅ 2026-06-11 [#311](https://github.com/openshiksha/openshiksha/pull/311) |
 | LA-5 | Key-parity CI guard (Vitest), Hindi glossary, parent + registration chrome (+ home page, added per user request) | ✅ 2026-06-11 [#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b |
-| LA-6 | Teacher surfaces chrome (dashboard panels, create-assignment, grading queue) | ⬜ |
-| LA-7 | Localized transactional emails (grading complete, remedial, due reminders, parent weekly) honoring `preferred_language` | ⬜ |
-| LA-8 | Number/date formatting via `Intl` keyed to locale (dates on cards, "due in X days") | ⬜ |
-| LA-9 | Third-language pilot (one regional language on one surface) proving the framework scales | ⬜ |
+| LA-6 | Teacher surfaces chrome (dashboard panels, create-assignment, build-problem-set, grading queue, authoring previews, question bank, rubric, widget gallery, versions, classroom code, CreateQuestionPage) | ✅ 2026-06-13 — 6a–6d [#318](https://github.com/openshiksha/openshiksha/pull/318)–[#321](https://github.com/openshiksha/openshiksha/pull/321); 6e [#323](https://github.com/openshiksha/openshiksha/pull/323)/[#324](https://github.com/openshiksha/openshiksha/pull/324)/[#325](https://github.com/openshiksha/openshiksha/pull/325)/[#326](https://github.com/openshiksha/openshiksha/pull/326) |
+| LA-7 | Localized transactional emails (grading complete, remedial, due reminders, parent weekly) honoring `preferred_language` | ✅ 2026-06-12 [#314](https://github.com/openshiksha/openshiksha/pull/314) |
+| LA-8 | Number/date formatting via `Intl` keyed to locale (dates on cards, "due in X days") | ✅ 2026-06-13 [#322](https://github.com/openshiksha/openshiksha/pull/322) |
+| LA-9 | Third-language pilot (one regional language on one surface) proving the framework scales | ⬜ — next unblocked increment |
 | LA-10 | Authored-content translation workflow (question text) — needs product design, do not start without promotion | ⬜ |
 
 ## Definition of Done (every increment)
@@ -123,6 +123,16 @@ just never lets anyone ask for it.
 | Classroom join code | क्लासरूम जॉइन कोड | transliterate — classroom English |
 | Insights | इनसाइट्स | transliterate — product term |
 | Learning path | लर्निंग पाथ | transliterate — product term |
+| Question bank | प्रश्न बैंक | transliterate "bank" — classroom English |
+| Problem set | समस्या सेट | transliterate "set" |
+| Rubric | रूब्रिक | transliterate — classroom English |
+| Version | संस्करण | |
+| Snapshot | स्नैपशॉट | transliterate — product term |
+| Difficulty | कठिनाई | |
+| Subpart / Part | उपभाग / भाग | |
+| Variable / Constraint | चर / बाधा | |
+| Widget | विजेट | transliterate — product term |
+| Draft | ड्राफ़्ट | transliterate |
 
 ## Progress Ledger (append-only)
 
@@ -134,3 +144,10 @@ just never lets anyone ask for it.
 | 2026-06-11 | LA-3 — student core loop chrome in Hindi (~60 keys); date-fns `hi` locale for relative dates, kept out of the entry chunk. | [#310](https://github.com/openshiksha/openshiksha/pull/310) | "3 दिन में" beats "in 3 days में" — localizing the chrome without the dates reads worse than not localizing at all; date-fns ships a tree-shakeable hi locale, no Intl machinery needed yet (LA-8). |
 | 2026-06-11 | LA-4 — explanations + parent summaries generate in the reader's language; regenerate-in-place affordance on language mismatch. | [#311](https://github.com/openshiksha/openshiksha/pull/311) | The backend already regenerated in place (`update_or_create` with `language` in defaults) — the "gap" was purely frontend. Read the task before writing backend code; two pinning tests were all the backend needed. |
 | 2026-06-11 | LA-5 — runtime parity guard (key sets + `{var}` placeholder drift); home page + all registration pages in Hindi (home added per user request); parent dashboard chrome (LA-5b). | [#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b | The anonymous journey (home → register → login) is the highest-leverage Hindi surface: it's what a non-English-speaking parent sees before anyone can help them. |
+| 2026-06-12 | LA-7 — all four transactional emails render in the recipient's `preferred_language`; fixed the Monday parent-summary batch that never passed a language. | [#314](https://github.com/openshiksha/openshiksha/pull/314) | Email is a second render target with no `useT` context — factor the locale dictionaries so the same keys serve both React and the server-side email templates. |
+| 2026-06-13 | LA-6a–6d — teacher dashboard + 8 insight panels, create-assignment, build-problem-set, AI grading queue in Hindi (~270 keys). Shipped as a stacked PR chain. | [#318](https://github.com/openshiksha/openshiksha/pull/318)–[#321](https://github.com/openshiksha/openshiksha/pull/321) | Rich sentences recompose as whole `{var}` interpolations, not concatenated fragments — Hindi word order differs, so a sentence split across JSX nodes can't be translated faithfully. Plural via `*One`/`*Many` key pairs. |
+| 2026-06-13 | LA-8 — locale-aware `formatDate`/`formatNumber`/`useFormat` via the platform `Intl` API. Invalid dates pass through; numbers use Indian grouping with Latin digits (K-12 product call). | [#322](https://github.com/openshiksha/openshiksha/pull/322) | `Intl` is built into the browser — solving date/number formatting once cost **zero** entry-chunk bytes, and the helper now back-fills 6a–d and carries into LA-9. Relative dates stay on date-fns `hi` (LA-3); this is for absolute dates only. |
+| 2026-06-13 | LA-6e-1 — authoring preview & edit-safety chrome (AssignmentSnapshotPreview, ResyncAssignmentModal, EditSafetyBanner, ProblemSetPreviewPage). EditSafetyBanner's free-text `noun` prop became a typed `subject` so the headline is a proper localized sentence. | [#323](https://github.com/openshiksha/openshiksha/pull/323) | A free-text prop carrying a half-sentence ("this problem set") can't be localized at the call site — lift the whole sentence into the key and let the component pick by an enum prop. |
+| 2026-06-13 | LA-6e-2 — question bank (+ add-to-set sheet), QuestionPreviewPanel, RecordResponsePanel (rubric authoring), WidgetGalleryPanel (~115 keys). Added `localizedTypeLabel(t, type)` for the six question types. | [#324](https://github.com/openshiksha/openshiksha/pull/324) | Parallel locale-file PRs off `modernization` all collide at the same anchor — each needs a trivial `merge modernization` before it lands. Stacking them (base each on the prior) would have avoided it; noted for LA-9. |
+| 2026-06-13 | LA-6e-3 — version history (+ diff panel) & classroom join-code in Hindi. First 6e slice to consume LA-8 `useFormat().formatDate` for version timestamps. | [#325](https://github.com/openshiksha/openshiksha/pull/325) | The LA-8 helper paid off immediately — a hardcoded `toLocaleString('en-IN', …)` became one `formatDate` call that respects the active locale. |
+| 2026-06-13 | LA-6e-4 — CreateQuestionPage (1131 lines, the last English-only teacher surface) in Hindi (~95 `cqp.*` keys); added the page's first test file. **Closes LA-6.** | [#326](https://github.com/openshiksha/openshiksha/pull/326) | Page-local `cqp.type*` labels instead of reusing the in-flight LA-6e-2 `qtype.*` kept this PR independent — cross-PR key reuse would have forced a merge order. LaTeX/`{{token}}` hints survive because `t()` without vars is a no-op on `{…}`. |

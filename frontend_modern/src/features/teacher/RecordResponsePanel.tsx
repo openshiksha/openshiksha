@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Skeleton } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import { useSubjectRooms } from './useSubjectRooms';
 import {
   useRoomStudents,
@@ -23,6 +24,7 @@ interface RubricFormProps {
  * so partial credit is transparent.
  */
 const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
+  const t = useT();
   const save = useSaveRubric();
   const [maxMarks, setMaxMarks] = useState(existing?.max_marks ?? 5);
   const [modelAnswer, setModelAnswer] = useState(existing?.model_answer ?? '');
@@ -52,7 +54,7 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
       }}
     >
       <label className="block text-xs text-ink-600">
-        Maximum marks
+        {t('recordResp.maxMarks')}
         <input
           type="number"
           min={1}
@@ -67,33 +69,33 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
         />
       </label>
       <label className="block text-xs text-ink-600">
-        Model answer <span className="text-ink-400">(what a full-marks answer says)</span>
+        {t('recordResp.modelAnswer')} <span className="text-ink-400">{t('recordResp.modelAnswerHint')}</span>
         <textarea
           value={modelAnswer}
           onChange={(e) => setModelAnswer(e.target.value)}
           rows={3}
           className="input-brand mt-1 block w-full text-sm"
-          placeholder="e.g. Chlorophyll absorbs red and blue light for photosynthesis and reflects green."
+          placeholder={t('recordResp.modelAnswerPlaceholder')}
         />
       </label>
 
       <div>
         <p className="text-xs text-ink-600 font-medium">
-          Marking points <span className="text-ink-400 font-normal">(optional — enables per-point partial credit)</span>
+          {t('recordResp.markingPoints')} <span className="text-ink-400 font-normal">{t('recordResp.markingPointsHint')}</span>
         </p>
         {criteria.map((c, i) => (
           <div key={i} className="mt-1.5 flex items-center gap-2">
             <input
               type="text"
-              aria-label={`Criterion ${i + 1} label`}
+              aria-label={t('recordResp.criterionLabelAria', { n: i + 1 })}
               value={c.label}
               onChange={(e) => updateCriterion(i, { label: e.target.value })}
-              placeholder="e.g. Names chlorophyll"
+              placeholder={t('recordResp.criterionLabelPlaceholder')}
               className="input-brand flex-1 text-sm"
             />
             <input
               type="number"
-              aria-label={`Criterion ${i + 1} marks`}
+              aria-label={t('recordResp.criterionMarksAria', { n: i + 1 })}
               min={0}
               max={100}
               value={c.marks}
@@ -102,7 +104,7 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
             />
             <button
               type="button"
-              aria-label={`Remove criterion ${i + 1}`}
+              aria-label={t('recordResp.removeCriterionAria', { n: i + 1 })}
               onClick={() => setCriteria((rows) => rows.filter((_, idx) => idx !== i))}
               className="text-ink-400 hover:text-rose-600 text-sm px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
             >
@@ -117,28 +119,31 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
           className="mt-1.5"
           onClick={() => setCriteria((rows) => [...rows, { label: '', marks: 1 }])}
         >
-          + Marking point
+          {t('recordResp.addMarkingPoint')}
         </Button>
         {sumMismatch && (
           <p className="mt-1 text-xs text-amber-700">
-            Marking points add up to {criteriaSum}, not {maxMarks} — the AI grades per point, so
-            consider matching the total.
+            {t('recordResp.sumMismatch', { sum: criteriaSum, max: maxMarks })}
           </p>
         )}
       </div>
 
       {save.isError && (
         <p className="text-xs text-rose-600">
-          Couldn&apos;t save the rubric just now. Please try again in a moment.
+          {t('recordResp.saveError')}
         </p>
       )}
 
       <div className="flex gap-2 pt-1">
         <Button type="submit" variant="brand" size="sm" disabled={save.isPending || maxMarks < 1}>
-          {save.isPending ? 'Saving…' : existing ? 'Update rubric' : 'Save rubric'}
+          {save.isPending
+            ? t('recordResp.saving')
+            : existing
+              ? t('recordResp.updateRubric')
+              : t('recordResp.saveRubric')}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -146,6 +151,7 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
 };
 
 const RubricSection = ({ subpartId }: { subpartId: number }) => {
+  const t = useT();
   const { data: rubric, isLoading } = useRubricForSubpart(subpartId);
   const [editing, setEditing] = useState(false);
 
@@ -160,12 +166,9 @@ const RubricSection = ({ subpartId }: { subpartId: number }) => {
   if (!rubric) {
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-amber-700">
-        <span>
-          No rubric yet — without one the AI falls back to a rough keyword match. Add one for
-          fair, transparent marks.
-        </span>
+        <span>{t('recordResp.noRubricWarning')}</span>
         <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
-          Add rubric
+          {t('recordResp.addRubric')}
         </Button>
       </div>
     );
@@ -175,17 +178,23 @@ const RubricSection = ({ subpartId }: { subpartId: number }) => {
     <div className="mt-2 rounded-lg border border-ink-100 bg-paper p-3">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs text-ink-600">
-          <span className="font-semibold">Rubric:</span> {rubric.max_marks} marks
+          <span className="font-semibold">{t('recordResp.rubricLabel')}</span>{' '}
+          {t('recordResp.marksLabel', { count: rubric.max_marks })}
           {rubric.criteria.length > 0 &&
-            ` · ${rubric.criteria.length} marking point${rubric.criteria.length !== 1 ? 's' : ''}`}
+            ` · ${t(
+              rubric.criteria.length === 1
+                ? 'recordResp.markingPointsCountOne'
+                : 'recordResp.markingPointsCountMany',
+              { count: rubric.criteria.length },
+            )}`}
         </p>
         <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
-          Edit
+          {t('recordResp.edit')}
         </Button>
       </div>
       {rubric.model_answer && (
         <p className="mt-1 text-xs text-ink-500 line-clamp-2">
-          <span className="font-semibold">Model answer:</span> {rubric.model_answer}
+          <span className="font-semibold">{t('recordResp.modelAnswerLabel')}</span> {rubric.model_answer}
         </p>
       )}
     </div>
@@ -201,6 +210,7 @@ const RubricSection = ({ subpartId }: { subpartId: number }) => {
  * suggestion fair — the form nudges the teacher to add one before grading.
  */
 export const RecordResponsePanel = () => {
+  const t = useT();
   const [isExpanded, setIsExpanded] = useState(false);
   const [roomId, setRoomId] = useState<number | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
@@ -223,7 +233,7 @@ export const RecordResponsePanel = () => {
         aria-expanded={isExpanded}
         className="flex w-full items-center gap-1.5 text-left text-sm font-semibold text-ink-700 hover:text-ink-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
-        <span>Record a response for AI grading</span>
+        <span>{t('recordResp.recordForAI')}</span>
         <span className={`ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
       </button>
 
@@ -246,7 +256,7 @@ export const RecordResponsePanel = () => {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-xs text-ink-600">
-              Class
+              {t('recordResp.class')}
               <select
                 value={roomId == null ? '' : String(roomId)}
                 onChange={(e) => {
@@ -255,7 +265,7 @@ export const RecordResponsePanel = () => {
                 }}
                 className="input-brand mt-1 block w-full text-sm"
               >
-                <option value="">Pick a class…</option>
+                <option value="">{t('recordResp.pickClass')}</option>
                 {(rooms ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.subject_name} · {r.classroom_display}
@@ -264,7 +274,7 @@ export const RecordResponsePanel = () => {
               </select>
             </label>
             <label className="block text-xs text-ink-600">
-              Student
+              {t('recordResp.student')}
               <select
                 value={studentId == null ? '' : String(studentId)}
                 onChange={(e) => setStudentId(e.target.value ? Number(e.target.value) : null)}
@@ -273,10 +283,10 @@ export const RecordResponsePanel = () => {
               >
                 <option value="">
                   {roomId == null
-                    ? 'Pick a class first'
+                    ? t('recordResp.pickClassFirst')
                     : studentsLoading
-                      ? 'Loading students…'
-                      : 'Pick a student…'}
+                      ? t('recordResp.loadingStudents')
+                      : t('recordResp.pickStudent')}
                 </option>
                 {(students ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
@@ -288,7 +298,7 @@ export const RecordResponsePanel = () => {
           </div>
 
           <label className="block text-xs text-ink-600">
-            Short-answer question
+            {t('recordResp.shortAnswerQuestion')}
             <select
               value={subpartId == null ? '' : String(subpartId)}
               onChange={(e) => setSubpartId(e.target.value ? Number(e.target.value) : null)}
@@ -296,7 +306,7 @@ export const RecordResponsePanel = () => {
               className="input-brand mt-1 block w-full text-sm disabled:opacity-60"
             >
               <option value="">
-                {subpartsLoading ? 'Loading questions…' : 'Pick a question…'}
+                {subpartsLoading ? t('recordResp.loadingQuestions') : t('recordResp.pickQuestion')}
               </option>
               {(subparts ?? []).map((sp) => (
                 <option key={sp.subpartId} value={sp.subpartId}>
@@ -307,40 +317,38 @@ export const RecordResponsePanel = () => {
           </label>
           {!subpartsLoading && (subparts ?? []).length === 0 && (
             <p className="text-xs text-ink-500">
-              No short-answer questions yet — create one in the question bank first; only
-              short-answer questions can be AI-graded here.
+              {t('recordResp.noShortAnswer')}
             </p>
           )}
 
           {subpartId != null && <RubricSection subpartId={subpartId} />}
 
           <label className="block text-xs text-ink-600">
-            Student&apos;s answer
+            {t('recordResp.studentAnswer')}
             <textarea
               value={responseText}
               onChange={(e) => setResponseText(e.target.value)}
               rows={3}
               className="input-brand mt-1 block w-full text-sm"
-              placeholder="Paste or type the student's written answer…"
+              placeholder={t('recordResp.studentAnswerPlaceholder')}
             />
           </label>
 
           {submit.isError && (
             <p className="text-xs text-rose-600">
-              Couldn&apos;t queue this response just now. Please try again in a moment.
+              {t('recordResp.queueError')}
             </p>
           )}
           {submit.isSuccess && (
             <p className="text-xs text-emerald-700" role="status">
-              Queued — it appears below as “AI grading…” and flips to a suggestion in a few
-              seconds.
+              {t('recordResp.queuedSuccess')}
             </p>
           )}
 
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-ink-400">AI suggests, you finalise — always.</p>
+            <p className="text-xs text-ink-400">{t('recordResp.aiSuggestsNote')}</p>
             <Button type="submit" variant="brand" size="sm" disabled={!canSubmit || submit.isPending}>
-              {submit.isPending ? 'Queuing…' : 'Send to AI grading'}
+              {submit.isPending ? t('recordResp.queuing') : t('recordResp.sendToAI')}
             </Button>
           </div>
         </form>

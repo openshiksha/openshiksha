@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card } from '@/shared/ui';
 import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
+import { useT } from '@/shared/i18n';
 import { widgetRegistry } from '@/widgets/registry';
 import type { WidgetModule } from '@/widgets/_sdk/defineWidget';
 
@@ -164,6 +165,7 @@ function ConfigForm({
   config: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
 }) {
+  const t = useT();
   const properties = schema?.properties ?? {};
   const required = new Set(schema?.required ?? []);
 
@@ -173,7 +175,7 @@ function ConfigForm({
     return (
       <div className="grid gap-2">
         <p className="text-xs text-amber-700">
-          This widget didn&apos;t declare a JSON Schema. Edit the raw config below.
+          {t('widgetGallery.noSchema')}
         </p>
         <textarea
           rows={8}
@@ -221,6 +223,7 @@ export function WidgetGalleryPanel({
   onApply,
   onCancel,
 }: WidgetGalleryPanelProps) {
+  const t = useT();
   const galleryEntries = useMemo<GalleryEntry[]>(
     () => Object.values(widgetRegistry).filter(TEACHER_VISIBLE),
     [],
@@ -253,10 +256,9 @@ export function WidgetGalleryPanel({
       <Card className="grid gap-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-display text-lg font-semibold text-ink-900">Pick an interactive widget</h3>
+            <h3 className="font-display text-lg font-semibold text-ink-900">{t('widgetGallery.pickTitle')}</h3>
             <p className="text-sm text-ink-500">
-              The widget renders inside a sandboxed iframe alongside the question text. Pick one to
-              configure — the live preview updates as you fill in the form.
+              {t('widgetGallery.pickDesc')}
             </p>
           </div>
           <button
@@ -264,11 +266,11 @@ export function WidgetGalleryPanel({
             onClick={onCancel}
             className="text-sm text-ink-500 hover:text-ink-900"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
         {galleryEntries.length === 0 ? (
-          <p className="text-sm text-ink-500 italic">No teacher-visible widgets are registered yet.</p>
+          <p className="text-sm text-ink-500 italic">{t('widgetGallery.noneRegistered')}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {galleryEntries.map((entry) => (
@@ -282,7 +284,7 @@ export function WidgetGalleryPanel({
                   <h4 className="font-semibold text-ink-900">{entry.meta.title}</h4>
                   {entry.meta.answerProducing && (
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
-                      answer
+                      {t('widgetGallery.answerBadge')}
                     </span>
                   )}
                 </div>
@@ -316,17 +318,17 @@ export function WidgetGalleryPanel({
           onClick={() => setSelectedKind(undefined)}
           className="text-sm text-ink-500 hover:text-ink-900"
         >
-          ← back to gallery
+          {t('widgetGallery.backToGallery')}
         </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">Config</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{t('widgetGallery.config')}</p>
           <ConfigForm schema={schema} config={config} onChange={setConfig} />
         </div>
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">Preview</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{t('widgetGallery.preview')}</p>
           <InteractiveWidget
             kind={selected.kind}
             config={config}
@@ -337,8 +339,7 @@ export function WidgetGalleryPanel({
             minHeight={140}
           />
           <p className="text-[11px] text-ink-400">
-            Preview re-renders on every config change. Sandboxed iframe — scripts inside the
-            widget can&apos;t reach the page.
+            {t('widgetGallery.previewNote')}
           </p>
         </div>
       </div>
@@ -349,14 +350,14 @@ export function WidgetGalleryPanel({
           onClick={onCancel}
           className="rounded-md border border-ink-200 px-3 py-1.5 text-sm hover:bg-ink-50"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={() => onApply({ kind: selected.kind, config })}
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          Use this widget
+          {t('widgetGallery.useThis')}
         </button>
       </div>
     </Card>

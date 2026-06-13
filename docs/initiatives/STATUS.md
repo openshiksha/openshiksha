@@ -4,7 +4,18 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-11 (night) — **Language Access first batch LA-1..5
+**Last updated:** 2026-06-13 — **LA-7 localized emails shipped**
+([#314](https://github.com/openshiksha/openshiksha/pull/314)): all four
+transactional emails render in the recipient's `preferred_language` (+ fixed the
+Monday parent-summary batch that never passed a language). Today's batch
+([plan](../daily-plans/2026-06-13-plan.md)) finishes the initiative's chrome:
+**LA-6** (the whole teacher surface in Hindi — dashboard/insight panels,
+authoring, question bank, grading queue, assignment detail; split 6a–6d) +
+**LA-8** (locale-aware `Intl` date/number helper). After this only LA-9
+(third-language pilot) and LA-10 (authored-content translation, needs product
+design) remain.
+
+Earlier (2026-06-11 night) — **Language Access first batch LA-1..5
 shipped** across [#308](https://github.com/openshiksha/openshiksha/pull/308)–[#312](https://github.com/openshiksha/openshiksha/pull/312)
 (+ LA-5b): in-house i18n module + EN|हिं switcher (no i18next — perf budget
 defended, entry ~104 kB of 160), durable `User.preferred_language` with the
@@ -98,7 +109,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Language Access — i18n en/हिंदी](2026-language-access.md) | **Active** | **First batch LA-1..5 shipped 2026-06-11** ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b): i18n module + EN\|हिं switcher, `preferred_language` end-to-end, student core loop + parent dashboard + full public surface (home/login/registration) in Hindi, AI content in the reader's language, runtime key-parity guard. Devanagari verified in-browser (Noto Sans Devanagari behind Inter/Fraunces). | **LA-6** — teacher surfaces chrome; then LA-7 localized emails |
+| 1 | [Language Access — i18n en/हिंदी](2026-language-access.md) | **Active** | **First batch LA-1..5 shipped 2026-06-11** ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#312](https://github.com/openshiksha/openshiksha/pull/312) + LA-5b): i18n module + EN\|हिं switcher, `preferred_language` end-to-end, student core loop + parent dashboard + full public surface (home/login/registration) in Hindi, AI content in the reader's language, runtime key-parity guard. Devanagari verified in-browser (Noto Sans Devanagari behind Inter/Fraunces). **LA-7** localized emails shipped 2026-06-12 ([#314](https://github.com/openshiksha/openshiksha/pull/314)). | **LA-6** (teacher surface, split 6a–6d) + **LA-8** (Intl date/number helper) — planned [2026-06-13](../daily-plans/2026-06-13-plan.md); then LA-9 third-language pilot |
 | - | [AI Surface Activation](ai-surface-activation.md) | Done | **Closed 2026-06-11 — North Star reached.** ASA-1..9 shipped across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289), [#293](https://github.com/openshiksha/openshiksha/pull/293)–[#302](https://github.com/openshiksha/openshiksha/pull/302): all four dark `/ai/` endpoint groups lit (explanations, misconception clusters, assignment drafts, open-response grading), error-as-empty-state sweep complete, shared `AIBadge` provenance, server-side SRS guard. Close ([#303](https://github.com/openshiksha/openshiksha/pull/303)): [endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit — 17 endpoints directly consumed, 4 indirect by design, 1 API-only (`/ai/predictions/`). | `useAsyncGeneration` refactor carried to maintenance; `/ai/predictions/` surface is a future product call |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |
 | - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |

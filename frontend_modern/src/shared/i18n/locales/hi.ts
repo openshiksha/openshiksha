@@ -553,6 +553,133 @@ export const hi: LocaleDict = {
   'grading.emptyDesc':
     'किसी विद्यार्थी का मुक्त उत्तर दर्ज करें और AI आपकी समीक्षा के लिए एक अंक सुझाएगा।',
 
+  // ── LA-6e-2: question-type labels (shared) ───────────────────────────
+  'qtype.mcq': 'MCQ',
+  'qtype.numeric': 'संख्यात्मक',
+  'qtype.fill_blank': 'रिक्त स्थान',
+  'qtype.multi_select': 'बहु-चयन',
+  'qtype.matching': 'मिलान',
+  'qtype.compound': 'संयुक्त',
+
+  // ── LA-6e-2: question bank page ──────────────────────────────────────
+  'qbank.eyebrow': 'लेखन',
+  'qbank.title': 'प्रश्न बैंक',
+  'qbank.description':
+    'अपने असाइनमेंट में प्रश्न ब्राउज़ करें और दोबारा इस्तेमाल करें। किसी प्रश्न पर क्लिक करके देखें कि विद्यार्थी उसे ठीक कैसे देखेंगे।',
+  'qbank.createQuestion': '+ प्रश्न बनाएँ',
+  'qbank.searchPlaceholder': 'प्रश्न पाठ, विषय, अध्याय खोजें…',
+  'qbank.allSubjects': 'सभी विषय',
+  'qbank.anyDifficulty': 'कोई भी कठिनाई',
+  'qbank.difficultyOption': '{stars} ({level}/5)',
+  'qbank.allChapters': 'सभी अध्याय',
+  'qbank.gradeSuffix': 'कक्षा {grade}',
+  'qbank.pickSubjectFirst': 'पहले एक विषय चुनें',
+  'qbank.clearFilters': 'फ़िल्टर हटाएँ',
+  'qbank.noQuestionsFound': 'कोई प्रश्न नहीं मिला',
+  'qbank.adjustFilters': 'फ़िल्टर बदलकर देखें।',
+  'qbank.authorFirst': 'अपना पहला प्रश्न बनाएँ।',
+  'qbank.createAQuestion': 'प्रश्न बनाएँ →',
+  'qbank.resultsCountOne': '{count} प्रश्न',
+  'qbank.resultsCountMany': '{count} प्रश्न',
+  'qbank.difficultyTitle': 'कठिनाई {level}/5',
+  'qbank.rowEdit': 'संपादित करें',
+  'qbank.previewEmptyTitle': 'प्रीव्यू के लिए एक प्रश्न चुनें',
+  'qbank.previewEmptyDesc':
+    'बाईं ओर किसी पंक्ति पर क्लिक करके देखें कि विद्यार्थी उसे ठीक कैसे देखेंगे — पूरा LaTeX, विकल्प, चित्र, सब कुछ।',
+  'qbank.reuseNote': 'इस प्रश्न को अपने किसी भी समस्या सेट में दोबारा इस्तेमाल करें।',
+  'qbank.useInNewSet': 'नए सेट में इस्तेमाल करें',
+  'qbank.addToProblemSet': '+ समस्या सेट में जोड़ें',
+
+  // ── LA-6e-2: add-to-problem-set sheet ────────────────────────────────
+  'addToSet.eyebrow': 'सेट में जोड़ें',
+  'addToSet.questionTitle': 'प्रश्न #{id}',
+  'addToSet.closeLabel': 'सेट-में-जोड़ें डायलॉग बंद करें',
+  'addToSet.addedTitle': 'जोड़ा गया!',
+  'addToSet.addedDesc': 'प्रश्न अब समस्या सेट में है।',
+  'addToSet.done': 'पूरा',
+  'addToSet.addAnother': 'किसी और में जोड़ें',
+  'addToSet.noSets': '{subject} में अभी कोई समस्या सेट नहीं है।',
+  'addToSet.thisSubject': 'इस विषय',
+  'addToSet.buildOne': 'एक बनाएँ →',
+  'addToSet.questionsCountOne': '{count} प्रश्न',
+  'addToSet.questionsCountMany': '{count} प्रश्न',
+  'addToSet.failedToAdd': 'जोड़ नहीं सके। कृपया फिर कोशिश करें।',
+  'addToSet.add': 'जोड़ें',
+
+  // ── LA-6e-2: question preview panel ──────────────────────────────────
+  'qpreview.part': 'भाग {letter}',
+  'qpreview.diagramAlt': 'प्रश्न का चित्र',
+  'qpreview.numericAnswer': 'संख्यात्मक उत्तर',
+  'qpreview.fillBlankResponse': 'रिक्त स्थान भरने वाला उत्तर।',
+  'qpreview.interactiveWidget': '🧪 सैंडबॉक्स्ड इंटरैक्टिव विजेट (विद्यार्थियों के लिए रेंडर होता है)',
+  'qpreview.emptyTitle': 'प्रीव्यू के लिए एक प्रश्न चुनें',
+  'qpreview.emptyDesc':
+    'बाईं ओर किसी पंक्ति पर क्लिक करके देखें कि विद्यार्थी उसे ठीक कैसे देखेंगे — पूरा LaTeX, विकल्प, चित्र, सब कुछ।',
+  'qpreview.difficultyTitle': 'कठिनाई {level}/5',
+
+  // ── LA-6e-2: widget gallery panel ────────────────────────────────────
+  'widgetGallery.pickTitle': 'एक इंटरैक्टिव विजेट चुनें',
+  'widgetGallery.pickDesc':
+    'विजेट प्रश्न पाठ के साथ एक सैंडबॉक्स्ड iframe में रेंडर होता है। कॉन्फ़िगर करने के लिए एक चुनें — फ़ॉर्म भरते ही लाइव प्रीव्यू अपडेट होता है।',
+  'widgetGallery.noneRegistered': 'अभी कोई शिक्षक-दृश्य विजेट पंजीकृत नहीं है।',
+  'widgetGallery.answerBadge': 'उत्तर',
+  'widgetGallery.noSchema': 'इस विजेट ने JSON Schema घोषित नहीं किया। नीचे रॉ कॉन्फ़िग संपादित करें।',
+  'widgetGallery.backToGallery': '← गैलरी पर वापस',
+  'widgetGallery.config': 'कॉन्फ़िग',
+  'widgetGallery.preview': 'प्रीव्यू',
+  'widgetGallery.previewNote':
+    'हर कॉन्फ़िग बदलाव पर प्रीव्यू दोबारा रेंडर होता है। सैंडबॉक्स्ड iframe — विजेट के अंदर के स्क्रिप्ट पेज तक नहीं पहुँच सकते।',
+  'widgetGallery.useThis': 'यह विजेट इस्तेमाल करें',
+
+  // ── LA-6e-2: record-response / rubric panel ──────────────────────────
+  'recordResp.maxMarks': 'अधिकतम अंक',
+  'recordResp.modelAnswer': 'मॉडल उत्तर',
+  'recordResp.modelAnswerHint': '(पूरे अंक वाला उत्तर क्या कहता है)',
+  'recordResp.modelAnswerPlaceholder':
+    'उदा. क्लोरोफिल प्रकाश-संश्लेषण के लिए लाल और नीला प्रकाश सोखता है और हरा परावर्तित करता है।',
+  'recordResp.markingPoints': 'अंकन बिंदु',
+  'recordResp.markingPointsHint': '(वैकल्पिक — प्रति-बिंदु आंशिक अंक सक्षम करता है)',
+  'recordResp.criterionLabelPlaceholder': 'उदा. क्लोरोफिल का नाम लेता है',
+  'recordResp.criterionLabelAria': 'मापदंड {n} लेबल',
+  'recordResp.criterionMarksAria': 'मापदंड {n} अंक',
+  'recordResp.removeCriterionAria': 'मापदंड {n} हटाएँ',
+  'recordResp.addMarkingPoint': '+ अंकन बिंदु',
+  'recordResp.sumMismatch':
+    'अंकन बिंदुओं का योग {sum} है, {max} नहीं — AI प्रति-बिंदु ग्रेड करता है, तो कुल मिलाना ठीक रहेगा।',
+  'recordResp.saveError': 'रूब्रिक अभी सहेजा नहीं जा सका। कृपया थोड़ी देर में फिर कोशिश करें।',
+  'recordResp.saving': 'सहेजा जा रहा है…',
+  'recordResp.updateRubric': 'रूब्रिक अपडेट करें',
+  'recordResp.saveRubric': 'रूब्रिक सहेजें',
+  'recordResp.noRubricWarning':
+    'अभी कोई रूब्रिक नहीं — इसके बिना AI मोटे कीवर्ड मिलान पर निर्भर करता है। निष्पक्ष, पारदर्शी अंकों के लिए एक जोड़ें।',
+  'recordResp.addRubric': 'रूब्रिक जोड़ें',
+  'recordResp.rubricLabel': 'रूब्रिक:',
+  'recordResp.marksLabel': '{count} अंक',
+  'recordResp.markingPointsCountOne': '{count} अंकन बिंदु',
+  'recordResp.markingPointsCountMany': '{count} अंकन बिंदु',
+  'recordResp.edit': 'संपादित करें',
+  'recordResp.modelAnswerLabel': 'मॉडल उत्तर:',
+  'recordResp.recordForAI': 'AI ग्रेडिंग के लिए उत्तर दर्ज करें',
+  'recordResp.class': 'क्लास',
+  'recordResp.pickClass': 'एक क्लास चुनें…',
+  'recordResp.student': 'विद्यार्थी',
+  'recordResp.pickClassFirst': 'पहले एक क्लास चुनें',
+  'recordResp.loadingStudents': 'विद्यार्थी लोड हो रहे हैं…',
+  'recordResp.pickStudent': 'एक विद्यार्थी चुनें…',
+  'recordResp.shortAnswerQuestion': 'लघु-उत्तर प्रश्न',
+  'recordResp.loadingQuestions': 'प्रश्न लोड हो रहे हैं…',
+  'recordResp.pickQuestion': 'एक प्रश्न चुनें…',
+  'recordResp.noShortAnswer':
+    'अभी कोई लघु-उत्तर प्रश्न नहीं — पहले प्रश्न बैंक में एक बनाएँ; यहाँ सिर्फ़ लघु-उत्तर प्रश्न ही AI से ग्रेड हो सकते हैं।',
+  'recordResp.studentAnswer': 'विद्यार्थी का उत्तर',
+  'recordResp.studentAnswerPlaceholder': 'विद्यार्थी का लिखा उत्तर पेस्ट या टाइप करें…',
+  'recordResp.queueError': 'यह उत्तर अभी कतार में नहीं डाला जा सका। कृपया थोड़ी देर में फिर कोशिश करें।',
+  'recordResp.queuedSuccess':
+    'कतार में डाला गया — यह नीचे "AI ग्रेडिंग…" के रूप में दिखता है और कुछ सेकंड में सुझाव में बदल जाता है।',
+  'recordResp.aiSuggestsNote': 'AI सुझाव देता है, अंतिम फ़ैसला हमेशा आपका।',
+  'recordResp.queuing': 'कतार में डाला जा रहा है…',
+  'recordResp.sendToAI': 'AI ग्रेडिंग को भेजें',
+
   // ── LA-6e-1: edit-safety banner ──────────────────────────────────────
   'editSafety.usedQuestionOne': 'यह प्रश्न 1 असाइनमेंट में इस्तेमाल हो रहा है।',
   'editSafety.usedQuestionMany': 'यह प्रश्न {count} असाइनमेंट में इस्तेमाल हो रहा है।',

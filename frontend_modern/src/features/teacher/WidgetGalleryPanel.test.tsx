@@ -9,8 +9,9 @@
  * tests + the Playwright suite.
  */
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { WidgetGalleryPanel } from './WidgetGalleryPanel';
 
 /** Lookup a config field by its predictable id (matches PropertyField). */
@@ -115,5 +116,17 @@ describe('WidgetGalleryPanel', () => {
     fireEvent.click(screen.getByText(/Use this widget/i));
     const arg = onApply.mock.calls[0][0];
     expect(arg.config.min).toBe(42); // number, not "42"
+  });
+
+  it('renders the gallery heading in Hindi when the locale is हिं', async () => {
+    render(
+      <I18nProvider initialLocale="hi">
+        <WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />
+      </I18nProvider>,
+    );
+    // इंटरैक्टिव विजेट = "interactive widget" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByText(/इंटरैक्टिव विजेट/)).toBeInTheDocument();
+    });
   });
 });

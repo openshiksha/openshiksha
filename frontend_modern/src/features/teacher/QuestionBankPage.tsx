@@ -7,7 +7,8 @@ import { useProblemSets } from './useProblemSets';
 import { useAddQuestionToProblemSet } from './useAddQuestionToProblemSet';
 import { previewFromQuestionText } from './previewFromQuestionText';
 import { QuestionPreviewPanel } from './QuestionPreviewPanel';
-import { difficultyStars, typeLabel, typeTone } from './questionPreviewMeta';
+import { difficultyStars, localizedTypeLabel, typeTone } from './questionPreviewMeta';
+import { useT } from '@/shared/i18n';
 import {
   Badge,
   Button,
@@ -34,6 +35,7 @@ const QuestionRow = ({
   onFocus: () => void;
   onEdit: () => void;
 }) => {
+  const t = useT();
   const previewText = previewFromQuestionText(question.subparts[0]?.question_text);
   const visibleTags = question.tags.slice(0, 3);
   const extraTags = question.tags.length - 3;
@@ -59,8 +61,10 @@ const QuestionRow = ({
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm text-ink-800">{previewText}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <Badge tone={typeTone(question.question_type)}>{typeLabel(question.question_type)}</Badge>
-          <span className="text-xs tracking-wider text-amber-500" title={`Difficulty ${question.difficulty}/5`}>
+          <Badge tone={typeTone(question.question_type)}>
+            {localizedTypeLabel(t, question.question_type)}
+          </Badge>
+          <span className="text-xs tracking-wider text-amber-500" title={t('qbank.difficultyTitle', { level: question.difficulty })}>
             {difficultyStars(question.difficulty)}
           </span>
           <span className="text-xs text-ink-400">
@@ -91,7 +95,7 @@ const QuestionRow = ({
         }}
         className="mt-1 shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-ink-400 opacity-0 transition-opacity hover:bg-ink-100 hover:text-ink-700 group-hover:opacity-100"
       >
-        Edit
+        {t('qbank.rowEdit')}
       </button>
     </div>
   );
@@ -106,6 +110,7 @@ const AddToProblemSetSheet = ({
   question: Question;
   onClose: () => void;
 }) => {
+  const t = useT();
   const [selectedPsId, setSelectedPsId] = useState<number | null>(null);
   const { data: problemSets, isLoading } = useProblemSets(question.subject);
   const addQuestion = useAddQuestionToProblemSet();
@@ -150,20 +155,20 @@ const AddToProblemSetSheet = ({
         <div className="flex items-center justify-between border-b border-ink-100 px-6 py-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
-              Add to set
+              {t('addToSet.eyebrow')}
             </p>
             <h3
               id="add-to-set-title"
               className="font-display text-lg font-semibold text-ink-900"
             >
-              Question #{question.id}
+              {t('addToSet.questionTitle', { id: question.id })}
             </h3>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            aria-label="Close add-to-set dialog"
+            aria-label={t('addToSet.closeLabel')}
             className="rounded-full p-1.5 text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -175,11 +180,11 @@ const AddToProblemSetSheet = ({
         <div className="flex-1 overflow-y-auto p-6">
           {success ? (
             <EmptyState
-              title="Added!"
-              description="The question is now in the problem set."
+              title={t('addToSet.addedTitle')}
+              description={t('addToSet.addedDesc')}
               action={
                 <div className="flex flex-wrap justify-center gap-3">
-                  <Button onClick={onClose}>Done</Button>
+                  <Button onClick={onClose}>{t('addToSet.done')}</Button>
                   <Button
                     variant="ghost"
                     onClick={() => {
@@ -187,7 +192,7 @@ const AddToProblemSetSheet = ({
                       setSelectedPsId(null);
                     }}
                   >
-                    Add to another
+                    {t('addToSet.addAnother')}
                   </Button>
                 </div>
               }
@@ -200,14 +205,10 @@ const AddToProblemSetSheet = ({
           ) : !problemSets || problemSets.length === 0 ? (
             <div className="rounded-xl border border-dashed border-ink-200 bg-white p-6 text-center">
               <p className="text-sm text-ink-600">
-                No problem sets in{' '}
-                <strong className="text-ink-800">
-                  {question.subject_name ?? 'this subject'}
-                </strong>{' '}
-                yet.
+                {t('addToSet.noSets', { subject: question.subject_name ?? t('addToSet.thisSubject') })}
               </p>
               <Button size="sm" className="mt-3" onClick={onClose}>
-                Build one →
+                {t('addToSet.buildOne')}
               </Button>
             </div>
           ) : (
@@ -235,10 +236,17 @@ const AddToProblemSetSheet = ({
                     <p className="text-xs text-ink-500">{ps.chapter_name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <Badge tone="brand">
-                        {ps.question_count} {ps.question_count === 1 ? 'question' : 'questions'}
+                        {t(
+                          ps.question_count === 1
+                            ? 'addToSet.questionsCountOne'
+                            : 'addToSet.questionsCountMany',
+                          { count: ps.question_count },
+                        )}
                       </Badge>
                       {ps.estimated_minutes && (
-                        <span className="text-xs text-ink-500">~{ps.estimated_minutes} min</span>
+                        <span className="text-xs text-ink-500">
+                          {t('teacher.minutesApprox', { minutes: ps.estimated_minutes })}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -252,15 +260,15 @@ const AddToProblemSetSheet = ({
           <div className="flex items-center justify-end gap-2 border-t border-ink-100 bg-white px-6 py-4">
             {addQuestion.isError && (
               <p className="mr-auto text-xs font-medium text-rose-600">
-                Failed to add. Please try again.
+                {t('addToSet.failedToAdd')}
               </p>
             )}
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleAdd} disabled={!selectedPsId || addQuestion.isPending}>
               {addQuestion.isPending && <LoadingSpinner size="sm" />}
-              Add
+              {t('addToSet.add')}
             </Button>
           </div>
         )}
@@ -283,6 +291,7 @@ const numberOrEmpty = (raw: string | null): number | '' => {
 };
 
 export const QuestionBankPage = () => {
+  const t = useT();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -377,11 +386,11 @@ export const QuestionBankPage = () => {
       {/* Header */}
       <SectionHeading
         as="h1"
-        eyebrow="Authoring"
-        title="Question Bank"
-        description="Browse and reuse questions across your assignments. Click a question to preview exactly how students will see it."
+        eyebrow={t('qbank.eyebrow')}
+        title={t('qbank.title')}
+        description={t('qbank.description')}
         action={
-          <Button onClick={() => navigate('/teacher/questions/new')}>+ Create Question</Button>
+          <Button onClick={() => navigate('/teacher/questions/new')}>{t('qbank.createQuestion')}</Button>
         }
       />
 
@@ -392,7 +401,7 @@ export const QuestionBankPage = () => {
           {/* Filter bar */}
           <div className="space-y-3 border-b border-ink-100 px-5 py-4">
             <Input
-              placeholder="Search question text, subject, chapter…"
+              placeholder={t('qbank.searchPlaceholder')}
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               leftIcon={
@@ -413,7 +422,7 @@ export const QuestionBankPage = () => {
                   setSelectedChapter('');
                 }}
               >
-                <option value="">All subjects</option>
+                <option value="">{t('qbank.allSubjects')}</option>
                 {(subjects ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -426,10 +435,10 @@ export const QuestionBankPage = () => {
                   setSelectedDifficulty(e.target.value ? Number(e.target.value) : '')
                 }
               >
-                <option value="">Any difficulty</option>
+                <option value="">{t('qbank.anyDifficulty')}</option>
                 {[1, 2, 3, 4, 5].map((d) => (
                   <option key={d} value={d}>
-                    {'★'.repeat(d)} ({d}/5)
+                    {t('qbank.difficultyOption', { stars: '★'.repeat(d), level: d })}
                   </option>
                 ))}
               </Select>
@@ -440,13 +449,15 @@ export const QuestionBankPage = () => {
                 setSelectedChapter(e.target.value ? Number(e.target.value) : '')
               }
               disabled={selectedSubject === ''}
-              hint={selectedSubject === '' ? 'Pick a subject first' : undefined}
+              hint={selectedSubject === '' ? t('qbank.pickSubjectFirst') : undefined}
             >
-              <option value="">All chapters</option>
+              <option value="">{t('qbank.allChapters')}</option>
               {(chapters ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
-                  {c.standard_number !== undefined ? ` · Grade ${c.standard_number}` : ''}
+                  {c.standard_number !== undefined
+                    ? ` · ${t('qbank.gradeSuffix', { grade: c.standard_number })}`
+                    : ''}
                 </option>
               ))}
             </Select>
@@ -456,7 +467,7 @@ export const QuestionBankPage = () => {
                 onClick={clearFilters}
                 className="text-xs font-medium text-ink-500 hover:text-ink-800"
               >
-                Clear filters
+                {t('qbank.clearFilters')}
               </button>
             )}
           </div>
@@ -471,9 +482,9 @@ export const QuestionBankPage = () => {
               </div>
             ) : !questions || questions.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-sm text-ink-500">No questions found</p>
+                <p className="text-sm text-ink-500">{t('qbank.noQuestionsFound')}</p>
                 <p className="mt-1 text-xs text-ink-400">
-                  {hasFilters ? 'Try adjusting filters.' : 'Author your first question.'}
+                  {hasFilters ? t('qbank.adjustFilters') : t('qbank.authorFirst')}
                 </p>
                 {!hasFilters && (
                   <Button
@@ -481,14 +492,17 @@ export const QuestionBankPage = () => {
                     className="mt-3"
                     onClick={() => navigate('/teacher/questions/new')}
                   >
-                    Create a question →
+                    {t('qbank.createAQuestion')}
                   </Button>
                 )}
               </div>
             ) : (
               <>
                 <p className="px-3 pt-1 pb-2 text-xs text-ink-400">
-                  {questions.length} question{questions.length !== 1 ? 's' : ''}
+                  {t(
+                    questions.length === 1 ? 'qbank.resultsCountOne' : 'qbank.resultsCountMany',
+                    { count: questions.length },
+                  )}
                 </p>
                 <div className="max-h-[40rem] space-y-1.5 overflow-y-auto pr-1">
                   {questions.map((q) => (
@@ -514,13 +528,13 @@ export const QuestionBankPage = () => {
         <div className="lg:col-span-7 xl:col-span-8">
           <QuestionPreviewPanel
             question={focusedQuestion}
-            emptyTitle="Pick a question to preview"
-            emptyDescription="Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all."
+            emptyTitle={t('qbank.previewEmptyTitle')}
+            emptyDescription={t('qbank.previewEmptyDesc')}
             footer={
               focusedQuestion ? (
                 <>
                   <p className="text-xs text-ink-500">
-                    Reuse this question in any of your problem sets.
+                    {t('qbank.reuseNote')}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
@@ -532,7 +546,7 @@ export const QuestionBankPage = () => {
                         )
                       }
                     >
-                      Edit
+                      {t('qbank.rowEdit')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -543,10 +557,10 @@ export const QuestionBankPage = () => {
                         )
                       }
                     >
-                      Use in new set
+                      {t('qbank.useInNewSet')}
                     </Button>
                     <Button size="sm" onClick={() => setModalQuestion(focusedQuestion)}>
-                      + Add to problem set
+                      {t('qbank.addToProblemSet')}
                     </Button>
                   </div>
                 </>

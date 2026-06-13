@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Badge, Card } from '@/shared/ui';
 import { RichContent } from '@/shared/ui/RichContent';
-import { difficultyStars, typeLabel, typeTone } from './questionPreviewMeta';
+import { useT } from '@/shared/i18n';
+import { difficultyStars, localizedTypeLabel, typeTone } from './questionPreviewMeta';
 import type { MCQOption, Question, QuestionSubpart } from '@/types/index';
 
 const optionLetter = (i: number) => String.fromCharCode(65 + i);
@@ -39,12 +40,13 @@ const SubpartPreview = ({
   index: number;
   total: number;
 }) => {
+  const t = useT();
   const hasOptions = Array.isArray(subpart.options) && subpart.options.length > 0;
   return (
     <div className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
       {total > 1 && (
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-600">
-          Part {String.fromCharCode(97 + index)}
+          {t('qpreview.part', { letter: String.fromCharCode(97 + index) })}
         </p>
       )}
       <div className="prose-osh text-ink-800">
@@ -53,7 +55,7 @@ const SubpartPreview = ({
       {subpart.image_url && (
         <img
           src={subpart.image_url}
-          alt="Question diagram"
+          alt={t('qpreview.diagramAlt')}
           className="mt-4 max-h-64 rounded-lg border border-ink-100 object-contain"
         />
       )}
@@ -79,15 +81,15 @@ const SubpartPreview = ({
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
             <path d="M3 4h10v2H3zm0 6h10v2H3z" />
           </svg>
-          Numeric answer
+          {t('qpreview.numericAnswer')}
         </p>
       )}
       {!hasOptions && subpart.subpart_type === 'fill_blank' && (
-        <p className="mt-4 text-xs text-ink-500">Fill-in-the-blank response.</p>
+        <p className="mt-4 text-xs text-ink-500">{t('qpreview.fillBlankResponse')}</p>
       )}
       {subpart.is_interactive && (
         <p className="mt-4 inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-800">
-          🧪 Sandboxed interactive widget (rendered for students)
+          {t('qpreview.interactiveWidget')}
         </p>
       )}
     </div>
@@ -115,12 +117,18 @@ interface QuestionPreviewPanelProps {
  */
 export const QuestionPreviewPanel = ({
   question,
-  emptyTitle = 'Pick a question to preview',
-  emptyDescription = 'Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all.',
+  emptyTitle,
+  emptyDescription,
   footer,
 }: QuestionPreviewPanelProps) => {
+  const t = useT();
   if (!question) {
-    return <KeyholeEmpty title={emptyTitle} description={emptyDescription} />;
+    return (
+      <KeyholeEmpty
+        title={emptyTitle ?? t('qpreview.emptyTitle')}
+        description={emptyDescription ?? t('qpreview.emptyDesc')}
+      />
+    );
   }
 
   return (
@@ -128,10 +136,12 @@ export const QuestionPreviewPanel = ({
       {/* Header strip */}
       <div className="-m-6 mb-5 rounded-t-xl2 border-b border-ink-100 bg-paper px-6 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={typeTone(question.question_type)}>{typeLabel(question.question_type)}</Badge>
+          <Badge tone={typeTone(question.question_type)}>
+            {localizedTypeLabel(t, question.question_type)}
+          </Badge>
           <span
             className="text-sm tracking-wider text-amber-500"
-            title={`Difficulty ${question.difficulty}/5`}
+            title={t('qpreview.difficultyTitle', { level: question.difficulty })}
           >
             {difficultyStars(question.difficulty)}
           </span>

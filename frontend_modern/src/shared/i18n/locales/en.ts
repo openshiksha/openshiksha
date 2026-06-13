@@ -557,6 +557,133 @@ export const en = {
   'grading.emptyDesc':
     'Record a student’s open-ended answer and AI will suggest a grade for your review.',
 
+  // ── LA-6e-2: question-type labels (shared) ───────────────────────────
+  'qtype.mcq': 'MCQ',
+  'qtype.numeric': 'Numeric',
+  'qtype.fill_blank': 'Fill blank',
+  'qtype.multi_select': 'Multi-select',
+  'qtype.matching': 'Matching',
+  'qtype.compound': 'Compound',
+
+  // ── LA-6e-2: question bank page ──────────────────────────────────────
+  'qbank.eyebrow': 'Authoring',
+  'qbank.title': 'Question Bank',
+  'qbank.description':
+    'Browse and reuse questions across your assignments. Click a question to preview exactly how students will see it.',
+  'qbank.createQuestion': '+ Create Question',
+  'qbank.searchPlaceholder': 'Search question text, subject, chapter…',
+  'qbank.allSubjects': 'All subjects',
+  'qbank.anyDifficulty': 'Any difficulty',
+  'qbank.difficultyOption': '{stars} ({level}/5)',
+  'qbank.allChapters': 'All chapters',
+  'qbank.gradeSuffix': 'Grade {grade}',
+  'qbank.pickSubjectFirst': 'Pick a subject first',
+  'qbank.clearFilters': 'Clear filters',
+  'qbank.noQuestionsFound': 'No questions found',
+  'qbank.adjustFilters': 'Try adjusting filters.',
+  'qbank.authorFirst': 'Author your first question.',
+  'qbank.createAQuestion': 'Create a question →',
+  'qbank.resultsCountOne': '{count} question',
+  'qbank.resultsCountMany': '{count} questions',
+  'qbank.difficultyTitle': 'Difficulty {level}/5',
+  'qbank.rowEdit': 'Edit',
+  'qbank.previewEmptyTitle': 'Pick a question to preview',
+  'qbank.previewEmptyDesc':
+    'Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all.',
+  'qbank.reuseNote': 'Reuse this question in any of your problem sets.',
+  'qbank.useInNewSet': 'Use in new set',
+  'qbank.addToProblemSet': '+ Add to problem set',
+
+  // ── LA-6e-2: add-to-problem-set sheet ────────────────────────────────
+  'addToSet.eyebrow': 'Add to set',
+  'addToSet.questionTitle': 'Question #{id}',
+  'addToSet.closeLabel': 'Close add-to-set dialog',
+  'addToSet.addedTitle': 'Added!',
+  'addToSet.addedDesc': 'The question is now in the problem set.',
+  'addToSet.done': 'Done',
+  'addToSet.addAnother': 'Add to another',
+  'addToSet.noSets': 'No problem sets in {subject} yet.',
+  'addToSet.thisSubject': 'this subject',
+  'addToSet.buildOne': 'Build one →',
+  'addToSet.questionsCountOne': '{count} question',
+  'addToSet.questionsCountMany': '{count} questions',
+  'addToSet.failedToAdd': 'Failed to add. Please try again.',
+  'addToSet.add': 'Add',
+
+  // ── LA-6e-2: question preview panel ──────────────────────────────────
+  'qpreview.part': 'Part {letter}',
+  'qpreview.diagramAlt': 'Question diagram',
+  'qpreview.numericAnswer': 'Numeric answer',
+  'qpreview.fillBlankResponse': 'Fill-in-the-blank response.',
+  'qpreview.interactiveWidget': '🧪 Sandboxed interactive widget (rendered for students)',
+  'qpreview.emptyTitle': 'Pick a question to preview',
+  'qpreview.emptyDesc':
+    'Click any row on the left to see exactly how students will see it — full LaTeX, options, images, and all.',
+  'qpreview.difficultyTitle': 'Difficulty {level}/5',
+
+  // ── LA-6e-2: widget gallery panel ────────────────────────────────────
+  'widgetGallery.pickTitle': 'Pick an interactive widget',
+  'widgetGallery.pickDesc':
+    'The widget renders inside a sandboxed iframe alongside the question text. Pick one to configure — the live preview updates as you fill in the form.',
+  'widgetGallery.noneRegistered': 'No teacher-visible widgets are registered yet.',
+  'widgetGallery.answerBadge': 'answer',
+  'widgetGallery.noSchema': "This widget didn't declare a JSON Schema. Edit the raw config below.",
+  'widgetGallery.backToGallery': '← back to gallery',
+  'widgetGallery.config': 'Config',
+  'widgetGallery.preview': 'Preview',
+  'widgetGallery.previewNote':
+    "Preview re-renders on every config change. Sandboxed iframe — scripts inside the widget can't reach the page.",
+  'widgetGallery.useThis': 'Use this widget',
+
+  // ── LA-6e-2: record-response / rubric panel ──────────────────────────
+  'recordResp.maxMarks': 'Maximum marks',
+  'recordResp.modelAnswer': 'Model answer',
+  'recordResp.modelAnswerHint': '(what a full-marks answer says)',
+  'recordResp.modelAnswerPlaceholder':
+    'e.g. Chlorophyll absorbs red and blue light for photosynthesis and reflects green.',
+  'recordResp.markingPoints': 'Marking points',
+  'recordResp.markingPointsHint': '(optional — enables per-point partial credit)',
+  'recordResp.criterionLabelPlaceholder': 'e.g. Names chlorophyll',
+  'recordResp.criterionLabelAria': 'Criterion {n} label',
+  'recordResp.criterionMarksAria': 'Criterion {n} marks',
+  'recordResp.removeCriterionAria': 'Remove criterion {n}',
+  'recordResp.addMarkingPoint': '+ Marking point',
+  'recordResp.sumMismatch':
+    'Marking points add up to {sum}, not {max} — the AI grades per point, so consider matching the total.',
+  'recordResp.saveError': "Couldn't save the rubric just now. Please try again in a moment.",
+  'recordResp.saving': 'Saving…',
+  'recordResp.updateRubric': 'Update rubric',
+  'recordResp.saveRubric': 'Save rubric',
+  'recordResp.noRubricWarning':
+    'No rubric yet — without one the AI falls back to a rough keyword match. Add one for fair, transparent marks.',
+  'recordResp.addRubric': 'Add rubric',
+  'recordResp.rubricLabel': 'Rubric:',
+  'recordResp.marksLabel': '{count} marks',
+  'recordResp.markingPointsCountOne': '{count} marking point',
+  'recordResp.markingPointsCountMany': '{count} marking points',
+  'recordResp.edit': 'Edit',
+  'recordResp.modelAnswerLabel': 'Model answer:',
+  'recordResp.recordForAI': 'Record a response for AI grading',
+  'recordResp.class': 'Class',
+  'recordResp.pickClass': 'Pick a class…',
+  'recordResp.student': 'Student',
+  'recordResp.pickClassFirst': 'Pick a class first',
+  'recordResp.loadingStudents': 'Loading students…',
+  'recordResp.pickStudent': 'Pick a student…',
+  'recordResp.shortAnswerQuestion': 'Short-answer question',
+  'recordResp.loadingQuestions': 'Loading questions…',
+  'recordResp.pickQuestion': 'Pick a question…',
+  'recordResp.noShortAnswer':
+    'No short-answer questions yet — create one in the question bank first; only short-answer questions can be AI-graded here.',
+  'recordResp.studentAnswer': "Student's answer",
+  'recordResp.studentAnswerPlaceholder': "Paste or type the student's written answer…",
+  'recordResp.queueError': "Couldn't queue this response just now. Please try again in a moment.",
+  'recordResp.queuedSuccess':
+    'Queued — it appears below as "AI grading…" and flips to a suggestion in a few seconds.',
+  'recordResp.aiSuggestsNote': 'AI suggests, you finalise — always.',
+  'recordResp.queuing': 'Queuing…',
+  'recordResp.sendToAI': 'Send to AI grading',
+
   // ── LA-6e-1: edit-safety banner ──────────────────────────────────────
   'editSafety.usedQuestionOne': 'This question is used in 1 assignment.',
   'editSafety.usedQuestionMany': 'This question is used in {count} assignments.',

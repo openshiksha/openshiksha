@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { RecordResponsePanel } from './RecordResponsePanel';
 import type { OpenResponseRubric } from './useOpenRubrics';
 
@@ -93,6 +94,22 @@ async function fillSelections(user: ReturnType<typeof userEvent.setup>) {
 describe('RecordResponsePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('renders the panel header in Hindi when the locale is हिं', async () => {
+    mockApi();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider initialLocale="hi">
+          <RecordResponsePanel />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    // "AI ग्रेडिंग के लिए उत्तर दर्ज करें" — the collapsed header.
+    await waitFor(() => {
+      expect(screen.getByText(/AI ग्रेडिंग के लिए उत्तर दर्ज करें/)).toBeInTheDocument();
+    });
   });
 
   it('is collapsed by default and fetches nothing until opened', () => {

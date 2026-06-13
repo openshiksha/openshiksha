@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { QuestionBankPage } from './QuestionBankPage';
 import type { Question, Subject, ChapterItem } from '@/types/index';
 
@@ -78,6 +79,25 @@ beforeEach(() => {
 });
 
 describe('QuestionBankPage — URL-driven filters & continuity', () => {
+  it('renders the page title in Hindi when the locale is हिं', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider initialLocale="hi">
+          <MemoryRouter initialEntries={['/teacher/questions']}>
+            <Routes>
+              <Route path="/teacher/questions" element={<QuestionBankPage />} />
+            </Routes>
+          </MemoryRouter>
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    // प्रश्न बैंक = "question bank" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByText('प्रश्न बैंक')).toBeInTheDocument();
+    });
+  });
+
   it('reads filters from the URL on first render', async () => {
     renderBank('/teacher/questions?q=2+2&subject=1&diff=3');
     await waitFor(() => {

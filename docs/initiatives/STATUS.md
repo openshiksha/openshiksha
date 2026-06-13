@@ -4,16 +4,24 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-13 — **LA-7 localized emails shipped**
+**Last updated:** 2026-06-13 (evening) — **LA-6 teacher surfaces in Hindi —
+batch 6a–6d shipped** as a stacked PR chain
+([#318](https://github.com/openshiksha/openshiksha/pull/318)–[#321](https://github.com/openshiksha/openshiksha/pull/321),
+base each on the prior; retarget to `modernization` as they merge): **6a**
+teacher dashboard + 8 insight panels, **6b** create-assignment flow, **6c**
+build-problem-set flow, **6d** AI grading queue. ~270 new `teacher.*` /
+`assignForm.*` / `setForm.*` / `grading.*` keys, all tsc-parity-enforced;
+plural via `*One`/`*Many` pairs, rich sentences recomposed as whole
+interpolations. **LA-6 not yet closed** — remaining teacher slices: **6e**
+`RecordResponsePanel`, question bank, assignment detail, and `CreateQuestionPage`
+(1131 lines, its own slice). Still open after LA-6: **LA-8** (locale-aware
+`Intl` date/number helper), LA-9 (third-language pilot), LA-10 (authored-content
+translation, needs product design).
+
+Earlier (2026-06-13) — **LA-7 localized emails shipped**
 ([#314](https://github.com/openshiksha/openshiksha/pull/314)): all four
 transactional emails render in the recipient's `preferred_language` (+ fixed the
-Monday parent-summary batch that never passed a language). Today's batch
-([plan](../daily-plans/2026-06-13-plan.md)) finishes the initiative's chrome:
-**LA-6** (the whole teacher surface in Hindi — dashboard/insight panels,
-authoring, question bank, grading queue, assignment detail; split 6a–6d) +
-**LA-8** (locale-aware `Intl` date/number helper). After this only LA-9
-(third-language pilot) and LA-10 (authored-content translation, needs product
-design) remain.
+Monday parent-summary batch that never passed a language).
 
 Earlier (2026-06-11 night) — **Language Access first batch LA-1..5
 shipped** across [#308](https://github.com/openshiksha/openshiksha/pull/308)–[#312](https://github.com/openshiksha/openshiksha/pull/312)

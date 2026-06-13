@@ -8,22 +8,32 @@
  * a graded submission exists, because that's the case where the silent-edit
  * surprise was historically worst.
  */
+import { useT } from '@/shared/i18n';
+
 interface EditSafetyBannerProps {
   assignedCount: number;
   hasGradedSubmissions: boolean;
-  /** "this question" or "this problem set". */
-  noun?: string;
+  /** Which thing is being edited — drives the localized headline noun. */
+  subject?: 'question' | 'problemSet';
 }
 
 export function EditSafetyBanner({
   assignedCount,
   hasGradedSubmissions,
-  noun = 'this question',
+  subject = 'question',
 }: EditSafetyBannerProps) {
+  const t = useT();
   if (!assignedCount || assignedCount <= 0) return null;
 
-  const countLabel =
-    assignedCount === 1 ? '1 assignment' : `${assignedCount} assignments`;
+  const single = assignedCount === 1;
+  const headlineKey =
+    subject === 'problemSet'
+      ? single
+        ? 'editSafety.usedSetOne'
+        : 'editSafety.usedSetMany'
+      : single
+        ? 'editSafety.usedQuestionOne'
+        : 'editSafety.usedQuestionMany';
 
   return (
     <div
@@ -31,22 +41,9 @@ export function EditSafetyBanner({
       className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
       data-testid="edit-safety-banner"
     >
-      <p className="font-semibold">
-        {noun.charAt(0).toUpperCase() + noun.slice(1)} is used in {countLabel}.
-      </p>
+      <p className="font-semibold">{t(headlineKey, { count: assignedCount })}</p>
       <p className="mt-1 text-amber-800">
-        {hasGradedSubmissions ? (
-          <>
-            Your edits apply to <strong>future</strong> assignments only —
-            existing ones keep exactly what students were given and were graded
-            against.
-          </>
-        ) : (
-          <>
-            Your edits apply to <strong>future</strong> assignments only —
-            existing ones keep exactly what students were given.
-          </>
-        )}
+        {t(hasGradedSubmissions ? 'editSafety.bodyGraded' : 'editSafety.body')}
       </p>
     </div>
   );

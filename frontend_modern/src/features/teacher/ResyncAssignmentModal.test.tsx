@@ -1,5 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { ResyncAssignmentModal } from './ResyncAssignmentModal';
 import type { ResyncPreview } from './useAssignmentResync';
 
@@ -83,6 +84,23 @@ describe('<ResyncAssignmentModal />', () => {
     expect(summary).toHaveTextContent(/1 answer changed/i);
     expect(screen.getByTestId('resync-regrade-note')).toHaveTextContent(/3 graded submissions/i);
     expect(screen.getByTestId('resync-apply')).toHaveTextContent(/Update and re-grade 3/);
+  });
+
+  it('renders the title in Hindi when the locale is हिं', async () => {
+    mockPreview.mockReturnValue({
+      data: { ...drift({}), has_drift: false },
+      isLoading: false,
+      isError: false,
+    });
+    render(
+      <I18nProvider initialLocale="hi">
+        <ResyncAssignmentModal assignmentId={7} open onClose={() => {}} />
+      </I18nProvider>,
+    );
+    // असाइनमेंट = "assignment" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /असाइनमेंट/ })).toBeInTheDocument();
+    });
   });
 
   it('calls the apply mutation and closes when confirmed', async () => {

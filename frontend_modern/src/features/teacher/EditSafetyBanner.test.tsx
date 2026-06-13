@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { EditSafetyBanner } from './EditSafetyBanner';
 
 describe('<EditSafetyBanner />', () => {
@@ -15,7 +16,7 @@ describe('<EditSafetyBanner />', () => {
       <EditSafetyBanner
         assignedCount={1}
         hasGradedSubmissions={false}
-        noun="this question"
+        subject="question"
       />,
     );
     expect(screen.getByTestId('edit-safety-banner')).toBeInTheDocument();
@@ -29,13 +30,26 @@ describe('<EditSafetyBanner />', () => {
       <EditSafetyBanner
         assignedCount={3}
         hasGradedSubmissions
-        noun="this problem set"
+        subject="problemSet"
       />,
     );
     expect(screen.getByText(/used in 3 assignments\./i)).toBeInTheDocument();
     expect(screen.getByText(/graded against/i)).toBeInTheDocument();
     // First letter of the noun is capitalised in the headline.
     expect(screen.getByText(/^This problem set/)).toBeInTheDocument();
+  });
+
+  it('renders the Hindi headline when the locale is हिं', async () => {
+    render(
+      <I18nProvider initialLocale="hi">
+        <EditSafetyBanner assignedCount={2} hasGradedSubmissions={false} subject="problemSet" />
+      </I18nProvider>,
+    );
+    // Hindi dict loads via dynamic import — strings swap once it arrives.
+    // समस्या सेट = "problem set" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByText(/समस्या सेट/)).toBeInTheDocument();
+    });
   });
 
   it('never disables anything (informational only)', () => {

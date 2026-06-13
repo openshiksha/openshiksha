@@ -4,6 +4,7 @@ import { useProblemSetPreview } from './useProblemSetPreview';
 import { useRemoveQuestionFromProblemSet } from './useRemoveQuestionFromProblemSet';
 import { QuestionCard } from '../student/QuestionCard';
 import { Button, EmptyState, LoadingSpinner } from '@/shared/ui';
+import { useT } from '@/shared/i18n';
 import { EditSafetyBanner } from './EditSafetyBanner';
 
 /**
@@ -21,6 +22,7 @@ import { EditSafetyBanner } from './EditSafetyBanner';
  * time, so existing assignments keep exactly what students were given.
  */
 export const ProblemSetPreviewPage = () => {
+  const t = useT();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const setId = id ? Number(id) : null;
@@ -40,9 +42,9 @@ export const ProblemSetPreviewPage = () => {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
         <EmptyState
-          title="Couldn't load this preview"
-          description="The problem set may have been removed, or you may not have access to it."
-          action={<Button onClick={() => navigate('/teacher')}>Back to dashboard</Button>}
+          title={t('psPreview.loadErrorTitle')}
+          description={t('psPreview.loadErrorDesc')}
+          action={<Button onClick={() => navigate('/teacher')}>{t('psPreview.backToDashboard')}</Button>}
         />
       </div>
     );
@@ -62,8 +64,8 @@ export const ProblemSetPreviewPage = () => {
     if (
       !window.confirm(
         assignedCount > 0
-          ? 'Remove this question from the live set?\n\nExisting assignments keep it — they grade and render the frozen copy.'
-          : 'Remove this question from the set?',
+          ? t('psPreview.confirmRemoveAssigned')
+          : t('psPreview.confirmRemove'),
       )
     ) {
       return;
@@ -96,14 +98,12 @@ export const ProblemSetPreviewPage = () => {
               isEditing ? 'text-amber-900' : 'text-brand-900'
             }`}
           >
-            {isEditing ? 'Editing set · live changes' : 'Student preview · read-only'}
+            {isEditing ? t('psPreview.editingTitle') : t('psPreview.readOnlyTitle')}
           </p>
           <p
             className={`text-xs ${isEditing ? 'text-amber-800' : 'text-brand-700'}`}
           >
-            {isEditing
-              ? 'Changes apply to future assignments only — existing ones keep what students were given.'
-              : "This is exactly how students see the set — answers hidden, variables filled in. You can't type or submit here."}
+            {isEditing ? t('psPreview.editingBody') : t('psPreview.readOnlyBody')}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -114,7 +114,7 @@ export const ProblemSetPreviewPage = () => {
               data-testid="toggle-edit"
               className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
             >
-              {isEditing ? 'Done editing' : 'Edit set'}
+              {isEditing ? t('psPreview.doneEditing') : t('psPreview.editSet')}
             </button>
           )}
           <button
@@ -124,7 +124,7 @@ export const ProblemSetPreviewPage = () => {
               isEditing ? 'text-amber-800 hover:text-amber-900' : 'text-brand-700 hover:text-brand-900'
             }`}
           >
-            ← Back
+            {t('psPreview.back')}
           </button>
         </div>
       </div>
@@ -134,7 +134,7 @@ export const ProblemSetPreviewPage = () => {
         <EditSafetyBanner
           assignedCount={assignedCount}
           hasGradedSubmissions={hasGraded}
-          noun="this problem set"
+          subject="problemSet"
         />
       )}
 
@@ -144,20 +144,23 @@ export const ProblemSetPreviewPage = () => {
         <p className="mt-1 text-sm text-ink-500">
           {data.subject_name && <span>{data.subject_name}</span>}
           {data.chapter_name && <span> · {data.chapter_name}</span>}
-          <span> · {data.question_count} question{data.question_count !== 1 ? 's' : ''}</span>
-          {data.estimated_minutes != null && <span> · ~{data.estimated_minutes} min</span>}
+          <span>
+            {' · '}
+            {t(data.question_count === 1 ? 'psPreview.questionsOne' : 'psPreview.questionsMany', {
+              count: data.question_count,
+            })}
+          </span>
+          {data.estimated_minutes != null && (
+            <span> · {t('teacher.minutesApprox', { minutes: data.estimated_minutes })}</span>
+          )}
         </p>
       </div>
 
       {/* Questions — rendered exactly as a student sees them, locked */}
       {data.questions.length === 0 ? (
         <EmptyState
-          title="This set has no questions yet"
-          description={
-            isEditing
-              ? 'Use the Add question button below to start filling it in.'
-              : 'Add questions to the set, then preview again.'
-          }
+          title={t('psPreview.emptyTitle')}
+          description={isEditing ? t('psPreview.emptyEditingDesc') : t('psPreview.emptyDesc')}
         />
       ) : (
         <div className="space-y-4">
@@ -181,7 +184,7 @@ export const ProblemSetPreviewPage = () => {
                     }
                     className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
                   >
-                    Edit question
+                    {t('psPreview.editQuestion')}
                   </button>
                   <button
                     type="button"
@@ -190,7 +193,7 @@ export const ProblemSetPreviewPage = () => {
                     onClick={() => handleRemove(q.id)}
                     className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
-                    Remove from set
+                    {t('psPreview.removeFromSet')}
                   </button>
                 </div>
               )}
@@ -202,13 +205,13 @@ export const ProblemSetPreviewPage = () => {
       {isEditing && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-ink-200 bg-paper px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-ink-800">Add more questions</p>
+            <p className="text-sm font-semibold text-ink-800">{t('psPreview.addMoreTitle')}</p>
             <p className="text-xs text-ink-500">
-              Pick from the question bank, or author a new question — you'll come back here when done.
+              {t('psPreview.addMoreDesc')}
             </p>
           </div>
           <Button onClick={() => navigate(addPath)} variant="brand">
-            Add question
+            {t('psPreview.addQuestion')}
           </Button>
         </div>
       )}
@@ -219,10 +222,10 @@ export const ProblemSetPreviewPage = () => {
           onClick={() => setId != null && navigate(`/teacher/problem-sets/${setId}/versions`)}
           data-testid="view-versions"
         >
-          View version history
+          {t('psPreview.viewVersions')}
         </Button>
         <Button variant="ghost" onClick={() => navigate('/teacher')}>
-          Back to dashboard
+          {t('psPreview.backToDashboard')}
         </Button>
       </div>
     </div>

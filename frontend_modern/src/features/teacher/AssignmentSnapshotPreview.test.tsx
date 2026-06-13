@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { AssignmentSnapshotPreview } from './AssignmentSnapshotPreview';
 import type { ProblemSetWithQuestions } from '@/types/index';
 
@@ -25,7 +26,9 @@ vi.mock('./ResyncAssignmentModal', () => ({
 }));
 
 const renderPreview = (
-  overrides: Partial<{ drift: boolean; hasResyncHistory: boolean }> & { questions?: unknown[] } = {},
+  overrides: Partial<{ drift: boolean; hasResyncHistory: boolean; locale: 'en' | 'hi' }> & {
+    questions?: unknown[];
+  } = {},
 ) => {
   const problemSet = {
     id: 9,
@@ -41,15 +44,18 @@ const renderPreview = (
     source_assignment: null,
     questions: overrides.questions ?? [{ id: 101, subparts: [{ question_text: 'Frozen prompt' }] }],
   } as unknown as ProblemSetWithQuestions;
+  const locale = overrides.locale ?? 'en';
   return render(
-    <MemoryRouter>
-      <AssignmentSnapshotPreview
-        assignmentId={7}
-        problemSet={problemSet}
-        snapshotDrift={overrides.drift ?? false}
-        hasResyncHistory={overrides.hasResyncHistory ?? false}
-      />
-    </MemoryRouter>,
+    <I18nProvider initialLocale={locale}>
+      <MemoryRouter>
+        <AssignmentSnapshotPreview
+          assignmentId={7}
+          problemSet={problemSet}
+          snapshotDrift={overrides.drift ?? false}
+          hasResyncHistory={overrides.hasResyncHistory ?? false}
+        />
+      </MemoryRouter>
+    </I18nProvider>,
   );
 };
 
@@ -101,5 +107,13 @@ describe('<AssignmentSnapshotPreview />', () => {
     renderPreview({ questions: [] });
     fireEvent.click(screen.getByTestId('snapshot-toggle'));
     expect(screen.getByText(/snapshot is empty/i)).toBeInTheDocument();
+  });
+
+  it('renders the drift banner in Hindi when the locale is हिं', async () => {
+    renderPreview({ drift: true, locale: 'hi' });
+    // लाइव सेट = "live set" per the Glossary register.
+    await waitFor(() => {
+      expect(screen.getByTestId('snapshot-drift-banner')).toHaveTextContent(/लाइव सेट/);
+    });
   });
 });

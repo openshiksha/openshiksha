@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '@/shared/i18n';
 import { QuestionCard } from '../student/QuestionCard';
 import { ResyncAssignmentModal } from './ResyncAssignmentModal';
 import { useUndoResync } from './useAssignmentResync';
@@ -36,6 +37,7 @@ export function AssignmentSnapshotPreview({
   snapshotDrift,
   hasResyncHistory = false,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [resyncOpen, setResyncOpen] = useState(false);
   const undo = useUndoResync(assignmentId);
@@ -51,14 +53,14 @@ export function AssignmentSnapshotPreview({
       >
         <div>
           <h2 className="font-display text-base font-semibold text-ink-900">
-            What students see · snapshot
+            {t('snapshot.heading')}
           </h2>
           <p className="mt-0.5 text-xs text-ink-400">
-            Frozen at assign time — editing the set later doesn't change this view.
+            {t('snapshot.frozenNote')}
           </p>
         </div>
         <span className="text-sm font-medium text-brand-700">
-          {open ? 'Hide' : 'Show'}
+          {open ? t('snapshot.hide') : t('snapshot.show')}
         </span>
       </button>
 
@@ -68,15 +70,14 @@ export function AssignmentSnapshotPreview({
           data-testid="snapshot-drift-banner"
           className="border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-900"
         >
-          <p className="font-semibold">The live set has changed since this assignment was given.</p>
+          <p className="font-semibold">{t('snapshot.driftTitle')}</p>
           <p className="mt-0.5 text-amber-800">
-            What students see and how this assignment grades come from the frozen snapshot above —
-            newer assignments will use the updated set.{' '}
+            {t('snapshot.driftBody')}{' '}
             <Link
               to={`/teacher/problem-sets/${problemSet.id}/preview`}
               className="font-semibold underline hover:text-amber-950"
             >
-              Compare with the live set
+              {t('snapshot.driftCompareLink')}
             </Link>
             .
           </p>
@@ -87,10 +88,10 @@ export function AssignmentSnapshotPreview({
               data-testid="open-resync-modal"
               className="rounded-md bg-amber-200/80 px-3 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-200"
             >
-              Update this assignment…
+              {t('snapshot.updateThis')}
             </button>
             <span className="text-xs text-amber-800">
-              We'll show what changes before anything is applied.
+              {t('snapshot.previewBeforeApply')}
             </span>
           </div>
         </div>
@@ -101,7 +102,7 @@ export function AssignmentSnapshotPreview({
           data-testid="undo-resync-bar"
           className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 bg-ink-50/60 px-6 py-2 text-xs text-ink-600"
         >
-          <span>This assignment was updated; an earlier snapshot is kept in history.</span>
+          <span>{t('snapshot.historyNote')}</span>
           <button
             type="button"
             onClick={() => undo.mutate()}
@@ -109,7 +110,7 @@ export function AssignmentSnapshotPreview({
             data-testid="undo-resync"
             className="rounded-md border border-ink-200 bg-white px-2 py-1 font-medium text-ink-700 hover:bg-ink-100 disabled:opacity-50"
           >
-            {undo.isPending ? 'Undoing…' : 'Undo last update'}
+            {undo.isPending ? t('snapshot.undoing') : t('snapshot.undoLast')}
           </button>
         </div>
       )}
@@ -118,7 +119,7 @@ export function AssignmentSnapshotPreview({
         <div className="space-y-4 bg-paper px-6 py-5">
           {questions.length === 0 ? (
             <p className="text-sm italic text-ink-400">
-              This assignment's snapshot is empty.
+              {t('snapshot.empty')}
             </p>
           ) : (
             questions.map((q, i) => (

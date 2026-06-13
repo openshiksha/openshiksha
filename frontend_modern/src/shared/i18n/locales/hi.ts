@@ -553,6 +553,84 @@ export const hi: LocaleDict = {
   'grading.emptyDesc':
     'किसी विद्यार्थी का मुक्त उत्तर दर्ज करें और AI आपकी समीक्षा के लिए एक अंक सुझाएगा।',
 
+  // ── LA-6e-1: edit-safety banner ──────────────────────────────────────
+  'editSafety.usedQuestionOne': 'यह प्रश्न 1 असाइनमेंट में इस्तेमाल हो रहा है।',
+  'editSafety.usedQuestionMany': 'यह प्रश्न {count} असाइनमेंट में इस्तेमाल हो रहा है।',
+  'editSafety.usedSetOne': 'यह समस्या सेट 1 असाइनमेंट में इस्तेमाल हो रहा है।',
+  'editSafety.usedSetMany': 'यह समस्या सेट {count} असाइनमेंट में इस्तेमाल हो रहा है।',
+  'editSafety.body':
+    'आपके बदलाव सिर्फ़ आने वाले असाइनमेंट पर लागू होंगे — मौजूदा असाइनमेंट में विद्यार्थियों को जो दिया गया था वही बना रहेगा।',
+  'editSafety.bodyGraded':
+    'आपके बदलाव सिर्फ़ आने वाले असाइनमेंट पर लागू होंगे — मौजूदा असाइनमेंट में विद्यार्थियों को जो दिया गया और जिस पर ग्रेडिंग हुई, वही बना रहेगा।',
+
+  // ── LA-6e-1: assignment snapshot preview ─────────────────────────────
+  'snapshot.heading': 'विद्यार्थी जो देखते हैं · स्नैपशॉट',
+  'snapshot.frozenNote': 'असाइन करते समय फ़्रीज़ किया गया — सेट को बाद में बदलने से यह व्यू नहीं बदलता।',
+  'snapshot.hide': 'छिपाएँ',
+  'snapshot.show': 'दिखाएँ',
+  'snapshot.driftTitle': 'यह असाइनमेंट देने के बाद से लाइव सेट बदल चुका है।',
+  'snapshot.driftBody':
+    'विद्यार्थी जो देखते हैं और यह असाइनमेंट कैसे ग्रेड होता है, यह ऊपर के फ़्रीज़ स्नैपशॉट से आता है — नए असाइनमेंट अपडेटेड सेट इस्तेमाल करेंगे।',
+  'snapshot.driftCompareLink': 'लाइव सेट से तुलना करें',
+  'snapshot.updateThis': 'यह असाइनमेंट अपडेट करें…',
+  'snapshot.previewBeforeApply': 'कुछ भी लागू करने से पहले हम दिखाएँगे कि क्या बदलेगा।',
+  'snapshot.historyNote': 'यह असाइनमेंट अपडेट हुआ था; एक पुराना स्नैपशॉट इतिहास में रखा गया है।',
+  'snapshot.undoLast': 'पिछला अपडेट पूर्ववत करें',
+  'snapshot.undoing': 'पूर्ववत किया जा रहा है…',
+  'snapshot.empty': 'इस असाइनमेंट का स्नैपशॉट खाली है।',
+
+  // ── LA-6e-1: re-sync assignment modal ────────────────────────────────
+  'resync.title': 'यह असाइनमेंट नई सामग्री पर अपडेट करें?',
+  'resync.subtitle': 'लाइव सेट से दोबारा स्नैपशॉट लेता है। इस पेज से वापस लाया जा सकता है।',
+  'resync.loadError': 'प्रीव्यू लोड नहीं हो सका। फिर कोशिश करें।',
+  'resync.noDrift': 'स्नैपशॉट पहले से लाइव सेट से मेल खाता है — दोबारा सिंक करने को कुछ नहीं है।',
+  'resync.regradeOne':
+    '{count} ग्रेड किया गया सबमिशन नई आंसर-की के अनुसार दोबारा ग्रेड होगा। कुछ विद्यार्थियों के अंक बदल सकते हैं।',
+  'resync.regradeMany':
+    '{count} ग्रेड किए गए सबमिशन नई आंसर-की के अनुसार दोबारा ग्रेड होंगे। कुछ विद्यार्थियों के अंक बदल सकते हैं।',
+  'resync.noRegrade': 'कोई ग्रेड किया गया सबमिशन दोबारा ग्रेड नहीं होगा — सिर्फ़ विद्यार्थी जो देखते हैं वही बदल रहा है।',
+  'resync.applyError': 'दोबारा सिंक विफल रहा। फिर कोशिश करें।',
+  'resync.updating': 'अपडेट हो रहा है…',
+  'resync.updateAndRegrade': 'अपडेट करें और {count} दोबारा ग्रेड करें',
+  'resync.updateAssignment': 'असाइनमेंट अपडेट करें',
+  'resync.diffAddedOne': '{count} प्रश्न जोड़ा गया',
+  'resync.diffAddedMany': '{count} प्रश्न जोड़े गए',
+  'resync.diffRemovedOne': '{count} प्रश्न हटाया गया',
+  'resync.diffRemovedMany': '{count} प्रश्न हटाए गए',
+  'resync.diffAnswerOne': '{count} उत्तर बदला गया',
+  'resync.diffAnswerMany': '{count} उत्तर बदले गए',
+  'resync.diffContentOne': '{count} अन्य सामग्री बदलाव (प्रॉम्प्ट, विकल्प, विजेट)',
+  'resync.diffContentMany': '{count} अन्य सामग्री बदलाव (प्रॉम्प्ट, विकल्प, विजेट)',
+
+  // ── LA-6e-1: problem-set preview page ────────────────────────────────
+  'psPreview.loadErrorTitle': 'यह प्रीव्यू लोड नहीं हो सका',
+  'psPreview.loadErrorDesc': 'हो सकता है यह समस्या सेट हटा दिया गया हो, या आपके पास इसकी पहुँच न हो।',
+  'psPreview.backToDashboard': 'डैशबोर्ड पर वापस',
+  'psPreview.confirmRemoveAssigned':
+    'इस प्रश्न को लाइव सेट से हटाएँ?\n\nमौजूदा असाइनमेंट इसे रखते हैं — वे फ़्रीज़ की गई कॉपी पर ग्रेड और रेंडर करते हैं।',
+  'psPreview.confirmRemove': 'इस प्रश्न को सेट से हटाएँ?',
+  'psPreview.editingTitle': 'सेट संपादित हो रहा है · लाइव बदलाव',
+  'psPreview.readOnlyTitle': 'विद्यार्थी प्रीव्यू · केवल पढ़ने के लिए',
+  'psPreview.editingBody':
+    'बदलाव सिर्फ़ आने वाले असाइनमेंट पर लागू होंगे — मौजूदा असाइनमेंट में विद्यार्थियों को जो दिया गया था वही बना रहेगा।',
+  'psPreview.readOnlyBody':
+    'विद्यार्थी सेट को ठीक ऐसे ही देखते हैं — उत्तर छिपे, चर भरे हुए। आप यहाँ टाइप या सबमिट नहीं कर सकते।',
+  'psPreview.doneEditing': 'संपादन पूरा',
+  'psPreview.editSet': 'सेट संपादित करें',
+  'psPreview.back': '← वापस',
+  'psPreview.questionsOne': '{count} प्रश्न',
+  'psPreview.questionsMany': '{count} प्रश्न',
+  'psPreview.emptyTitle': 'इस सेट में अभी कोई प्रश्न नहीं है',
+  'psPreview.emptyEditingDesc': 'इसे भरना शुरू करने के लिए नीचे "प्रश्न जोड़ें" बटन इस्तेमाल करें।',
+  'psPreview.emptyDesc': 'सेट में प्रश्न जोड़ें, फिर दोबारा प्रीव्यू करें।',
+  'psPreview.editQuestion': 'प्रश्न संपादित करें',
+  'psPreview.removeFromSet': 'सेट से हटाएँ',
+  'psPreview.addMoreTitle': 'और प्रश्न जोड़ें',
+  'psPreview.addMoreDesc':
+    'प्रश्न बैंक से चुनें, या नया प्रश्न बनाएँ — पूरा होने पर आप यहीं वापस आएँगे।',
+  'psPreview.addQuestion': 'प्रश्न जोड़ें',
+  'psPreview.viewVersions': 'संस्करण इतिहास देखें',
+
   // ── Streak badge ─────────────────────────────────────────────────────
   'streak.days': '{count} दिन की स्ट्रीक',
   'streak.tierStarter': 'जोश में',

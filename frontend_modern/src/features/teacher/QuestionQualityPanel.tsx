@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge, Button, Skeleton } from '@/shared/ui';
 import {
   useCalibrationSummary,
@@ -120,6 +120,17 @@ export const QuestionQualityPanel = ({ subjectRoomId }: Props) => {
   } = useFlaggedCalibrations(subjectRoomId, isExpanded);
   const { data: summary } = useCalibrationSummary(subjectRoomId, isExpanded);
   const refresh = useRefreshCalibrations(subjectRoomId);
+
+  // The "Recalibrating…" confirmation reassures right after a click, but the
+  // recalibration runs async, so we can't reliably detect when fresh verdicts
+  // land. Clear it on a timer instead of leaving a stale status line forever.
+  const refreshSucceeded = refresh.isSuccess;
+  const resetRefresh = refresh.reset;
+  useEffect(() => {
+    if (!refreshSucceeded) return;
+    const timer = setTimeout(() => resetRefresh(), 6000);
+    return () => clearTimeout(timer);
+  }, [refreshSucceeded, resetRefresh]);
 
   const items = flagged ?? [];
 

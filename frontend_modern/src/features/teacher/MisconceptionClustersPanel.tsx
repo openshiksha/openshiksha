@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge, Button, Skeleton } from '@/shared/ui';
 import {
   useMisconceptionClusters,
@@ -72,6 +72,17 @@ export const MisconceptionClustersPanel = ({ subjectRoomId }: Props) => {
     refetch,
   } = useMisconceptionClusters(subjectRoomId, isExpanded);
   const refresh = useRefreshMisconceptionClusters(subjectRoomId);
+
+  // The "Recomputing…" confirmation is reassuring right after a click, but the
+  // recompute runs async (Celery), so we can't reliably detect when fresh data
+  // lands. Clear it on a timer instead of leaving a stale status line forever.
+  const refreshSucceeded = refresh.isSuccess;
+  const resetRefresh = refresh.reset;
+  useEffect(() => {
+    if (!refreshSucceeded) return;
+    const timer = setTimeout(() => resetRefresh(), 6000);
+    return () => clearTimeout(timer);
+  }, [refreshSucceeded, resetRefresh]);
 
   const items = clusters ?? [];
 

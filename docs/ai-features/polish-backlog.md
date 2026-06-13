@@ -294,7 +294,39 @@ confirms the recompute; a failing refresh shows the inline error.
 
 ---
 
-## Remaining gaps (audit notes — updated 2026-06-11, ASA closed)
+## 2026-06-13 — Refresh confirmations self-dismiss (no stale status lines)
+
+**Surface:** Class misconception insights (`MisconceptionClustersPanel`) and
+question-quality / difficulty calibration (`QuestionQualityPanel`).
+
+**Gap (checklist #2 loading/transient states, #3 copy/tone):**
+Both panels show a reassuring status line after a teacher clicks Refresh —
+"Recomputing from recent submissions…" / "Recalibrating from recent answers…".
+Because the recompute runs async (Celery) there's no signal for when fresh data
+lands, so the line was driven purely by `refresh.isSuccess` and **stayed on
+screen indefinitely**, long after the new data had arrived. The teacher was left
+staring at a "still working" message for a job that had already finished — the
+"refresh confirmation lingers" gap noted in the audit since 2026-06-11.
+
+**Fix:**
+- Each panel now schedules a `setTimeout` (6s) on `refresh.isSuccess` that calls
+  `refresh.reset()`, clearing the mutation's success state so the status line
+  self-dismisses. Effect deps are the stable `refresh.isSuccess` / `refresh.reset`
+  values (not the whole mutation object) so the timer isn't churned every render,
+  and the timeout is cleared on unmount / re-trigger.
+- Used the bare global `setTimeout`/`clearTimeout` (not `window.setTimeout`) so the
+  timer is fake-timer/spy-friendly under happy-dom in tests.
+- Added a test to each panel's spec asserting the status line disappears once the
+  scheduled dismiss callback fires (checklist #8). The error/empty/skeleton paths
+  are unchanged and still pass.
+
+**Verify:** Expand "Class Misconceptions" or "Question Quality" on the teacher
+dashboard and click Refresh/Calibrate. The "Recomputing…/Recalibrating…" line
+appears, then clears on its own a few seconds later instead of sticking around.
+
+---
+
+## Remaining gaps (audit notes — updated 2026-06-13)
 
 - ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`
   (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10), and
@@ -307,10 +339,10 @@ confirms the recompute; a failing refresh shows the inline error.
   rows but `ClassMisconceptionCluster` carries no `model_used`, so the cards
   can't show the `✨ AI-generated` vs stub badge used everywhere else. Needs a
   model field + migration → guardrailed out of polish runs; note for ASA.
-- **Refresh confirmation lingers** — `MisconceptionClustersPanel`'s
-  "Recomputing from recent submissions…" status (and now
-  `QuestionQualityPanel`'s matching "Recalibrating…" line) stays visible
-  after the delayed refetch lands; could clear once new data arrives. Minor.
+- ✅ **Refresh confirmation lingers** — fixed 2026-06-13: `MisconceptionClustersPanel`
+  and `QuestionQualityPanel` now self-dismiss the "Recomputing…/Recalibrating…"
+  status line after 6s via `refresh.reset()`, instead of leaving it on screen
+  after the async recompute finishes.
 - **Hint system** — solid: loading ("Thinking of a good hint…"), error, and
   exhausted states all present. Low priority.
 - ✅ **Unwired backend surfaces — all four groups lit.**

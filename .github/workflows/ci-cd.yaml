@@ -16,6 +16,7 @@ concurrency:
 jobs:
     workflow-lint:
         name: Workflow Lint (actionlint)
+        timeout-minutes: 5
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
@@ -39,6 +40,7 @@ jobs:
 
     lint:
         name: Lint
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
@@ -64,6 +66,7 @@ jobs:
 
     typecheck:
         name: Type Check (mypy)
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
@@ -86,6 +89,7 @@ jobs:
 
     security:
         name: Security Audit
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
@@ -108,6 +112,7 @@ jobs:
 
     test:
         name: Test
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         # No external services needed — tests use SQLite in-memory and LocMemCache
         permissions:
@@ -199,6 +204,7 @@ jobs:
 
     frontend:
         name: Frontend (Lint, Types, Tests)
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         defaults:
             run:
@@ -239,6 +245,7 @@ jobs:
 
     frontend-e2e:
         name: Frontend E2E (Playwright smoke)
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         defaults:
             run:
@@ -293,6 +300,7 @@ jobs:
     # images build in parallel.
     build-publish:
         name: Build & Publish (${{ matrix.service }})
+        timeout-minutes: 30
         needs: [lint, typecheck, security, test, frontend, frontend-e2e]
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
@@ -341,6 +349,7 @@ jobs:
     # applies, and rolls each Deployment so the new pods come up clean.
     deploy-qa:
         name: Deploy to QA Cluster
+        timeout-minutes: 15
         needs: build-publish
         if: github.ref == 'refs/heads/qa'
         runs-on: ubuntu-latest
@@ -383,6 +392,7 @@ jobs:
     # ─── Deploy to Prod ──────────────────────────────────────────────────────
     deploy-prod:
         name: Deploy to Prod Cluster
+        timeout-minutes: 15
         needs: build-publish
         if: github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest

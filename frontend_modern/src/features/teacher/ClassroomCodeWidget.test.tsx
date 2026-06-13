@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { ClassroomCodeWidget } from './ClassroomCodeWidget';
 import type { ClassroomInviteCode } from '@/types/index';
 
@@ -26,11 +27,13 @@ function makeCode(overrides: Partial<ClassroomInviteCode> = {}): ClassroomInvite
   };
 }
 
-function renderWidget() {
+function renderWidget(locale: 'en' | 'hi' = 'en') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <ClassroomCodeWidget classroomId={5} classroomName="Std 8 A" />
+      <I18nProvider initialLocale={locale}>
+        <ClassroomCodeWidget classroomId={5} classroomName="Std 8 A" />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
@@ -101,6 +104,18 @@ describe('ClassroomCodeWidget', () => {
       '/users/me/classroom-code/',
       { classroom_id: 5 },
     ));
+  });
+
+  it('renders the heading and expiry in Hindi when the locale is हिं', async () => {
+    mockGet.mockResolvedValue({ data: [makeCode({ expires_at: null })] });
+    renderWidget('hi');
+    await screen.findByTestId('join-code-expiry');
+    // क्लासरूम जॉइन कोड = "Classroom Join Code"; कोई समय-सीमा नहीं = "No expiry".
+    // Hindi dict loads via dynamic import — strings swap once it arrives.
+    await waitFor(() => {
+      expect(screen.getByText('क्लासरूम जॉइन कोड')).toBeInTheDocument();
+      expect(screen.getByTestId('join-code-expiry')).toHaveTextContent('कोई समय-सीमा नहीं');
+    });
   });
 
   it('cancels the regenerate confirmation without calling the API', async () => {

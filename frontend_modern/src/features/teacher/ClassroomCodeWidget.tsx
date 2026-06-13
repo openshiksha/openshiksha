@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import { Button } from '@/shared/ui';
+import { useT, type Translate } from '@/shared/i18n';
 import type { ClassroomInviteCode } from '@/types/index';
 
 const fetchClassroomCodes = async (): Promise<ClassroomInviteCode[]> => {
@@ -21,21 +22,28 @@ interface Props {
   classroomName: string;
 }
 
-const formatExpiry = (expiresAt: string | null): { text: string; urgent: boolean } => {
-  if (!expiresAt) return { text: 'No expiry', urgent: false };
+const formatExpiry = (
+  expiresAt: string | null,
+  t: Translate,
+): { text: string; urgent: boolean } => {
+  if (!expiresAt) return { text: t('classCode.noExpiry'), urgent: false };
   const expires = new Date(expiresAt).getTime();
   const now = Date.now();
   const diffMs = expires - now;
-  if (diffMs <= 0) return { text: 'Expired', urgent: true };
+  if (diffMs <= 0) return { text: t('classCode.expired'), urgent: true };
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   if (hours < 48) {
-    return { text: hours <= 1 ? 'Expires in <1 hour' : `Expires in ${hours} hours`, urgent: true };
+    return {
+      text: hours <= 1 ? t('classCode.expiresLtHour') : t('classCode.expiresHours', { hours }),
+      urgent: true,
+    };
   }
   const days = Math.floor(hours / 24);
-  return { text: `Expires in ${days} days`, urgent: false };
+  return { text: t('classCode.expiresDays', { days }), urgent: false };
 };
 
 export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
+  const t = useT();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
@@ -66,12 +74,12 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
     });
   };
 
-  const expiry = myCode ? formatExpiry(myCode.expires_at) : null;
+  const expiry = myCode ? formatExpiry(myCode.expires_at, t) : null;
 
   return (
     <div className="mt-3 border-t border-ink-100 pt-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
-        Classroom Join Code
+        {t('classCode.heading')}
       </p>
       {myCode ? (
         <div className="space-y-2">
@@ -83,7 +91,7 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
               {myCode.code}
             </code>
             <Button variant="ghost" size="sm" onClick={() => handleCopy(myCode.code, 'code')}>
-              {copied === 'code' ? 'Copied!' : 'Copy code'}
+              {copied === 'code' ? t('classCode.copied') : t('classCode.copyCode')}
             </Button>
             {expiry && (
               <span
@@ -103,18 +111,17 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
               onFocus={(e) => e.currentTarget.select()}
             />
             <Button variant="ghost" size="sm" onClick={() => handleCopy(shareLink, 'link')}>
-              {copied === 'link' ? 'Copied!' : 'Copy link'}
+              {copied === 'link' ? t('classCode.copied') : t('classCode.copyLink')}
             </Button>
           </div>
           {confirmRegenerate ? (
             <div
               className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900"
               role="alertdialog"
-              aria-label="Confirm regenerate join code"
+              aria-label={t('classCode.regenConfirmAria')}
             >
               <p className="mb-2">
-                Regenerating invalidates the current code. Students who haven't joined yet
-                will need the new one.
+                {t('classCode.regenWarning')}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -123,7 +130,7 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
                   onClick={() => generateMutation.mutate()}
                   disabled={generateMutation.isPending}
                 >
-                  {generateMutation.isPending ? '…' : 'Yes, regenerate'}
+                  {generateMutation.isPending ? '…' : t('classCode.yesRegenerate')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -131,7 +138,7 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
                   onClick={() => setConfirmRegenerate(false)}
                   disabled={generateMutation.isPending}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -140,9 +147,9 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
               variant="ghost"
               size="sm"
               onClick={() => setConfirmRegenerate(true)}
-              title={`Regenerate join code for ${classroomName}`}
+              title={t('classCode.regenerateTitle', { classroom: classroomName })}
             >
-              Regenerate
+              {t('classCode.regenerate')}
             </Button>
           )}
         </div>
@@ -153,7 +160,7 @@ export const ClassroomCodeWidget = ({ classroomId, classroomName }: Props) => {
           onClick={() => generateMutation.mutate()}
           disabled={generateMutation.isPending}
         >
-          {generateMutation.isPending ? 'Generating…' : 'Generate Join Code'}
+          {generateMutation.isPending ? t('classCode.generating') : t('classCode.generate')}
         </Button>
       )}
     </div>

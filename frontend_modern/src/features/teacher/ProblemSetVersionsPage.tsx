@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, EmptyState, LoadingSpinner } from '@/shared/ui';
+import { useT, useFormat } from '@/shared/i18n';
 import {
   useProblemSetVersions,
   useVersionDiff,
@@ -17,6 +18,8 @@ import {
  * the UI just summarises counts.
  */
 export const ProblemSetVersionsPage = () => {
+  const t = useT();
+  const { formatDate } = useFormat();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const setId = id ? Number(id) : null;
@@ -44,10 +47,10 @@ export const ProblemSetVersionsPage = () => {
 
   const helperText = useMemo(() => {
     if (rows.length === 0) return null;
-    if (targetId == null) return 'Click a version to start a diff.';
-    if (againstId == null) return 'Click another version to compare against.';
+    if (targetId == null) return t('psVersions.diffStart');
+    if (againstId == null) return t('psVersions.diffSecond');
     return null;
-  }, [rows.length, targetId, againstId]);
+  }, [rows.length, targetId, againstId, t]);
 
   if (versions.isLoading) {
     return (
@@ -61,9 +64,9 @@ export const ProblemSetVersionsPage = () => {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
         <EmptyState
-          title="Couldn't load version history"
-          description="The set may have been removed, or you may not have access."
-          action={<Button onClick={() => navigate('/teacher')}>Back to dashboard</Button>}
+          title={t('psVersions.loadErrorTitle')}
+          description={t('psVersions.loadErrorDesc')}
+          action={<Button onClick={() => navigate('/teacher')}>{t('psVersions.backToDashboard')}</Button>}
         />
       </div>
     );
@@ -73,10 +76,9 @@ export const ProblemSetVersionsPage = () => {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink-900">Version history</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink-900">{t('psVersions.title')}</h1>
           <p className="mt-1 text-sm text-ink-500">
-            Every published content version for this problem set. Newer assignments pin newer
-            versions; existing assignments stay on the version they were given.
+            {t('psVersions.description')}
           </p>
         </div>
         <button
@@ -84,14 +86,14 @@ export const ProblemSetVersionsPage = () => {
           onClick={() => navigate(setId != null ? `/teacher/problem-sets/${setId}/preview` : '/teacher')}
           className="text-sm font-medium text-brand-700 hover:text-brand-900"
         >
-          ← Back to preview
+          {t('psVersions.backToPreview')}
         </button>
       </div>
 
       {rows.length === 0 ? (
         <EmptyState
-          title="No versions yet"
-          description="A version is minted the first time this set is assigned or re-synced."
+          title={t('psVersions.emptyTitle')}
+          description={t('psVersions.emptyDesc')}
         />
       ) : (
         <ul data-testid="version-list" className="overflow-hidden rounded-xl border border-ink-100 bg-paper">
@@ -113,20 +115,20 @@ export const ProblemSetVersionsPage = () => {
               >
                 <div>
                   <p className="text-sm font-semibold text-ink-900">
-                    v{v.version_number}
+                    {t('psVersions.version', { number: v.version_number })}
                     {state === 'target' && (
                       <span className="ml-2 rounded bg-brand-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-brand-900">
-                        Target
+                        {t('psVersions.target')}
                       </span>
                     )}
                     {state === 'against' && (
                       <span className="ml-2 rounded bg-amber-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-900">
-                        Against
+                        {t('psVersions.against')}
                       </span>
                     )}
                   </p>
                   <p className="mt-0.5 text-xs text-ink-500">
-                    {new Date(v.created_at).toLocaleString('en-IN', {
+                    {formatDate(v.created_at, {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -137,11 +139,21 @@ export const ProblemSetVersionsPage = () => {
                   </p>
                 </div>
                 <div className="text-right text-xs text-ink-500">
-                  <p>{v.question_count} question{v.question_count === 1 ? '' : 's'}</p>
+                  <p>
+                    {t(
+                      v.question_count === 1
+                        ? 'psVersions.questionsCountOne'
+                        : 'psVersions.questionsCountMany',
+                      { count: v.question_count },
+                    )}
+                  </p>
                   <p
                     className={`mt-0.5 ${v.assignment_count > 0 ? 'font-semibold text-ink-700' : ''}`}
                   >
-                    {v.assignment_count} pinned assignment{v.assignment_count === 1 ? '' : 's'}
+                    {t(
+                      v.assignment_count === 1 ? 'psVersions.pinnedOne' : 'psVersions.pinnedMany',
+                      { count: v.assignment_count },
+                    )}
                   </p>
                 </div>
               </li>
@@ -183,26 +195,27 @@ interface DiffPanelProps {
 }
 
 function DiffPanel({ state, data, onClear }: DiffPanelProps) {
+  const t = useT();
   return (
     <section
       data-testid="diff-panel"
       className="overflow-hidden rounded-xl border border-ink-100 bg-paper"
     >
       <header className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
-        <h2 className="font-display text-base font-semibold text-ink-900">Diff</h2>
+        <h2 className="font-display text-base font-semibold text-ink-900">{t('psVersions.diff')}</h2>
         <button
           type="button"
           onClick={onClear}
           className="text-xs text-ink-500 hover:text-ink-800"
         >
-          Clear selection
+          {t('psVersions.clearSelection')}
         </button>
       </header>
 
       <div className="px-4 py-4">
         {state === 'loading' && <LoadingSpinner size="md" />}
         {state === 'error' && (
-          <p className="text-sm text-red-700">Couldn't load the diff. Try again.</p>
+          <p className="text-sm text-red-700">{t('psVersions.diffLoadError')}</p>
         )}
         {state === 'ready' && data && (
           <DiffSummary data={data} />
@@ -213,23 +226,51 @@ function DiffPanel({ state, data, onClear }: DiffPanelProps) {
 }
 
 function DiffSummary({ data }: { data: NonNullable<ReturnType<typeof useVersionDiff>['data']> }) {
+  const t = useT();
   const { target, against, diff } = data;
   const lines: string[] = [];
-  if (diff.questions_added.length) lines.push(`${diff.questions_added.length} question(s) added`);
-  if (diff.questions_removed.length) lines.push(`${diff.questions_removed.length} question(s) removed`);
-  if (diff.answer_changes.length) lines.push(`${diff.answer_changes.length} answer(s) changed`);
+  if (diff.questions_added.length)
+    lines.push(
+      t(diff.questions_added.length === 1 ? 'psVersions.diffAddedOne' : 'psVersions.diffAddedMany', {
+        count: diff.questions_added.length,
+      }),
+    );
+  if (diff.questions_removed.length)
+    lines.push(
+      t(
+        diff.questions_removed.length === 1
+          ? 'psVersions.diffRemovedOne'
+          : 'psVersions.diffRemovedMany',
+        { count: diff.questions_removed.length },
+      ),
+    );
+  if (diff.answer_changes.length)
+    lines.push(
+      t(diff.answer_changes.length === 1 ? 'psVersions.diffAnswerOne' : 'psVersions.diffAnswerMany', {
+        count: diff.answer_changes.length,
+      }),
+    );
   if (diff.content_changes.length)
-    lines.push(`${diff.content_changes.length} cosmetic content edit(s)`);
+    lines.push(
+      t(
+        diff.content_changes.length === 1
+          ? 'psVersions.diffContentOne'
+          : 'psVersions.diffContentMany',
+        { count: diff.content_changes.length },
+      ),
+    );
+
+  const targetLabel = t('psVersions.version', { number: target.version_number });
+  const againstLabel = against
+    ? t('psVersions.version', { number: against.version_number })
+    : t('psVersions.initialVersion');
 
   return (
     <div className="space-y-3 text-sm text-ink-800">
-      <p>
-        Comparing <strong>v{target.version_number}</strong> against{' '}
-        <strong>{against ? `v${against.version_number}` : 'nothing (initial version)'}</strong>.
-      </p>
+      <p>{t('psVersions.comparing', { target: targetLabel, against: againstLabel })}</p>
       {lines.length === 0 ? (
         <p data-testid="diff-no-changes" className="italic text-ink-500">
-          Identical content.
+          {t('psVersions.identical')}
         </p>
       ) : (
         <ul data-testid="diff-lines" className="list-disc pl-5">

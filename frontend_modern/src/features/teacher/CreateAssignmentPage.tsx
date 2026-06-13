@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubjectRooms, type TeacherSubjectRoom } from './useSubjectRooms';
 import { useProblemSets, type TeacherProblemSet } from './useProblemSets';
 import { useCreateAssignment } from './useCreateAssignment';
-import { useT } from '@/shared/i18n';
+import { useT, useI18n, formatDate, type Locale } from '@/shared/i18n';
 import {
   Badge,
   Button,
@@ -18,18 +18,16 @@ import {
 
 // ── Pretty due-date helpers ────────────────────────────────────────────────
 
-const formatDueDate = (iso: string): string => {
+// Absolute due-date in the active locale via the shared LA-8 `formatDate`
+// helper (so a Hindi-medium teacher sees "बुधवार, 27 मई 2026", not English).
+const formatDueDate = (iso: string, locale: Locale): string => {
   if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+  return formatDate(iso, locale, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 };
 
 const daysFromToday = (iso: string): number | null => {
@@ -50,6 +48,7 @@ const daysFromToday = (iso: string): number | null => {
 export const CreateAssignmentPage = () => {
   const navigate = useNavigate();
   const t = useT();
+  const { locale } = useI18n();
   const [searchParams] = useSearchParams();
 
   const [subjectRoomId, setSubjectRoomId] = useState<number | ''>('');
@@ -168,7 +167,7 @@ export const CreateAssignmentPage = () => {
                   {
                     count: selectedRoom.student_count,
                     room: selectedRoom.classroom_display,
-                    date: formatDueDate(dueDate),
+                    date: formatDueDate(dueDate, locale),
                   },
                 )}
             </>
@@ -341,12 +340,12 @@ export const CreateAssignmentPage = () => {
             {daysOut !== null && daysOut >= 0 && (
               <p className="mt-3 text-xs text-ink-500">
                 {daysOut === 0
-                  ? t('assignForm.dueTodayHint', { date: formatDueDate(dueDate) })
+                  ? t('assignForm.dueTodayHint', { date: formatDueDate(dueDate, locale) })
                   : t(
                       daysOut === 1
                         ? 'assignForm.dueInDaysHintOne'
                         : 'assignForm.dueInDaysHintMany',
-                      { count: daysOut, date: formatDueDate(dueDate) },
+                      { count: daysOut, date: formatDueDate(dueDate, locale) },
                     )}
               </p>
             )}
@@ -478,6 +477,7 @@ interface AssignmentPreviewProps {
 
 const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: AssignmentPreviewProps) => {
   const t = useT();
+  const { locale } = useI18n();
   // Empty state when nothing is picked yet
   if (!room) {
     return (
@@ -506,7 +506,7 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
   }
 
   const daysOut = daysFromToday(dueDate);
-  const formattedDue = formatDueDate(dueDate);
+  const formattedDue = formatDueDate(dueDate, locale);
   let dueText: string;
   if (!dueDate) {
     dueText = t('assignForm.noDueYet');

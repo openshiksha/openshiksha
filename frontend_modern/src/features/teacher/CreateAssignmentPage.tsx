@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubjectRooms, type TeacherSubjectRoom } from './useSubjectRooms';
 import { useProblemSets, type TeacherProblemSet } from './useProblemSets';
 import { useCreateAssignment } from './useCreateAssignment';
+import { useT } from '@/shared/i18n';
 import {
   Badge,
   Button,
@@ -48,6 +49,7 @@ const daysFromToday = (iso: string): number | null => {
 
 export const CreateAssignmentPage = () => {
   const navigate = useNavigate();
+  const t = useT();
   const [searchParams] = useSearchParams();
 
   const [subjectRoomId, setSubjectRoomId] = useState<number | ''>('');
@@ -128,8 +130,12 @@ export const CreateAssignmentPage = () => {
       d.setDate(d.getDate() + days);
       return { iso: d.toISOString().split('T')[0], label };
     };
-    return [make(3, '3 days'), make(7, '1 week'), make(14, '2 weeks')];
-  }, []);
+    return [
+      make(3, t('assignForm.preset3days')),
+      make(7, t('assignForm.preset1week')),
+      make(14, t('assignForm.preset2weeks')),
+    ];
+  }, [t]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,23 +157,27 @@ export const CreateAssignmentPage = () => {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
         <EmptyState
-          title="Assignment created!"
+          title={t('assignForm.successTitle')}
           description={
             <>
-              {selectedRoom && (
-                <>
-                  <strong className="text-ink-700">{selectedRoom.student_count}</strong>{' '}
-                  {selectedRoom.student_count === 1 ? 'student' : 'students'} in{' '}
-                  <strong className="text-ink-700">{selectedRoom.classroom_display}</strong> can
-                  now see it on their dashboard. Due{' '}
-                  <strong className="text-ink-700">{formatDueDate(dueDate)}</strong>.
-                </>
-              )}
+              {selectedRoom &&
+                t(
+                  selectedRoom.student_count === 1
+                    ? 'assignForm.successBodyOne'
+                    : 'assignForm.successBodyMany',
+                  {
+                    count: selectedRoom.student_count,
+                    room: selectedRoom.classroom_display,
+                    date: formatDueDate(dueDate),
+                  },
+                )}
             </>
           }
           action={
             <div className="flex flex-wrap justify-center gap-3">
-              <Button onClick={() => navigate('/teacher')}>Back to dashboard</Button>
+              <Button onClick={() => navigate('/teacher')}>
+                {t('assignForm.backToDashboard')}
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -177,7 +187,7 @@ export const CreateAssignmentPage = () => {
                   setSuccessAssignmentId(null);
                 }}
               >
-                Create another
+                {t('assignForm.createAnother')}
               </Button>
             </div>
           }
@@ -196,16 +206,16 @@ export const CreateAssignmentPage = () => {
       {/* Header */}
       <SectionHeading
         as="h1"
-        eyebrow="Authoring"
-        title="Create Assignment"
-        description="Assign a problem set to one of your subject rooms. Students see it instantly."
+        eyebrow={t('assignForm.eyebrow')}
+        title={t('assignForm.title')}
+        description={t('assignForm.description')}
         action={
           <button
             type="button"
             onClick={() => navigate('/teacher')}
             className="text-sm font-medium text-ink-500 hover:text-ink-800"
           >
-            ← Back
+            {t('assignForm.back')}
           </button>
         }
       />
@@ -217,24 +227,24 @@ export const CreateAssignmentPage = () => {
           <Card>
             <div className="mb-4 flex items-center gap-3">
               <StepDot index={1} active />
-              <h2 className="font-display text-lg font-semibold text-ink-900">Choose class</h2>
+              <h2 className="font-display text-lg font-semibold text-ink-900">
+                {t('assignForm.stepClass')}
+              </h2>
             </div>
             {roomsLoading ? (
               <Skeleton className="h-10 w-full rounded-lg" />
             ) : !subjectRooms || subjectRooms.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                You don&apos;t teach any subject rooms yet.
-              </p>
+              <p className="text-sm text-ink-500">{t('assignForm.noRooms')}</p>
             ) : (
               <Select
-                label="Subject room"
+                label={t('assignForm.subjectRoomLabel')}
                 value={subjectRoomId}
                 onChange={(e) => {
                   setSubjectRoomId(e.target.value ? Number(e.target.value) : '');
                   setProblemSetId('');
                 }}
               >
-                <option value="">Select a class…</option>
+                <option value="">{t('assignForm.selectClass')}</option>
                 {subjectRooms.map((room) => (
                   <option key={room.id} value={room.id}>
                     {room.subject_name} — {room.classroom_display}
@@ -248,10 +258,12 @@ export const CreateAssignmentPage = () => {
           <Card>
             <div className="mb-4 flex items-center gap-3">
               <StepDot index={2} active={subjectRoomId !== ''} />
-              <h2 className="font-display text-lg font-semibold text-ink-900">Pick problem set</h2>
+              <h2 className="font-display text-lg font-semibold text-ink-900">
+                {t('assignForm.stepProblemSet')}
+              </h2>
             </div>
             {subjectRoomId === '' ? (
-              <p className="text-sm text-ink-400">Choose a class first.</p>
+              <p className="text-sm text-ink-400">{t('assignForm.chooseClassFirst')}</p>
             ) : setsLoading ? (
               <div className="space-y-2">
                 <Skeleton className="h-12 w-full rounded-lg" />
@@ -260,8 +272,9 @@ export const CreateAssignmentPage = () => {
             ) : !problemSets || problemSets.length === 0 ? (
               <div className="rounded-xl border border-dashed border-ink-200 bg-paper p-5 text-center">
                 <p className="text-sm text-ink-500">
-                  No problem sets for{' '}
-                  <strong className="text-ink-700">{selectedRoom?.subject_name}</strong> yet.
+                  {t('assignForm.noSetsForSubject', {
+                    subject: selectedRoom?.subject_name ?? '',
+                  })}
                 </p>
                 <Button
                   variant="ghost"
@@ -269,7 +282,7 @@ export const CreateAssignmentPage = () => {
                   className="mt-3"
                   onClick={() => navigate('/teacher/problem-sets/new')}
                 >
-                  + Build one
+                  {t('assignForm.buildOne')}
                 </Button>
               </div>
             ) : (
@@ -293,17 +306,21 @@ export const CreateAssignmentPage = () => {
           <Card>
             <div className="mb-4 flex items-center gap-3">
               <StepDot index={3} active={problemSetId !== ''} />
-              <h2 className="font-display text-lg font-semibold text-ink-900">Set due date</h2>
+              <h2 className="font-display text-lg font-semibold text-ink-900">
+                {t('assignForm.stepDueDate')}
+              </h2>
             </div>
             <Input
               type="date"
-              label="Due date"
+              label={t('assignForm.dueDateLabel')}
               value={dueDate}
               min={minDate}
               onChange={(e) => setDueDate(e.target.value)}
             />
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="mr-1 text-xs font-medium text-ink-500">Quick set:</span>
+              <span className="mr-1 text-xs font-medium text-ink-500">
+                {t('assignForm.quickSet')}
+              </span>
               {datePresets.map((p) => (
                 <button
                   key={p.iso}
@@ -323,12 +340,14 @@ export const CreateAssignmentPage = () => {
             </div>
             {daysOut !== null && daysOut >= 0 && (
               <p className="mt-3 text-xs text-ink-500">
-                Due in{' '}
-                <strong className="text-ink-700">
-                  {daysOut === 0 ? 'today' : `${daysOut} day${daysOut === 1 ? '' : 's'}`}
-                </strong>
-                {' · '}
-                {formatDueDate(dueDate)}
+                {daysOut === 0
+                  ? t('assignForm.dueTodayHint', { date: formatDueDate(dueDate) })
+                  : t(
+                      daysOut === 1
+                        ? 'assignForm.dueInDaysHintOne'
+                        : 'assignForm.dueInDaysHintMany',
+                      { count: daysOut, date: formatDueDate(dueDate) },
+                    )}
               </p>
             )}
           </Card>
@@ -360,11 +379,13 @@ export const CreateAssignmentPage = () => {
             className="w-full"
           >
             {createAssignment.isPending && <LoadingSpinner size="sm" />}
-            {createAssignment.isPending ? 'Publishing…' : 'Publish Assignment'}
+            {createAssignment.isPending
+              ? t('assignForm.publishing')
+              : t('assignForm.publish')}
           </Button>
           {!isFormValid && (
             <p className="mt-1.5 text-center text-xs text-ink-500">
-              Complete all three steps to publish.
+              {t('assignForm.completeAllSteps')}
             </p>
           )}
         </div>
@@ -401,7 +422,9 @@ const ProblemSetRow = ({
   chapterName: string;
   selected: boolean;
   onSelect: () => void;
-}) => (
+}) => {
+  const t = useT();
+  return (
   <button
     type="button"
     onClick={onSelect}
@@ -429,15 +452,20 @@ const ProblemSetRow = ({
       <p className="mt-0.5 text-xs text-ink-500">{chapterName}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <Badge tone="brand">
-          {questionCount} {questionCount === 1 ? 'question' : 'questions'}
+          {t(questionCount === 1 ? 'teacher.questionsCountOne' : 'teacher.questionsCountMany', {
+            count: questionCount,
+          })}
         </Badge>
         {estimatedMinutes && (
-          <span className="text-xs text-ink-500">~{estimatedMinutes} min</span>
+          <span className="text-xs text-ink-500">
+            {t('teacher.minutesApprox', { minutes: estimatedMinutes })}
+          </span>
         )}
       </div>
     </div>
   </button>
-);
+  );
+};
 
 interface AssignmentPreviewProps {
   room: TeacherSubjectRoom | null;
@@ -449,6 +477,7 @@ interface AssignmentPreviewProps {
 }
 
 const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: AssignmentPreviewProps) => {
+  const t = useT();
   // Empty state when nothing is picked yet
   if (!room) {
     return (
@@ -467,34 +496,40 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
           </svg>
         </div>
         <h3 className="font-display text-lg font-semibold text-ink-900">
-          Your assignment preview
+          {t('assignForm.previewEmptyTitle')}
         </h3>
         <p className="mt-1 max-w-sm text-sm text-ink-500">
-          Pick a class, a problem set, and a due date — you&apos;ll see exactly what students see
-          here before you publish.
+          {t('assignForm.previewEmptyBody')}
         </p>
       </Card>
     );
   }
 
   const daysOut = daysFromToday(dueDate);
-  const dueText = dueDate
-    ? `Due ${formatDueDate(dueDate)}${
-        daysOut !== null && daysOut >= 0
-          ? ` · ${daysOut === 0 ? 'today' : `${daysOut} day${daysOut === 1 ? '' : 's'} from now`}`
-          : ''
-      }`
-    : 'No due date set yet';
+  const formattedDue = formatDueDate(dueDate);
+  let dueText: string;
+  if (!dueDate) {
+    dueText = t('assignForm.noDueYet');
+  } else if (daysOut === 0) {
+    dueText = t('assignForm.dueOnTodaySuffix', { date: formattedDue });
+  } else if (daysOut !== null && daysOut > 0) {
+    dueText = t(
+      daysOut === 1 ? 'assignForm.dueOnDaysSuffixOne' : 'assignForm.dueOnDaysSuffixMany',
+      { date: formattedDue, count: daysOut },
+    );
+  } else {
+    dueText = t('assignForm.dueOn', { date: formattedDue });
+  }
 
   return (
     <Card className="flex h-full min-h-[28rem] flex-col">
       {/* Hero strip */}
       <div className="-m-6 mb-5 rounded-t-xl2 border-b border-ink-100 bg-chalkboard p-6 text-white">
         <p className="text-xs font-semibold uppercase tracking-widest text-brand-300">
-          Assignment preview
+          {t('assignForm.previewEyebrow')}
         </p>
         <h3 className="mt-1 font-display text-2xl font-semibold text-balance">
-          {set?.title ?? <span className="text-ink-300">Pick a problem set</span>}
+          {set?.title ?? <span className="text-ink-300">{t('assignForm.pickProblemSet')}</span>}
         </h3>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-ink-100">
           <span className="inline-flex items-center gap-1.5">
@@ -504,7 +539,11 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
             {room.classroom_display}
           </span>
           <span className="opacity-50">·</span>
-          <span>{room.student_count} {room.student_count === 1 ? 'student' : 'students'}</span>
+          <span>
+            {t(room.student_count === 1 ? 'teacher.studentsCountOne' : 'teacher.studentsCountMany', {
+              count: room.student_count,
+            })}
+          </span>
           {set && (
             <>
               <span className="opacity-50">·</span>
@@ -519,7 +558,7 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
         {/* What students will see */}
         <div className="rounded-xl border border-ink-100 bg-paper p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-600">
-            What students will see
+            {t('assignForm.whatStudentsSee')}
           </p>
           {set ? (
             <div className="space-y-2">
@@ -529,10 +568,17 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
               )}
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="brand">
-                  {set.question_count} {set.question_count === 1 ? 'question' : 'questions'}
+                  {t(
+                    set.question_count === 1
+                      ? 'teacher.questionsCountOne'
+                      : 'teacher.questionsCountMany',
+                    { count: set.question_count },
+                  )}
                 </Badge>
                 {set.estimated_minutes && (
-                  <Badge tone="neutral">~{set.estimated_minutes} min</Badge>
+                  <Badge tone="neutral">
+                    {t('teacher.minutesApprox', { minutes: set.estimated_minutes })}
+                  </Badge>
                 )}
                 <Badge tone="neutral">{set.chapter_name}</Badge>
               </div>
@@ -542,12 +588,12 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-800"
               >
-                Preview the actual questions as a student
+                {t('assignForm.previewQuestionsLink')}
                 <span aria-hidden="true">↗</span>
               </a>
             </div>
           ) : (
-            <p className="text-sm text-ink-400">Pick a problem set on the left.</p>
+            <p className="text-sm text-ink-400">{t('assignForm.pickSetLeft')}</p>
           )}
         </div>
 
@@ -559,7 +605,9 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Due</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">
+              {t('assignForm.dueLabel')}
+            </p>
             <p className="text-sm font-medium text-ink-900">{dueText}</p>
           </div>
         </div>
@@ -573,11 +621,15 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">
-              Recipients
+              {t('assignForm.recipients')}
             </p>
             <p className="text-sm font-medium text-ink-900">
-              {room.student_count} {room.student_count === 1 ? 'student' : 'students'} in{' '}
-              {room.classroom_display}
+              {t(
+                room.student_count === 1
+                  ? 'assignForm.recipientsValueOne'
+                  : 'assignForm.recipientsValueMany',
+                { count: room.student_count, room: room.classroom_display },
+              )}
             </p>
           </div>
         </div>
@@ -586,26 +638,23 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
       {/* Action footer */}
       <div className="-mx-6 -mb-6 mt-5 flex items-center justify-between gap-3 rounded-b-xl2 border-t border-ink-100 bg-paper px-6 py-4">
         <div className="text-xs text-ink-500">
-          {!valid ? (
-            'Complete all three steps to publish.'
-          ) : (
-            <>
-              Ready to publish to{' '}
-              <strong className="text-ink-700">
-                {room.student_count} {room.student_count === 1 ? 'student' : 'students'}
-              </strong>
-              .
-            </>
-          )}
+          {!valid
+            ? t('assignForm.completeAllSteps')
+            : t(
+                room.student_count === 1
+                  ? 'assignForm.readyToPublishOne'
+                  : 'assignForm.readyToPublishMany',
+                { count: room.student_count },
+              )}
           {error && (
             <span className="ml-2 font-medium text-rose-600">
-              Failed to create. Please try again.
+              {t('assignForm.createFailed')}
             </span>
           )}
         </div>
         <Button type="submit" size="lg" disabled={!valid || submitting}>
           {submitting && <LoadingSpinner size="sm" />}
-          {submitting ? 'Publishing…' : 'Publish Assignment'}
+          {submitting ? t('assignForm.publishing') : t('assignForm.publish')}
         </Button>
       </div>
     </Card>

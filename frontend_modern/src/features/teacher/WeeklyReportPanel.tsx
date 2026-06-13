@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useWeeklyReport } from './useWeeklyReport';
 import { AIBadge, Button, Skeleton, isAIStub } from '@/shared/ui';
+import { useI18n, type Locale } from '@/shared/i18n';
 
 const triggerWeeklyReport = async (subjectRoomId: number): Promise<void> => {
   await apiClient.post('/ai/weekly-reports/generate/', { subject_room_id: subjectRoomId });
 };
 
-const formatDate = (iso: string): string =>
-  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const formatDate = (iso: string, locale: Locale): string =>
+  new Date(iso).toLocaleDateString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
+    day: 'numeric',
+    month: 'short',
+  });
 
 // Mirrors the report card layout (title + badge, then summary lines) so the
 // expanded section doesn't reflow when the report lands.
@@ -31,6 +35,7 @@ interface Props {
 }
 
 export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
+  const { t, locale } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError, setGenError] = useState(false);
@@ -67,7 +72,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
         onClick={() => setIsExpanded((v) => !v)}
         className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
-        <span>Weekly AI Summary</span>
+        <span>{t('teacher.weeklySummary')}</span>
         <span
           className={`transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`}
           aria-hidden
@@ -85,20 +90,20 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
               exist, instead of telling them we couldn't reach the server. */}
           {!isLoading && isError && (
             <p className="py-2 text-xs text-rose-600">
-              Couldn&apos;t load the weekly summary just now.{' '}
+              {t('teacher.weeklyLoadError')}{' '}
               <button
                 type="button"
                 onClick={() => void refetch()}
                 className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
               >
-                Retry
+                {t('explanation.retry')}
               </button>
             </p>
           )}
 
           {!isLoading && !isError && !report && (
             <div className="py-2 text-xs text-ink-400">
-              No weekly summary yet. Generate one from this week's practice activity.
+              {t('teacher.noWeeklySummary')}
               <Button
                 variant="ghost"
                 size="sm"
@@ -106,14 +111,14 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
                 disabled={isGenerating}
                 className="ml-2"
               >
-                {isGenerating ? 'Generating…' : 'Generate'}
+                {isGenerating ? t('teacher.generating') : t('teacher.generate')}
               </Button>
             </div>
           )}
 
           {genError && (
             <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              Couldn't generate the summary just now. Please try again in a moment.
+              {t('teacher.weeklyGenError')}
             </p>
           )}
 
@@ -121,7 +126,10 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
             <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-3">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-semibold text-brand-800">
-                  Week of {formatDate(report.week_start)} – {formatDate(report.week_end)}
+                  {t('teacher.weekOf', {
+                    start: formatDate(report.week_start, locale),
+                    end: formatDate(report.week_end, locale),
+                  })}
                 </p>
                 <AIBadge modelUsed={report.model_used} stubLabel="Auto-summary" />
               </div>
@@ -129,35 +137,40 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
                 {report.summary_text}
               </p>
               {isStub && (
-                <p className="mt-1.5 text-xs text-ink-400">
-                  AI was unavailable, so this was built directly from your class data.
-                </p>
+                <p className="mt-1.5 text-xs text-ink-400">{t('teacher.stubSummaryNote')}</p>
               )}
 
               <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500">
                 <span>
-                  {report.active_students}/{report.total_students} practised
+                  {t('teacher.practisedRatio', {
+                    active: report.active_students,
+                    total: report.total_students,
+                  })}
                 </span>
-                <span>{report.ticks_recorded} questions</span>
-                <span>{Math.round(report.class_avg_score * 100)}% avg</span>
+                <span>
+                  {t(report.ticks_recorded === 1 ? 'teacher.questionsCountOne' : 'teacher.questionsCountMany', {
+                    count: report.ticks_recorded,
+                  })}
+                </span>
+                <span>{t('teacher.avgPct', { pct: Math.round(report.class_avg_score * 100) })}</span>
               </div>
 
               {report.struggling_chapters.length > 0 && (
                 <p className="mt-2 text-xs text-ink-600">
-                  <span className="font-semibold text-rose-700">Needs work:</span>{' '}
+                  <span className="font-semibold text-rose-700">{t('teacher.needsWork')}</span>{' '}
                   {report.struggling_chapters.map((c) => c.chapter_name).join(', ')}
                 </p>
               )}
               {report.strong_chapters.length > 0 && (
                 <p className="mt-0.5 text-xs text-ink-600">
-                  <span className="font-semibold text-emerald-700">Strong:</span>{' '}
+                  <span className="font-semibold text-emerald-700">{t('teacher.strong')}</span>{' '}
                   {report.strong_chapters.map((c) => c.chapter_name).join(', ')}
                 </p>
               )}
 
               <div className="mt-2.5 flex items-center justify-between">
                 <p className="text-xs text-ink-400">
-                  Generated {formatDate(report.generated_at)}
+                  {t('teacher.generatedOn', { date: formatDate(report.generated_at, locale) })}
                 </p>
                 <Button
                   variant="ghost"
@@ -165,7 +178,7 @@ export const WeeklyReportPanel = ({ subjectRoomId }: Props) => {
                   onClick={handleGenerate}
                   disabled={isGenerating}
                 >
-                  {isGenerating ? 'Regenerating…' : 'Regenerate'}
+                  {isGenerating ? t('teacher.regenerating') : t('teacher.regenerate')}
                 </Button>
               </div>
             </div>

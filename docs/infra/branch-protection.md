@@ -43,6 +43,15 @@ In **Settings → Branches → Add branch protection rule**, set the branch name
 | Block force-push and deletion | `modernization` and `qa` are shared history — losing commits or rewriting history breaks everyone's clones. |
 | Apply to admins ("Do not allow bypassing") | Self-explanatory; the rules are worthless if the most active committers can skip them. |
 
+## Repo-level settings for Dependabot auto-merge
+
+The [`Dependabot auto-merge`](../../.github/workflows/dependabot-automerge.yaml) workflow approves and queues minor/patch dependency bumps once CI is green. For it to actually complete a merge, two repo-level settings (outside branch protection) must be enabled:
+
+- **Settings → General → Pull Requests → ☑ Allow auto-merge** — without this, `gh pr merge --auto` errors.
+- **Settings → Actions → General → Workflow permissions → ☑ Allow GitHub Actions to create and approve pull requests** — lets the workflow's auto-approve step satisfy the "Require approvals: 1" rule above. Without it, minor/patch PRs queue but never merge because they sit unapproved.
+
+Majors are intentionally excluded from auto-merge and always need a manual review + approval.
+
 ## Verifying the configuration
 
 After applying, the easiest sanity check is to open a draft PR with a deliberately failing test or lint error and confirm GitHub blocks the merge button until the check passes.

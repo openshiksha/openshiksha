@@ -532,6 +532,8 @@ export const en = {
   'grading.retrying': 'Retrying…',
   'grading.aiSuggests': 'AI suggests {score}/{max}',
   'grading.confident': '{pct}% confident',
+  'grading.lowConfidenceNote':
+    "The AI is unsure about this one — read the response and double-check before accepting.",
   'grading.autoGraded': 'Auto-graded',
   'grading.stubNote':
     'AI was unavailable, so this suggestion came from a keyword match against the model answer — please review with extra care.',

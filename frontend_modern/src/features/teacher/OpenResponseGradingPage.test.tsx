@@ -200,6 +200,23 @@ describe('OpenResponseGradingPage', () => {
     expect(screen.queryByText('✨ AI-generated')).toBeNull();
   });
 
+  it('flags a low-confidence suggestion so the teacher double-checks before accepting', async () => {
+    mockApi([{ ...GRADE, confidence: 0.42 }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+    expect(screen.getByText('42% confident')).toBeDefined();
+    expect(screen.getByText(/double-check before accepting/i)).toBeDefined();
+  });
+
+  it('does not show the low-confidence note when the AI is confident', async () => {
+    mockApi([GRADE]); // confidence 0.85
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('85% confident')).toBeDefined());
+    expect(screen.queryByText(/double-check before accepting/i)).toBeNull();
+  });
+
   it('status filter chips re-query with the status param', async () => {
     const user = userEvent.setup();
     mockApi([GRADE]);

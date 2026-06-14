@@ -1,6 +1,7 @@
-# Language Access — i18n (English / हिंदी) across the product
+# Language Access — i18n (English / हिंदी / मराठी) across the product
 
-**Status:** 🟢 Active (promoted 2026-06-11)
+**Status:** 🟢 Active — LA-1..9 shipped; only LA-10 (authored-content
+translation, blocked on product design) remains (promoted 2026-06-11)
 **Owner surface:** whole product (frontend chrome, user preference, AI content language, emails)
 
 ---
@@ -76,7 +77,7 @@ just never lets anyone ask for it.
 | LA-6 | Teacher surfaces chrome (dashboard panels, create-assignment, build-problem-set, grading queue, authoring previews, question bank, rubric, widget gallery, versions, classroom code, CreateQuestionPage) | ✅ 2026-06-13 — 6a–6d [#318](https://github.com/openshiksha/openshiksha/pull/318)–[#321](https://github.com/openshiksha/openshiksha/pull/321); 6e [#323](https://github.com/openshiksha/openshiksha/pull/323)/[#324](https://github.com/openshiksha/openshiksha/pull/324)/[#325](https://github.com/openshiksha/openshiksha/pull/325)/[#326](https://github.com/openshiksha/openshiksha/pull/326) |
 | LA-7 | Localized transactional emails (grading complete, remedial, due reminders, parent weekly) honoring `preferred_language` | ✅ 2026-06-12 [#314](https://github.com/openshiksha/openshiksha/pull/314) |
 | LA-8 | Number/date formatting via `Intl` keyed to locale (dates on cards, "due in X days") | ✅ 2026-06-13 [#322](https://github.com/openshiksha/openshiksha/pull/322) |
-| LA-9 | Third-language pilot (one regional language on one surface) proving the framework scales | ⬜ — next unblocked increment |
+| LA-9 | Third-language pilot (one regional language on one surface) proving the framework scales | ✅ 2026-06-13 — 9a [#349](https://github.com/openshiksha/openshiksha/pull/349) (N-locale registry + pilot-coverage parity); Marathi 9b [#350](https://github.com/openshiksha/openshiksha/pull/350) / 9c [#351](https://github.com/openshiksha/openshiksha/pull/351) / 9d [#352](https://github.com/openshiksha/openshiksha/pull/352) / 9e [#353](https://github.com/openshiksha/openshiksha/pull/353) |
 | LA-10 | Authored-content translation workflow (question text) — needs product design, do not start without promotion | ⬜ |
 
 ## Definition of Done (every increment)
@@ -134,6 +135,38 @@ just never lets anyone ask for it.
 | Widget | विजेट | transliterate — product term |
 | Draft | ड्राफ़्ट | transliterate |
 
+## Glossary (Marathi register — LA-9 pilot, grow as you go)
+
+Marathi (मराठी) shipped as the LA-9 third-language pilot (anonymous journey +
+student core loop + parent dashboard). Same register philosophy as Hindi:
+everyday Maharashtra K-12 Marathi; classroom-English/product terms are
+transliterated, not academically translated. **Flagged for human review.**
+
+| English | Marathi (UI) | Note |
+|---|---|---|
+| Assignment | असाइनमेंट | transliterate — classroom English |
+| Submit | सादर करा | |
+| Dashboard | डॅशबोर्ड | transliterate |
+| Practice | सराव | |
+| Score | गुण | |
+| Due date | मुदत | |
+| Chapter | अध्याय | |
+| Streak | मालिका | |
+| Review | पुनरावलोकन | SRS context |
+| Explanation | स्पष्टीकरण | |
+| Teacher / Student / Parent | शिक्षक / विद्यार्थी / पालक | |
+| Sign in / Log in | साइन इन करा | transliterate — universal |
+| Username / Password | युझरनेम / पासवर्ड | transliterate |
+| Register / Create account | नोंदणी करा / खाते तयार करा | |
+| Overdue | मुदत संपलेली | |
+| Pending | प्रलंबित | |
+| Progress | प्रगती | |
+| Grade (class) | इयत्ता | |
+| Question bank | प्रश्नपेढी | |
+| Insights | माहिती | |
+| Learning path | शिक्षण मार्ग | |
+| Grace day | सवलत ✓ | product term |
+
 ## Progress Ledger (append-only)
 
 | Date | Increment | PR | Learning |
@@ -151,3 +184,8 @@ just never lets anyone ask for it.
 | 2026-06-13 | LA-6e-2 — question bank (+ add-to-set sheet), QuestionPreviewPanel, RecordResponsePanel (rubric authoring), WidgetGalleryPanel (~115 keys). Added `localizedTypeLabel(t, type)` for the six question types. | [#324](https://github.com/openshiksha/openshiksha/pull/324) | Parallel locale-file PRs off `modernization` all collide at the same anchor — each needs a trivial `merge modernization` before it lands. Stacking them (base each on the prior) would have avoided it; noted for LA-9. |
 | 2026-06-13 | LA-6e-3 — version history (+ diff panel) & classroom join-code in Hindi. First 6e slice to consume LA-8 `useFormat().formatDate` for version timestamps. | [#325](https://github.com/openshiksha/openshiksha/pull/325) | The LA-8 helper paid off immediately — a hardcoded `toLocaleString('en-IN', …)` became one `formatDate` call that respects the active locale. |
 | 2026-06-13 | LA-6e-4 — CreateQuestionPage (1131 lines, the last English-only teacher surface) in Hindi (~95 `cqp.*` keys); added the page's first test file. **Closes LA-6.** | [#326](https://github.com/openshiksha/openshiksha/pull/326) | Page-local `cqp.type*` labels instead of reusing the in-flight LA-6e-2 `qtype.*` kept this PR independent — cross-PR key reuse would have forced a merge order. LaTeX/`{{token}}` hints survive because `t()` without vars is a no-op on `{…}`. |
+| 2026-06-13 | LA-9a — generalized the binary `en\|hi` machine into `locales/registry.ts` (one entry per locale drives switcher/loader/`Intl`/parity) + a complete-vs-pilot coverage contract. Pure refactor, zero behavior change for en/hi. | [#349](https://github.com/openshiksha/openshiksha/pull/349) | A string-literal `Locale` union `satisfies`-checked against the registry array keeps `t()` keys statically typed *and* makes a new language a one-line union edit. An explicit loader map beat a template `import(`./${code}`)` for reliable Vite chunk-splitting. |
+| 2026-06-13 | LA-9b — registered Marathi (मरा); switcher became EN\|हिं\|मरा with **no switcher edit** (the registry payoff). `mr.ts` shipped as a pilot subset (anonymous journey, ~45 keys) + backend `preferred_language` choice. | [#350](https://github.com/openshiksha/openshiksha/pull/350) | The whole engineering surface for language #3 was one registry entry + a union widening — everything else was content. Proof the North Star clause ("a content task, not an engineering task") is met. |
+| 2026-06-13 | LA-9c — Marathi student core loop (~72 keys). date-fns 4.x ships no `mr` locale, so mr relative dates fall back to English while absolute dates localize via `Intl` `mr-IN`. | [#351](https://github.com/openshiksha/openshiksha/pull/351) | A pilot locale exposes the language gap in AI surfaces: the explanation "re-explain" affordance had to compare against `toAiLanguage(locale)`, not the raw locale, or it shows forever for a locale whose AI content is English. |
+| 2026-06-13 | LA-9d — Marathi parent dashboard (~20 keys) + backend `resolve_ai_language()` guard (mr→en) so AI explanations/summaries never carry an unsupported language; persisted `language` matches generated content. | [#352](https://github.com/openshiksha/openshiksha/pull/352) | The email layer already fell back to English (`format_email_string`) — the only real gap was AI *generation*. Centralizing the fallback in one helper kept prompt + stored field consistent for any caller. |
+| 2026-06-13 | LA-9e — `coverage.test.ts` pilot-coverage report (mr at 137/764 = 17.9%, with a regression floor) + Marathi glossary. **Closes LA-9.** | [#353](https://github.com/openshiksha/openshiksha/pull/353) | The framework is proven for N languages: language #4 (a non-Devanagari stress test like Tamil) is now config + content + one font-stack entry, no code change. Only LA-10 (authored-content translation, blocked on product design) remains. |

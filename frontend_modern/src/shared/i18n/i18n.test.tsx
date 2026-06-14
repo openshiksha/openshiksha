@@ -144,18 +144,34 @@ describe('i18n', () => {
     });
 
     it('falls back to English for keys the pilot does not define yet', () => {
-      // `streak.tierChampion` is outside the LA-9b anonymous-journey subset, so
-      // it must resolve to English, never a blank (principle 3).
+      // The teacher surface is outside the Marathi pilot, so its keys must
+      // resolve to English, never a blank (principle 3).
       const NotYetTranslated = () => {
         const t = useT();
-        return <span data-testid="fallback">{t('streak.tierChampion')}</span>;
+        return <span data-testid="fallback">{t('teacher.title')}</span>;
       };
       render(
         <I18nProvider initialLocale="mr">
           <NotYetTranslated />
         </I18nProvider>,
       );
-      expect(screen.getByTestId('fallback').textContent).toBe(en['streak.tierChampion']);
+      expect(screen.getByTestId('fallback').textContent).toBe(en['teacher.title']);
+    });
+
+    it('renders Marathi student-loop chrome (LA-9c)', async () => {
+      const StudentChrome = () => {
+        const t = useT();
+        return <span data-testid="dash">{t('dashboard.title')}</span>;
+      };
+      render(
+        <I18nProvider initialLocale="mr">
+          <StudentChrome />
+        </I18nProvider>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('dash').textContent).toBe(mr['dashboard.title']);
+      });
+      expect(screen.getByTestId('dash').textContent).not.toBe(en['dashboard.title']);
     });
 
     it('syncs <html lang="mr"> when Marathi is selected', () => {

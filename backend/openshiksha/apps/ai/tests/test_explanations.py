@@ -379,6 +379,61 @@ def test_build_prompt_hindi_instruction():
 
 
 # ─────────────────────────────────────────────────────────────
+# LA-9: AI-language fallback guard (mr → en)
+# ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "requested,expected",
+    [("en", "en"), ("hi", "hi"), ("mr", "en"), ("fr", "en"), (None, "en"), ("", "en")],
+)
+def test_resolve_ai_language_falls_back_to_english(requested, expected):
+    from openshiksha.apps.ai.llm_client import resolve_ai_language
+
+    assert resolve_ai_language(requested) == expected
+
+
+def _force_stub_path(monkeypatch):
+    """Remove provider keys + make Ollama unreachable so the LLM cascade lands on
+    the offline stub — no network call regardless of the dev environment."""
+    for var in ("ANTHROPIC_API_KEY", "GOOGLE_AI_API_KEY", "OLLAMA_BASE_URL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr("openshiksha.apps.ai.llm_client._ollama_reachable", lambda *a, **k: False)
+
+
+def test_generate_explanation_resolves_marathi_to_english_prompt(monkeypatch):
+    """A pilot/regional locale (mr) has no authored prompt, so generate_explanation
+    must build the prompt for English — never pass an unsupported language token
+    through to the prompt builder."""
+    from openshiksha.apps.ai import llm_client
+
+    _force_stub_path(monkeypatch)
+    with patch.object(llm_client, "_build_prompt", return_value="PROMPT") as mock_build:
+        llm_client.generate_explanation(
+            question_text="2+2=?",
+            options=None,
+            student_answer="4",
+            correct_answer={"answer": "4"},
+            is_correct=True,
+            grade_level=6,
+            language="mr",
+        )
+
+    assert mock_build.call_args.kwargs["language"] == "en"
+
+
+def test_generate_parent_summary_resolves_marathi_to_english_prompt(monkeypatch):
+    from openshiksha.apps.ai import llm_client
+
+    _force_stub_path(monkeypatch)
+    with patch.object(llm_client, "_build_parent_summary_prompt", return_value="PROMPT") as mock_build:
+        llm_client.generate_parent_summary({"ticks_recorded": 0}, language="mr")
+
+    # Positional (stats, language) — the second arg must be the resolved "en".
+    assert mock_build.call_args.args[1] == "en"
+
+
+# ─────────────────────────────────────────────────────────────
 # Celery task tests (mocked LLM)
 # ─────────────────────────────────────────────────────────────
 

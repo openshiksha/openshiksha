@@ -27,6 +27,11 @@ Grade calibration tiers:
 Language support:
   en — English (default)
   hi — Hindi (LLM prompted to respond in Hindi)
+
+UI locales beyond these (e.g. "mr", LA-9) have translated chrome but no
+authored LLM prompt yet, so AI-*generated* content falls back to English — see
+``resolve_ai_language``. This keeps authored/AI content a separate track from
+the UI locale (initiative principle 1).
 """
 
 import logging
@@ -34,6 +39,24 @@ import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Languages the LLM can be reliably prompted to generate content in. A request
+# for any other locale falls back to English rather than emitting a blank or
+# untranslated language instruction.
+AI_SUPPORTED_LANGUAGES = ("en", "hi")
+
+
+def resolve_ai_language(language: str | None) -> str:
+    """
+    Map a requested UI locale to a supported AI-generation language.
+
+    Pilot/regional locales (e.g. "mr") have no authored prompt yet, so they fall
+    back to English (LA-9). Centralizing the rule here means every generation
+    entry point — and the persisted ``language`` field — stays consistent with
+    the language the content was actually produced in.
+    """
+    return language if language in AI_SUPPORTED_LANGUAGES else "en"
+
 
 CLAUDE_MODEL = "claude-sonnet-4-6"
 # Google AI Studio default. Env-overridable via GOOGLE_AI_MODEL so a deployment
@@ -230,6 +253,9 @@ def generate_explanation(
     Returns:
         {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
     """
+    # Pilot/regional locales (mr) have no authored prompt — fall back to English
+    # so the LLM never receives a blank language instruction (LA-9).
+    language = resolve_ai_language(language)
     prompt = _build_prompt(
         question_text=question_text,
         options=options,
@@ -1226,6 +1252,8 @@ def generate_parent_summary(stats: dict, language: str = "en") -> dict:
     Returns:
         {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
     """
+    # Fall back to English for locales without an authored prompt (LA-9).
+    language = resolve_ai_language(language)
     prompt = _build_parent_summary_prompt(stats, language)
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")

@@ -666,12 +666,16 @@ def generate_explanation_for_subpart(
     Returns {"explanation_id": int}
     """
     try:
-        from openshiksha.apps.ai.llm_client import generate_explanation
+        from openshiksha.apps.ai.llm_client import generate_explanation, resolve_ai_language
         from openshiksha.apps.ai.models import SubpartExplanation
         from openshiksha.apps.core.models import QuestionSubpart, User
 
         student = User.objects.get(pk=student_id)
         subpart = QuestionSubpart.objects.select_related("question").get(pk=subpart_id)
+
+        # Fall back to English for locales without an authored prompt so the
+        # stored ``language`` matches the generated content (LA-9).
+        language = resolve_ai_language(language)
 
         result = generate_explanation(
             question_text=subpart.question_text or subpart.question.question_type,
@@ -991,12 +995,16 @@ def generate_parent_progress_summary(
             build_parent_alerts,
             compute_parent_weekly_stats,
         )
-        from openshiksha.apps.ai.llm_client import generate_parent_summary
+        from openshiksha.apps.ai.llm_client import generate_parent_summary, resolve_ai_language
         from openshiksha.apps.ai.models import ParentProgressSummary
         from openshiksha.apps.core.models import User
 
         parent = User.objects.get(pk=parent_id)
         child = User.objects.get(pk=child_id)
+
+        # Pilot/regional locales (mr) fall back to English for AI content, so the
+        # persisted ``language`` matches what the narrative was generated in (LA-9).
+        language = resolve_ai_language(language)
 
         if not parent.children.filter(pk=child.pk).exists():
             raise ValueError(f"User {parent_id} is not the parent of user {child_id}")

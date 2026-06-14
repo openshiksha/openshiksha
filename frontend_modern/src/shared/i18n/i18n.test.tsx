@@ -174,6 +174,22 @@ describe('i18n', () => {
       expect(screen.getByTestId('dash').textContent).not.toBe(en['dashboard.title']);
     });
 
+    it('renders Marathi parent-dashboard chrome (LA-9d)', async () => {
+      const ParentChrome = () => {
+        const t = useT();
+        return <span data-testid="parent">{t('parent.title')}</span>;
+      };
+      render(
+        <I18nProvider initialLocale="mr">
+          <ParentChrome />
+        </I18nProvider>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('parent').textContent).toBe(mr['parent.title']);
+      });
+      expect(screen.getByTestId('parent').textContent).not.toBe(en['parent.title']);
+    });
+
     it('syncs <html lang="mr"> when Marathi is selected', () => {
       render(
         <I18nProvider initialLocale="mr">

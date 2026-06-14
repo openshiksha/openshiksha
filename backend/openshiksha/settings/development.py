@@ -2,6 +2,8 @@
 Development-specific Django settings for OpenShiksha
 """
 
+import os
+
 from .base import *  # noqa: F403
 
 # DEBUG mode ON for development
@@ -43,8 +45,12 @@ LOGGING["loggers"]["django.template"] = {  # noqa: F405  # type: ignore[index]
     "propagate": False,
 }
 
-# Email - Console backend for development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Email — console backend by default so dev never sends real mail by accident.
+# Set EMAIL_BACKEND in the env (backend/.env) to send for real — e.g. point
+# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend at Gmail SMTP to test
+# delivery locally or through the cloudflared tunnel. EMAIL_HOST / EMAIL_PORT /
+# EMAIL_USE_TLS / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD are read from env in base.py.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 
 # Disable some security features for development
 SECURE_SSL_REDIRECT = False

@@ -14,6 +14,7 @@ import logging
 
 from django.core.mail import send_mail
 
+from openshiksha.apps.core import email_layout as layout
 from openshiksha.apps.core.emails import format_email_string
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,10 @@ _SEVERITY_RANK = {"urgent": 0, "attention": 1, "info": 2}
 _STRINGS = {
     "en": {
         "subject": "{child_name}'s weekly learning summary ({week_range})",
+        "html_heading": "{child_name}'s learning summary",
+        "open_insights": "Open Insights",
+        "attention_title": "Needs attention",
+        "activity_title": "Try this at home",
         "greeting": "Hi {parent_name},",
         "intro": "Here is {child_name}'s learning summary for the week of {week_range}.",
         "needs_attention": "Needs attention — {label}: {detail}",
@@ -35,6 +40,10 @@ _STRINGS = {
     },
     "hi": {
         "subject": "{child_name} की साप्ताहिक लर्निंग समरी ({week_range})",
+        "html_heading": "{child_name} की लर्निंग समरी",
+        "open_insights": "इनसाइट्स खोलें",
+        "attention_title": "ध्यान दें",
+        "activity_title": "घर पर आज़माएँ",
         "greeting": "नमस्ते {parent_name},",
         "intro": "{week_range} के सप्ताह की {child_name} की सीखने की समरी यह रही।",
         "needs_attention": "ध्यान दें — {label}: {detail}",
@@ -102,6 +111,39 @@ def notify_parent_weekly_summary(parent, child, summary) -> bool:
         _s("footer"),
     ]
 
+    # Branded HTML alternative — the plain-text ``lines`` above stay the fallback.
+    panels_html = ""
+    if lead:
+        panels_html += layout.info_panel(
+            _s("attention_title"),
+            f"<b>{label}</b> — {detail}" if detail else f"<b>{label}</b>",
+            accent=layout.WARN_AMBER,
+            bg=layout.WARN_AMBER_BG,
+        )
+    if activities:
+        panels_html += layout.info_panel(
+            _s("activity_title"),
+            f"<b>{title}</b> — {desc}" if desc else f"<b>{title}</b>",
+            accent=layout.BRAND_600,
+            bg=layout.BRAND_50,
+        )
+    body_html = (
+        layout.paragraph(_s("greeting", parent_name=parent_name))
+        + layout.paragraph(_s("intro", child_name=child_name, week_range=week_range))
+        + layout.paragraph((summary.summary_text or "").strip(), color=layout.INK_700)
+        + panels_html
+    )
+    html_message = layout.render_branded_email(
+        lang=getattr(parent, "preferred_language", "en") or "en",
+        preheader=_s("intro", child_name=child_name, week_range=week_range),
+        badge_emoji="📊",
+        accent=layout.BRAND_600,
+        eyebrow=week_range,
+        heading=_s("html_heading", child_name=child_name),
+        body_html=body_html,
+        cta_label=_s("open_insights"),
+    )
+
     try:
         send_mail(
             subject=_s("subject", child_name=child_name, week_range=week_range),
@@ -109,6 +151,7 @@ def notify_parent_weekly_summary(parent, child, summary) -> bool:
             from_email=None,
             recipient_list=[parent.email],
             fail_silently=False,
+            html_message=html_message,
         )
         logger.info("notify_parent_weekly_summary: sent to %s (child=%d)", parent.email, child.pk)
         return True

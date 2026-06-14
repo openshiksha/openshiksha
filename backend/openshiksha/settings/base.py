@@ -231,6 +231,12 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "OpenShiksha <noreply@openshiksha.edu.in>")
 EMAIL_SUBJECT_PREFIX = "[OpenShiksha] "
 
+# Branded HTML email assets. Mail clients can't load relative/app-local URLs, so
+# the logo and CTA links must be absolute. Override per environment (e.g. point
+# at the cloudflared tunnel for a local demo, or the real domain in prod).
+EMAIL_LOGO_URL = os.getenv("EMAIL_LOGO_URL", "https://openshiksha.org/brand/logo-orange.png")
+EMAIL_APP_URL = os.getenv("EMAIL_APP_URL", "https://openshiksha.org")
+
 
 # ADMINS — recipients of mail_admins() calls (concierge enquiries, error
 # notifications). Set OPENSHIKSHA_ADMIN_EMAILS to a comma-separated list,

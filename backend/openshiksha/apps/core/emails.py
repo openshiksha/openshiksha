@@ -135,7 +135,8 @@ _HTML = {
         "reminder.eyebrow": "रिमाइंडर",
         "reminder.heading": "असाइनमेंट जल्द देय है",
         "reminder.intro": (
-            "बस एक दोस्ताना याद — <b>‘{assignment_title}’</b> की अंतिम तिथि " "<b>{due_date}</b> है। समय रहते इसे पूरा करें।"
+            "बस एक दोस्ताना याद — <b>‘{assignment_title}’</b> की अंतिम तिथि "
+            "<b>{due_date}</b> है। समय रहते इसे पूरा करें।"
         ),
         "reminder.cta": "अभी पूरा करें",
         "reminder.preheader": "‘{assignment_title}’ की अंतिम तिथि {due_date} है।",

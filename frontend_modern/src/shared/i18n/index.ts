@@ -5,4 +5,6 @@ export { useT } from './useT';
 export { formatDate, formatNumber, useFormat } from './format';
 export type { BoundFormat } from './format';
 export { LanguageSwitcher } from './LanguageSwitcher';
+export { toAiLanguage } from './aiLanguage';
+export type { AiLanguage } from './aiLanguage';
 export type { LocaleKey, LocaleDict } from './locales/en';

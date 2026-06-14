@@ -165,7 +165,7 @@ def test_preferred_language_defaults_to_english(authed_client, student):
     assert res.json()["preferred_language"] == "en"
 
 
-@pytest.mark.parametrize("language", ["hi", "en"])
+@pytest.mark.parametrize("language", ["hi", "en", "mr"])
 def test_student_can_set_preferred_language(authed_client, student, language):
     res = authed_client.patch(
         "/api/v1/users/me/profile/",

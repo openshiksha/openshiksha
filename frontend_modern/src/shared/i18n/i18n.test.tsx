@@ -5,6 +5,7 @@ import { useT } from './useT';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { en } from './locales/en';
 import { hi } from './locales/hi';
+import { mr } from './locales/mr';
 
 /** Tiny probe component exposing the i18n surface to assertions. */
 const Probe = ({ vars }: { vars?: Record<string, string | number> }) => {
@@ -128,7 +129,57 @@ describe('i18n', () => {
     expect(screen.getByTestId('title').textContent).toBe(en['login.title']);
   });
 
+  describe('Marathi pilot (LA-9b)', () => {
+    it('renders Marathi anonymous-journey strings when active', async () => {
+      render(
+        <I18nProvider initialLocale="mr">
+          <Probe />
+        </I18nProvider>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('title').textContent).toBe(mr['login.title']);
+      });
+      // Pilot subset: a translated key resolves to Marathi…
+      expect(screen.getByTestId('locale').textContent).toBe('mr');
+    });
+
+    it('falls back to English for keys the pilot does not define yet', () => {
+      // `streak.tierChampion` is outside the LA-9b anonymous-journey subset, so
+      // it must resolve to English, never a blank (principle 3).
+      const NotYetTranslated = () => {
+        const t = useT();
+        return <span data-testid="fallback">{t('streak.tierChampion')}</span>;
+      };
+      render(
+        <I18nProvider initialLocale="mr">
+          <NotYetTranslated />
+        </I18nProvider>,
+      );
+      expect(screen.getByTestId('fallback').textContent).toBe(en['streak.tierChampion']);
+    });
+
+    it('syncs <html lang="mr"> when Marathi is selected', () => {
+      render(
+        <I18nProvider initialLocale="mr">
+          <Probe />
+        </I18nProvider>,
+      );
+      expect(document.documentElement.lang).toBe('mr');
+    });
+  });
+
   describe('LanguageSwitcher', () => {
+    it('renders one button per registered locale (EN | हिं | मरा)', () => {
+      render(
+        <I18nProvider>
+          <LanguageSwitcher />
+        </I18nProvider>,
+      );
+      const buttons = screen.getAllByRole('button');
+      expect(buttons).toHaveLength(3);
+      expect(buttons.map((b) => b.textContent)).toEqual(['EN', 'हिं', 'मरा']);
+    });
+
     it('toggles the locale with aria-pressed state', async () => {
       render(
         <I18nProvider>
@@ -148,6 +199,21 @@ describe('i18n', () => {
       });
       expect(screen.getByTestId('locale').textContent).toBe('hi');
       expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('hi');
+    });
+
+    it('selects Marathi from the switcher', async () => {
+      render(
+        <I18nProvider>
+          <LanguageSwitcher />
+          <Probe />
+        </I18nProvider>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /मराठी/ }));
+      await waitFor(() => {
+        expect(screen.getByTestId('locale').textContent).toBe('mr');
+      });
+      expect(document.documentElement.lang).toBe('mr');
+      expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('mr');
     });
   });
 });

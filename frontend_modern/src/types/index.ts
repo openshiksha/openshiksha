@@ -1,6 +1,7 @@
 /**
  * Core type definitions for OpenShiksha
  */
+import type { Locale } from '../shared/i18n';
 
 export interface User {
   id: number;
@@ -12,7 +13,9 @@ export interface User {
   grade?: number | null;
   phone_number?: string;
   email_reminders_opt_out?: boolean;
-  preferred_language?: 'en' | 'hi';
+  // Mirrors the i18n locale registry (LA-9a) so a new pilot language stays in
+  // sync without editing this type.
+  preferred_language?: Locale;
 }
 
 export interface ClassroomInviteCode {

@@ -1,0 +1,74 @@
+name: Dependabot auto-merge
+# Auto-approves and enables auto-merge for Dependabot version-update PRs that
+# are *minor* or *patch* bumps. Majors (e.g. django 4.2 → 6.0, eslint 8 → 10)
+# are runtime/API upgrades that need a human to review against CI and mypy, so
+# they are deliberately left for manual handling — this workflow takes no
+# action on them.
+#
+# Why this exists: the dependabot config (.github/dependabot.yml) groups routine
+# minor/patch bumps, but they still pile up unattended (20+ open at one point).
+# Every PR already runs the full CI gate (lint, typecheck, security, test,
+# frontend, e2e, dependency-review) plus branch protection, so a green
+# minor/patch bump is safe to land without manual clicks. Auto-merge only
+# completes once those required checks pass — this workflow just queues it.
+#
+# ── Prerequisites (configured once by a repo admin) ──────────────────────────
+#   1. Settings → General → "Allow auto-merge"  → enabled.
+#   2. Settings → Actions → General → "Allow GitHub Actions to create and
+#      approve pull requests" → enabled (so the auto-approve step below
+#      satisfies the "Require approvals: 1" branch-protection rule — see
+#      docs/infra/branch-protection.md).
+#   3. Branch protection on `modernization` with required status checks (already
+#      documented). Without required checks, `--auto` merges immediately rather
+#      than waiting for CI.
+#
+# This is a separate workflow from ci-cd.yaml because it must trigger on the
+# `pull_request` event (ci-cd.yaml is push-triggered) and is scoped to the
+# Dependabot actor.
+
+on: pull_request
+
+# Least-privilege: only what's needed to approve and queue the merge.
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    dependabot-automerge:
+        name: Approve + enable auto-merge (minor/patch)
+        runs-on: ubuntu-latest
+        # Only act on Dependabot-authored PRs. For these runs GitHub grants the
+        # GITHUB_TOKEN the permissions declared above (no repo secrets are
+        # exposed), which is enough to approve and enable auto-merge.
+        if: github.actor == 'dependabot[bot]'
+        steps:
+            - name: Fetch Dependabot metadata
+              # Exposes the semver update-type and other facts about the bump
+              # without parsing the PR title ourselves.
+              id: metadata
+              uses: dependabot/fetch-metadata@v2
+              with:
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Approve the PR
+              # Satisfies the "Require approvals: 1" rule so auto-merge can
+              # complete once checks are green. Scoped to minor/patch only.
+              if: |
+                steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+                steps.metadata.outputs.update-type == 'version-update:semver-patch'
+              env:
+                PR_URL: ${{ github.event.pull_request.html_url }}
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh pr review --approve "$PR_URL"
+
+            - name: Enable auto-merge for minor/patch updates
+              # `--auto` queues the merge; GitHub completes it only after all
+              # required status checks pass. `--squash` keeps the dep history to
+              # a single commit per bump.
+              if: |
+                steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+                steps.metadata.outputs.update-type == 'version-update:semver-patch'
+              env:
+                PR_URL: ${{ github.event.pull_request.html_url }}
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh pr merge --auto --squash "$PR_URL"

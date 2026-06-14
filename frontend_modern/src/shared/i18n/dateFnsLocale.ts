@@ -8,8 +8,11 @@ import type { Locale } from './i18nContext';
  * for English and for any locale without a date-fns mapping (it still gets
  * localized chrome + `Intl` absolute dates — only relative phrasing falls back).
  *
- * One entry per locale that has a date-fns locale (LA-9a registry model):
- * append a line as each language lands its student-loop chrome (mr in LA-9c).
+ * One entry per locale that has a date-fns locale (LA-9a registry model).
+ * Marathi (mr) is intentionally absent — date-fns 4.x ships no `mr` locale, so
+ * mr relative dates fall back to English phrasing while mr absolute dates still
+ * localize via the `Intl` `mr-IN` formatter (format.ts). Add a line here if a
+ * future date-fns version (or a custom locale) provides Marathi.
  *
  * Deliberately NOT re-exported from the i18n barrel: the barrel is imported by
  * App (the entry chunk) and these date locales should only ship inside the lazy

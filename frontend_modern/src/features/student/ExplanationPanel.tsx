@@ -100,7 +100,10 @@ export const ExplanationPanel = ({
 
   if (explanation) {
     const isStub = isAIStub(explanation.model_used);
-    const languageMismatch = explanation.language !== locale;
+    // Compare against the *AI* language: a pilot locale (mr) generates in
+    // English (toAiLanguage), so an English explanation is already correct and
+    // the "re-explain in this language" affordance must not appear (LA-9c).
+    const languageMismatch = explanation.language !== toAiLanguage(locale);
     const regenerating = (awaitingRegen || generate.isPending) && !timedOut;
     return (
       <div className="mt-3 rounded-lg border border-brand-100 bg-brand-50 p-3">

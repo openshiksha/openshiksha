@@ -1,49 +1,93 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { en } from './locales/en';
-import { hi } from './locales/hi';
+import { LOCALES, localeLoaders, type Locale } from './locales/registry';
 
 /**
- * LA-5 key-parity guard. Key parity is already tsc-enforced (`LocaleDict`),
- * but this runtime test fails with a readable list of the drifted keys and
- * also checks what the type system can't: that the `{var}` interpolation
- * placeholders match between locales, and that no translation is blank.
+ * LA-5 → LA-9a parity guard, now registry-driven with a pilot-coverage model.
+ *
+ * For every registered non-English locale we load its dictionary and apply a
+ * contract that depends on its declared `coverage`:
+ *
+ * - `complete` (en, hi): exact key-set parity with English — no missing keys,
+ *   no extra keys — and no blank strings.
+ * - `pilot` (e.g. mr): a *subset* is allowed (English fills the gaps at
+ *   runtime, principle 3), but every key it *does* define must (i) exist in
+ *   English and (ii) match English's `{var}` placeholders, and never be blank.
+ *
+ * Key parity for `complete` locales is also tsc-enforced (`LocaleDict`); this
+ * runtime test fails with a readable list of the drifted keys and checks what
+ * the type system can't (placeholder drift, blanks, pilot subset validity).
  * Runs in the normal vitest gate — no CI pipeline changes.
  */
 
 const placeholdersOf = (template: string): string[] =>
   [...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
-describe('locale key parity (en ↔ hi)', () => {
-  it('en and hi have identical key sets', () => {
-    const enKeys = Object.keys(en);
-    const hiKeys = Object.keys(hi);
-    const missingInHi = enKeys.filter((k) => !(k in hi));
-    const extraInHi = hiKeys.filter((k) => !(k in en));
+const enKeys = Object.keys(en);
+const enKeySet = new Set(enKeys);
 
-    expect(missingInHi, `keys missing from hi.ts: ${missingInHi.join(', ')}`).toEqual([]);
-    expect(extraInHi, `keys in hi.ts but not en.ts: ${extraInHi.join(', ')}`).toEqual([]);
-  });
+type Dict = Partial<Record<string, string>>;
 
-  it('no locale string is blank', () => {
-    const blankEn = Object.entries(en).filter(([, v]) => v.trim() === '');
-    const blankHi = Object.entries(hi).filter(([, v]) => v.trim() === '');
-    expect(blankEn.map(([k]) => k)).toEqual([]);
-    expect(blankHi.map(([k]) => k)).toEqual([]);
-  });
+// Load every non-English dictionary once (en is the eager source of truth).
+const dicts: Partial<Record<Locale, Dict>> = { en };
 
-  it('interpolation placeholders match between locales', () => {
-    const mismatches = Object.keys(en)
-      .filter((k) => k in hi)
-      .map((k) => ({
-        key: k,
-        en: placeholdersOf(en[k as keyof typeof en]),
-        hi: placeholdersOf(hi[k as keyof typeof hi]),
-      }))
-      .filter(({ en: a, hi: b }) => JSON.stringify(a) !== JSON.stringify(b));
+beforeAll(async () => {
+  for (const meta of LOCALES) {
+    if (meta.code === 'en') continue;
+    const load = localeLoaders[meta.code];
+    expect(load, `locale "${meta.code}" is registered but has no loader`).toBeTruthy();
+    const module = (await load!()) as Record<string, Dict | undefined>;
+    const dict = module[meta.code] ?? (module.default as Dict | undefined);
+    expect(dict, `loader for "${meta.code}" must export a dictionary`).toBeTruthy();
+    dicts[meta.code] = dict!;
+  }
+});
 
-    expect(
-      mismatches,
-      `placeholder drift: ${mismatches.map((m) => `${m.key} (en: {${m.en}} vs hi: {${m.hi}})`).join('; ')}`,
-    ).toEqual([]);
-  });
+describe('locale key parity (registry-driven, pilot-coverage)', () => {
+  for (const meta of LOCALES) {
+    if (meta.code === 'en') continue;
+
+    describe(`${meta.code} (${meta.coverage})`, () => {
+      it('defines only keys that exist in English', () => {
+        const extra = Object.keys(dicts[meta.code]!).filter((k) => !enKeySet.has(k));
+        expect(extra, `keys in ${meta.code}.ts but not en.ts: ${extra.join(', ')}`).toEqual([]);
+      });
+
+      it('has no blank strings', () => {
+        const blank = Object.entries(dicts[meta.code]!)
+          .filter(([, v]) => (v ?? '').trim() === '')
+          .map(([k]) => k);
+        expect(blank, `blank strings in ${meta.code}.ts: ${blank.join(', ')}`).toEqual([]);
+      });
+
+      it('matches English interpolation placeholders for every key it defines', () => {
+        const dict = dicts[meta.code]!;
+        const mismatches = Object.keys(dict)
+          .filter((k) => enKeySet.has(k))
+          .map((k) => ({
+            key: k,
+            en: placeholdersOf(en[k as keyof typeof en]),
+            loc: placeholdersOf(dict[k] as string),
+          }))
+          .filter(({ en: a, loc: b }) => JSON.stringify(a) !== JSON.stringify(b));
+
+        expect(
+          mismatches,
+          `placeholder drift in ${meta.code}: ${mismatches
+            .map((m) => `${m.key} (en: {${m.en}} vs ${meta.code}: {${m.loc}})`)
+            .join('; ')}`,
+        ).toEqual([]);
+      });
+
+      if (meta.coverage === 'complete') {
+        it('has exact key-set parity with English (complete coverage)', () => {
+          const missing = enKeys.filter((k) => !(k in dicts[meta.code]!));
+          expect(
+            missing,
+            `keys missing from ${meta.code}.ts: ${missing.join(', ')}`,
+          ).toEqual([]);
+        });
+      }
+    });
+  }
 });

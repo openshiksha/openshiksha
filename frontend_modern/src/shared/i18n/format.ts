@@ -1,4 +1,5 @@
 import { useI18n, type Locale } from './i18nContext';
+import { localeMeta } from './locales/registry';
 
 /**
  * LA-8 — locale-aware date/number formatting via the platform `Intl` API.
@@ -13,7 +14,7 @@ import { useI18n, type Locale } from './i18nContext';
  * See docs/initiatives/2026-language-access.md.
  */
 
-const intlLocale = (locale: Locale): string => (locale === 'hi' ? 'hi-IN' : 'en-IN');
+const intlLocale = (locale: Locale): string => localeMeta(locale).intlLocale;
 
 /** Indian convention: "27 May 2026" / "27 मई 2026" (day-first, no comma). */
 const DEFAULT_DATE_OPTS: Intl.DateTimeFormatOptions = {

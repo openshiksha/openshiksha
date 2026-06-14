@@ -1,23 +1,25 @@
 import { createContext, useContext } from 'react';
 import { en, type LocaleKey } from './locales/en';
+import { DEFAULT_LOCALE, isLocale, type Locale } from './locales/registry';
 
 /**
  * OpenShiksha i18n — a deliberately tiny in-house module (no i18next).
  *
- * Two locales with `{var}` interpolation don't justify a 45 kB dependency
- * against a 160 kB entry-chunk budget; see
- * docs/initiatives/2026-language-access.md, principle 2. English is bundled
- * eagerly (it's the fallback and the default); Hindi is fetched with a
- * dynamic import the first time the user switches, so the entry chunk does
- * not grow.
+ * The set of locales lives in `locales/registry.ts` (LA-9a): one entry per
+ * language drives the switcher, `Intl` formatting, the dict loader, and the
+ * parity guard, so a new language is a content task, not an engineering one
+ * (docs/initiatives/2026-language-access.md, North Star). An in-house module is
+ * still the right call against a 160 kB entry-chunk budget (principle 2):
+ * English is bundled eagerly (default + fallback); every other locale is
+ * fetched with a dynamic import on first switch, so the entry chunk doesn't
+ * grow with the language count.
  */
 
-export type Locale = 'en' | 'hi';
+export type { Locale };
+export { isLocale };
 
 /** localStorage key for the per-device language override. */
 export const LOCALE_STORAGE_KEY = 'os_lang';
-
-export const isLocale = (value: unknown): value is Locale => value === 'en' || value === 'hi';
 
 /**
  * Precedence contract for the boot locale (LA-2 adds the profile layer):
@@ -30,7 +32,7 @@ export const resolveInitialLocale = (): Locale => {
   } catch {
     // Storage unavailable (private mode, SSR) — fall through to default.
   }
-  return 'en';
+  return DEFAULT_LOCALE;
 };
 
 export type TranslateVars = Record<string, string | number>;
@@ -53,7 +55,7 @@ export const interpolate = (template: string, vars?: TranslateVars): string => {
 // degrades to a working English-only translator instead of throwing —
 // principle 3: English is the fallback, never a blank.
 const defaultI18nValue: I18nContextValue = {
-  locale: 'en',
+  locale: DEFAULT_LOCALE,
   setLocale: () => {
     if (import.meta.env.DEV) {
       console.warn('[i18n] setLocale called outside <I18nProvider> — ignored');

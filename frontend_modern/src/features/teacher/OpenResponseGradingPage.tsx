@@ -30,6 +30,10 @@ const STATUS_TONE: Record<OpenGradeStatus, 'attention' | 'brand' | 'success' | '
 const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
+// Below this the AI is uncertain enough that one-click "Accept" is risky — the
+// teacher should read the response before finalising, so we flag it amber.
+const LOW_CONFIDENCE = 0.6;
+
 interface ReviewFormProps {
   grade: OpenResponseGrade;
 }
@@ -111,6 +115,7 @@ const GradeCard = ({ grade }: { grade: OpenResponseGrade }) => {
   const t = useT();
   const regrade = useRegradeOpenGrade();
   const isStub = isAIStub(grade.model_used);
+  const lowConfidence = grade.confidence != null && grade.confidence < LOW_CONFIDENCE;
 
   return (
     <div className="os-card p-4 sm:p-5">
@@ -172,9 +177,9 @@ const GradeCard = ({ grade }: { grade: OpenResponseGrade }) => {
               })}
             </p>
             {grade.confidence != null && (
-              <span className="text-xs text-ink-400">
+              <Badge tone={lowConfidence ? 'attention' : 'neutral'}>
                 {t('grading.confident', { pct: Math.round(grade.confidence * 100) })}
-              </span>
+              </Badge>
             )}
             <AIBadge modelUsed={grade.model_used} stubLabel={t('grading.autoGraded')} />
           </div>
@@ -183,6 +188,14 @@ const GradeCard = ({ grade }: { grade: OpenResponseGrade }) => {
           )}
           {isStub && (
             <p className="mt-1 text-xs text-ink-400">{t('grading.stubNote')}</p>
+          )}
+          {/* A real LLM that's unsure: nudge the teacher to read before accepting.
+              When it's a stub the line above already says "review with extra
+              care", so we don't stack a second warning. */}
+          {lowConfidence && !isStub && (
+            <p className="mt-1.5 text-xs font-medium text-amber-700">
+              {t('grading.lowConfidenceNote')}
+            </p>
           )}
 
           {grade.criterion_scores.length > 0 && (

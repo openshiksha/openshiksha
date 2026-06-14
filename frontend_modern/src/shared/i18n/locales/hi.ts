@@ -528,6 +528,8 @@ export const hi: LocaleDict = {
   'grading.retrying': 'फिर कोशिश हो रही है…',
   'grading.aiSuggests': 'AI सुझाव: {score}/{max}',
   'grading.confident': '{pct}% आश्वस्त',
+  'grading.lowConfidenceNote':
+    'AI इस उत्तर को लेकर अनिश्चित है — स्वीकार करने से पहले उत्तर पढ़कर दोबारा जाँच लें।',
   'grading.autoGraded': 'स्वतः जाँचा',
   'grading.stubNote':
     'AI उपलब्ध नहीं था, इसलिए यह सुझाव मॉडल उत्तर से कीवर्ड मिलान पर आधारित है — कृपया अतिरिक्त सावधानी से समीक्षा करें।',

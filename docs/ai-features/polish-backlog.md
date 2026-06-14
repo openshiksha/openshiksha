@@ -326,6 +326,39 @@ appears, then clears on its own a few seconds later instead of sticking around.
 
 ---
 
+## 2026-06-13 — Open-response grading: low-confidence suggestions flagged
+
+**Surface:** Open-response grading (teacher `OpenResponseGradingPage` →
+`GradeCard`).
+
+**Gap (checklist #1 degradation, #3 copy/tone):**
+The AI's confidence was rendered as flat gray text (`{pct}% confident`) for
+*every* suggestion, so a 42%-confident grade looked identical to a 95%-confident
+one. The "Accept suggestion" button defaults to the AI's score and finalises in
+one click — meaning a teacher could lock in a low-confidence AI grade without any
+signal that the model was unsure and the response deserved a careful read. The
+stub path already warns ("review with extra care"), but a *real* LLM returning
+low confidence had no such nudge.
+
+**Fix:**
+- Confidence now renders as a V2 `Badge`: **amber (`attention`)** when below the
+  `LOW_CONFIDENCE = 0.6` threshold, neutral otherwise — so an uncertain
+  suggestion stands out at a glance instead of blending in as gray text.
+- Below the threshold (and only for a real LLM, not the stub — which already has
+  its own care note, so we don't stack two warnings) a `grading.lowConfidenceNote`
+  line appears: "The AI is unsure about this one — read the response and
+  double-check before accepting." Localised in en + hi.
+- Added two tests: a 0.42-confidence grade shows the amber percentage + the
+  double-check note; a confident (0.85) grade does **not** show the note
+  (checklist #8). All 12 grading-page tests + i18n parity guard pass.
+
+**Verify:** Teacher → Open-response grading queue. An AI suggestion with
+confidence < 60% shows an amber confidence badge and a "double-check before
+accepting" note above the review form; a high-confidence one shows a calm
+neutral badge and no note.
+
+---
+
 ## Remaining gaps (audit notes — updated 2026-06-13)
 
 - ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`

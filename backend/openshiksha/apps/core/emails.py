@@ -15,6 +15,8 @@ import logging
 
 from django.core.mail import send_mail
 
+from openshiksha.apps.core import email_layout as layout
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,18 +94,90 @@ def _s(user, key: str, **kwargs) -> str:
     return format_email_string(_STRINGS, user, key, **kwargs)
 
 
+# HTML content for the branded ``html_message`` (the plain-text ``_STRINGS``
+# above stay as the multipart/alternative fallback). Same en/hi catalog pattern;
+# the shared shell, buttons and panels live in ``email_layout``.
+_HTML = {
+    "en": {
+        "greeting": "Hi {name},",
+        "remedial.eyebrow": "Practice assignment",
+        "remedial.heading": "A new practice assignment",
+        "remedial.intro": (
+            "Your teacher created a practice assignment to help you strengthen "
+            "<b>{chapter_name}</b> before <b>{due_date}</b>."
+        ),
+        "remedial.cta": "Start practising",
+        "remedial.preheader": "A new practice assignment is waiting for you.",
+        "reminder.eyebrow": "Reminder",
+        "reminder.heading": "Assignment due soon",
+        "reminder.intro": (
+            "Just a friendly nudge — <b>‘{assignment_title}’</b> is due "
+            "<b>{due_date}</b>. Log in and wrap it up before the deadline."
+        ),
+        "reminder.cta": "Complete it now",
+        "reminder.preheader": "‘{assignment_title}’ is due {due_date}.",
+        "graded.eyebrow": "Graded",
+        "graded.heading": "Your assignment is graded",
+        "graded.intro": ("Your submission for <b>‘{assignment_title}’</b> has been graded. " "Here's how you did:"),
+        "graded.cta": "Review your results",
+        "graded.preheader": "You scored {score_pct}% on ‘{assignment_title}’.",
+    },
+    "hi": {
+        "greeting": "नमस्ते {name},",
+        "remedial.eyebrow": "अभ्यास असाइनमेंट",
+        "remedial.heading": "एक नया अभ्यास असाइनमेंट",
+        "remedial.intro": (
+            "आपके शिक्षक ने <b>{chapter_name}</b> को मज़बूत करने के लिए एक अभ्यास "
+            "असाइनमेंट बनाया है — अंतिम तिथि <b>{due_date}</b>।"
+        ),
+        "remedial.cta": "अभ्यास शुरू करें",
+        "remedial.preheader": "आपके लिए एक नया अभ्यास असाइनमेंट तैयार है।",
+        "reminder.eyebrow": "रिमाइंडर",
+        "reminder.heading": "असाइनमेंट जल्द देय है",
+        "reminder.intro": (
+            "बस एक दोस्ताना याद — <b>‘{assignment_title}’</b> की अंतिम तिथि " "<b>{due_date}</b> है। समय रहते इसे पूरा करें।"
+        ),
+        "reminder.cta": "अभी पूरा करें",
+        "reminder.preheader": "‘{assignment_title}’ की अंतिम तिथि {due_date} है।",
+        "graded.eyebrow": "जाँच पूरी",
+        "graded.heading": "आपका असाइनमेंट जाँच लिया गया",
+        "graded.intro": ("<b>‘{assignment_title}’</b> के लिए आपका जमा किया गया काम जाँच लिया गया " "है। आपका परिणाम:"),
+        "graded.cta": "अपने परिणाम देखें",
+        "graded.preheader": "आपने ‘{assignment_title}’ पर {score_pct}% प्राप्त किए।",
+    },
+}
+
+
+def _h(user, key: str, **kwargs) -> str:
+    return format_email_string(_HTML, user, key, **kwargs)
+
+
 def notify_remedial_assigned(student, chapter_name: str, due_date_str: str) -> None:
     """Email a student when a remedial practice assignment is created for them."""
     if not student.email:
         return
     name = student.first_name or student.username
     try:
+        body_html = layout.paragraph(_h(student, "greeting", name=name)) + layout.paragraph(
+            _h(student, "remedial.intro", chapter_name=chapter_name, due_date=due_date_str)
+        )
+        html_message = layout.render_branded_email(
+            lang=getattr(student, "preferred_language", "en") or "en",
+            preheader=_h(student, "remedial.preheader"),
+            badge_emoji="📚",
+            accent=layout.BRAND_600,
+            eyebrow=_h(student, "remedial.eyebrow"),
+            heading=_h(student, "remedial.heading"),
+            body_html=body_html,
+            cta_label=_h(student, "remedial.cta"),
+        )
         send_mail(
             subject=_s(student, "remedial.subject"),
             message=_s(student, "remedial.body", name=name, chapter_name=chapter_name, due_date=due_date_str),
             from_email=None,
             recipient_list=[student.email],
             fail_silently=False,
+            html_message=html_message,
         )
         logger.info("notify_remedial_assigned: sent to %s", student.email)
     except Exception:
@@ -116,12 +190,26 @@ def notify_due_date_reminder(student, assignment_title: str, due_date_str: str) 
         return
     name = student.first_name or student.username
     try:
+        body_html = layout.paragraph(_h(student, "greeting", name=name)) + layout.paragraph(
+            _h(student, "reminder.intro", assignment_title=assignment_title, due_date=due_date_str)
+        )
+        html_message = layout.render_branded_email(
+            lang=getattr(student, "preferred_language", "en") or "en",
+            preheader=_h(student, "reminder.preheader", assignment_title=assignment_title, due_date=due_date_str),
+            badge_emoji="⏰",
+            accent=layout.WARN_AMBER,
+            eyebrow=_h(student, "reminder.eyebrow"),
+            heading=_h(student, "reminder.heading"),
+            body_html=body_html,
+            cta_label=_h(student, "reminder.cta"),
+        )
         send_mail(
             subject=_s(student, "reminder.subject", assignment_title=assignment_title, due_date=due_date_str),
             message=_s(student, "reminder.body", name=name, assignment_title=assignment_title, due_date=due_date_str),
             from_email=None,
             recipient_list=[student.email],
             fail_silently=False,
+            html_message=html_message,
         )
         logger.info("notify_due_date_reminder: sent to %s", student.email)
     except Exception:
@@ -134,12 +222,28 @@ def notify_grading_complete(student, assignment_title: str, score_pct: int) -> N
         return
     name = student.first_name or student.username
     try:
+        body_html = (
+            layout.paragraph(_h(student, "greeting", name=name))
+            + layout.paragraph(_h(student, "graded.intro", assignment_title=assignment_title))
+            + layout.score_ring(score_pct)
+        )
+        html_message = layout.render_branded_email(
+            lang=getattr(student, "preferred_language", "en") or "en",
+            preheader=_h(student, "graded.preheader", score_pct=score_pct, assignment_title=assignment_title),
+            badge_emoji="✅",
+            accent=layout.BRAND_600,
+            eyebrow=_h(student, "graded.eyebrow"),
+            heading=_h(student, "graded.heading"),
+            body_html=body_html,
+            cta_label=_h(student, "graded.cta"),
+        )
         send_mail(
             subject=_s(student, "graded.subject", score_pct=score_pct),
             message=_s(student, "graded.body", name=name, assignment_title=assignment_title, score_pct=score_pct),
             from_email=None,
             recipient_list=[student.email],
             fail_silently=False,
+            html_message=html_message,
         )
         logger.info("notify_grading_complete: sent to %s", student.email)
     except Exception:

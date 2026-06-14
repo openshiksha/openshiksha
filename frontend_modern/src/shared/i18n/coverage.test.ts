@@ -43,7 +43,6 @@ describe('pilot locale coverage report', () => {
     for (const meta of pilots) {
       const n = counts[meta.code] ?? 0;
       const pct = ((n / TOTAL_KEYS) * 100).toFixed(1);
-      // eslint-disable-next-line no-console
       console.log(`[i18n coverage] ${meta.code} (${meta.nativeName}): ${n}/${TOTAL_KEYS} keys (${pct}%)`);
       expect(n, `pilot locale ${meta.code} should define at least one key`).toBeGreaterThan(0);
     }

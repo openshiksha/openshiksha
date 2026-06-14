@@ -5,7 +5,7 @@ django-cors-headers==4.9.0
 django-filter==24.3
 
 # Database - Using psycopg (modern version, better Windows support)
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.4
 dj-database-url==3.1.2
 
 # Authentication

@@ -28,7 +28,7 @@ pydantic-settings==2.14.1
 
 # HTTP Client (for Cabinet API)
 httpx==0.28.1
-requests==2.33.0
+requests==2.34.2
 
 # AI / LLM
 anthropic==0.105.2

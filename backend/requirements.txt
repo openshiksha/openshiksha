@@ -40,7 +40,7 @@ Pillow==12.2.0
 
 # Development
 django-debug-toolbar==4.4.6
-django-extensions==3.2.3
+django-extensions==4.1
 ipython==9.14.1
 
 # Testing

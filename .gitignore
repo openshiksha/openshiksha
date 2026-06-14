@@ -42,6 +42,12 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/htmlcov/
+backend/coverage.xml
+backend/.coverage
+# Coverage artifacts (any location)
+coverage.xml
+.coverage
+.coverage.*
 backend/logs/
 backend/staticfiles/
 backend/media/

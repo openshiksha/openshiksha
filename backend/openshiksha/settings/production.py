@@ -42,7 +42,13 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 # Static files - Use WhiteNoise or CDN in production
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Django 5.1+ removed STATICFILES_STORAGE/DEFAULT_FILE_STORAGE in favour of the
+# STORAGES dict; on Django 6 the old setting is silently ignored, so WhiteNoise's
+# compressed+hashed manifest storage MUST be wired through STORAGES instead.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 # Database - Production database should be managed/replicated
 DATABASES["default"]["CONN_MAX_AGE"] = 600  # noqa: F405

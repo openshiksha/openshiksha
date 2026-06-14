@@ -42,7 +42,7 @@ updates:
           - "minor"
           - "patch"
 
-  # Backend Docker base images (Dockerfile + Dockerfile.prod: python:3.11-slim)
+  # Backend Docker base images (Dockerfile + Dockerfile.prod: python:3.12-slim)
   - package-ecosystem: "docker"
     directory: "/backend"
     schedule:
@@ -55,7 +55,7 @@ updates:
     commit-message:
       prefix: "deps"
     # Patch/digest bumps of the base image are routine; group them monthly.
-    # A major (python 3.11 → 3.x) is a runtime upgrade that needs its own
+    # A major (python 3.12 → 3.x) is a runtime upgrade that needs its own
     # review against CI and mypy, so majors stay individual PRs.
     groups:
       backend-docker-minor-patch:

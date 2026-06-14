@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RichContent } from '@/shared/ui/RichContent';
 import { AIBadge, Skeleton, isAIStub } from '@/shared/ui';
-import { useI18n, type Locale } from '@/shared/i18n';
+import { useI18n, toAiLanguage, type Locale } from '@/shared/i18n';
 import { useExplanationList, useGenerateExplanation } from './useExplanation';
 
 interface ExplanationPanelProps {
@@ -54,7 +54,7 @@ export const ExplanationPanel = ({
         subpart_id: subpartId,
         student_answer: studentAnswer,
         is_correct: isCorrect,
-        language: locale,
+        language: toAiLanguage(locale),
       });
     }
   }, [requested, listQuery.isSuccess, explanation, generate, timedOut, subpartId, studentAnswer, isCorrect, locale]);
@@ -73,12 +73,14 @@ export const ExplanationPanel = ({
 
   const handleRegenerate = () => {
     setAttempts(0);
-    setRegenLanguage(locale);
+    // Store the *AI* language (mr → en) so the regen-complete check below
+    // matches the language the backend actually generates in.
+    setRegenLanguage(toAiLanguage(locale));
     generate.mutate({
       subpart_id: subpartId,
       student_answer: studentAnswer,
       is_correct: isCorrect,
-      language: locale,
+      language: toAiLanguage(locale),
     });
   };
 

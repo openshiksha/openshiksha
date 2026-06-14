@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
+import type { AiLanguage } from '@/shared/i18n';
 
 export interface ParentAlert {
   severity: 'info' | 'attention' | 'urgent';
@@ -29,7 +30,7 @@ export interface ParentProgressSummary {
   week_start: string;
   week_end: string;
   summary_text: string;
-  language: 'en' | 'hi';
+  language: AiLanguage;
   ticks_recorded: number;
   active_days: number;
   avg_score: number;
@@ -64,7 +65,7 @@ export const useLatestParentSummary = (childId: number | undefined) =>
 
 interface GenerateParams {
   child_id: number;
-  language?: 'en' | 'hi';
+  language?: AiLanguage;
 }
 
 export const useGenerateParentSummary = () => {

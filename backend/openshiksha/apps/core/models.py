@@ -78,7 +78,10 @@ class User(AbstractUser):
     # contract: device localStorage > this field > "en".
     preferred_language = models.CharField(
         max_length=8,
-        choices=[("en", "English"), ("hi", "Hindi")],
+        # LA-9: "mr" (Marathi) is a pilot UI locale — the frontend renders a
+        # growing subset and falls back to English elsewhere. AI-generated
+        # content for unsupported locales also falls back to English (LA-9d).
+        choices=[("en", "English"), ("hi", "Hindi"), ("mr", "Marathi")],
         default="en",
         help_text="Preferred UI/content language; follows the user across devices.",
     )

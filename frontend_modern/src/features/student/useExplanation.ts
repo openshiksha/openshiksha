@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
+import type { AiLanguage } from '@/shared/i18n';
 
 export interface SubpartExplanation {
   id: number;
@@ -40,8 +41,12 @@ export interface GenerateExplanationPayload {
   subpart_id: number;
   student_answer: string;
   is_correct: boolean;
-  /** Reader's language — the backend prompts the LLM in Devanagari for 'hi'. */
-  language?: 'en' | 'hi';
+  /**
+   * Reader's language — the backend prompts the LLM in Devanagari for 'hi'.
+   * Only AI-supported languages; map a UI locale through `toAiLanguage` first
+   * (a pilot locale like 'mr' falls back to English — LA-9).
+   */
+  language?: AiLanguage;
 }
 
 export const useGenerateExplanation = () =>

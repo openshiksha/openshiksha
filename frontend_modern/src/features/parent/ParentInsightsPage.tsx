@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { Button, Card, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
-import { useI18n } from '@/shared/i18n';
+import { useI18n, toAiLanguage } from '@/shared/i18n';
 import { useChildren } from './useChildren';
 import { useLatestParentSummary, useGenerateParentSummary } from './useParentSummary';
 import { NarrativeCard } from './components/NarrativeCard';
@@ -28,9 +28,10 @@ export const ParentInsightsPage = () => {
   const handleGenerate = () => {
     if (!validChildId) return;
     // The weekly summary generates in the reader's language (LA-4) — the
-    // backend prompts the LLM in Devanagari for 'hi'.
+    // backend prompts the LLM in Devanagari for 'hi'. A pilot locale (mr) has
+    // no authored prompt yet, so AI content falls back to English (LA-9).
     generate.mutate(
-      { child_id: validChildId, language: locale },
+      { child_id: validChildId, language: toAiLanguage(locale) },
       {
         onSuccess: () => {
           setTimeout(() => refetch(), 1500);

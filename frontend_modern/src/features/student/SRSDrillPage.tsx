@@ -24,7 +24,7 @@ export const SRSDrillPage = () => {
   const parsedId = entryId ? parseInt(entryId, 10) : null;
 
   const { data: drill, isLoading, isError } = useSRSDrill(parsedId);
-  const { mutate: markReviewed, isPending } = useMarkReviewed();
+  const { mutate: markReviewed, isPending, isError: isSubmitError } = useMarkReviewed();
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<SRSReviewResult | null>(null);
@@ -284,7 +284,16 @@ export const SRSDrillPage = () => {
                   ? 'Finish Practice'
                   : 'Submit Review'}
             </Button>
-            {answeredCount === 0 && (
+            {isSubmitError && (
+              <p
+                className="text-sm text-center text-rose-600 mt-2"
+                role="alert"
+              >
+                Couldn&apos;t submit your review just now. Your answers are still
+                here — please try again in a moment.
+              </p>
+            )}
+            {answeredCount === 0 && !isSubmitError && (
               <p className="text-xs text-center text-ink-400 mt-2">
                 Answer at least one question to submit
               </p>

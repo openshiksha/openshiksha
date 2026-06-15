@@ -95,4 +95,15 @@ _(append one row per merged PR)_
 
 | PR | Increment | Notes |
 |---|---|---|
-| MSO-1 | MSO-1 | `manifest.webmanifest` + 192/512 any + maskable icons (paper bg, 20% safe-zone) from the orange logo; `index.html` manifest link + `apple-touch-icon` → 192; `scripts/check-manifest.test.mjs` validity + icon-exists guard |
+| #358 | MSO-1 | `manifest.webmanifest` + 192/512 any + maskable icons (paper bg, 20% safe-zone) from the orange logo; `index.html` manifest link + `apple-touch-icon` → 192; `check-manifest.test.mjs` validity + icon-exists guard |
+| #359 | MSO-2 | `useOnlineStatus()` hook + slim warm-amber `OfflineBanner` (`aria-live`) in `AppShell`; localized `connectivity.*` (en/hi/mr) |
+| #360 | MSO-3 | `vite-plugin-pwa` SW: precache shell, `CacheFirst` fonts/KaTeX, `/api` `NetworkOnly`, navigateFallback; prod-only manual registration; localized "new version" `UpdateBanner`; SW emitted as separate files (entry chunk unchanged) |
+| #361 | MSO-4 | `PersistQueryClientProvider` + `idb-keyval` persister; reads-only dehydrate allowlist (student core-loop keys; never auth/PII/mutations); `buster` keyed to a cache version; `gcTime` 24h |
+| #362 | MSO-5 | `useInstallPrompt` (module-level `beforeinstallprompt` capture) + dismissible `InstallBanner` (localized `pwa.install*`); manual offline-test checklist; batch close-out |
+
+**Batch 1 shipped 2026-06-14** — OpenShiksha is now an installable PWA whose
+student core loop survives a flaky/absent connection: precached shell boots
+offline, persisted query cache makes loaded assignments readable offline, an
+honest localized offline banner shows throughout, and supported browsers offer
+an "Add to home screen" affordance. See the manual offline-test checklist in
+`docs/perf/2026-06-14-pwa-offline-manual-test.md`.

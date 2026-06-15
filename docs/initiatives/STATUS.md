@@ -4,9 +4,15 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-14 (latest) — **Mobile Shell & PWA-Offline promoted
-as the new top initiative** ([doc](2026-mobile-shell-pwa-offline.md),
-[plan](../daily-plans/2026-06-14-plan.md)). Language Access closed its North Star
+**Last updated:** 2026-06-14 (latest) — **Mobile Shell & PWA-Offline — Batch 1
+(MSO-1..5) shipped** ([doc](2026-mobile-shell-pwa-offline.md),
+[plan](../daily-plans/2026-06-14-plan.md)): OpenShiksha is now an installable PWA
+(manifest + maskable icons #358, `vite-plugin-pwa` service worker #360) whose
+student core loop survives a flaky/absent connection (persisted React Query cache
+#361 + precached shell), with an honest localized offline banner (#359) and an
+"Add to home screen" affordance (#362). Next in this initiative: offline
+**write**-tolerance (queue + replay submissions on reconnect). The initiative was
+promoted today as the new top bet — Language Access closed its North Star
 with LA-9 yesterday; only LA-10 (authored-content translation) remains and stays
 blocked on product design — so the board's named next bet, **Mobile shell /
 PWA-offline**, is now active. The mobile *chrome* already exists (M5-01 bottom

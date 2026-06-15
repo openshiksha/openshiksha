@@ -1,5 +1,6 @@
 import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
+import { OfflineBanner } from './OfflineBanner';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ export const AppShell = ({ children }: AppShellProps) => (
       Skip to main content
     </a>
     <Navbar />
+    <OfflineBanner />
     <main
       id="main-content"
       tabIndex={-1}

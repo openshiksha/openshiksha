@@ -193,4 +193,9 @@ export const mr = {
   'parent.statusPending': 'प्रलंबित',
   'parent.overdueOn': 'मुदत संपली — {date}',
   'parent.dueOn': 'मुदत {date}',
+
+  // ── Connectivity (PWA offline indicator) — core-loop string ──────────
+  'connectivity.offlineTitle': 'तुम्ही ऑफलाइन आहात',
+  'connectivity.offlineBanner': 'तुम्ही ऑफलाइन आहात — जतन केलेले काम दाखवत आहोत.',
+  'connectivity.backOnline': 'पुन्हा ऑनलाइन.',
 } satisfies Partial<LocaleDict>;

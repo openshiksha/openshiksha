@@ -933,6 +933,11 @@ export const en = {
   'streak.best': 'best: {count}',
   'streak.grace': 'grace ✓',
   'streak.graceTitle': 'Grace day used — streak preserved through one missed day',
+
+  // ── PWA (install to home screen) ─────────────────────────────────────
+  'pwa.installPrompt': 'Add OpenShiksha to your home screen.',
+  'pwa.install': 'Install',
+  'pwa.installDismiss': 'Dismiss install prompt',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

@@ -193,4 +193,9 @@ export const mr = {
   'parent.statusPending': 'प्रलंबित',
   'parent.overdueOn': 'मुदत संपली — {date}',
   'parent.dueOn': 'मुदत {date}',
+
+  // ── PWA (install to home screen) — core-loop string ──────────────────
+  'pwa.installPrompt': 'OpenShiksha तुमच्या होम स्क्रीनवर जोडा.',
+  'pwa.install': 'इंस्टॉल करा',
+  'pwa.installDismiss': 'इंस्टॉल सूचना बंद करा',
 } satisfies Partial<LocaleDict>;

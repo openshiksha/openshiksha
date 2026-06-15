@@ -928,4 +928,9 @@ export const hi: LocaleDict = {
   'streak.best': 'सर्वश्रेष्ठ: {count}',
   'streak.grace': 'ग्रेस ✓',
   'streak.graceTitle': 'ग्रेस दिन इस्तेमाल हुआ — एक दिन छूटने पर भी स्ट्रीक बनी रही',
+
+  // ── PWA (install to home screen) ─────────────────────────────────────
+  'pwa.installPrompt': 'OpenShiksha को अपनी होम स्क्रीन पर जोड़ें।',
+  'pwa.install': 'इंस्टॉल करें',
+  'pwa.installDismiss': 'इंस्टॉल सूचना बंद करें',
 };

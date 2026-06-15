@@ -1,5 +1,6 @@
 import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
+import { InstallBanner } from '@/features/pwa/InstallBanner';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -16,6 +17,7 @@ export const AppShell = ({ children }: AppShellProps) => (
       Skip to main content
     </a>
     <Navbar />
+    <InstallBanner />
     <main
       id="main-content"
       tabIndex={-1}

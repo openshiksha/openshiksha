@@ -943,6 +943,9 @@ export const en = {
   'pwa.installPrompt': 'Add OpenShiksha to your home screen.',
   'pwa.install': 'Install',
   'pwa.installDismiss': 'Dismiss install prompt',
+  // ── PWA (service worker update prompt) ───────────────────────────────
+  'pwa.updateAvailable': 'A new version is available.',
+  'pwa.refresh': 'Refresh',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

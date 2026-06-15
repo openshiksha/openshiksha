@@ -203,4 +203,7 @@ export const mr = {
   'pwa.installPrompt': 'OpenShiksha तुमच्या होम स्क्रीनवर जोडा.',
   'pwa.install': 'इंस्टॉल करा',
   'pwa.installDismiss': 'इंस्टॉल सूचना बंद करा',
+  // ── PWA (service worker update prompt) — core-loop string ────────────
+  'pwa.updateAvailable': 'नवीन आवृत्ती उपलब्ध आहे.',
+  'pwa.refresh': 'रिफ्रेश करा',
 } satisfies Partial<LocaleDict>;

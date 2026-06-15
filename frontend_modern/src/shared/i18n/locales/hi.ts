@@ -938,4 +938,7 @@ export const hi: LocaleDict = {
   'pwa.installPrompt': 'OpenShiksha को अपनी होम स्क्रीन पर जोड़ें।',
   'pwa.install': 'इंस्टॉल करें',
   'pwa.installDismiss': 'इंस्टॉल सूचना बंद करें',
+  // ── PWA (service worker update prompt) ───────────────────────────────
+  'pwa.updateAvailable': 'नया वर्शन उपलब्ध है।',
+  'pwa.refresh': 'रिफ़्रेश करें',
 };

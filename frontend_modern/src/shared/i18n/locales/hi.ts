@@ -933,4 +933,8 @@ export const hi: LocaleDict = {
   'connectivity.offlineTitle': 'आप ऑफ़लाइन हैं',
   'connectivity.offlineBanner': 'आप ऑफ़लाइन हैं — सहेजा हुआ काम दिखाया जा रहा है।',
   'connectivity.backOnline': 'फिर से ऑनलाइन।',
+
+  // ── PWA (service worker update prompt) ───────────────────────────────
+  'pwa.updateAvailable': 'नया वर्शन उपलब्ध है।',
+  'pwa.refresh': 'रिफ़्रेश करें',
 };

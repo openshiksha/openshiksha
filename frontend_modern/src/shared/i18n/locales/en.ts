@@ -938,6 +938,10 @@ export const en = {
   'connectivity.offlineTitle': "You're offline",
   'connectivity.offlineBanner': "You're offline — showing saved work.",
   'connectivity.backOnline': 'Back online.',
+
+  // ── PWA (service worker update prompt) ───────────────────────────────
+  'pwa.updateAvailable': 'A new version is available.',
+  'pwa.refresh': 'Refresh',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

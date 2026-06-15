@@ -198,4 +198,8 @@ export const mr = {
   'connectivity.offlineTitle': 'तुम्ही ऑफलाइन आहात',
   'connectivity.offlineBanner': 'तुम्ही ऑफलाइन आहात — जतन केलेले काम दाखवत आहोत.',
   'connectivity.backOnline': 'पुन्हा ऑनलाइन.',
+
+  // ── PWA (service worker update prompt) — core-loop string ────────────
+  'pwa.updateAvailable': 'नवीन आवृत्ती उपलब्ध आहे.',
+  'pwa.refresh': 'रिफ्रेश करा',
 } satisfies Partial<LocaleDict>;

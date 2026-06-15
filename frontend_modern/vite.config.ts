@@ -1,5 +1,6 @@
 import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 // `rollup-plugin-visualizer` is only used in `--mode analyze`. We dynamic-
@@ -37,6 +38,9 @@ export default defineConfig(async ({ mode }) => ({
     exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // The PWA service-worker hook is a build-time virtual module; stub it so
+      // importing PwaUpdater/App under Vitest resolves cleanly (MSO-3).
+      'virtual:pwa-register/react': path.resolve(__dirname, './src/test-stubs/pwa-register-react.ts'),
     },
     coverage: {
       provider: 'v8',
@@ -71,6 +75,53 @@ export default defineConfig(async ({ mode }) => ({
   },
   plugins: [
     react(),
+    // MSO-3: service worker for offline app-shell tolerance. We ship a
+    // hand-written manifest.webmanifest (MSO-1), so `manifest: false` — never
+    // let the plugin emit a second one. Registration is manual + prod-only in
+    // main.tsx (`injectRegister: null`) so dev/tests never register a SW.
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: null,
+      manifest: false,
+      // Dev: keep the SW disabled so HMR/caching stays predictable.
+      devOptions: { enabled: false },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // Deep links boot offline from the precached shell. /api must never be
+        // served the shell (principle 2) — the persisted React Query cache
+        // (MSO-4), not Workbox, owns API read-tolerance.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            // Google Fonts binaries (Inter / Fraunces / Noto Devanagari) so
+            // text + Devanagari render offline.
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // KaTeX CDN (CSS + fonts) so math renders offline.
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/katex.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'katex-cdn',
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Explicit: never cache API responses in the service worker.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api'),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
+    }),
     ...(mode === 'analyze' ? [await loadVisualizer()].filter(Boolean) : []),
   ],
   resolve: {

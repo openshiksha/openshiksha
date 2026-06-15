@@ -933,6 +933,11 @@ export const en = {
   'streak.best': 'best: {count}',
   'streak.grace': 'grace ✓',
   'streak.graceTitle': 'Grace day used — streak preserved through one missed day',
+
+  // ── Connectivity (PWA offline indicator) ─────────────────────────────
+  'connectivity.offlineTitle': "You're offline",
+  'connectivity.offlineBanner': "You're offline — showing saved work.",
+  'connectivity.backOnline': 'Back online.',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

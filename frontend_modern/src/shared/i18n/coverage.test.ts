@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { en } from './locales/en';
-import { LOCALES, localeLoaders, type Locale } from './locales/registry';
+import { LOCALES, localeLoaders, type Locale, type LocaleMeta } from './locales/registry';
 
 /**
  * LA-9e — pilot-coverage report.
@@ -19,17 +19,20 @@ import { LOCALES, localeLoaders, type Locale } from './locales/registry';
 const TOTAL_KEYS = Object.keys(en).length;
 
 // Floors per pilot locale: the minimum key count that must stay covered. Raise
-// as a locale graduates surfaces; never let it drop. Marathi shipped the
-// anonymous journey (~45) in LA-9b and grew through 9c/9d.
-const PILOT_FLOORS: Partial<Record<Locale, number>> = {
-  mr: 45,
-};
+// as a locale graduates surfaces; never let it drop. There are currently no
+// pilot locales (Marathi was removed); add an entry here when one ships.
+const PILOT_FLOORS: Partial<Record<Locale, number>> = {};
 
 const counts: Partial<Record<Locale, number>> = {};
 
+// Typed against the broad `LocaleMeta` union so the `'pilot'` comparison stays
+// valid even when every currently-registered locale is `complete` (TS would
+// otherwise narrow `coverage` to `'complete'` and flag the check as impossible).
+const isPilot = (meta: LocaleMeta): boolean => meta.coverage === 'pilot';
+
 beforeAll(async () => {
   for (const meta of LOCALES) {
-    if (meta.coverage !== 'pilot') continue;
+    if (!isPilot(meta)) continue;
     const load = localeLoaders[meta.code];
     const module = (await load!()) as Record<string, Record<string, string> | undefined>;
     const dict = module[meta.code] ?? (module.default as Record<string, string> | undefined);
@@ -39,7 +42,7 @@ beforeAll(async () => {
 
 describe('pilot locale coverage report', () => {
   it('reports coverage for each pilot locale', () => {
-    const pilots = LOCALES.filter((l) => l.coverage === 'pilot');
+    const pilots = LOCALES.filter(isPilot);
     for (const meta of pilots) {
       const n = counts[meta.code] ?? 0;
       const pct = ((n / TOTAL_KEYS) * 100).toFixed(1);

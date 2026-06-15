@@ -4,7 +4,23 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
-**Last updated:** 2026-06-13 (latest) — **LA-9 shipped — the third language
+**Last updated:** 2026-06-14 (latest) — **Mobile Shell & PWA-Offline promoted
+as the new top initiative** ([doc](2026-mobile-shell-pwa-offline.md),
+[plan](../daily-plans/2026-06-14-plan.md)). Language Access closed its North Star
+with LA-9 yesterday; only LA-10 (authored-content translation) remains and stays
+blocked on product design — so the board's named next bet, **Mobile shell /
+PWA-offline**, is now active. The mobile *chrome* already exists (M5-01 bottom
+tabs + the V2 safe-area/touch-target pass); what's missing is **installability**
+and **offline read-tolerance** — verified greenfield 2026-06-14 (no manifest, no
+service worker, no `navigator.onLine` handling, React Query in-memory only).
+First batch **MSO-1..5**: web app manifest + maskable icons (MSO-1), network-
+status hook + offline banner (MSO-2), `vite-plugin-pwa` service worker (MSO-3),
+React Query → IndexedDB persistence so loaded assignments read offline (MSO-4),
+and a `beforeinstallprompt` install affordance + close-out (MSO-5). The whole
+batch rides the existing perf-budget discipline (SW + persister live outside the
+~41 kB-gzip entry chunk) and localizes through the LA i18n framework for free.
+
+Earlier (2026-06-13) — **LA-9 shipped — the third language
 (Marathi) pilot proves the framework; only LA-10 (blocked on product design)
 remains.** LA-9a generalized the binary `en|hi` machine into a single
 `locales/registry.ts` + a complete-vs-pilot parity contract
@@ -133,7 +149,8 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Language Access — i18n en/हिंदी/मराठी](2026-language-access.md) | **Active (LA-10 only, blocked)** | **LA-1..9 shipped.** Foundation + EN\|हिं switcher, `preferred_language` end-to-end, student/parent/public/teacher surfaces, AI content + emails in the reader's language, `Intl` date/number helper ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#326](https://github.com/openshiksha/openshiksha/pull/326)). **LA-9 closed 2026-06-13** — N-locale registry + pilot-coverage parity ([#349](https://github.com/openshiksha/openshiksha/pull/349)) then **Marathi (मरा)** as pure content across the anonymous journey, student loop, and parent dashboard + a backend mr→en AI fallback guard ([#350](https://github.com/openshiksha/openshiksha/pull/350)–[#353](https://github.com/openshiksha/openshiksha/pull/353)). The framework now makes a new language config + content, no code change. | **LA-10** (authored-content/question translation) — blocked on product design, do not start without promotion. Then **Mobile shell / PWA-offline** |
+| 1 | [Mobile Shell & PWA-Offline](2026-mobile-shell-pwa-offline.md) | **Active (promoted 2026-06-14)** | Newly promoted. Mobile chrome already shipped (M5-01 role-aware bottom tabs + V2 safe-area/touch-target pass); PWA layer is greenfield (no manifest/SW/offline handling, React Query in-memory only). North Star: installable to a home screen + the student core loop survives a flaky/absent connection. First batch **MSO-1..5** planned in [2026-06-14-plan.md](../daily-plans/2026-06-14-plan.md). | **MSO-1** — web app manifest + maskable icons + installability (build first); then MSO-2 offline banner, MSO-3 service worker, MSO-4 IndexedDB query persistence, MSO-5 install prompt + close-out |
+| 2 | [Language Access — i18n en/हिंदी/मराठी](2026-language-access.md) | **Done-but-for-LA-10 (blocked)** | **LA-1..9 shipped.** Foundation + EN\|हिं switcher, `preferred_language` end-to-end, student/parent/public/teacher surfaces, AI content + emails in the reader's language, `Intl` date/number helper ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#326](https://github.com/openshiksha/openshiksha/pull/326)). **LA-9 closed 2026-06-13** — N-locale registry + pilot-coverage parity ([#349](https://github.com/openshiksha/openshiksha/pull/349)) then **Marathi (मरा)** as pure content across the anonymous journey, student loop, and parent dashboard + a backend mr→en AI fallback guard ([#350](https://github.com/openshiksha/openshiksha/pull/350)–[#353](https://github.com/openshiksha/openshiksha/pull/353)). The framework now makes a new language config + content, no code change. | **LA-10** (authored-content/question translation) — blocked on product design, do not start without promotion. Then **Mobile shell / PWA-offline** |
 | - | [AI Surface Activation](ai-surface-activation.md) | Done | **Closed 2026-06-11 — North Star reached.** ASA-1..9 shipped across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289), [#293](https://github.com/openshiksha/openshiksha/pull/293)–[#302](https://github.com/openshiksha/openshiksha/pull/302): all four dark `/ai/` endpoint groups lit (explanations, misconception clusters, assignment drafts, open-response grading), error-as-empty-state sweep complete, shared `AIBadge` provenance, server-side SRS guard. Close ([#303](https://github.com/openshiksha/openshiksha/pull/303)): [endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit — 17 endpoints directly consumed, 4 indirect by design, 1 API-only (`/ai/predictions/`). | `useAsyncGeneration` refactor carried to maintenance; `/ai/predictions/` surface is a future product call |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |
 | - | [Teacher Workspace](teacher-workspace.md) | Done | Closed 2026-06-09 with **TW-2** (editable preview) shipped in [#276](https://github.com/openshiksha/openshiksha/pull/276). Earlier increments: TW-1, TW-3a/b, TW-4, TW-5, TW-6, TW-7 closed 2026-06-07 across [#250](https://github.com/openshiksha/openshiksha/pull/250), [#261](https://github.com/openshiksha/openshiksha/pull/261)–[#266](https://github.com/openshiksha/openshiksha/pull/266). | - |

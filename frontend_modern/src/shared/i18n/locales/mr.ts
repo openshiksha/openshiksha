@@ -193,4 +193,8 @@ export const mr = {
   'parent.statusPending': 'प्रलंबित',
   'parent.overdueOn': 'मुदत संपली — {date}',
   'parent.dueOn': 'मुदत {date}',
+
+  // ── PWA (service worker update prompt) — core-loop string ────────────
+  'pwa.updateAvailable': 'नवीन आवृत्ती उपलब्ध आहे.',
+  'pwa.refresh': 'रिफ्रेश करा',
 } satisfies Partial<LocaleDict>;

@@ -15,6 +15,7 @@ import { UserRole } from './types/index';
 import { LoadingSpinner } from './shared/components/LoadingSpinner';
 import { ErrorBoundary } from './shared/ui';
 import { I18nProvider, type Locale } from './shared/i18n';
+import { PwaUpdater } from './features/pwa/PwaUpdater';
 
 // Route-level code-splitting. Every page below is loaded on demand so a cold
 // open of /login (the K-12 student's first impression on a budget Android phone)
@@ -98,6 +99,7 @@ function App() {
 
   return (
     <I18nProvider profileLocale={preferredLanguage} onLocaleChange={handleLocaleChange}>
+    <PwaUpdater />
     <Router>
       <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>

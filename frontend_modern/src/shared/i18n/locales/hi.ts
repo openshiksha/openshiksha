@@ -928,4 +928,8 @@ export const hi: LocaleDict = {
   'streak.best': 'सर्वश्रेष्ठ: {count}',
   'streak.grace': 'ग्रेस ✓',
   'streak.graceTitle': 'ग्रेस दिन इस्तेमाल हुआ — एक दिन छूटने पर भी स्ट्रीक बनी रही',
+
+  // ── PWA (service worker update prompt) ───────────────────────────────
+  'pwa.updateAvailable': 'नया वर्शन उपलब्ध है।',
+  'pwa.refresh': 'रिफ़्रेश करें',
 };

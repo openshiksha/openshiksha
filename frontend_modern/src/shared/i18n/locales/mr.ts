@@ -199,6 +199,10 @@ export const mr = {
   'connectivity.offlineBanner': 'तुम्ही ऑफलाइन आहात — जतन केलेले काम दाखवत आहोत.',
   'connectivity.backOnline': 'पुन्हा ऑनलाइन.',
 
+  // ── PWA (install to home screen) — core-loop string ──────────────────
+  'pwa.installPrompt': 'OpenShiksha तुमच्या होम स्क्रीनवर जोडा.',
+  'pwa.install': 'इंस्टॉल करा',
+  'pwa.installDismiss': 'इंस्टॉल सूचना बंद करा',
   // ── PWA (service worker update prompt) — core-loop string ────────────
   'pwa.updateAvailable': 'नवीन आवृत्ती उपलब्ध आहे.',
   'pwa.refresh': 'रिफ्रेश करा',

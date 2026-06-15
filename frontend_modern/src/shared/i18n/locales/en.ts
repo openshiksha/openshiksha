@@ -939,6 +939,10 @@ export const en = {
   'connectivity.offlineBanner': "You're offline — showing saved work.",
   'connectivity.backOnline': 'Back online.',
 
+  // ── PWA (install to home screen) ─────────────────────────────────────
+  'pwa.installPrompt': 'Add OpenShiksha to your home screen.',
+  'pwa.install': 'Install',
+  'pwa.installDismiss': 'Dismiss install prompt',
   // ── PWA (service worker update prompt) ───────────────────────────────
   'pwa.updateAvailable': 'A new version is available.',
   'pwa.refresh': 'Refresh',

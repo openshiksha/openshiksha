@@ -95,4 +95,4 @@ _(append one row per merged PR)_
 
 | PR | Increment | Notes |
 |---|---|---|
-| _pending_ | MSO-1 | manifest + icons + installability |
+| MSO-1 | MSO-1 | `manifest.webmanifest` + 192/512 any + maskable icons (paper bg, 20% safe-zone) from the orange logo; `index.html` manifest link + `apple-touch-icon` → 192; `scripts/check-manifest.test.mjs` validity + icon-exists guard |

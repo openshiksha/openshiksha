@@ -359,7 +359,38 @@ neutral badge and no note.
 
 ---
 
-## Remaining gaps (audit notes — updated 2026-06-13)
+## 2026-06-14 — SRS drill: submit-failure error state
+
+**Surface:** SRS drill mode (student `SRSDrillPage`).
+
+**Gap (checklist #1 — error states silently swallowed):**
+`handleSubmit` called `markReviewed(...)` with only an `onSuccess` callback and
+the page never read the mutation's `isError`. When the `mark-reviewed/` POST
+failed (flaky connection, server error, Celery grading hiccup), the student saw
+the button flip from "Submitting…" back to "Submit Review" with **zero
+feedback** — their answers appeared to vanish into nothing and they had no idea
+the click had failed or that retrying was safe. This was the one remaining
+swallowed-error path on a student-facing AI surface.
+
+**Fix:**
+- `SRSDrillPage` now reads `isError: isSubmitError` from `useMarkReviewed` and
+  renders a friendly inline `role="alert"` line below the submit button:
+  "Couldn't submit your review just now. Your answers are still here — please
+  try again in a moment." Answers live in component state and are untouched on
+  failure, so the message is truthful: tapping Submit again just retries.
+- The "Answer at least one question" hint is suppressed while the error shows so
+  the two lines never stack.
+- Extended `SRSDrillPage.test.tsx` with a failed-submit path (error shows, no
+  result screen, still on the drill) and a retry-after-failure path (second
+  submit succeeds → graded result; POST called twice) — checklist #8.
+
+**Verify:** Start a spaced-review drill, answer a subpart, and submit with the
+backend unreachable → rose error line appears, you stay on the drill with your
+answers intact; submit again once the backend is up → graded result screen.
+
+---
+
+## Remaining gaps (audit notes — updated 2026-06-14)
 
 - ✅ **Error-as-empty-state sweep complete** — `MisconceptionClustersPanel`
   (#291), `InterventionsPanel` and `WeeklyReportPanel` (both 2026-06-10), and

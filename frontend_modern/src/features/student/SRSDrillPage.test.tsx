@@ -152,6 +152,49 @@ describe('SRSDrillPage repeat-review guard', () => {
   });
 });
 
+describe('SRSDrillPage submit failure', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGet.mockResolvedValue({ data: DRILL });
+  });
+
+  it('surfaces a friendly error and keeps the student on the drill when mark-reviewed fails', async () => {
+    mockPost.mockRejectedValue(new Error('network down'));
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Polynomials')).toBeDefined());
+    await user.click(screen.getByText('Answer subpart'));
+    await user.click(screen.getByRole('button', { name: 'Submit Review' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't submit your review just now/)).toBeDefined()
+    );
+    // Still on the drill, not on a result screen — answers are preserved.
+    expect(screen.queryByText('Great review!')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Submit Review' })).toBeDefined();
+  });
+
+  it('lets the student retry successfully after a failed submit', async () => {
+    mockPost
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ data: REVIEW_RESULT });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Polynomials')).toBeDefined());
+    await user.click(screen.getByText('Answer subpart'));
+    await user.click(screen.getByRole('button', { name: 'Submit Review' }));
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't submit your review just now/)).toBeDefined()
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Submit Review' }));
+    await waitFor(() => expect(screen.getByText('Great review!')).toBeDefined());
+    expect(mockPost).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('SRSDrillPage result-screen explanations (ASA-8)', () => {
   beforeEach(() => {
     vi.clearAllMocks();

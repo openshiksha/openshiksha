@@ -194,6 +194,11 @@ export const mr = {
   'parent.overdueOn': 'मुदत संपली — {date}',
   'parent.dueOn': 'मुदत {date}',
 
+  // ── Connectivity (PWA offline indicator) — core-loop string ──────────
+  'connectivity.offlineTitle': 'तुम्ही ऑफलाइन आहात',
+  'connectivity.offlineBanner': 'तुम्ही ऑफलाइन आहात — जतन केलेले काम दाखवत आहोत.',
+  'connectivity.backOnline': 'पुन्हा ऑनलाइन.',
+
   // ── PWA (service worker update prompt) — core-loop string ────────────
   'pwa.updateAvailable': 'नवीन आवृत्ती उपलब्ध आहे.',
   'pwa.refresh': 'रिफ्रेश करा',

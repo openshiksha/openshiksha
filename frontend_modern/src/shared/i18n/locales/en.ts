@@ -934,6 +934,11 @@ export const en = {
   'streak.grace': 'grace ✓',
   'streak.graceTitle': 'Grace day used — streak preserved through one missed day',
 
+  // ── Connectivity (PWA offline indicator) ─────────────────────────────
+  'connectivity.offlineTitle': "You're offline",
+  'connectivity.offlineBanner': "You're offline — showing saved work.",
+  'connectivity.backOnline': 'Back online.',
+
   // ── PWA (service worker update prompt) ───────────────────────────────
   'pwa.updateAvailable': 'A new version is available.',
   'pwa.refresh': 'Refresh',

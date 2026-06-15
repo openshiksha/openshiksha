@@ -4,6 +4,13 @@
 > task advances the **top active initiative** here. See [`README.md`](README.md)
 > for how. Keep this file short - one row per initiative.
 
+> **🔒 Routine ownership fence.** [AI-Native Interactive Learning](ai-native-interactive-learning.md)
+> is built **exclusively** by the `openshiksha-ai-features` routine. The
+> `openshiksha-plan`, `openshiksha-execute`, and `openshiksha-dependabot`
+> routines **MUST NOT** plan, select, or build any of its increments — even if
+> it is the only thing with open work. It is intentionally **omitted from the
+> priority table below** so it is never picked as the "top active initiative."
+
 **Last updated:** 2026-06-14 (latest) — **Mobile Shell & PWA-Offline — Batch 1
 (MSO-1..5) shipped** ([doc](2026-mobile-shell-pwa-offline.md),
 [plan](../daily-plans/2026-06-14-plan.md)): OpenShiksha is now an installable PWA

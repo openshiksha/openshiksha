@@ -1,5 +1,6 @@
 import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
+import { OfflineBanner } from './OfflineBanner';
 import { InstallBanner } from '@/features/pwa/InstallBanner';
 
 interface AppShellProps {
@@ -17,6 +18,7 @@ export const AppShell = ({ children }: AppShellProps) => (
       Skip to main content
     </a>
     <Navbar />
+    <OfflineBanner />
     <InstallBanner />
     <main
       id="main-content"

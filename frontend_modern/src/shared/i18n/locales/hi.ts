@@ -929,6 +929,11 @@ export const hi: LocaleDict = {
   'streak.grace': 'ग्रेस ✓',
   'streak.graceTitle': 'ग्रेस दिन इस्तेमाल हुआ — एक दिन छूटने पर भी स्ट्रीक बनी रही',
 
+  // ── Connectivity (PWA offline indicator) ─────────────────────────────
+  'connectivity.offlineTitle': 'आप ऑफ़लाइन हैं',
+  'connectivity.offlineBanner': 'आप ऑफ़लाइन हैं — सहेजा हुआ काम दिखाया जा रहा है।',
+  'connectivity.backOnline': 'फिर से ऑनलाइन।',
+
   // ── PWA (install to home screen) ─────────────────────────────────────
   'pwa.installPrompt': 'OpenShiksha को अपनी होम स्क्रीन पर जोड़ें।',
   'pwa.install': 'इंस्टॉल करें',

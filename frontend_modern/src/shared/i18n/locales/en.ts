@@ -934,6 +934,11 @@ export const en = {
   'streak.grace': 'grace ✓',
   'streak.graceTitle': 'Grace day used — streak preserved through one missed day',
 
+  // ── Connectivity (PWA offline indicator) ─────────────────────────────
+  'connectivity.offlineTitle': "You're offline",
+  'connectivity.offlineBanner': "You're offline — showing saved work.",
+  'connectivity.backOnline': 'Back online.',
+
   // ── PWA (install to home screen) ─────────────────────────────────────
   'pwa.installPrompt': 'Add OpenShiksha to your home screen.',
   'pwa.install': 'Install',

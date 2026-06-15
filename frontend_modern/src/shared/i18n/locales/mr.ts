@@ -194,6 +194,11 @@ export const mr = {
   'parent.overdueOn': 'मुदत संपली — {date}',
   'parent.dueOn': 'मुदत {date}',
 
+  // ── Connectivity (PWA offline indicator) — core-loop string ──────────
+  'connectivity.offlineTitle': 'तुम्ही ऑफलाइन आहात',
+  'connectivity.offlineBanner': 'तुम्ही ऑफलाइन आहात — जतन केलेले काम दाखवत आहोत.',
+  'connectivity.backOnline': 'पुन्हा ऑनलाइन.',
+
   // ── PWA (install to home screen) — core-loop string ──────────────────
   'pwa.installPrompt': 'OpenShiksha तुमच्या होम स्क्रीनवर जोडा.',
   'pwa.install': 'इंस्टॉल करा',

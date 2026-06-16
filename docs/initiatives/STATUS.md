@@ -12,18 +12,22 @@
 > priority table below** so it is never picked as the "top active initiative."
 
 **Last updated:** 2026-06-15 (latest) — **Mobile Shell & PWA-Offline — Batch 2
-(MSO-6..10) planned: offline *write*-tolerance**
+(MSO-6..10) SHIPPED: offline *write*-tolerance**
 ([plan](../daily-plans/2026-06-15-plan.md)). Batch 1 made the student core loop
-survive offline for *reads*; Batch 2 queues and replays assignment auto-saves and
-submissions made offline — exactly once, no double-grade. Five PRs, lowest-risk
-first: **MSO-6** replay-safe/idempotent submission writes server-side (closes a
-latent re-grade hazard in the grading `post_save` signal — fires whenever
-`submitted_at` is non-null on a no-`update_fields` save) → **MSO-7** durable offline
-mutation queue (flip Batch 1's `shouldDehydrateMutation` on for an allowlist + keyed
-`setMutationDefaults` + `networkMode: 'offlineFirst'` + `resumePausedMutations` on
-reconnect — no new dep) → **MSO-8** "Saved offline · will sync" status UX → **MSO-9**
-offline final-submit (optimistic + score reconcile on replay) → **MSO-10** close-out.
-No new runtime dependency; rides Batch 1's persister + `useOnlineStatus` + LA i18n.
+survive offline for *reads*; Batch 2 now queues and replays assignment auto-saves
+and submissions made offline — **exactly once, no double-grade**. Five PRs,
+lowest-risk first: **MSO-6** ([#367](https://github.com/openshiksha/openshiksha/pull/367))
+replay-safe/idempotent submission writes server-side (closed a latent re-grade
+hazard in the grading `post_save` signal) → **MSO-7**
+([#368](https://github.com/openshiksha/openshiksha/pull/368)) durable offline
+mutation queue (paused-mutation persist allowlist + keyed `setMutationDefaults` +
+`networkMode: 'offlineFirst'` + `resumePausedMutations` on reconnect — no new dep)
+→ **MSO-8** ([#369](https://github.com/openshiksha/openshiksha/pull/369)) "Saved
+offline · will sync" status UX → **MSO-9**
+([#370](https://github.com/openshiksha/openshiksha/pull/370)) offline final-submit
+(optimistic + score reconcile on replay) → **MSO-10** close-out. No new runtime
+dependency; rode Batch 1's persister + `useOnlineStatus` + LA i18n. **Next phases:**
+route-level mobile layouts (dense teacher tables); web push for due-date reminders.
 
 **Earlier (2026-06-14)** — **Mobile Shell & PWA-Offline — Batch 1
 (MSO-1..5) shipped** ([doc](2026-mobile-shell-pwa-offline.md),

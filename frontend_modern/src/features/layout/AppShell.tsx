@@ -2,6 +2,7 @@ import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
 import { OfflineBanner } from './OfflineBanner';
 import { InstallBanner } from '@/features/pwa/InstallBanner';
+import { PendingSyncBadge } from '@/features/student/SyncStatus';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ export const AppShell = ({ children }: AppShellProps) => (
     </a>
     <Navbar />
     <OfflineBanner />
+    <PendingSyncBadge />
     <InstallBanner />
     <main
       id="main-content"

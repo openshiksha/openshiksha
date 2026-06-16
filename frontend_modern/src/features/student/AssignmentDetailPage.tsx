@@ -4,6 +4,7 @@ import { useAssignmentDetail } from './useAssignmentDetail';
 import { useSubmission, useCreateSubmission, usePatchSubmission } from './useSubmission';
 import { QuestionCard } from './QuestionCard';
 import { VideosPanel } from './VideosPanel';
+import { SyncStatus } from './SyncStatus';
 import { Button, EmptyState, LoadingSpinner } from '@/shared/ui';
 import { useT } from '@/shared/i18n';
 import type { Question } from '@/types/index';
@@ -172,6 +173,9 @@ export const AssignmentDetailPage = () => {
           {assignment.problem_set.title}
         </h1>
         <p className="text-sm text-ink-500">{assignment.problem_set.chapter.name}</p>
+        <div className="mt-2">
+          <SyncStatus />
+        </div>
       </div>
 
       {!isSubmitted && total > 0 && (

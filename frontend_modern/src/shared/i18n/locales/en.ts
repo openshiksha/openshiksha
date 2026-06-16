@@ -939,6 +939,14 @@ export const en = {
   'connectivity.offlineBanner': "You're offline — showing saved work.",
   'connectivity.backOnline': 'Back online.',
 
+  // ── Sync (offline write queue status — MSO-8) ────────────────────────
+  'sync.savedOffline': "Saved on this device · will sync when you're back online",
+  'sync.syncing': 'Syncing…',
+  'sync.synced': 'Saved',
+  'sync.syncFailed': "Couldn't sync — will retry",
+  'sync.pendingOne': '{count} change waiting to sync',
+  'sync.pendingMany': '{count} changes waiting to sync',
+
   // ── PWA (install to home screen) ─────────────────────────────────────
   'pwa.installPrompt': 'Add OpenShiksha to your home screen.',
   'pwa.install': 'Install',

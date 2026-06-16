@@ -293,6 +293,38 @@ jobs:
                 path: frontend_modern/axe-report
                 retention-days: 14
 
+    lighthouse:
+        name: Lighthouse (runtime perf budget)
+        timeout-minutes: 20
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: frontend_modern/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Build
+              run: npm run build
+            - name: Run Lighthouse CI
+              # PERF-07 — runtime-perf budget. Complements the static bundle-size
+              # budget (PERF-06, check:budget) with real throttled-mobile metrics
+              # (LCP / TBT / CLS) that bundle bytes can't capture. Audits the
+              # public, backend-free /design showcase via `vite preview`, the same
+              # build users get. Assertions in lighthouserc.json are `warn`-level
+              # by design (Lighthouse scores vary run-to-run); the job only fails
+              # if collection itself breaks — i.e. a build that won't boot or a
+              # crashing /design route. See docs/perf/lighthouse.md for the
+              # tighten-to-error protocol.
+              run: npm run lighthouse
+
     # ─── Build & publish the MODERN stack ────────────────────────────────────
     # Two images go to ghcr.io: backend (Django 4.2 + daphne) and frontend
     # (multi-stage build → nginx). The legacy root Dockerfile is intentionally

@@ -18,6 +18,7 @@
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
+    "lighthouse": "npx --yes @lhci/cli@0.14.0 autorun",
     "widget:new": "node scripts/create-widget.mjs",
     "widget:dev": "node scripts/widget-dev.mjs"
   },

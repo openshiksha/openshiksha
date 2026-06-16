@@ -79,11 +79,28 @@ not the exception, and an installable PWA removes the app-store barrier entirely
 - **MSO-5 — A2HS install prompt + batch close-out.** `beforeinstallprompt` capture
   + dismissible install affordance; ledger + manual offline-test doc. **New/docs.**
 
+### Batch 2 (planned 2026-06-15 — `docs/daily-plans/2026-06-15-plan.md`) — offline write-tolerance
+
+- **MSO-6 — Replay-safe / idempotent submission writes (backend).** Make the
+  submission write path safe to replay: a re-submit of an already-submitted
+  submission is a no-op returning the existing score; a stale post-submit auto-save
+  is dropped; grading only fires on the ungraded→graded transition (`score is None`
+  gate) — closes a latent re-grade hazard in the `post_save` signal. **Improve.**
+- **MSO-7 — Offline mutation queue foundation.** Keyed `setMutationDefaults` +
+  `networkMode: 'offlineFirst'`, persist **paused** submission mutations to the
+  Batch 1 IndexedDB persister (flip `shouldDehydrateMutation` to an allowlist), and
+  `resumePausedMutations()` on reconnect. No new dependency. **New.**
+- **MSO-8 — "Saved offline · will sync" status UX.** Localized, `aria-live`
+  indicator driven by `useMutationState` + `useOnlineStatus`; global pending-sync
+  count. **New.**
+- **MSO-9 — Offline final-submit.** Optimistic "submitted — will be graded when back
+  online" state; the queued submit replays onto the MSO-6-hardened endpoint and the
+  real score reconciles on success. **New.**
+- **MSO-10 — Batch 2 close-out.** Manual offline-write test doc + ledger + STATUS.
+  **Docs.**
+
 ### Later phases (not yet scoped)
 
-- **Offline write-tolerance:** queue assignment auto-saves / submissions made
-  offline and replay on reconnect (background sync). Higher risk — needs a
-  conflict/idempotency story against the grader. Separate batch.
 - **Route-level mobile layouts:** per-route mobile-first layouts beyond the shared
   shell, where dense teacher tables still overflow on phones.
 - **Push notifications:** due-date reminders as web push (the email reminder

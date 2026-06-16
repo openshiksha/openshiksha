@@ -10,6 +10,10 @@ import {
   CACHE_BUSTER,
   PERSIST_MAX_AGE,
 } from './shared/query/persist';
+import {
+  registerSubmissionMutationDefaults,
+  shouldDehydrateSubmissionMutation,
+} from './shared/query/offlineMutations';
 
 // Create a client. `gcTime` is bumped to 24h so entries survive long enough to
 // be persisted to / restored from IndexedDB (MSO-4); `staleTime` stays at 5 min
@@ -25,9 +29,15 @@ const queryClient = new QueryClient({
   },
 });
 
+// MSO-7: register the keyed submission mutation defaults BEFORE the persister
+// restores the cache, so a rehydrated paused mutation can resolve its
+// `mutationFn` by `mutationKey` and replay after a reload.
+registerSubmissionMutationDefaults(queryClient);
+
 // IndexedDB-backed persister so the last-fetched student core-loop reads
-// (assignments, dashboard, due-for-review) are readable offline. Reads only;
-// the dehydrate allowlist excludes auth + mutations (see shared/query/persist).
+// (assignments, dashboard, due-for-review) are readable offline, and queued
+// offline submission writes (MSO-7) survive a reload. Reads use the MSO-4
+// allowlist; mutations dehydrate only when paused + in the `submission` family.
 const persister = createIDBPersister();
 
 // ReactQueryDevtools is dev-only. Production builds must never ship it — the
@@ -49,9 +59,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         buster: CACHE_BUSTER,
         dehydrateOptions: {
           shouldDehydrateQuery,
-          // Never persist mutations — restoring one could double-submit.
-          shouldDehydrateMutation: () => false,
+          // MSO-7: persist only PAUSED submission mutations (queued offline). The
+          // server is idempotent (MSO-6), so replaying these at-least-once is safe.
+          shouldDehydrateMutation: shouldDehydrateSubmissionMutation,
         },
+      }}
+      onSuccess={() => {
+        // The cache (and any persisted paused mutations) has been restored — flush
+        // queued offline writes. Mid-session reconnects auto-resume via
+        // onlineManager's browser online events.
+        void queryClient.resumePausedMutations();
       }}
     >
       <App />

@@ -867,6 +867,14 @@ class SubmissionSerializer(serializers.ModelSerializer):
         if user.role not in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
             raise serializers.ValidationError("Only students can submit answers.")
 
+        # MSO-6: a submission is immutable once submitted. Any further write — a
+        # replayed offline auto-save, or a duplicate submit that was queued offline
+        # then also sent online — must be a harmless idempotent no-op rather than a
+        # 400 or a re-grade. Skip the create/closed validations here so the replay
+        # returns 200 with the existing record; update() short-circuits the save.
+        if self.instance is not None and self.instance.submitted_at is not None:
+            return attrs
+
         # On create: check no existing submission
         if self.instance is None:
             assignment = attrs.get("assignment")
@@ -887,6 +895,15 @@ class SubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         validated_data["student"] = request.user
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # MSO-6: a submitted submission is immutable. Short-circuit the save so a
+        # replayed/duplicate write never re-fires the grading signal (defense in
+        # depth alongside the signal's ``score is None`` gate) and never mutates the
+        # graded snapshot. Returns the existing instance → HTTP 200 with current data.
+        if instance.submitted_at is not None:
+            return instance
+        return super().update(instance, validated_data)
 
 
 class ProblemSetWriteSerializer(serializers.ModelSerializer):

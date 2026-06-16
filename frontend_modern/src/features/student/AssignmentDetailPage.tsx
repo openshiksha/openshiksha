@@ -7,6 +7,7 @@ import { VideosPanel } from './VideosPanel';
 import { SyncStatus } from './SyncStatus';
 import { Button, EmptyState, LoadingSpinner } from '@/shared/ui';
 import { useT } from '@/shared/i18n';
+import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import type { Question } from '@/types/index';
 
 function countSubparts(questions: Question[]): number {
@@ -33,12 +34,17 @@ export const AssignmentDetailPage = () => {
 
   const createSubmission = useCreateSubmission();
   const patchSubmission = usePatchSubmission(assignmentId);
+  const online = useOnlineStatus();
 
   const [submissionId, setSubmissionId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitScore, setSubmitScore] = useState<number | null>(null);
+  // MSO-9: the student hit submit while offline — the submit mutation is queued
+  // (MSO-7) and will replay/grade on reconnect. Until the server confirms, show a
+  // "submitted — will be graded when back online" card instead of a fake score.
+  const [submittedOffline, setSubmittedOffline] = useState(false);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,6 +109,13 @@ export const AssignmentDetailPage = () => {
 
   const handleSubmit = () => {
     if (!submissionId) return;
+    // Optimistically lock into a submitted view immediately. Online this resolves
+    // to the score (or the async "grading…" state) on success; offline the
+    // mutation pauses (MSO-7) and we show the "will be graded when back online"
+    // card until it replays onto the idempotent server (MSO-6).
+    setIsSubmitted(true);
+    setShowConfirm(false);
+    if (!online) setSubmittedOffline(true);
     patchSubmission.mutate(
       {
         id: submissionId,
@@ -114,9 +127,17 @@ export const AssignmentDetailPage = () => {
       },
       {
         onSuccess: (sub) => {
-          setIsSubmitted(true);
+          // Server confirmed (immediately online, or after the queued replay):
+          // reconcile the real score and drop the offline-pending state.
           setSubmitScore(sub.score);
-          setShowConfirm(false);
+          setSubmittedOffline(false);
+        },
+        onError: () => {
+          // The replay ultimately failed (e.g. the assignment closed while the
+          // student was offline). Re-open the form so they aren't stuck — the
+          // global sync indicator (MSO-8) already shows the failure.
+          setIsSubmitted(false);
+          setSubmittedOffline(false);
         },
       },
     );
@@ -195,7 +216,16 @@ export const AssignmentDetailPage = () => {
 
       {isSubmitted && (
         <div className={`mb-6 rounded-xl p-4 text-center border ${scoreBg}`}>
-          {submitScore !== null ? (
+          {submittedOffline ? (
+            <>
+              <p className="font-display font-semibold text-brand-800">
+                {t('assignmentDetail.submittedOfflineTitle')}
+              </p>
+              <p className="text-sm text-brand-700 mt-0.5">
+                {t('assignmentDetail.gradePending')}
+              </p>
+            </>
+          ) : submitScore !== null ? (
             <>
               <p className="text-2xl font-display font-semibold text-ink-900">
                 {Math.round(submitScore * 100)}%

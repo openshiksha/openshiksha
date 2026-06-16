@@ -151,6 +151,8 @@ export const hi: LocaleDict = {
   'assignmentDetail.submittedNice': 'असाइनमेंट जमा हो गया — शाबाश!',
   'assignmentDetail.submittedTitle': 'जमा हो गया',
   'assignmentDetail.grading': 'जाँच चल रही है…',
+  'assignmentDetail.submittedOfflineTitle': 'जमा हो गया',
+  'assignmentDetail.gradePending': 'ऑनलाइन होने पर जाँच की जाएगी',
   'assignmentDetail.notFoundTitle': 'असाइनमेंट नहीं मिला',
   'assignmentDetail.notFoundDescription':
     'यह हटाया जा चुका हो सकता है या आपके पास इसकी अनुमति नहीं है।',

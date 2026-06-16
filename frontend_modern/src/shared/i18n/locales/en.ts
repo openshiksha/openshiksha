@@ -150,6 +150,8 @@ export const en = {
   'assignmentDetail.submittedNice': 'Assignment submitted — nice work!',
   'assignmentDetail.submittedTitle': 'Submitted',
   'assignmentDetail.grading': 'Grading in progress…',
+  'assignmentDetail.submittedOfflineTitle': 'Submitted',
+  'assignmentDetail.gradePending': "Will be graded when you're back online",
   'assignmentDetail.notFoundTitle': 'Assignment not found',
   'assignmentDetail.notFoundDescription': "It may have been removed or you don't have access.",
   'assignmentDetail.backToDashboard': 'Back to dashboard',

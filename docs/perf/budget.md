@@ -4,6 +4,10 @@ This budget is a *contract*. Every PR that ships frontend code must keep the
 entry JS chunk under the ceiling, otherwise CI fails. The whole point is to
 prevent silent regression of the cuts landed in PERF-01..PERF-04.
 
+> This guards *static bytes*. For the *runtime* side — LCP / TBT / CLS on a
+> throttled mobile profile — see the [Lighthouse CI budget](lighthouse.md)
+> (PERF-07).
+
 ## Current ceiling
 
 | Asset                  | Ceiling | Measured (post-PERF-04) |

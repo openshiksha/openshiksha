@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:thermo-piston/v1",
+  "title": "thermo-piston widget params",
+  "description": "Per-question configuration for the Class-11 Thermodynamics piston / First-Law widget. All fields optional — defaults reproduce the legacy Cabinet question (1/1/11/3/44/22) bounds.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "heatMin": {
+      "type": "number",
+      "description": "Lower bound of the heat slider in Joules (default -200).",
+      "default": -200
+    },
+    "heatMax": {
+      "type": "number",
+      "description": "Upper bound of the heat slider in Joules (default +200).",
+      "default": 200
+    },
+    "workMax": {
+      "type": "number",
+      "description": "Absolute bound for piston work in Joules (default 200).",
+      "exclusiveMinimum": 0,
+      "default": 200
+    },
+    "workStep": {
+      "type": "number",
+      "description": "Per-click increment of the piston work buttons in Joules (default 5).",
+      "exclusiveMinimum": 0,
+      "default": 5
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional title shown above the simulation.",
+      "default": "Thermodynamics — piston & First Law"
+    },
+    "initialVolume": {
+      "description": "Accepted for backwards compatibility with the legacy migration default (#212). Unused by the widget.",
+      "deprecated": true
+    },
+    "maxHeat": {
+      "description": "Accepted for backwards compatibility with the legacy migration default (#212). Unused by the widget.",
+      "deprecated": true
+    }
+  }
+}

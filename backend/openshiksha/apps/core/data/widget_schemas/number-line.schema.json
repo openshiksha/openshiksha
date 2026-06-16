@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:number-line/v1",
+  "title": "number-line widget params",
+  "description": "Per-question configuration for the number-line answer-producing widget. The student drags a point along [min, max] snapped to `step`; the value becomes their numeric answer.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "min": {
+      "type": "number",
+      "description": "Left-end value on the axis (default 0).",
+      "default": 0
+    },
+    "max": {
+      "type": "number",
+      "description": "Right-end value on the axis (default 10).",
+      "default": 10
+    },
+    "step": {
+      "type": "number",
+      "description": "Snap step (default 1). Must be > 0.",
+      "exclusiveMinimum": 0,
+      "default": 1
+    },
+    "initial": {
+      "type": "number",
+      "description": "Where the point starts before the student drags. Defaults to `min`. Note: the widget does NOT call reportValue at mount — the answer field stays empty until the student actually interacts."
+    },
+    "label": {
+      "type": "string",
+      "description": "Optional label rendered above the axis (e.g. \"Position on the number line\")."
+    }
+  }
+}

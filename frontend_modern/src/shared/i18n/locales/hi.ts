@@ -934,6 +934,14 @@ export const hi: LocaleDict = {
   'connectivity.offlineBanner': 'आप ऑफ़लाइन हैं — सहेजा हुआ काम दिखाया जा रहा है।',
   'connectivity.backOnline': 'फिर से ऑनलाइन।',
 
+  // ── Sync (offline write queue status — MSO-8) ────────────────────────
+  'sync.savedOffline': 'इस डिवाइस पर सहेजा गया · ऑनलाइन होने पर सिंक होगा',
+  'sync.syncing': 'सिंक हो रहा है…',
+  'sync.synced': 'सहेजा गया',
+  'sync.syncFailed': 'सिंक नहीं हो सका — फिर कोशिश होगी',
+  'sync.pendingOne': '{count} बदलाव सिंक होना बाकी',
+  'sync.pendingMany': '{count} बदलाव सिंक होने बाकी',
+
   // ── PWA (install to home screen) ─────────────────────────────────────
   'pwa.installPrompt': 'OpenShiksha को अपनी होम स्क्रीन पर जोड़ें।',
   'pwa.install': 'इंस्टॉल करें',

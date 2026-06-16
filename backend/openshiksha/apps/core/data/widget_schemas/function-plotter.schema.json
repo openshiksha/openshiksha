@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:function-plotter/v1",
+  "title": "function-plotter widget params",
+  "description": "Per-question configuration for the function-plotter explanatory widget. Plots y = f(x) over [xMin, xMax] using a safe in-sandbox expression evaluator.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "expr": {
+      "type": "string",
+      "description": "Math expression in `x` to plot. Supports +, -, *, /, **, parentheses, identifiers (`x`, `pi`, `e`), and function calls (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `log`, `ln`, `log10`, `exp`, `sqrt`, `abs`, `floor`, `ceil`, `round`, `pow`, `min`, `max`).",
+      "default": "x**2"
+    },
+    "xMin": { "type": "number", "description": "Left bound of the x-axis (default −5).", "default": -5 },
+    "xMax": { "type": "number", "description": "Right bound of the x-axis (default +5).", "default": 5 },
+    "yMin": { "type": "number", "description": "Bottom bound of the y-axis (default −5).", "default": -5 },
+    "yMax": { "type": "number", "description": "Top bound of the y-axis (default +5).", "default": 5 },
+    "title": { "type": "string", "description": "Optional title shown above the plot." }
+  }
+}

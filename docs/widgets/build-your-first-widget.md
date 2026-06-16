@@ -62,6 +62,13 @@ Add the new kind to `KNOWN_WIDGET_KINDS` in
 `backend/openshiksha/apps/core/widgets.py`. Without that mirror entry, the
 teacher write API rejects the kind even though the frontend can render it.
 
+Then copy your `params.schema.json` to
+`backend/openshiksha/apps/core/data/widget_schemas/<kind>.schema.json` (a
+byte-identical copy). The backend validates every `widget_config` against it
+(DTB-1), so a malformed config is rejected with a `400` at write time instead of
+breaking the sandbox. A parity test fails CI if the vendored copy drifts from the
+frontend source.
+
 ## 6. Verify
 
 ```bash

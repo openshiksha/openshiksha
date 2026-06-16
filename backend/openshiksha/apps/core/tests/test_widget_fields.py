@@ -81,14 +81,35 @@ class TestWidgetFieldsModel:
         assert sp.widget_config == {"initialVolume": 5, "maxHeat": 100}
 
 
+# A schema-valid + a schema-invalid config for every kind that ships a vendored
+# JSON Schema. DTB-1 asks for exactly this: a valid and an invalid config per
+# kind, proving the per-kind guard actually bites.
+VALID_CONFIGS: dict[str, dict] = {
+    "thermo-piston": {"heatMin": -150, "heatMax": 150, "workMax": 200, "workStep": 5},
+    "number-line": {"min": 0, "max": 10, "step": 0.5, "label": "Mark 3/4"},
+    "function-plotter": {"expr": "x**2", "xMin": -5, "xMax": 5},
+    "fraction-bar": {"numerator": 3, "denominator": 4, "mode": "shaded"},
+    "custom-html": {"html": "<b>hello</b>"},
+}
+
+INVALID_CONFIGS: dict[str, dict] = {
+    # heatMin is type:number — a bare string (not a {{token}}) must fail.
+    "thermo-piston": {"heatMin": "lots of heat"},
+    # step has exclusiveMinimum:0 — zero must fail.
+    "number-line": {"min": 0, "max": 10, "step": 0},
+    # additionalProperties:false — an unknown key must fail.
+    "function-plotter": {"expr": "x**2", "bogus": 1},
+    # mode is an enum — "rainbow" is not a member.
+    "fraction-bar": {"numerator": 1, "denominator": 4, "mode": "rainbow"},
+    # html is required.
+    "custom-html": {},
+}
+
+
 class TestValidateWidgetConfig:
     def test_blank_kind_is_noop(self):
         validate_widget_config("", {"anything": "goes"})
         validate_widget_config("", None)
-
-    def test_known_kind_with_dict_passes(self):
-        for kind in KNOWN_WIDGET_KINDS:
-            validate_widget_config(kind, {})
 
     def test_unknown_kind_raises(self):
         from rest_framework.serializers import ValidationError
@@ -103,6 +124,108 @@ class TestValidateWidgetConfig:
             validate_widget_config("thermo-piston", "string-config")
         with pytest.raises(ValidationError):
             validate_widget_config("thermo-piston", [1, 2, 3])
+
+    @pytest.mark.parametrize("kind", sorted(VALID_CONFIGS))
+    def test_valid_config_per_kind_passes(self, kind):
+        validate_widget_config(kind, VALID_CONFIGS[kind])
+
+    @pytest.mark.parametrize("kind", sorted(INVALID_CONFIGS))
+    def test_invalid_config_per_kind_raises(self, kind):
+        from rest_framework.serializers import ValidationError
+
+        with pytest.raises(ValidationError):
+            validate_widget_config(kind, INVALID_CONFIGS[kind])
+
+    def test_empty_config_ok_for_all_optional_kinds(self):
+        # Every kind whose schema has no `required` accepts {} (defaults apply in
+        # the runtime). custom-html requires `html`, so it is excluded.
+        for kind in KNOWN_WIDGET_KINDS - {"custom-html"}:
+            validate_widget_config(kind, {})
+
+    def test_empty_config_rejected_for_custom_html(self):
+        from rest_framework.serializers import ValidationError
+
+        with pytest.raises(ValidationError):
+            validate_widget_config("custom-html", {})
+
+    def test_template_token_satisfies_numeric_fields(self):
+        # DTB-5's variable-aware authoring: a pure {{var}} binding stands in for a
+        # number/integer/boolean during validation; the croupier substitutes the
+        # real value per-student before render.
+        validate_widget_config("number-line", {"min": "{{lo}}", "max": "{{hi}}", "step": "{{s}}"})
+        validate_widget_config("thermo-piston", {"heatMin": "{{a}}", "workStep": "{{b}}"})
+
+    def test_partial_template_string_is_not_a_wildcard(self):
+        from rest_framework.serializers import ValidationError
+
+        # "x={{a}}" is not a *pure* token, so it stays a plain string and must
+        # fail a numeric field.
+        with pytest.raises(ValidationError):
+            validate_widget_config("number-line", {"step": "x={{a}}"})
+
+    def test_studio_scene_falls_back_to_floor(self):
+        # No vendored schema → floor-only: any JSON object is accepted, a non-dict
+        # is rejected.
+        from rest_framework.serializers import ValidationError
+
+        validate_widget_config("studio-scene", {"anything": [1, 2, {"deep": True}]})
+        with pytest.raises(ValidationError):
+            validate_widget_config("studio-scene", "not-a-dict")
+
+    def test_missing_schema_file_degrades_to_floor(self, monkeypatch):
+        # If a kind's schema file is unreadable, validation must degrade to
+        # floor-only rather than 500 (DTB principle #4: deterministic fallback).
+        from openshiksha.apps.core import widgets as widgets_mod
+
+        # Patch the schema loader to report "no schema", then drop the cached
+        # validator so it is rebuilt against the patched loader.
+        monkeypatch.setattr(widgets_mod, "_load_schema", lambda kind: None)
+        widgets_mod._validator_for.cache_clear()
+        try:
+            # number-line normally rejects step:0; with no schema it passes the floor.
+            validate_widget_config("number-line", {"step": 0})
+        finally:
+            # Restore real validators for subsequent tests (monkeypatch restores
+            # _load_schema itself at teardown).
+            widgets_mod._validator_for.cache_clear()
+
+
+class TestWidgetSchemaParity:
+    """The vendored backend schemas must stay byte-for-identical (by content) to
+    the frontend ``params.schema.json`` files — the single source of truth the
+    runtime config form is generated from. Drift here is a silent guardrail bug.
+    """
+
+    def test_vendored_schemas_match_frontend(self):
+        import json
+        from pathlib import Path
+
+        from openshiksha.apps.core import widgets as widgets_mod
+
+        # backend/openshiksha/apps/core/widgets.py -> repo root is parents[4].
+        repo_root = Path(widgets_mod.__file__).resolve().parents[4]
+        frontend_dir = repo_root / "frontend_modern" / "src" / "widgets"
+        if not frontend_dir.exists():  # pragma: no cover - deploy tree without frontend
+            pytest.skip("frontend tree not present in this checkout")
+
+        for schema_file in sorted(widgets_mod._SCHEMA_DIR.glob("*.schema.json")):
+            kind = schema_file.name.removesuffix(".schema.json")
+            frontend_file = frontend_dir / kind / "params.schema.json"
+            assert frontend_file.exists(), f"no frontend schema for vendored kind {kind!r}"
+            vendored = json.loads(schema_file.read_text(encoding="utf-8"))
+            upstream = json.loads(frontend_file.read_text(encoding="utf-8"))
+            assert vendored == upstream, f"vendored {kind} schema drifted from frontend source"
+
+    def test_every_schema_is_a_valid_draft_2020_12_schema(self):
+        from jsonschema import Draft202012Validator
+
+        from openshiksha.apps.core import widgets as widgets_mod
+
+        for kind in KNOWN_WIDGET_KINDS:
+            schema = widgets_mod._load_schema(kind)
+            if schema is None:
+                continue
+            Draft202012Validator.check_schema(schema)
 
 
 class TestWidgetFieldsAPI:

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:fraction-bar/v1",
+  "title": "fraction-bar widget params",
+  "description": "Per-question configuration for the fraction-bar explanatory widget.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "numerator": {
+      "type": "number",
+      "description": "Top of the fraction. Clamped to [0, denominator]. Default 1.",
+      "default": 1,
+      "minimum": 0
+    },
+    "denominator": {
+      "type": "number",
+      "description": "Bottom of the fraction. Must be a positive integer, capped at 40 so segments stay visible. Default 4.",
+      "default": 4,
+      "exclusiveMinimum": 0,
+      "maximum": 40
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["shaded", "labelled"],
+      "description": "`shaded` (default) hides the numerals so the question can ask the student to name the fraction. `labelled` shows `n/d` below the bar for hints / worked solutions.",
+      "default": "shaded"
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional title shown above the bar (e.g. 'Bar A')."
+    }
+  }
+}

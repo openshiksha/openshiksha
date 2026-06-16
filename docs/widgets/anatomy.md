@@ -176,6 +176,15 @@ The DB validates `widget_kind` against
 hand: add your kind to both. The scaffolder's CLI output reminds you
 of this every run.
 
+The backend also validates `widget_config` against your kind's
+**`params.schema.json`** (DTB-1). The schema is **vendored** into
+`backend/openshiksha/apps/core/data/widget_schemas/<kind>.schema.json` — a
+byte-identical copy of the frontend file, so validation works in any deployment.
+Copy your schema there when you add the kind; a parity test
+(`test_widget_fields.py::TestWidgetSchemaParity`) fails CI if the two ever drift.
+A pure `{{var}}` croupier binding satisfies any typed field, so
+variable-bound configs still validate.
+
 ## Worked examples
 
 - **`_hello`** — the simplest possible widget. Vanilla DOM. Six lines

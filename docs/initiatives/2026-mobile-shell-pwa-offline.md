@@ -79,7 +79,7 @@ not the exception, and an installable PWA removes the app-store barrier entirely
 - **MSO-5 — A2HS install prompt + batch close-out.** `beforeinstallprompt` capture
   + dismissible install affordance; ledger + manual offline-test doc. **New/docs.**
 
-### Batch 2 (planned 2026-06-15 — `docs/daily-plans/2026-06-15-plan.md`) — offline write-tolerance
+### Batch 2 (shipped 2026-06-15 — `docs/daily-plans/2026-06-15-plan.md`) — offline write-tolerance ✅
 
 - **MSO-6 — Replay-safe / idempotent submission writes (backend).** Make the
   submission write path safe to replay: a re-submit of an already-submitted
@@ -117,6 +117,19 @@ _(append one row per merged PR)_
 | #360 | MSO-3 | `vite-plugin-pwa` SW: precache shell, `CacheFirst` fonts/KaTeX, `/api` `NetworkOnly`, navigateFallback; prod-only manual registration; localized "new version" `UpdateBanner`; SW emitted as separate files (entry chunk unchanged) |
 | #361 | MSO-4 | `PersistQueryClientProvider` + `idb-keyval` persister; reads-only dehydrate allowlist (student core-loop keys; never auth/PII/mutations); `buster` keyed to a cache version; `gcTime` 24h |
 | #362 | MSO-5 | `useInstallPrompt` (module-level `beforeinstallprompt` capture) + dismissible `InstallBanner` (localized `pwa.install*`); manual offline-test checklist; batch close-out |
+| #367 | MSO-6 | Replay-safe / idempotent submission writes: `SubmissionSerializer.update()` no-op on already-submitted (closes the async double-grade race) + `validate()` 200-not-400 on replay; signal `score is None` grade gate. **Improve** |
+| #368 | MSO-7 | Offline mutation queue: keyed `setMutationDefaults` (`networkMode: 'offlineFirst'`, rehydration-safe `mutationFn`/`onSuccess`) + paused-submission persist allowlist + `resumePausedMutations()` on restore. No new dep. **New** |
+| #369 | MSO-8 | "Saved offline · will sync" UX: `useSyncState`/`usePendingSyncCount` over `useMutationState`; `SyncStatus` inline indicator + `PendingSyncBadge`; honest copy; `sync.*` i18n (en/hi). **New** |
+| #370 | MSO-9 | Offline final-submit: optimistic "will be graded when back online" card (no fake score), queued submit replays onto MSO-6 and the real score reconciles; `onError` re-opens the form. **New** |
+
+**Batch 2 shipped 2026-06-15** — the student core loop is now write-tolerant
+offline. A student on a dropped connection keeps answering (auto-saves queue
+durably to IndexedDB), can submit (optimistic "will be graded when back online"),
+and every queued write replays **exactly once** — without double-grading — when
+the network returns (server hardened idempotent in MSO-6). The **"Offline
+write-tolerance" later-phase item is shipped.** See the manual offline-*write*
+test checklist in `docs/perf/2026-06-15-pwa-offline-write-manual-test.md`
+(sibling to Batch 1's `docs/perf/2026-06-14-pwa-offline-manual-test.md`).
 
 **Batch 1 shipped 2026-06-14** — OpenShiksha is now an installable PWA whose
 student core loop survives a flaky/absent connection: precached shell boots

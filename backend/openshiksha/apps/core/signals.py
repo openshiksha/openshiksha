@@ -20,12 +20,22 @@ def trigger_grading_on_submit(sender, instance, created, update_fields, **kwargs
     - Only fires when update_fields includes 'submitted_at' (explicit save) OR
       on initial create if submitted_at is already set
     - Does NOT re-grade if the submission is simply updated for other fields
+    - MSO-6: Does NOT re-grade an already-graded submission. A replayed/duplicate
+      submit (e.g. an offline mutation queue replaying onto the server) must not
+      re-fire grading. The explicit resync re-grade path queues grade_submission
+      directly, bypassing this signal, so it is unaffected.
     """
     if not instance.submitted_at:
         return
 
     # If update_fields is specified, only trigger when submitted_at was explicitly saved
     if update_fields is not None and "submitted_at" not in update_fields:
+        return
+
+    # MSO-6: only grade an ungraded submission. Once a score exists, the submission
+    # has been graded; a later save that still carries submitted_at (a replayed
+    # offline submit, or any non-grading re-save) must not trigger a second grade.
+    if instance.score is not None:
         return
 
     # On create with submitted_at already set, or on explicit submitted_at update

@@ -22,7 +22,7 @@
     "axios": "^1.6.5",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
-    "dompurify": "^3.4.7",
+    "dompurify": "^3.4.9",
     "katex": "^0.16.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

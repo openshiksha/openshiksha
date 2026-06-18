@@ -225,9 +225,11 @@ def _coerce_value(spec: dict, value: Any) -> Any:
             result = min(result, spec["maximum"])
         if "exclusiveMinimum" in spec and result <= spec["exclusiveMinimum"]:
             # Cannot represent "just above" the bound deterministically — fall to
-            # the schema's own default when it satisfies the bound.
+            # the schema's own default when it satisfies the bound, else drop.
             default = spec.get("default")
-            result = default if isinstance(default, (int, float)) and default > spec["exclusiveMinimum"] else _DROP
+            if isinstance(default, (int, float)) and default > spec["exclusiveMinimum"]:
+                return default
+            return _DROP
         return result
     if declared == "string":
         return value if isinstance(value, str) else _DROP

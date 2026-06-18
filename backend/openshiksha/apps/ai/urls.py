@@ -23,6 +23,7 @@ from .views import (
     StudentMisconceptionViewSet,
     SubpartExplanationViewSet,
     WeeklyClassReportViewSet,
+    WidgetAuthoringViewSet,
 )
 
 router = DefaultRouter()
@@ -44,6 +45,8 @@ router.register("learning-paths", LearningPathViewSet, basename="learning-path")
 router.register("explanations", SubpartExplanationViewSet, basename="explanation")
 # AI Question Generation (teacher-only)
 router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
+# Describe-to-Build — AI Widget Authoring (teacher-only)
+router.register("widget-authoring", WidgetAuthoringViewSet, basename="widget-authoring")
 # Teacher AI Assistant — Weekly Class Reports (teacher-only)
 router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
 # Intelligent Hint System

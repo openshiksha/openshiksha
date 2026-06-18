@@ -146,3 +146,117 @@ def _format_error(kind: str, err) -> str:  # noqa: ANN001 - jsonschema Validatio
     location = "/".join(str(p) for p in err.path)
     where = f"{kind} config" if not location else f"{kind} config field '{location}'"
     return f"{where}: {err.message}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI authoring support (DTB-2)
+#
+# The kinds the Describe-to-Build AI may author, the deterministic safe-default
+# config for each (the fallback when an LLM is unavailable or its output cannot
+# be salvaged), and a deterministic repair pass that clamps/drops an LLM-proposed
+# config toward its kind's schema. None of this calls an LLM — it is the
+# deterministic guardrail that AI authoring rides on (initiative principles
+# #3 validate-before-store and #4 deterministic fallback).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# AI authors *config-as-data* for these answer-producing / explanatory kinds
+# only. ``custom-html`` is excluded on purpose — it carries author HTML (code,
+# not data) and is admin-gated — and ``studio-scene`` has no vendored schema to
+# validate against, so neither is a safe AI target.
+AI_AUTHORABLE_WIDGET_KINDS: tuple[str, ...] = (
+    "number-line",
+    "fraction-bar",
+    "function-plotter",
+    "thermo-piston",
+)
+
+# Deterministic, schema-valid default config per authorable kind. Used as the
+# fallback when no LLM provider is available or its output cannot be repaired —
+# always a working widget, never a 500 and never stub text shown as a real
+# generation (the caller flags provenance honestly).
+SAFE_DEFAULT_CONFIGS: dict[str, dict] = {
+    "number-line": {"min": 0, "max": 10, "step": 1, "label": "Mark the value"},
+    "fraction-bar": {"numerator": 1, "denominator": 4, "mode": "shaded"},
+    "function-plotter": {"expr": "x**2", "xMin": -5, "xMax": 5, "yMin": -5, "yMax": 5},
+    "thermo-piston": {},
+}
+
+# Sentinel for "this value could not be coerced and must be dropped".
+_DROP = object()
+
+
+def get_widget_schema(kind: str) -> Optional[dict]:
+    """Public accessor for a kind's vendored JSON Schema (or ``None``)."""
+
+    return _load_schema(kind)
+
+
+def is_valid_widget_config(kind: str, config: Any) -> bool:
+    """Boolean form of :func:`validate_widget_config` (never raises)."""
+
+    try:
+        validate_widget_config(kind, config)
+        return True
+    except serializers.ValidationError:
+        return False
+
+
+def _coerce_value(spec: dict, value: Any) -> Any:
+    """Deterministically coerce one field value toward its schema, or ``_DROP``.
+
+    Clamps numbers into ``minimum``/``maximum``/``exclusiveMinimum`` bounds, keeps
+    only enum members for enum fields, and keeps strings for string fields.
+    Anything that cannot be salvaged returns the ``_DROP`` sentinel so the caller
+    omits the field (every field on the authorable kinds is optional).
+    """
+
+    enum = spec.get("enum")
+    if enum is not None:
+        return value if value in enum else _DROP
+
+    declared = spec.get("type")
+    if declared == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return _DROP
+        result: float = value
+        if "minimum" in spec:
+            result = max(result, spec["minimum"])
+        if "maximum" in spec:
+            result = min(result, spec["maximum"])
+        if "exclusiveMinimum" in spec and result <= spec["exclusiveMinimum"]:
+            # Cannot represent "just above" the bound deterministically — fall to
+            # the schema's own default when it satisfies the bound.
+            default = spec.get("default")
+            result = default if isinstance(default, (int, float)) and default > spec["exclusiveMinimum"] else _DROP
+        return result
+    if declared == "string":
+        return value if isinstance(value, str) else _DROP
+    return value
+
+
+def repair_widget_config(kind: str, raw_config: Any) -> dict:
+    """Best-effort deterministic coercion of an LLM-proposed config.
+
+    Drops unknown keys (``additionalProperties: false``), clamps numeric bounds,
+    and removes invalid enum values. ``{{token}}`` bindings are passed through
+    untouched (DTB-5 croupier tolerance). The result is *not guaranteed* valid —
+    the caller must still run :func:`is_valid_widget_config` and fall back to
+    :data:`SAFE_DEFAULT_CONFIGS` when repair cannot produce a valid config.
+    """
+
+    schema = get_widget_schema(kind)
+    if schema is None or not isinstance(raw_config, dict):
+        return {}
+
+    props = schema.get("properties", {})
+    repaired: dict = {}
+    for key, value in raw_config.items():
+        if key not in props:
+            continue
+        if _is_template_token(value):
+            repaired[key] = value
+            continue
+        coerced = _coerce_value(props[key], value)
+        if coerced is not _DROP:
+            repaired[key] = coerced
+    return repaired

@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
+from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions, generate_widget_config
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
@@ -100,6 +100,7 @@ from .serializers import (
     TriggerWeeklyReportSerializer,
     UpdateInterventionStatusSerializer,
     WeeklyClassReportSerializer,
+    WidgetAuthoringRequestSerializer,
 )
 from .tasks import (
     analyze_student_subject_room,
@@ -952,6 +953,70 @@ class GenerateQuestionsViewSet(ViewSet):
         out_serializer = GeneratedQuestionDraftSerializer(data=drafts, many=True)
         out_serializer.is_valid()
         return Response({"questions": out_serializer.data, "ai_available": ai_available})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Describe-to-Build — AI Widget Authoring (DTB-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class WidgetAuthoringViewSet(ViewSet):
+    """
+    POST /api/v1/ai/widget-authoring/   — teacher-only
+
+    Describe-to-Build: a plain-English description of an interactive widget →
+    a validated ``{widget_kind, widget_config}`` proposal the teacher can preview,
+    edit via the existing schema form, and attach (DTB-3).
+
+    The proposal is config-as-data, never code, and is always schema-valid by
+    construction: the LLM output is validated, then clamp-repaired, then replaced
+    by the kind's deterministic safe default if it cannot be salvaged. The grader
+    is untouched — AI only authors.
+
+    Request body:
+        description  string   what the teacher wants ("a number line marking 3/4")
+        kind_hint    string   optional preferred widget kind
+
+    Response: 200 with
+        {"widget_kind", "widget_config", "model_used", "ai_available", "repaired"}
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can author widgets."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = WidgetAuthoringRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        try:
+            result = generate_widget_config(
+                description=d["description"],
+                kind_hint=d.get("kind_hint") or None,
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_widget_config: unexpected error")
+            return Response(
+                {"detail": "Widget authoring failed. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "widget_kind": result["widget_kind"],
+                "widget_config": result["widget_config"],
+                "model_used": result["model"],
+                "ai_available": result["ai_available"],
+                "repaired": result["repaired"],
+            }
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

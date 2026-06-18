@@ -153,6 +153,38 @@ def _h(user, key: str, **kwargs) -> str:
     return format_email_string(_HTML, user, key, **kwargs)
 
 
+# Short, plain-text copy for Web Push notifications (MPN-5). A push toast has no
+# room for the branded email shell, so this is a deliberately terse en/hi
+# catalog mirroring the reminder tone. Shares the recipient's preferred_language
+# so the push and email channels never drift.
+_PUSH = {
+    "en": {
+        "reminder.title": "Assignment due soon",
+        "reminder.body": "‘{assignment_title}’ is due {due_date}. Tap to finish it.",
+    },
+    "hi": {
+        "reminder.title": "असाइनमेंट जल्द देय है",
+        "reminder.body": "‘{assignment_title}’ की अंतिम तिथि {due_date} है। पूरा करने के लिए टैप करें।",
+    },
+}
+
+
+def build_due_reminder_push(student, assignment_title: str, due_date_str: str) -> dict:
+    """
+    Build the localized Web Push payload (title + body) for a due-date reminder.
+
+    Returns ``{"title", "body"}`` in the student's ``preferred_language``
+    (falling back to English). The caller adds ``url``/``tag`` and hands it to
+    ``core.push.send_web_push``.
+    """
+    return {
+        "title": format_email_string(_PUSH, student, "reminder.title"),
+        "body": format_email_string(
+            _PUSH, student, "reminder.body", assignment_title=assignment_title, due_date=due_date_str
+        ),
+    }
+
+
 def notify_remedial_assigned(student, chapter_name: str, due_date_str: str) -> None:
     """Email a student when a remedial practice assignment is created for them."""
     if not student.email:

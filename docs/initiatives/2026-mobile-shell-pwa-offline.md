@@ -102,9 +102,9 @@ not the exception, and an installable PWA removes the app-store barrier entirely
 ### Later phases (not yet scoped)
 
 - **Route-level mobile layouts:** per-route mobile-first layouts beyond the shared
-  shell, where dense teacher tables still overflow on phones.
-- **Push notifications:** due-date reminders as web push (the email reminder
-  already exists; web push is the mobile-native channel).
+  shell, where dense teacher tables still overflow on phones. **← next batch.**
+- ~~**Push notifications:** due-date reminders as web push.~~ **SHIPPED 2026-06-17
+  (Batch 3, MPN-1..5, #375–#379)** — see ledger below.
 
 ## Ledger
 
@@ -121,6 +121,19 @@ _(append one row per merged PR)_
 | #368 | MSO-7 | Offline mutation queue: keyed `setMutationDefaults` (`networkMode: 'offlineFirst'`, rehydration-safe `mutationFn`/`onSuccess`) + paused-submission persist allowlist + `resumePausedMutations()` on restore. No new dep. **New** |
 | #369 | MSO-8 | "Saved offline · will sync" UX: `useSyncState`/`usePendingSyncCount` over `useMutationState`; `SyncStatus` inline indicator + `PendingSyncBadge`; honest copy; `sync.*` i18n (en/hi). **New** |
 | #370 | MSO-9 | Offline final-submit: optimistic "will be graded when back online" card (no fake score), queued submit replays onto MSO-6 and the real score reconciles; `onError` re-opens the form. **New** |
+| #375 | MPN-1 | `PushSubscription` model (unique endpoint, p256dh/auth keys) + migration 0029 + `pywebpush` dep + blank-safe VAPID settings + admin. Ships dark. **New** |
+| #376 | MPN-2 | `core.push.send_web_push` (stale 404/410 prune, blank-key no-op, never raises) + `GET /push/vapid-public-key/`, `POST /push/subscribe/` (upsert by endpoint), `POST /push/unsubscribe/`. **New** |
+| #377 | MPN-3 | `public/push-handler.js` (`push` → showNotification, `notificationclick` → deep-link) layered via `workbox.importScripts` on the generateSW output; SW-presence guard. Entry chunk unchanged. **New** |
+| #379 | MPN-4 | `usePushSubscription` hook (key-gated supported, requestPermission → subscribe → POST) + dismissible `PushBanner` + ProfilePage toggle + `push.*` i18n (en/hi). **New** |
+| #378 | MPN-5 | `send_due_date_reminders` fans web push alongside email (one opt-out governs both; eligibility broadened to email OR push; deep-link url + collapse tag); `emails.build_due_reminder_push` localized copy. Manual-test doc. **Improve** |
+
+**Batch 3 shipped 2026-06-17** — web push due-date reminders. A student who
+installs OpenShiksha to their home screen can opt in (banner / ProfilePage
+toggle) and receive a due-date reminder as a native phone notification — even
+with the app closed — reusing MSO-3's service worker and the existing
+`send_due_date_reminders` task. Email stays the source of truth; push is an
+additive channel that never fails the reminder run. The **"web push" later-phase
+item is shipped**; manual test in `docs/perf/2026-06-17-pwa-push-manual-test.md`.
 
 **Batch 2 shipped 2026-06-15** — the student core loop is now write-tolerant
 offline. A student on a dropped connection keeps answering (auto-saves queue

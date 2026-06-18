@@ -12,6 +12,7 @@ from .models import (
     ClassRoom,
     ClassroomInviteCode,
     ProblemSet,
+    PushSubscription,
     Question,
     QuestionSubpart,
     QuestionTag,
@@ -250,3 +251,11 @@ class TeacherWidgetAdmin(admin.ModelAdmin):
     search_fields = ["name", "description", "created_by__username"]
     raw_id_fields = ["created_by", "school"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(PushSubscription)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ["user", "endpoint", "user_agent", "created_at"]
+    search_fields = ["user__username", "user__first_name", "user__last_name", "endpoint"]
+    raw_id_fields = ["user"]
+    readonly_fields = ["endpoint", "p256dh", "auth", "user_agent", "created_at"]

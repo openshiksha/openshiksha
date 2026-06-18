@@ -22,6 +22,11 @@ from openshiksha.apps.api.views.core import (
     SubmissionViewSet,
     UserViewSet,
 )
+from openshiksha.apps.api.views.push import (
+    PushSubscribeView,
+    PushUnsubscribeView,
+    VapidPublicKeyView,
+)
 
 # Create router for ViewSets
 router = DefaultRouter()
@@ -45,6 +50,10 @@ urlpatterns = [
     path("auth/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("auth/register/open/", RegisterOpenView.as_view(), name="register_open"),
     path("auth/register/school/", RegisterSchoolView.as_view(), name="register_school"),
+    # Web Push subscription endpoints (MPN-2)
+    path("push/vapid-public-key/", VapidPublicKeyView.as_view(), name="push_vapid_public_key"),
+    path("push/subscribe/", PushSubscribeView.as_view(), name="push_subscribe"),
+    path("push/unsubscribe/", PushUnsubscribeView.as_view(), name="push_unsubscribe"),
     # Health check endpoint
     path("health/", include("openshiksha.apps.api.views.health")),
     # Router URLs (all ViewSets)

@@ -452,8 +452,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
 
     from django.utils import timezone
 
-    from openshiksha.apps.core.emails import notify_due_date_reminder
-    from openshiksha.apps.core.models import Assignment, AssignmentReminder, Submission, UserRole
+    from openshiksha.apps.core.emails import build_due_reminder_push, notify_due_date_reminder
+    from openshiksha.apps.core.models import (
+        Assignment,
+        AssignmentReminder,
+        PushSubscription,
+        Submission,
+        UserRole,
+    )
+    from openshiksha.apps.core.push import send_web_push
 
     now = timezone.now()
     window_end = now + timedelta(hours=window_hours)
@@ -493,6 +500,9 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
         reminded_ids = set(
             AssignmentReminder.objects.filter(assignment=assignment).values_list("student_id", flat=True)
         )
+        # Students with at least one Web Push subscription (MPN-5). Push reaches
+        # a home-screen PWA install even when the student has no email on file.
+        push_user_ids = set(PushSubscription.objects.filter(user__in=students).values_list("user_id", flat=True))
 
         due_str = timezone.localtime(assignment.due_at).strftime("on %B %d at %I:%M %p")
 
@@ -502,7 +512,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
             if student.id in submitted_ids or student.id in reminded_ids:
                 stats["skipped"] += 1
                 continue
-            if student.email_reminders_opt_out or not student.email:
+            # A single opt-out governs both channels (email + push) for v1.
+            if student.email_reminders_opt_out:
+                stats["skipped"] += 1
+                continue
+
+            has_email = bool(student.email)
+            has_push = student.id in push_user_ids
+            if not has_email and not has_push:
+                # No deliverable channel — don't burn the idempotency row.
                 stats["skipped"] += 1
                 continue
 
@@ -512,7 +530,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            if has_email:
+                notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            if has_push:
+                # send_web_push never raises into the task; email is the source
+                # of truth and must not fail because a push endpoint is dead.
+                payload = build_due_reminder_push(student, assignment.problem_set.title, due_str)
+                payload["url"] = f"/student/assignments/{assignment.id}"
+                payload["tag"] = f"assignment-{assignment.id}"
+                send_web_push(student, payload)
             stats["reminded"] += 1
 
     logger.info(

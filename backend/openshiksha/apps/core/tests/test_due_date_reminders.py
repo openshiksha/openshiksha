@@ -215,3 +215,64 @@ class TestDueDateReminders:
         # Default 24h window misses it; a 48h window catches it.
         assert send_due_date_reminders()["reminded"] == 0
         assert send_due_date_reminders(window_hours=48)["reminded"] == 1
+
+
+class TestDueDateReminderPush:
+    """MPN-5: due-date reminders also fan out Web Push to subscribed students."""
+
+    def test_push_sent_for_subscribed_student(self, db, school, standard, subject, chapter, teacher, student):
+        from unittest import mock
+
+        from openshiksha.apps.core.models import PushSubscription
+        from openshiksha.apps.core.tasks import send_due_date_reminders
+
+        PushSubscription.objects.create(user=student, endpoint="https://push.example.com/s1", p256dh="k", auth="a")
+        _make_assignment(school, standard, subject, chapter, teacher, [student], due_in_hours=12)
+
+        with mock.patch("openshiksha.apps.core.push.send_web_push", return_value=1) as m:
+            stats = send_due_date_reminders()
+
+        assert stats["reminded"] == 1
+        m.assert_called_once()
+        called_student, payload = m.call_args[0]
+        assert called_student == student
+        assert "title" in payload and "body" in payload
+        assert payload["url"].startswith("/student/assignments/")
+        assert payload["tag"].startswith("assignment-")
+
+    def test_push_not_sent_for_opted_out_student(self, db, school, standard, subject, chapter, teacher, student):
+        from unittest import mock
+
+        from openshiksha.apps.core.models import PushSubscription
+        from openshiksha.apps.core.tasks import send_due_date_reminders
+
+        student.email_reminders_opt_out = True
+        student.save(update_fields=["email_reminders_opt_out"])
+        PushSubscription.objects.create(user=student, endpoint="https://push.example.com/s2", p256dh="k", auth="a")
+        _make_assignment(school, standard, subject, chapter, teacher, [student], due_in_hours=12)
+
+        with mock.patch("openshiksha.apps.core.push.send_web_push") as m:
+            stats = send_due_date_reminders()
+
+        assert stats["reminded"] == 0
+        m.assert_not_called()
+
+    def test_no_email_but_subscribed_student_is_push_reminded(self, db, school, standard, subject, chapter, teacher):
+        from unittest import mock
+
+        from openshiksha.apps.core.models import PushSubscription, User, UserRole
+        from openshiksha.apps.core.tasks import send_due_date_reminders
+
+        no_email = User.objects.create_user(
+            username="push_only", password="pass", role=UserRole.STUDENT, school=school, email=""
+        )
+        PushSubscription.objects.create(user=no_email, endpoint="https://push.example.com/s3", p256dh="k", auth="a")
+        _make_assignment(school, standard, subject, chapter, teacher, [no_email], due_in_hours=12)
+
+        with mock.patch("openshiksha.apps.core.push.send_web_push", return_value=1) as m:
+            stats = send_due_date_reminders()
+
+        # No email is sent, but push reaches the home-screen install.
+        assert stats["reminded"] == 1
+        assert len(mail.outbox) == 0
+        m.assert_called_once()

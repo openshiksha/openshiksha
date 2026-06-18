@@ -1,0 +1,78 @@
+name: CodeQL
+# Static application-security testing (SAST) on our OWN source code.
+#
+# This complements — does not duplicate — the existing dependency-level
+# scanning:
+#   - `security` (ci-cd.yaml) ........ pip-audit on backend requirements
+#   - `frontend` (ci-cd.yaml) ........ npm audit on the frontend lockfile
+#   - dependency-review.yaml ......... CVEs/licenses a PR newly *adds*
+# Those three find vulnerabilities in third-party packages. CodeQL is the
+# missing layer: it analyses the code *we* write for injection flaws
+# (SQLi, command/path injection), unsafe deserialization, XSS, cleartext
+# logging of secrets, and similar. Findings surface in the repo's
+# Security ▸ Code scanning tab as SARIF, and annotate the offending PR.
+#
+# Lives in its own workflow (not ci-cd.yaml) because it needs
+# `security-events: write` and runs on a weekly schedule in addition to
+# push/PR — keeping it separate avoids widening ci-cd.yaml's permissions.
+
+on:
+    push:
+        branches:
+            - modernization
+            - qa
+            - prod
+    pull_request:
+        branches:
+            - modernization
+            - qa
+            - prod
+    schedule:
+        # Weekly full scan (Mondays 06:17 UTC). Catches advisories that land
+        # in CodeQL's query packs between code changes on quiet branches.
+        - cron: '17 6 * * 1'
+
+# Cancel superseded runs on feature branches; let the gated long-lived
+# branches (modernization/qa/prod) each run to completion, mirroring
+# ci-cd.yaml's concurrency policy.
+concurrency:
+    group: codeql-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
+
+jobs:
+    analyze:
+        name: Analyze (${{ matrix.language }})
+        timeout-minutes: 30
+        runs-on: ubuntu-latest
+        permissions:
+            # Required to upload SARIF results to the Security tab.
+            security-events: write
+            # `actions: read` is needed for private repos so CodeQL can read
+            # workflow run metadata; `contents: read` to check out the code.
+            actions: read
+            contents: read
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # Backend: Django 4.2 + Python 3.12 under backend/.
+                    - language: python
+                    # Frontend: React 18 + TypeScript under frontend_modern/.
+                    - language: javascript-typescript
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v3
+              with:
+                languages: ${{ matrix.language }}
+                # Python and JS/TS are interpreted — no compilation step, so
+                # CodeQL builds its database directly from source.
+                build-mode: none
+                # `security-and-quality` adds maintainability/quality queries
+                # on top of the default security suite for broader coverage.
+                queries: security-and-quality
+            - name: Perform CodeQL Analysis
+              uses: github/codeql-action/analyze@v3
+              with:
+                category: '/language:${{ matrix.language }}'

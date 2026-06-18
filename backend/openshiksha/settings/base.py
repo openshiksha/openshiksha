@@ -238,6 +238,15 @@ EMAIL_LOGO_URL = os.getenv("EMAIL_LOGO_URL", "https://openshiksha.org/brand/logo
 EMAIL_APP_URL = os.getenv("EMAIL_APP_URL", "https://openshiksha.org")
 
 
+# Web Push (VAPID) — the mobile-native notification channel for the PWA. Keys are
+# blank by default so dev/CI without VAPID keys simply disable push (the API
+# returns an empty public key and the frontend hides the affordance) rather than
+# erroring. Generate a keypair with: ``python -m py_vapid`` (or pywebpush docs).
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_ADMIN_EMAIL = os.getenv("VAPID_ADMIN_EMAIL", "admin@openshiksha.org")
+
+
 # ADMINS — recipients of mail_admins() calls (concierge enquiries, error
 # notifications). Set OPENSHIKSHA_ADMIN_EMAILS to a comma-separated list,
 # optionally with "Name <email>" entries:

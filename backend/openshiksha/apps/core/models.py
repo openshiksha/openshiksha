@@ -1213,3 +1213,54 @@ class TeacherWidget(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.visibility})"
+
+
+class PushSubscription(models.Model):
+    """
+    A Web Push subscription for a user's browser / installed PWA.
+
+    Persists the W3C Push API ``PushSubscription`` so the backend can deliver
+    notifications (due-date reminders) to a student's home-screen install even
+    when the app is closed — the mobile-native channel that complements email
+    (see docs/initiatives/2026-mobile-shell-pwa-offline.md, web-push phase).
+
+    One row per browser endpoint. ``endpoint`` is unique so re-subscribing from
+    the same browser upserts rather than duplicating. Stale endpoints (a 404/410
+    from the push service) are pruned by ``core.push.send_web_push``.
+    """
+
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+        help_text="Owner of this browser subscription.",
+    )
+    endpoint = models.URLField(
+        max_length=512,
+        unique=True,
+        help_text="Push service endpoint URL (unique per browser).",
+    )
+    p256dh = models.CharField(
+        max_length=255,
+        help_text="Client public key (keys.p256dh) for payload encryption.",
+    )
+    auth = models.CharField(
+        max_length=255,
+        help_text="Client auth secret (keys.auth) for payload encryption.",
+    )
+    user_agent = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="User agent at subscribe time (diagnostics only).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "push_subscriptions"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"PushSubscription(user={self.user_id}, endpoint={self.endpoint[:40]}…)"

@@ -11,7 +11,21 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-15 (latest) — **Mobile Shell & PWA-Offline — Batch 2
+**Last updated:** 2026-06-17 (latest) — **Mobile Shell & PWA-Offline — Batch 3
+(MPN-1..5) PLANNED: web push due-date reminders**
+([plan](../daily-plans/2026-06-17-plan.md)). With offline read+write tolerance
+shipped, the next later-phase is the **mobile-native notification channel**:
+`PushSubscription` model + VAPID config + `pywebpush` (MPN-1) → subscribe/
+unsubscribe API + `send_web_push` stale-pruning helper (MPN-2) →
+`public/push-handler.js` (`push`+`notificationclick`) layered on the MSO-3 SW via
+`workbox.importScripts`, no strategy change (MPN-3) → `usePushSubscription` hook +
+localized opt-in affordance + ProfilePage toggle (MPN-4) → fan out web push from
+the existing `send_due_date_reminders` task + close-out (MPN-5). Reuses MSO-3's
+service worker, MSO-1's icons, the LA i18n registry, and the existing reminder
+task — every piece rides shipped infra. After this, only **route-level mobile
+layouts** (dense teacher tables → cards) remains before the initiative is complete.
+
+**Earlier (2026-06-15)** — **Mobile Shell & PWA-Offline — Batch 2
 (MSO-6..10) SHIPPED: offline *write*-tolerance**
 ([plan](../daily-plans/2026-06-15-plan.md)). Batch 1 made the student core loop
 survive offline for *reads*; Batch 2 now queues and replays assignment auto-saves

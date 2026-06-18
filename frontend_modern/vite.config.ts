@@ -87,6 +87,10 @@ export default defineConfig(async ({ mode }) => ({
       devOptions: { enabled: false },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // MPN-3: layer our push + notificationclick handlers onto the generated
+        // precache SW (root-relative path). Keeps the generateSW strategy
+        // intact — no switch to injectManifest.
+        importScripts: ['push-handler.js'],
         // Deep links boot offline from the precached shell. /api must never be
         // served the shell (principle 2) — the persisted React Query cache
         // (MSO-4), not Workbox, owns API read-tolerance.

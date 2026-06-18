@@ -1608,3 +1608,208 @@ def generate_intervention_plan(
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Describe-to-Build — AI Widget Authoring (DTB-2)
+#
+# A teacher types a plain-English description ("a number line where students
+# mark ¾") and the LLM proposes a {widget_kind, widget_config}. The proposal is
+# *config-as-data*, never code, and is run through the deterministic guardrail
+# (apps.core.widgets) before it is ever returned: validated, and on failure
+# clamp-repaired, and on un-repairable failure replaced by the kind's safe
+# default. So malformed LLM output can never escape into the runtime or DB
+# (initiative principle #3), and a missing key / dead provider still yields a
+# working widget (principle #4). The grader is untouched — AI only authors.
+# ─────────────────────────────────────────────────────────────
+
+WIDGET_AUTHORING_MAX_TOKENS = 600
+
+# Deterministic keyword → kind heuristic. Grounds the best-guess fallback kind
+# (used when the LLM is unavailable or names a kind we cannot author) entirely in
+# the teacher's own words — no imagination about unseen content (principle #5).
+_WIDGET_KIND_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("fraction-bar", ("fraction", "numerator", "denominator", "shade", "/", "part of a whole")),
+    ("function-plotter", ("plot", "graph", "function", "curve", "parabola", "y =", "f(x)", "axis", "sine")),
+    ("thermo-piston", ("piston", "thermo", "heat", "work", "gas", "first law", "internal energy")),
+    ("number-line", ("number line", "mark", "point", "integer", "drag", "value", "position")),
+]
+
+
+def _best_guess_widget_kind(description: str) -> str:
+    """Pick the most likely authorable kind from the description text.
+
+    Deterministic; defaults to ``number-line`` (the simplest answer-producing
+    kind) when nothing matches, so there is always a safe fallback target.
+    """
+    text = (description or "").lower()
+    for kind, keywords in _WIDGET_KIND_KEYWORDS:
+        if any(kw in text for kw in keywords):
+            return kind
+    return "number-line"
+
+
+def _build_widget_authoring_prompt(description: str, kind_hint: str | None) -> str:
+    import json
+
+    from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, get_widget_schema
+
+    schema_blocks = []
+    for kind in AI_AUTHORABLE_WIDGET_KINDS:
+        schema = get_widget_schema(kind)
+        if schema is None:
+            continue
+        title = schema.get("title", kind)
+        purpose = schema.get("description", "")
+        schema_blocks.append(
+            f"### {kind} — {title}\n{purpose}\nJSON Schema for widget_config:\n"
+            + json.dumps({"properties": schema.get("properties", {})}, ensure_ascii=False)
+        )
+    kinds_doc = "\n\n".join(schema_blocks)
+
+    hint_line = ""
+    if kind_hint in AI_AUTHORABLE_WIDGET_KINDS:
+        hint_line = (
+            f"\nThe teacher suggested the '{kind_hint}' kind — prefer it unless the description clearly fits another.\n"
+        )
+
+    return (
+        "You build interactive math/science manipulatives for school students by "
+        "emitting CONFIGURATION DATA for one of a fixed set of widget kinds. You "
+        "never write code or HTML — only a JSON config object that matches the "
+        "chosen kind's schema exactly.\n\n"
+        f"Available widget kinds:\n\n{kinds_doc}\n\n"
+        f'Teacher\'s description of the widget they want:\n"{description}"\n'
+        f"{hint_line}\n"
+        "Choose the single best-fitting widget_kind, then produce a widget_config that:\n"
+        "- uses ONLY fields declared in that kind's schema (no extra keys);\n"
+        "- respects every type, enum, and numeric bound in the schema;\n"
+        "- uses concrete numbers that realise the teacher's intent (e.g. a bar "
+        "showing 3/4 → numerator 3, denominator 4).\n\n"
+        "Return the chosen widget_kind and widget_config."
+    )
+
+
+_WIDGET_AUTHORING_TOOL = {
+    "name": "save_widget",
+    "description": "Save the proposed interactive widget kind and its config.",
+    "input_schema": {
+        "type": "object",
+        "required": ["widget_kind", "widget_config"],
+        "properties": {
+            "widget_kind": {
+                "type": "string",
+                "description": "One of the available widget kinds.",
+            },
+            "widget_config": {
+                "type": "object",
+                "description": "Config object matching the chosen kind's schema.",
+            },
+        },
+    },
+}
+
+
+def _finalize_widget_proposal(raw_kind: object, raw_config: object, description: str, model: str) -> dict:
+    """Run an LLM proposal through the deterministic guardrail.
+
+    validate → clamp-repair → safe default, returning a config that is *always*
+    schema-valid. ``ai_available`` is True only when the returned config genuinely
+    came from the model (possibly clamped); when the model output had to be
+    discarded for the canned default, it is False so the UI badges it honestly.
+    """
+    from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, is_valid_widget_config, repair_widget_config
+
+    kind = raw_kind if raw_kind in AI_AUTHORABLE_WIDGET_KINDS else _best_guess_widget_kind(description)
+
+    # 1. Accept the model's config as-is when it is already valid and non-empty.
+    if isinstance(raw_config, dict) and raw_config and is_valid_widget_config(kind, raw_config):
+        return {
+            "widget_kind": kind,
+            "widget_config": raw_config,
+            "model": model,
+            "ai_available": True,
+            "repaired": False,
+        }
+
+    # 2. One deterministic clamp/drop repair pass.
+    repaired = repair_widget_config(kind, raw_config)
+    if repaired and is_valid_widget_config(kind, repaired):
+        return {"widget_kind": kind, "widget_config": repaired, "model": model, "ai_available": True, "repaired": True}
+
+    # 3. Un-salvageable → deterministic safe default for the best-guess kind.
+    return _stub_widget_proposal(description)
+
+
+def _stub_widget_proposal(description: str) -> dict:
+    """Deterministic, schema-valid default widget — the no-LLM / unsalvageable path."""
+    from openshiksha.apps.core.widgets import SAFE_DEFAULT_CONFIGS
+
+    kind = _best_guess_widget_kind(description)
+    return {
+        "widget_kind": kind,
+        "widget_config": dict(SAFE_DEFAULT_CONFIGS[kind]),
+        "model": "stub",
+        "ai_available": False,
+        "repaired": False,
+    }
+
+
+def _parse_widget_json(text: str) -> tuple[object, object]:
+    """Extract (widget_kind, widget_config) from a fenced/plain JSON string."""
+    import json as _json
+
+    cleaned = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+    data = _json.loads(cleaned)
+    if not isinstance(data, dict):
+        return None, None
+    return data.get("widget_kind"), data.get("widget_config")
+
+
+def generate_widget_config(description: str, kind_hint: str | None = None) -> dict:
+    """Propose a validated interactive widget from a plain-English description.
+
+    Provider cascade (Claude tool-use → Gemini/Ollama JSON → deterministic
+    default). Every path returns a **schema-valid** config — the LLM proposal is
+    validated, then clamp-repaired, then replaced by the kind's safe default if it
+    still cannot be salvaged. AI never touches grading; this only authors config.
+
+    Returns:
+        {"widget_kind": str, "widget_config": dict, "model": str,
+         "ai_available": bool, "repaired": bool}
+    """
+    prompt = _build_widget_authoring_prompt(description, kind_hint)
+    json_hint = '\n\nRespond ONLY with JSON: {"widget_kind": "...", "widget_config": {...}}, no markdown fences.'
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _WIDGET_AUTHORING_TOOL, WIDGET_AUTHORING_MAX_TOKENS)
+            if result:
+                data = result["data"]
+                return _finalize_widget_proposal(
+                    data.get("widget_kind"), data.get("widget_config"), description, result["model"]
+                )
+        except Exception:
+            logger.exception("generate_widget_config: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            res = _call_google_ai_studio(prompt + json_hint, google_key)
+            raw_kind, raw_config = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(raw_kind, raw_config, description, res["model"])
+        except Exception:
+            logger.exception("generate_widget_config: Google AI Studio call failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            res = _call_ollama(prompt + json_hint, ollama_url)
+            raw_kind, raw_config = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(raw_kind, raw_config, description, res["model"])
+        except Exception:
+            logger.exception("generate_widget_config: Ollama failed, falling back to default")
+
+    logger.warning("generate_widget_config: no LLM provider available — returning safe default")
+    return _stub_widget_proposal(description)

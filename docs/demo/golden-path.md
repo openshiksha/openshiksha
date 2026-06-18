@@ -54,6 +54,61 @@ Or against the live API — a bogus config is refused:
 while a real one (`{"min": 0, "max": 1, "step": 0.25, "label": "Mark ¾"}`) is
 accepted.
 
-*Next beat:* **DTB-2** — the `/ai/widget-authoring/` endpoint that turns the
-plain-English prompt into a `{widget_kind, widget_config}`, always run through
-this validator, with a deterministic stub fallback.
+---
+
+## Beat 1 — Describe-to-Build, the endpoint (DTB-2) · *the engine, off-screen*
+
+Now the platform can turn a teacher's sentence into a widget. `POST
+/api/v1/ai/widget-authoring/` with `{"description": "a number line where students
+mark 3/4"}` returns a **validated** proposal:
+
+```jsonc
+// → 200
+{
+  "widget_kind": "number-line",
+  "widget_config": { "min": 0, "max": 1, "step": 0.25, "label": "Mark the value" },
+  "model_used": "claude-sonnet-4-6",
+  "ai_available": true,
+  "repaired": false
+}
+```
+
+The endpoint grounds the model in the **real, vendored schemas** of the four
+authorable kinds (`number-line`, `fraction-bar`, `function-plotter`,
+`thermo-piston`) and asks only for *config data* — never code. Whatever the model
+returns is run through the Beat 0 guardrail before it leaves the server:
+
+1. **Valid** → returned as-is (`ai_available: true`, `repaired: false`).
+2. **Out of bounds / unknown keys / bad enum** → one deterministic **clamp-repair**
+   pass (e.g. `denominator: 1000 → 40`, unknown keys dropped) then re-validated
+   (`repaired: true`).
+3. **Un-salvageable** (wrong kind, non-object config) **or no LLM provider** → the
+   kind's **deterministic safe default**, honestly flagged `ai_available: false`
+   so the UI badges it `Auto-…`, never as a real generation.
+
+So the response is **always schema-valid by construction**, and a missing key /
+dead provider yields a working widget instead of a `500`. The grader is never
+touched — AI authors, it does not grade.
+
+**Why it's iron-clad:** AI runs on the host, never in the sandbox (principle 1);
+its output is config-as-data, schema-validated before render/store (3); there is a
+deterministic clamp-repair *and* a safe-default fallback, both tested (4); the
+prompt is grounded in the actual kind schemas (5); provenance is honest via
+`ai_available` / `model_used` (6).
+
+**Verify it (no UI yet):**
+
+```bash
+cd backend
+# Real path, clamp-repair path, un-salvageable path, and the no-provider
+# fallback — each asserted to return a schema-valid config:
+./venv/Scripts/python.exe -m pytest \
+  openshiksha/apps/ai/tests/test_widget_authoring.py -q --no-cov
+```
+
+Or against the live API as a teacher — note `ai_available: false` when no LLM key
+is configured, with a still-valid default config you can attach immediately.
+
+*Next beat:* **DTB-3** — the "Describe a widget" prompt box in `WidgetGalleryPanel`
+that calls this endpoint and renders the proposal in the **live sandbox preview**,
+editable via the existing schema form. The on-screen wow.

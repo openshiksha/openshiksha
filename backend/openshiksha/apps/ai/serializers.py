@@ -302,6 +302,15 @@ class GenerateQuestionsRequestSerializer(serializers.Serializer):
     count = serializers.IntegerField(min_value=1, max_value=5, default=3)
 
 
+class WidgetAuthoringRequestSerializer(serializers.Serializer):
+    """Request body for Describe-to-Build AI widget authoring (DTB-2)."""
+
+    description = serializers.CharField(max_length=500, trim_whitespace=True)
+    # Optional teacher hint; validated against the authorable set in the view so
+    # the choice list stays single-sourced in apps.core.widgets.
+    kind_hint = serializers.CharField(max_length=40, required=False, allow_blank=True)
+
+
 class WeeklyClassReportSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
     classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)

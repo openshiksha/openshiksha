@@ -951,4 +951,12 @@ export const hi: LocaleDict = {
   // ── PWA (service worker update prompt) ───────────────────────────────
   'pwa.updateAvailable': 'नया वर्शन उपलब्ध है।',
   'pwa.refresh': 'रिफ़्रेश करें',
+  // ── Web Push notifications (due-date reminders) ──────────────────────
+  'push.prompt': 'अपने फ़ोन पर रिमाइंडर पाएँ।',
+  'push.enable': 'चालू करें',
+  'push.dismiss': 'सूचना अनुरोध बंद करें',
+  'push.enabled': 'रिमाइंडर चालू',
+  'push.label': 'पुश सूचनाएँ',
+  'push.description': 'असाइनमेंट जल्द देय होने पर इस डिवाइस पर सूचना पाएँ।',
+  'push.blocked': 'आपके ब्राउज़र सेटिंग्स में सूचनाएँ अवरुद्ध हैं।',
 };

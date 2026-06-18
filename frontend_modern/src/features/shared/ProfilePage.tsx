@@ -5,6 +5,8 @@ import { authApi } from '@/api/auth';
 import { UserRole } from '@/types/index';
 import { Button, Card, Input, Select, SectionHeading } from '@/shared/ui';
 import { useI18n, type Locale } from '@/shared/i18n';
+import { useT } from '@/shared/i18n/useT';
+import { usePushSubscription } from '@/features/pwa/usePushSubscription';
 import type { AxiosError } from 'axios';
 
 function extractError(err: unknown, fallback = 'Save failed. Please try again.'): string {
@@ -21,6 +23,8 @@ export const ProfilePage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { setLocale } = useI18n();
+  const t = useT();
+  const push = usePushSubscription();
 
   const [form, setForm] = useState({
     first_name: '',
@@ -197,6 +201,28 @@ export const ProfilePage = () => {
                     </span>
                   </span>
                 </label>
+
+                {push.supported && (
+                  <label className="flex items-start gap-3 cursor-pointer mt-4">
+                    <input
+                      type="checkbox"
+                      checked={push.isSubscribed}
+                      disabled={push.busy || push.permission === 'denied'}
+                      onChange={(e) =>
+                        e.target.checked ? push.subscribe() : push.unsubscribe()
+                      }
+                      className="mt-0.5 w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-ink-900">
+                        {t('push.label')}
+                      </span>
+                      <span className="block text-xs text-ink-500 mt-0.5">
+                        {push.permission === 'denied' ? t('push.blocked') : t('push.description')}
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
             )}
 

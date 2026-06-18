@@ -956,6 +956,14 @@ export const en = {
   // ── PWA (service worker update prompt) ───────────────────────────────
   'pwa.updateAvailable': 'A new version is available.',
   'pwa.refresh': 'Refresh',
+  // ── Web Push notifications (due-date reminders) ──────────────────────
+  'push.prompt': 'Get reminders on your phone.',
+  'push.enable': 'Turn on',
+  'push.dismiss': 'Dismiss notification prompt',
+  'push.enabled': 'Reminders on',
+  'push.label': 'Push notifications',
+  'push.description': 'Get a notification on this device when an assignment is due soon.',
+  'push.blocked': 'Notifications are blocked in your browser settings.',
 } as const;
 
 /** Every valid i18n key. Derived from the English dictionary. */

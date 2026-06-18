@@ -2,6 +2,7 @@ import { BottomNav } from './BottomNav';
 import { Navbar } from './Navbar';
 import { OfflineBanner } from './OfflineBanner';
 import { InstallBanner } from '@/features/pwa/InstallBanner';
+import { PushBanner } from '@/features/pwa/PushBanner';
 import { PendingSyncBadge } from '@/features/student/SyncStatus';
 
 interface AppShellProps {
@@ -22,6 +23,7 @@ export const AppShell = ({ children }: AppShellProps) => (
     <OfflineBanner />
     <PendingSyncBadge />
     <InstallBanner />
+    <PushBanner />
     <main
       id="main-content"
       tabIndex={-1}

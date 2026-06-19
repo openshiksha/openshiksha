@@ -46,4 +46,12 @@ describe('<CreateQuestionPage />', () => {
       expect(screen.getByRole('heading', { name: 'प्रश्न बनाएँ' })).toBeInTheDocument();
     });
   });
+
+  it('stacks the chapter selectors into one column on phones (mobile-first grid)', () => {
+    const { container } = renderPage('en');
+    // The subject/standard grid must carry the base `grid-cols-1` class so it is
+    // single-column below `sm:` (JSDOM can't compute the grid; assert the class).
+    const grids = container.querySelectorAll('div.grid-cols-1.sm\\:grid-cols-2');
+    expect(grids.length).toBeGreaterThan(0);
+  });
 });

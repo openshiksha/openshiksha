@@ -13,6 +13,18 @@ concurrency:
     group: ci-${{ github.ref }}
     cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
 
+# Least-privilege default for the GITHUB_TOKEN. Without an explicit block the
+# token inherits the repository/org default, which can be the legacy
+# read/write-all scope — far more than any of these jobs need. Most jobs only
+# check out the repo, so `contents: read` covers them. The two jobs that need
+# more declare their own (overriding) block:
+#   - `test` adds `pull-requests: write` to post the coverage comment
+#   - `build-publish` adds `packages: write` to push images to GHCR
+# Setting the floor here keeps every other job (lint, typecheck, security,
+# frontend, frontend-e2e, lighthouse, deploy-*) read-only on contents.
+permissions:
+    contents: read
+
 jobs:
     workflow-lint:
         name: Workflow Lint (actionlint)

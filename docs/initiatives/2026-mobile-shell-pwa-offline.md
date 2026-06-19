@@ -99,12 +99,16 @@ not the exception, and an installable PWA removes the app-store barrier entirely
 - **MSO-10 — Batch 2 close-out.** Manual offline-write test doc + ledger + STATUS.
   **Docs.**
 
-### Later phases (not yet scoped)
+### Later phases
 
-- **Route-level mobile layouts:** per-route mobile-first layouts beyond the shared
-  shell, where dense teacher tables still overflow on phones. **← next batch.**
+- ~~**Route-level mobile layouts:** per-route mobile-first layouts beyond the
+  shared shell, where dense teacher tables still overflow on phones.~~ **SHIPPED
+  2026-06-18 (Batch 4, RML-1..5, #382–#385)** — see ledger below.
 - ~~**Push notifications:** due-date reminders as web push.~~ **SHIPPED 2026-06-17
   (Batch 3, MPN-1..5, #375–#379)** — see ledger below.
+
+**Both later phases are now shipped. With the first-phase DoD met (Batch 1), this
+initiative is complete.**
 
 ## Ledger
 
@@ -126,6 +130,22 @@ _(append one row per merged PR)_
 | #377 | MPN-3 | `public/push-handler.js` (`push` → showNotification, `notificationclick` → deep-link) layered via `workbox.importScripts` on the generateSW output; SW-presence guard. Entry chunk unchanged. **New** |
 | #379 | MPN-4 | `usePushSubscription` hook (key-gated supported, requestPermission → subscribe → POST) + dismissible `PushBanner` + ProfilePage toggle + `push.*` i18n (en/hi). **New** |
 | #378 | MPN-5 | `send_due_date_reminders` fans web push alongside email (one opt-out governs both; eligibility broadened to email OR push; deep-link url + collapse tag); `emails.build_due_reminder_push` localized copy. Manual-test doc. **Improve** |
+| #382 | RML-1 | `shared/ui/ResponsiveTable` primitive — real `<table>` at `sm:`+, stacked label/value card list below `sm:` from one `columns`/`rows` def; repo `hidden sm:table` / `sm:hidden` dual-render (no `matchMedia`). First consumer: `ClassHealthPanel` (drops `overflow-x-auto` + `min-w-[22rem]`). On `/design`. Entry chunk unchanged. **New** |
+| #383 | RML-2 | `TeacherAssignmentDetailPage` submissions `<table>` → `ResponsiveTable`; opportunistically localized the page's hardcoded English (it had slipped LA-6) — `teacher.ad*` keys in en+hi, dates via `useFormat()`. **Improve** |
+| #384 | RML-3 | `CreateQuestionPage` fixed grids → mobile-first: AI panel `grid-cols-3` → `grid-cols-1 sm:grid-cols-3`, chapter `grid-cols-2` → `grid-cols-1 sm:grid-cols-2`; subpart tab buttons `min-h-[44px]` touch target. Presentation only. **Improve** |
+| #385 | RML-4 | `OpenResponseGradingPage` review-form row `flex-wrap` → `flex-col sm:flex-row`; marks input `w-full sm:w-24`, comment `sm:min-w-[12rem]`; response blockquote `break-words`. AI-suggest/finalise flow untouched. **Improve** |
+
+**Batch 4 shipped 2026-06-18** — route-level mobile layouts. The dense teacher
+surfaces that still overflowed horizontally on a phone (Class Health and
+Assignment-detail submissions tables, the Create-Question multi-column grids, and
+the Open-Response grading form) are now readable and usable on a 360 px screen with
+no horizontal scroll — via a small reusable `ResponsiveTable` primitive (RML-1) and
+per-surface mobile-first stacking. RML-2 also folded the assignment-detail page back
+into the LA i18n registry (en+hi) while it was open. The **"route-level mobile
+layouts" later-phase item is shipped**; manual test in
+`docs/perf/2026-06-18-mobile-layouts-manual-test.md`. **With this batch, both later
+phases and the first-phase DoD are done — the Mobile Shell & PWA-Offline initiative
+is complete.**
 
 **Batch 3 shipped 2026-06-17** — web push due-date reminders. A student who
 installs OpenShiksha to their home screen can opt in (banner / ProfilePage

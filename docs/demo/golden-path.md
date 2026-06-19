@@ -109,6 +109,61 @@ cd backend
 Or against the live API as a teacher — note `ai_available: false` when no LLM key
 is configured, with a still-valid default config you can attach immediately.
 
-*Next beat:* **DTB-3** — the "Describe a widget" prompt box in `WidgetGalleryPanel`
-that calls this endpoint and renders the proposal in the **live sandbox preview**,
-editable via the existing schema form. The on-screen wow.
+---
+
+## Beat 2 — Describe-to-Build, on screen (DTB-3) · *the wow, in the UI*
+
+This is where the engine becomes a moment a viewer can **watch**. In
+**Create Question → Add interactive widget**, the gallery now opens with a
+**"✨ Describe it — AI builds the widget"** prompt box above the kind grid. The
+teacher types
+
+> *a number line where students mark 3/4*
+
+and clicks **Generate widget**. The panel calls the Beat 1 endpoint, and the
+returned proposal drops **straight into the existing configure view** — the same
+**live sandboxed iframe preview** + schema-driven form the teacher already uses.
+The widget is *right there*, rendered and interactive, with every field
+pre-filled. The teacher can tweak any value (the preview re-renders on each
+change) and click **Use this widget** to attach it — no JSON, no code.
+
+Because the proposal arrives **schema-valid by construction** (Beat 0 validation →
+Beat 1 clamp-repair → safe default), the UI never has to validate or sanitize it;
+it trusts the contract and renders. The grader is untouched.
+
+**Honest provenance, on screen:**
+
+- Real LLM proposal → a brand **`✨ AI-generated`** `AIBadge` next to the widget
+  title.
+- No key / timeout / un-salvageable output → the backend's deterministic safe
+  default arrives as `ai_available: false`; the UI shows a neutral **`Auto-built`**
+  badge **and** a friendly line — *"AI is unavailable right now — here's a safe
+  starter you can edit and attach."* The stub is **never** dressed up as a real
+  generation.
+
+**Why it's iron-clad:** the AI call is host-mediated (principle 1) and its output
+is config-as-data the backend already validated before it reaches the iframe (3);
+the no-provider path renders a working, editable default with an honest badge
+rather than an error (4, 6); the prompt is grounded in the real kinds (5); and the
+deterministic per-subpart grader is the only thing that ever scores the student —
+AI authored the manipulative, it never grades it (2).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Real-proposal path (✨ AI-generated badge + config populates the form) AND the
+# deterministic fallback path (neutral Auto-built badge + "AI unavailable" line)
+# are both exercised here, plus the transport-error and pending states:
+npx vitest run src/features/teacher/WidgetGalleryPanel.test.tsx \
+               src/features/teacher/useWidgetAuthoring.test.ts
+```
+
+Or in the running app: open **Create Question**, click **Add interactive widget**,
+type a description, and watch the validated widget render in the live preview.
+
+> 📸 _Screenshot/gif of the describe box → live preview to be captured on the next
+> dev-stack run (the cloudflared tunnel host) and dropped in here._
+
+*Next beat:* **DTB-4** — record this describe-it beat as a captured screenshot/gif
+and an e2e smoke that drives type → generate → render → (student) grade end to end.

@@ -10,9 +10,30 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { I18nProvider } from '@/shared/i18n';
 import { WidgetGalleryPanel } from './WidgetGalleryPanel';
+
+/**
+ * DTB-3 — stub the describe-to-build hook so the panel never reaches into
+ * react-query (these tests render the panel without a QueryClientProvider).
+ * Tests drive the proposal/fallback/error paths by configuring this object.
+ */
+const authoringMock = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  isPending: false,
+  isError: false,
+}));
+
+vi.mock('./useWidgetAuthoring', () => ({
+  useWidgetAuthoring: () => authoringMock,
+}));
+
+beforeEach(() => {
+  authoringMock.mutate = vi.fn();
+  authoringMock.isPending = false;
+  authoringMock.isError = false;
+});
 
 /** Lookup a config field by its predictable id (matches PropertyField). */
 const field = (name: string) => document.getElementById(`wgf-${name}`) as HTMLInputElement;
@@ -116,6 +137,100 @@ describe('WidgetGalleryPanel', () => {
     fireEvent.click(screen.getByText(/Use this widget/i));
     const arg = onApply.mock.calls[0][0];
     expect(arg.config.min).toBe(42); // number, not "42"
+  });
+
+  // ── DTB-3: Describe-to-Build ───────────────────────────────────────
+  describe('Describe-to-Build', () => {
+    it('shows the describe prompt box on the gallery grid', () => {
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      expect(screen.getByLabelText(/Describe it/i)).toBeInTheDocument();
+      const generate = screen.getByRole('button', { name: /Generate widget/i });
+      // Empty prompt → button disabled (nothing to send).
+      expect(generate).toBeDisabled();
+    });
+
+    it('enables Generate once a description is typed and posts it', () => {
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/Describe it/i), {
+        target: { value: 'a number line where students mark 3/4' },
+      });
+      const generate = screen.getByRole('button', { name: /Generate widget/i });
+      expect(generate).not.toBeDisabled();
+      fireEvent.click(generate);
+      expect(authoringMock.mutate).toHaveBeenCalledWith(
+        { description: 'a number line where students mark 3/4' },
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+
+    it('real proposal → lands in configure view with AI-generated badge + the config', () => {
+      // Drive the success callback with a genuine LLM proposal.
+      authoringMock.mutate = vi.fn((_vars, opts) => {
+        opts.onSuccess({
+          widget_kind: 'number-line',
+          widget_config: { min: 0, max: 1, step: 0.25, initial: 0.75, label: 'Mark 3/4' },
+          model_used: 'claude-sonnet-4-6',
+          ai_available: true,
+          repaired: false,
+        });
+      });
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/Describe it/i), {
+        target: { value: 'a number line where students mark 3/4' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+
+      // We're now in the configure view, on the proposed kind.
+      expect(screen.getByText(/← back to gallery/i)).toBeInTheDocument();
+      // Honest provenance: real LLM → ✨ AI-generated, never the Auto badge.
+      expect(screen.getByText(/AI-generated/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Auto-built/i)).not.toBeInTheDocument();
+      // The proposed config populated the live preview's schema form.
+      expect(field('initial').value).toBe('0.75');
+      expect(field('label').value).toBe('Mark 3/4');
+    });
+
+    it('deterministic fallback → neutral Auto-built badge + friendly unavailable line', () => {
+      // No key / timeout: backend returns the kind's safe default as a stub.
+      authoringMock.mutate = vi.fn((_vars, opts) => {
+        opts.onSuccess({
+          widget_kind: 'number-line',
+          widget_config: { min: 0, max: 10, step: 1, initial: 5, label: 'Number line' },
+          model_used: 'stub',
+          ai_available: false,
+          repaired: false,
+        });
+      });
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/Describe it/i), {
+        target: { value: 'a number line' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+
+      // Stub is never shown as a real generation.
+      expect(screen.getByText(/Auto-built/i)).toBeInTheDocument();
+      expect(screen.queryByText(/✨ AI-generated/)).not.toBeInTheDocument();
+      // Friendly "AI unavailable" line so the teacher knows what happened.
+      expect(screen.getByText(/AI is unavailable right now/i)).toBeInTheDocument();
+      // Still a working, editable starter config in the preview.
+      expect(field('initial').value).toBe('5');
+    });
+
+    it('surfaces a friendly error when the builder call fails', () => {
+      authoringMock.isError = true;
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't reach the widget builder/i);
+    });
+
+    it('shows the generating label and disables the button while pending', () => {
+      authoringMock.isPending = true;
+      render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText(/Describe it/i), {
+        target: { value: 'a number line' },
+      });
+      const generate = screen.getByRole('button', { name: /Building your widget/i });
+      expect(generate).toBeDisabled();
+    });
   });
 
   it('renders the gallery heading in Hindi when the locale is हिं', async () => {

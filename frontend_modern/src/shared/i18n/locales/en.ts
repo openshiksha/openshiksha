@@ -639,6 +639,20 @@ export const en = {
     "Preview re-renders on every config change. Sandboxed iframe — scripts inside the widget can't reach the page.",
   'widgetGallery.useThis': 'Use this widget',
 
+  // ── DTB-3: describe-to-build (AI widget authoring) ───────────────────
+  'widgetGallery.describeTitle': 'Describe it — AI builds the widget',
+  'widgetGallery.describeDesc':
+    'Type what you want in plain English. AI proposes a validated, sandboxed widget you can preview, edit, and attach — the grader stays deterministic.',
+  'widgetGallery.describePlaceholder': 'e.g. a number line where students mark 3/4',
+  'widgetGallery.describeButton': 'Generate widget',
+  'widgetGallery.describeGenerating': 'Building your widget…',
+  'widgetGallery.describeError':
+    "Couldn't reach the widget builder. Try again, or pick a widget below.",
+  'widgetGallery.describeFallback':
+    "AI is unavailable right now — here's a safe starter you can edit and attach.",
+  'widgetGallery.describeOrPick': 'or pick one yourself',
+  'widgetGallery.aiStubLabel': 'Auto-built',
+
   // ── LA-6e-2: record-response / rubric panel ──────────────────────────
   'recordResp.maxMarks': 'Maximum marks',
   'recordResp.modelAnswer': 'Model answer',

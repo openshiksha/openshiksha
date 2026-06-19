@@ -8,60 +8,33 @@ import {
   LoadingSpinner,
   SectionHeading,
   Stat,
+  ResponsiveTable,
+  type ResponsiveColumn,
 } from '@/shared/ui';
+import { useI18n, useFormat, type Translate } from '@/shared/i18n';
 import type { SubmissionWithStudent } from './useTeacherAssignmentDetail';
 import type { QuestionMistake } from './useQuestionMistakes';
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
 const isOverdue = (dueAt: string) => new Date(dueAt) < new Date();
 
-const ScoreBadge = ({ score }: { score: number | null }) => {
+const ScoreBadge = ({ score, t }: { score: number | null; t: Translate }) => {
   if (score === null) {
-    return <span className="text-xs italic text-ink-400">Grading...</span>;
+    return <span className="text-xs italic text-ink-400">{t('teacher.adGrading')}</span>;
   }
   const pct = Math.round(score * 100);
   const tone = pct >= 70 ? 'text-emerald-700' : pct >= 40 ? 'text-amber-700' : 'text-rose-700';
   return <span className={`text-sm font-semibold ${tone}`}>{pct}%</span>;
 };
 
-const SubmissionRow = ({ sub }: { sub: SubmissionWithStudent }) => (
-  <tr className="border-t border-ink-100 transition-colors hover:bg-brand-50/40">
-    <td className="px-4 py-3 text-sm font-medium text-ink-900">{sub.student_name}</td>
-    <td className="px-4 py-3 text-sm text-ink-500">
-      {sub.submitted_at ? formatDate(sub.submitted_at) : <span className="text-ink-300">—</span>}
-    </td>
-    <td className="px-4 py-3">
-      {sub.submitted_at ? (
-        <ScoreBadge score={sub.score} />
-      ) : (
-        <span className="text-xs text-ink-400">—</span>
-      )}
-    </td>
-    <td className="px-4 py-3">
-      {sub.submitted_at ? (
-        <Badge tone="success">✓ Submitted</Badge>
-      ) : (
-        <Badge tone="attention">⏳ Pending</Badge>
-      )}
-    </td>
-  </tr>
-);
-
 const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) => {
+  const { t } = useI18n();
   if (!mistakes.length) return null;
   const maxRegression = Math.max(...mistakes.map((m) => m.regression));
   return (
     <div className="os-card mt-6 p-5">
       <h3 className="mb-3 font-display text-base font-semibold text-ink-900">
-        Hardest Questions{' '}
-        <span className="font-normal text-ink-400">(by cumulative marks lost)</span>
+        {t('teacher.adHardestTitle')}{' '}
+        <span className="font-normal text-ink-400">{t('teacher.adHardestSub')}</span>
       </h3>
       <div className="space-y-3">
         {mistakes.slice(0, 5).map((m) => (
@@ -76,7 +49,7 @@ const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) =>
               </div>
             </div>
             <span className="shrink-0 text-xs font-semibold text-rose-700">
-              {m.regression.toFixed(1)} pts lost
+              {t('teacher.adPtsLost', { pts: m.regression.toFixed(1) })}
             </span>
           </div>
         ))}
@@ -88,7 +61,16 @@ const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) =>
 export const TeacherAssignmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const { formatDate } = useFormat();
   const assignmentId = id ? parseInt(id, 10) : 0;
+
+  const submissionDateOpts: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  };
 
   const { metaQuery, submissionsQuery } = useTeacherAssignmentDetail(assignmentId);
   const { data: mistakes } = useQuestionMistakes(metaQuery.data?.subject_room);
@@ -108,14 +90,14 @@ export const TeacherAssignmentDetailPage = () => {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8">
         <EmptyState
-          title="Failed to load assignment"
-          description="It may not exist or you may not have access."
+          title={t('teacher.adLoadFailTitle')}
+          description={t('teacher.adLoadFailDesc')}
           action={
             <button
               onClick={() => navigate('/teacher')}
               className="rounded text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
-              ← Back to dashboard
+              ← {t('teacher.adBackToDashboard')}
             </button>
           }
         />
@@ -129,13 +111,50 @@ export const TeacherAssignmentDetailPage = () => {
   const submittedCount = submissions.filter((s) => s.submitted_at).length;
   const totalStudents = assignment.student_count;
   const avgScore = assignment.average_score;
-  const dueDate = new Date(assignment.due_at).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const dueDate = formatDate(assignment.due_at);
   const overdue = isOverdue(assignment.due_at);
   const submissionPct = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
+
+  const submissionColumns: ResponsiveColumn<SubmissionWithStudent>[] = [
+    {
+      key: 'student',
+      header: t('teacher.adThStudent'),
+      primary: true,
+      cell: (sub) => <span className="font-medium text-ink-900">{sub.student_name}</span>,
+    },
+    {
+      key: 'submitted',
+      header: t('teacher.adThSubmitted'),
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <span className="text-ink-500">{formatDate(sub.submitted_at, submissionDateOpts)}</span>
+        ) : (
+          <span className="text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'score',
+      header: t('teacher.adThScore'),
+      align: 'right',
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <ScoreBadge score={sub.score} t={t} />
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
+    },
+    {
+      key: 'status',
+      header: t('teacher.adThStatus'),
+      align: 'right',
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <Badge tone="success">✓ {t('teacher.adBadgeSubmitted')}</Badge>
+        ) : (
+          <Badge tone="attention">⏳ {t('teacher.adBadgePending')}</Badge>
+        ),
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
@@ -143,7 +162,7 @@ export const TeacherAssignmentDetailPage = () => {
         onClick={() => navigate('/teacher')}
         className="flex items-center gap-1 rounded text-sm text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       >
-        ← Back to dashboard
+        ← {t('teacher.adBackToDashboard')}
       </button>
 
       <div className="os-card p-6">
@@ -153,26 +172,26 @@ export const TeacherAssignmentDetailPage = () => {
           title={assignment.problem_set.title}
           action={
             overdue ? (
-              <Badge tone="urgent">Overdue</Badge>
+              <Badge tone="urgent">{t('teacher.adOverdue')}</Badge>
             ) : (
-              <Badge tone="brand">Active</Badge>
+              <Badge tone="brand">{t('teacher.adActive')}</Badge>
             )
           }
         />
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat
-            label="Due"
+            label={t('teacher.adStatDue')}
             value={dueDate}
-            delta={overdue ? 'Overdue' : undefined}
+            delta={overdue ? t('teacher.adOverdue') : undefined}
             tone="urgent"
           />
           <Stat
-            label="Submitted"
+            label={t('teacher.adStatSubmitted')}
             value={`${submittedCount}/${totalStudents}`}
           />
           {avgScore !== null && (
-            <Stat label="Avg score" value={`${Math.round(avgScore * 100)}%`} />
+            <Stat label={t('teacher.adStatAvg')} value={`${Math.round(avgScore * 100)}%`} />
           )}
         </div>
 
@@ -189,7 +208,9 @@ export const TeacherAssignmentDetailPage = () => {
               style={{ width: `${submissionPct}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-ink-400">{Math.round(submissionPct)}% submitted</p>
+          <p className="mt-1 text-xs text-ink-400">
+            {t('teacher.adSubmittedPct', { pct: Math.round(submissionPct) })}
+          </p>
         </div>
       </div>
 
@@ -200,40 +221,36 @@ export const TeacherAssignmentDetailPage = () => {
         hasResyncHistory={assignment.has_resync_history === true}
       />
 
-      <div className="os-card overflow-hidden p-0">
+      <div className="os-card p-0">
         <div className="border-b border-ink-100 px-6 py-4">
           <h2 className="font-display text-base font-semibold text-ink-900">
-            Student Submissions
+            {t('teacher.adSubmissionsTitle')}
           </h2>
           <p className="mt-0.5 text-xs text-ink-400">
-            {submissions.length} submission{submissions.length !== 1 ? 's' : ''} recorded
+            {t(
+              submissions.length === 1
+                ? 'teacher.adSubmissionsRecordedOne'
+                : 'teacher.adSubmissionsRecordedMany',
+              { count: submissions.length },
+            )}
             {totalStudents > submissions.length && (
-              <> · {totalStudents - submissions.length} students have not started</>
+              <> · {t('teacher.adNotStarted', { count: totalStudents - submissions.length })}</>
             )}
           </p>
         </div>
 
         {submissions.length === 0 ? (
           <div className="px-6 py-12">
-            <EmptyState title="No submissions yet." />
+            <EmptyState title={t('teacher.adNoSubmissions')} />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-ink-50 text-xs font-display font-semibold uppercase tracking-wide text-ink-500">
-                <tr>
-                  <th className="px-4 py-3">Student</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Score</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((sub) => (
-                  <SubmissionRow key={sub.id} sub={sub} />
-                ))}
-              </tbody>
-            </table>
+          <div className="px-4 py-2 sm:px-6 sm:py-3">
+            <ResponsiveTable
+              aria-label={t('teacher.adSubmissionsTitle')}
+              rows={submissions}
+              rowKey={(sub) => sub.id}
+              columns={submissionColumns}
+            />
           </div>
         )}
       </div>

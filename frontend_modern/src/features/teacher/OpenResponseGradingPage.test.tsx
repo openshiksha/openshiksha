@@ -262,4 +262,15 @@ describe('OpenResponseGradingPage', () => {
     await waitFor(() => expect(screen.getByText(/no responses to grade yet/i)).toBeDefined());
     expect(screen.getByText(/AI will suggest a grade for your review/i)).toBeDefined();
   });
+
+  it('stacks the review form fields into one column on phones (mobile-first)', async () => {
+    mockApi([GRADE]);
+    const { container } = renderPage();
+
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+    // The marks/comment row must be flex-col at the base breakpoint so the
+    // fields stack on a phone (JSDOM can't compute the layout; assert the class).
+    const row = container.querySelector('form .flex.flex-col.sm\\:flex-row');
+    expect(row).not.toBeNull();
+  });
 });

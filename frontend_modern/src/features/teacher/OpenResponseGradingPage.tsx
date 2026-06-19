@@ -66,7 +66,7 @@ const ReviewForm = ({ grade }: ReviewFormProps) => {
         });
       }}
     >
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="block text-xs text-ink-600">
           {t('grading.finalMarks', { max: grade.max_marks })}
           <input
@@ -76,10 +76,10 @@ const ReviewForm = ({ grade }: ReviewFormProps) => {
             step={0.5}
             value={score}
             onChange={(e) => setScore(e.target.value)}
-            className="input-brand mt-1 block w-24 text-sm"
+            className="input-brand mt-1 block w-full text-sm sm:w-24"
           />
         </label>
-        <label className="block flex-1 min-w-[12rem] text-xs text-ink-600">
+        <label className="block flex-1 text-xs text-ink-600 sm:min-w-[12rem]">
           {t('grading.commentLabel')} <span className="text-ink-400">{t('grading.optional')}</span>
           <input
             type="text"
@@ -137,7 +137,7 @@ const GradeCard = ({ grade }: { grade: OpenResponseGrade }) => {
       <p className="mt-3 text-xs text-ink-500">
         <span className="font-semibold">{t('grading.questionLabel')}</span> {grade.question_text}
       </p>
-      <blockquote className="mt-2 rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-800 leading-relaxed whitespace-pre-line">
+      <blockquote className="mt-2 rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-800 leading-relaxed whitespace-pre-line break-words">
         {grade.response_text}
       </blockquote>
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { apiClient } from '@/api/client';
 import { useClassInsights } from './useClassInsights';
 import type { ClassInsight } from './useClassInsights';
-import { Button } from '@/shared/ui';
+import { Button, ResponsiveTable, type ResponsiveColumn } from '@/shared/ui';
 import { useI18n, type LocaleKey } from '@/shared/i18n';
 
 const STATUS_CONFIG: Record<ClassInsight['insight_type'], { dot: string; labelKey: LocaleKey }> = {
@@ -25,6 +25,47 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
   const [isTriggering, setIsTriggering] = useState(false);
 
   const { data: insights, isLoading, refetch } = useClassInsights(subjectRoomId, isExpanded);
+
+  const columns: ResponsiveColumn<ClassInsight>[] = [
+    {
+      key: 'chapter',
+      header: t('teacher.thChapter'),
+      primary: true,
+      cell: (insight) => <span className="font-medium text-ink-800">{insight.chapter_name}</span>,
+    },
+    {
+      key: 'avg',
+      header: t('teacher.thAvg'),
+      align: 'right',
+      cell: (insight) => (
+        <span className="text-ink-600">{Math.round(insight.class_avg_score * 100)}%</span>
+      ),
+    },
+    {
+      key: 'struggling',
+      header: t('teacher.thStruggling'),
+      align: 'right',
+      cell: (insight) => (
+        <span className="text-ink-500">
+          {insight.students_struggling}/{insight.students_assessed}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: t('teacher.thStatus'),
+      align: 'right',
+      cell: (insight) => {
+        const cfg = STATUS_CONFIG[insight.insight_type];
+        return (
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
+            <span className="text-ink-600">{t(cfg.labelKey)}</span>
+          </span>
+        );
+      },
+    },
+  ];
 
   const handleRefresh = async () => {
     setIsTriggering(true);
@@ -77,48 +118,12 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
 
           {insights && insights.length > 0 && (
             <>
-              <div className="-mx-1 overflow-x-auto">
-              <table className="w-full min-w-[22rem] text-xs">
-                <thead>
-                  <tr className="border-b border-ink-100 text-ink-500">
-                    <th className="pb-1.5 text-left font-display font-semibold">{t('teacher.thChapter')}</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thAvg')}</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thStruggling')}</th>
-                    <th className="pb-1.5 text-right font-display font-semibold">{t('teacher.thStatus')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {insights.map((insight) => {
-                    const cfg = STATUS_CONFIG[insight.insight_type];
-                    return (
-                      <tr
-                        key={insight.id}
-                        className="border-b border-ink-50 last:border-0"
-                      >
-                        <td className="py-1.5 font-medium text-ink-800">
-                          {insight.chapter_name}
-                        </td>
-                        <td className="py-1.5 text-right text-ink-600">
-                          {Math.round(insight.class_avg_score * 100)}%
-                        </td>
-                        <td className="py-1.5 text-right text-ink-500">
-                          {insight.students_struggling}/{insight.students_assessed}
-                        </td>
-                        <td className="py-1.5 text-right">
-                          <span className="inline-flex items-center gap-1">
-                            <span
-                              aria-hidden
-                              className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`}
-                            />
-                            <span className="text-ink-600">{t(cfg.labelKey)}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
+              <ResponsiveTable
+                aria-label={t('teacher.classHealth')}
+                rows={insights}
+                rowKey={(insight) => insight.id}
+                columns={columns}
+              />
               <div className="mt-2 flex items-center justify-between">
                 <p className="text-xs text-ink-400">
                   {t('teacher.lastUpdated', {

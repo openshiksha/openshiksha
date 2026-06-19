@@ -12,6 +12,8 @@ import {
   Stat,
   SectionHeading,
   EmptyState,
+  ResponsiveTable,
+  type ResponsiveColumn,
 } from '@/shared/ui';
 import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { RichContent } from '@/shared/ui/RichContent';
@@ -408,6 +410,31 @@ export const DesignSystemPage = () => (
           />
           <EmptyState title="No streak yet" description="Answer one question today to start the chain." />
         </div>
+      </Section>
+
+      <Section kicker="Components" title="Responsive table">
+        <Card>
+          <p className="mb-3 text-sm text-ink-500">
+            A real <code>&lt;table&gt;</code> at <code>sm:</code> and up; a stacked
+            label/value card list below it. Resize the viewport to switch.
+          </p>
+          <ResponsiveTable<{ id: number; chapter: string; avg: number; status: string }>
+            aria-label="Demo class health"
+            rows={[
+              { id: 1, chapter: 'Polynomials', avg: 82, status: 'Proficient' },
+              { id: 2, chapter: 'Triangles', avg: 54, status: 'At risk' },
+              { id: 3, chapter: 'Real Numbers', avg: 38, status: 'Struggling' },
+            ]}
+            rowKey={(r) => r.id}
+            columns={
+              [
+                { key: 'chapter', header: 'Chapter', primary: true, cell: (r) => r.chapter },
+                { key: 'avg', header: 'Avg', align: 'right', cell: (r) => `${r.avg}%` },
+                { key: 'status', header: 'Status', align: 'right', cell: (r) => r.status },
+              ] as ResponsiveColumn<{ id: number; chapter: string; avg: number; status: string }>[]
+            }
+          />
+        </Card>
       </Section>
 
       <Section kicker="Components" title="Skeleton (loading)">

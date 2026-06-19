@@ -23,3 +23,5 @@ export { Input, Textarea, Select } from './Input';
 export { Stat } from './Stat';
 export { SectionHeading } from './SectionHeading';
 export { EmptyState } from './EmptyState';
+export { ResponsiveTable } from './ResponsiveTable';
+export type { ResponsiveColumn } from './ResponsiveTable';

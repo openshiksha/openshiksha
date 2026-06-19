@@ -11,20 +11,30 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-17 (latest) — **Mobile Shell & PWA-Offline — Batch 3
+**Last updated:** 2026-06-18 (latest) — **Mobile Shell & PWA-Offline — Batch 4
+(RML-1..5) SHIPPED: route-level mobile layouts — INITIATIVE COMPLETE**
+([plan](../daily-plans/2026-06-18-plan.md), [#382](https://github.com/openshiksha/openshiksha/pull/382)–[#385](https://github.com/openshiksha/openshiksha/pull/385)).
+The dense teacher surfaces that still overflowed horizontally on a phone are now
+readable at 360 px: a reusable `shared/ui/ResponsiveTable` primitive (real `<table>`
+at `sm:`+, stacked label/value cards below — repo `hidden sm:table`/`sm:hidden`
+dual-render, no `matchMedia`) — first consumer ClassHealthPanel (RML-1, #382) →
+assignment-detail submissions table → cards, plus the page localized back into the
+LA registry (it had slipped LA-6) (RML-2, #383) → CreateQuestionPage fixed grids →
+mobile-first `grid-cols-1 sm:grid-cols-*` + 44 px tab targets (RML-3, #384) →
+OpenResponseGradingPage review form stacks `flex-col sm:flex-row` + `break-words`
+(RML-4, #385). Frontend-only, entry chunk unchanged. **With both later phases (web
+push, route-level layouts) and the first-phase DoD done, the Mobile Shell &
+PWA-Offline initiative is COMPLETE.** No unblocked next bet — the next planning run
+promotes a fresh top initiative (candidates below).
+
+**Earlier (2026-06-17)** — **Mobile Shell & PWA-Offline — Batch 3
 (MPN-1..5) SHIPPED: web push due-date reminders**
 ([plan](../daily-plans/2026-06-17-plan.md), [#375](https://github.com/openshiksha/openshiksha/pull/375)–[#379](https://github.com/openshiksha/openshiksha/pull/379)).
-The **mobile-native notification channel** is now live: `PushSubscription` model +
-VAPID config + `pywebpush` (MPN-1, #375) → subscribe/unsubscribe API +
-`send_web_push` stale-pruning helper (MPN-2, #376) → `public/push-handler.js`
-(`push`+`notificationclick`) layered on the MSO-3 SW via `workbox.importScripts`,
-no strategy change (MPN-3, #377) → `usePushSubscription` hook + localized opt-in
-banner + ProfilePage toggle (MPN-4, #379) → web push fanned out from the existing
-`send_due_date_reminders` task (MPN-5, #378). Reused MSO-3's service worker,
-MSO-1's icons, the LA i18n registry, and the existing reminder task — every piece
-rode shipped infra. Email stays source of truth; push is additive and never fails
-the reminder run. **Only the final later-phase remains: route-level mobile
-layouts** (dense teacher tables → cards) before the initiative is complete.
+The **mobile-native notification channel**: `PushSubscription` model + VAPID +
+`pywebpush` (MPN-1) → subscribe/unsubscribe API + `send_web_push` (MPN-2) →
+`public/push-handler.js` on the MSO-3 SW (MPN-3) → `usePushSubscription` hook +
+opt-in banner + ProfilePage toggle (MPN-4) → web push fanned from
+`send_due_date_reminders` (MPN-5). Email stays source of truth; push is additive.
 
 **Earlier (2026-06-15)** — **Mobile Shell & PWA-Offline — Batch 2
 (MSO-6..10) SHIPPED: offline *write*-tolerance**
@@ -195,7 +205,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
-| 1 | [Mobile Shell & PWA-Offline](2026-mobile-shell-pwa-offline.md) | **Active** | **Batch 1 (MSO-1..5) shipped 2026-06-14** ([#358](https://github.com/openshiksha/openshiksha/pull/358)–[#362](https://github.com/openshiksha/openshiksha/pull/362)): installable PWA + offline *read*-tolerance (manifest/maskable icons, service worker precache, persisted React Query cache, localized offline banner, A2HS prompt). **Batch 2 (MSO-6..10) shipped 2026-06-15** ([#367](https://github.com/openshiksha/openshiksha/pull/367)–[#370](https://github.com/openshiksha/openshiksha/pull/370)): offline *write*-tolerance — queue + replay auto-saves/submissions. **Batch 3 (MPN-1..5) shipped 2026-06-17** ([#375](https://github.com/openshiksha/openshiksha/pull/375)–[#379](https://github.com/openshiksha/openshiksha/pull/379)): web push due-date reminders (PushSubscription + VAPID, subscribe/unsubscribe API + send_web_push, SW push handler, opt-in hook/banner/toggle, reminder fan-out). | **Route-level mobile layouts** — dense teacher tables (`ClassHealthPanel`, `TeacherAssignmentDetailPage`) → responsive cards on phones. Last later-phase; then initiative complete. |
+| 1 | [Mobile Shell & PWA-Offline](2026-mobile-shell-pwa-offline.md) | **Done** | **Batch 1 (MSO-1..5) shipped 2026-06-14** ([#358](https://github.com/openshiksha/openshiksha/pull/358)–[#362](https://github.com/openshiksha/openshiksha/pull/362)): installable PWA + offline *read*-tolerance. **Batch 2 (MSO-6..10) shipped 2026-06-15** ([#367](https://github.com/openshiksha/openshiksha/pull/367)–[#370](https://github.com/openshiksha/openshiksha/pull/370)): offline *write*-tolerance — queue + replay. **Batch 3 (MPN-1..5) shipped 2026-06-17** ([#375](https://github.com/openshiksha/openshiksha/pull/375)–[#379](https://github.com/openshiksha/openshiksha/pull/379)): web push due-date reminders. **Batch 4 (RML-1..5) shipped 2026-06-18** ([#382](https://github.com/openshiksha/openshiksha/pull/382)–[#385](https://github.com/openshiksha/openshiksha/pull/385)): route-level mobile layouts — `ResponsiveTable` primitive + dense teacher tables/forms → responsive on phones. **First-phase DoD + both later phases done → initiative complete.** | **No unblocked next bet.** The next planning run promotes a fresh top initiative — candidates: **AI-tutor rebase** (`ai/2026-06-04-ai-tutor-chat`, ~5k-line diverged branch), an **`/ai/predictions/` teacher surface**, or an **accessibility audit (WCAG 2.1 AA)**. LA-10 (authored-content translation) stays blocked on product design. |
 | 2 | [Language Access — i18n en/हिंदी/मराठी](2026-language-access.md) | **Done-but-for-LA-10 (blocked)** | **LA-1..9 shipped.** Foundation + EN\|हिं switcher, `preferred_language` end-to-end, student/parent/public/teacher surfaces, AI content + emails in the reader's language, `Intl` date/number helper ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#326](https://github.com/openshiksha/openshiksha/pull/326)). **LA-9 closed 2026-06-13** — N-locale registry + pilot-coverage parity ([#349](https://github.com/openshiksha/openshiksha/pull/349)) then **Marathi (मरा)** as pure content across the anonymous journey, student loop, and parent dashboard + a backend mr→en AI fallback guard ([#350](https://github.com/openshiksha/openshiksha/pull/350)–[#353](https://github.com/openshiksha/openshiksha/pull/353)). The framework now makes a new language config + content, no code change. | **LA-10** (authored-content/question translation) — blocked on product design, do not start without promotion. Then **Mobile shell / PWA-offline** |
 | - | [AI Surface Activation](ai-surface-activation.md) | Done | **Closed 2026-06-11 — North Star reached.** ASA-1..9 shipped across [#285](https://github.com/openshiksha/openshiksha/pull/285)–[#289](https://github.com/openshiksha/openshiksha/pull/289), [#293](https://github.com/openshiksha/openshiksha/pull/293)–[#302](https://github.com/openshiksha/openshiksha/pull/302): all four dark `/ai/` endpoint groups lit (explanations, misconception clusters, assignment drafts, open-response grading), error-as-empty-state sweep complete, shared `AIBadge` provenance, server-side SRS guard. Close ([#303](https://github.com/openshiksha/openshiksha/pull/303)): [endpoint-consumer map](../ai-features/endpoint-consumer-map.md) + DoD audit — 17 endpoints directly consumed, 4 indirect by design, 1 API-only (`/ai/predictions/`). | `useAsyncGeneration` refactor carried to maintenance; `/ai/predictions/` surface is a future product call |
 | - | [Authoring Integrity & Versioning](authoring-integrity-versioning.md) | Done | **All three phases shipped 2026-06-08/09.** Phase 1 (AIV-1..3, [#270](https://github.com/openshiksha/openshiksha/pull/270)–[#274](https://github.com/openshiksha/openshiksha/pull/274)): snapshot foundation + grader/student readers + edit-safety UI. Phase 2 (AIV-4/5, [#276](https://github.com/openshiksha/openshiksha/pull/276)–[#277](https://github.com/openshiksha/openshiksha/pull/277)): editable preview + drift surface. Phase 3 (AIV-6/7/8, [#279](https://github.com/openshiksha/openshiksha/pull/279)–[#281](https://github.com/openshiksha/openshiksha/pull/281)): guarded re-sync + `ProblemSetVersion` dedup + version history & diff UI. DoD met end-to-end. | - |

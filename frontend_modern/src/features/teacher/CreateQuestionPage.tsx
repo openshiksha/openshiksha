@@ -360,7 +360,7 @@ const AIGenerationPanel = ({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="block text-xs font-medium text-brand-800 mb-1">{t('cqp.typeLabelShort')}</label>
               <select
@@ -758,7 +758,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
         <div className="bg-white rounded-xl border border-ink-100 p-5 space-y-4">
           <h2 className="font-semibold text-ink-800">{t('cqp.chapter')}</h2>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.subject')}</label>
               <select
@@ -831,7 +831,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               <button
                 key={i}
                 onClick={() => setActiveSubpart(i)}
-                className={`pb-3 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex min-h-[44px] items-end pb-3 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeSubpart === i
                     ? 'border-brand-600 text-brand-700'
                     : 'border-transparent text-ink-500 hover:text-ink-700'
@@ -842,7 +842,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             ))}
             <button
               onClick={addSubpart}
-              className="pb-3 px-3 text-sm text-brand-600 hover:text-brand-800 whitespace-nowrap"
+              className="flex min-h-[44px] items-end pb-3 px-3 text-sm text-brand-600 hover:text-brand-800 whitespace-nowrap"
             >
               {t('cqp.addPart')}
             </button>

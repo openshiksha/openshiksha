@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Card } from '@/shared/ui';
+import { AIBadge } from '@/shared/ui/AIBadge';
 import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { useT } from '@/shared/i18n';
 import { widgetRegistry } from '@/widgets/registry';
 import type { WidgetModule } from '@/widgets/_sdk/defineWidget';
+import { useWidgetAuthoring } from './useWidgetAuthoring';
 
 /**
  * Tier-1 "Configure" authoring surface — the teacher gallery for the
@@ -15,6 +17,19 @@ import type { WidgetModule } from '@/widgets/_sdk/defineWidget';
  * every config change. When the teacher clicks "Use this widget", we
  * surface the chosen `{ kind, config }` to the parent (CreateQuestionPage)
  * which stamps `widget_kind` + `widget_config` on the active subpart.
+ *
+ * Describe-to-Build (DTB-3)
+ * -------------------------
+ * The grid view also carries a plain-English prompt box: the teacher
+ * types "a number line where students mark 3/4", we POST it to the
+ * teacher-only `/ai/widget-authoring/` endpoint, and the returned
+ * `{widget_kind, widget_config}` proposal drops straight into the *same*
+ * configure view (live preview + schema form) for editing before attach.
+ * The proposal is schema-valid by construction on the backend (DTB-1
+ * validation → DTB-2 clamp-repair → safe default), so the AI never emits
+ * code and never touches the grader — it only authors config-as-data.
+ * Provenance is honest via `AIBadge`; the no-key/timeout fallback returns
+ * a deterministic safe default and shows a neutral `Auto-built` badge.
  *
  * Filtering rules
  * ---------------
@@ -238,8 +253,21 @@ export function WidgetGalleryPanel({
     initialConfig ?? defaultConfigFromSchema(schema),
   );
 
+  // ── DTB-3: Describe-to-Build ────────────────────────────────────────
+  // Plain-English prompt → backend proposes a schema-valid {kind, config}.
+  // We track the proposal's provenance so the configure view can wear an
+  // honest badge (`✨ AI-generated` vs neutral `Auto-built`) and so the
+  // deterministic-fallback path gets a friendly "AI unavailable" line.
+  const [description, setDescription] = useState('');
+  const [aiProvenance, setAiProvenance] = useState<
+    { modelUsed: string; aiAvailable: boolean } | null
+  >(null);
+  const authoring = useWidgetAuthoring();
+
   const handleSelect = (kind: string) => {
     setSelectedKind(kind);
+    // A manual gallery pick is never an AI proposal — clear any badge.
+    setAiProvenance(null);
     // Fresh kind → reset config to its defaults so a previous kind's
     // fields don't leak into the preview.
     if (kind !== initialKind) {
@@ -248,6 +276,25 @@ export function WidgetGalleryPanel({
     } else {
       setConfig(initialConfig ?? defaultConfigFromSchema(schema));
     }
+  };
+
+  const handleGenerate = () => {
+    const prompt = description.trim();
+    if (!prompt || authoring.isPending) return;
+    authoring.mutate(
+      { description: prompt },
+      {
+        onSuccess: (res) => {
+          // The backend guarantees a schema-valid config (DTB-1 validation →
+          // DTB-2 clamp-repair → safe default), so we can drop it straight
+          // into the live preview + schema form. Land the teacher in the
+          // configure view with the proposal pre-loaded.
+          setSelectedKind(res.widget_kind);
+          setConfig(res.widget_config);
+          setAiProvenance({ modelUsed: res.model_used, aiAvailable: res.ai_available });
+        },
+      },
+    );
   };
 
   // ── Gallery grid (no kind selected) ─────────────────────────────────
@@ -269,6 +316,44 @@ export function WidgetGalleryPanel({
             {t('common.cancel')}
           </button>
         </div>
+
+        {/* ── DTB-3: Describe-to-Build prompt box ──────────────────── */}
+        <div className="grid gap-2 rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="text-base">✨</span>
+            <h4 className="font-semibold text-ink-900">{t('widgetGallery.describeTitle')}</h4>
+          </div>
+          <p className="text-xs text-ink-500">{t('widgetGallery.describeDesc')}</p>
+          <textarea
+            aria-label={t('widgetGallery.describeTitle')}
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('widgetGallery.describePlaceholder')}
+            className="rounded border border-ink-200 bg-paper px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-none"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={authoring.isPending || description.trim() === ''}
+              className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {authoring.isPending
+                ? t('widgetGallery.describeGenerating')
+                : t('widgetGallery.describeButton')}
+            </button>
+            <span className="text-[11px] uppercase tracking-wider text-ink-400">
+              {t('widgetGallery.describeOrPick')}
+            </span>
+          </div>
+          {authoring.isError && (
+            <p role="alert" className="text-xs text-red-600">
+              {t('widgetGallery.describeError')}
+            </p>
+          )}
+        </div>
+
         {galleryEntries.length === 0 ? (
           <p className="text-sm text-ink-500 italic">{t('widgetGallery.noneRegistered')}</p>
         ) : (
@@ -308,9 +393,23 @@ export function WidgetGalleryPanel({
           <p className="font-mono text-[10px] uppercase tracking-wider text-ink-400">
             {selected.kind} · v{selected.version}
           </p>
-          <h3 className="font-display text-lg font-semibold text-ink-900">{selected.meta.title}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-lg font-semibold text-ink-900">{selected.meta.title}</h3>
+            {/* DTB-3: honest provenance when this config came from the AI
+                builder — `✨ AI-generated` for a real proposal, neutral
+                `Auto-built` when the cascade fell back to a safe default. */}
+            {aiProvenance && (
+              <AIBadge
+                modelUsed={aiProvenance.modelUsed}
+                stubLabel={t('widgetGallery.aiStubLabel')}
+              />
+            )}
+          </div>
           {selected.meta.description && (
             <p className="text-sm text-ink-500">{selected.meta.description}</p>
+          )}
+          {aiProvenance && !aiProvenance.aiAvailable && (
+            <p className="mt-1 text-xs text-amber-700">{t('widgetGallery.describeFallback')}</p>
           )}
         </div>
         <button

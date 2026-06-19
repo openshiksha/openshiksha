@@ -635,6 +635,20 @@ export const hi: LocaleDict = {
     'हर कॉन्फ़िग बदलाव पर प्रीव्यू दोबारा रेंडर होता है। सैंडबॉक्स्ड iframe — विजेट के अंदर के स्क्रिप्ट पेज तक नहीं पहुँच सकते।',
   'widgetGallery.useThis': 'यह विजेट इस्तेमाल करें',
 
+  // ── DTB-3: describe-to-build (AI widget authoring) ───────────────────
+  'widgetGallery.describeTitle': 'इसे बताइए — AI विजेट बना देगा',
+  'widgetGallery.describeDesc':
+    'सरल भाषा में लिखिए कि आपको क्या चाहिए। AI एक मान्य, सैंडबॉक्स्ड विजेट सुझाएगा जिसे आप प्रीव्यू, संपादित और संलग्न कर सकते हैं — ग्रेडिंग निर्धारक ही रहती है।',
+  'widgetGallery.describePlaceholder': 'जैसे: एक संख्या रेखा जहाँ छात्र 3/4 अंकित करें',
+  'widgetGallery.describeButton': 'विजेट बनाएँ',
+  'widgetGallery.describeGenerating': 'आपका विजेट बन रहा है…',
+  'widgetGallery.describeError':
+    'विजेट बिल्डर तक नहीं पहुँच सके। फिर से प्रयास करें, या नीचे से एक विजेट चुनें।',
+  'widgetGallery.describeFallback':
+    'AI अभी उपलब्ध नहीं है — यहाँ एक सुरक्षित शुरुआती विजेट है जिसे आप संपादित कर सकते हैं।',
+  'widgetGallery.describeOrPick': 'या स्वयं एक चुनें',
+  'widgetGallery.aiStubLabel': 'स्वतः-निर्मित',
+
   // ── LA-6e-2: record-response / rubric panel ──────────────────────────
   'recordResp.maxMarks': 'अधिकतम अंक',
   'recordResp.modelAnswer': 'मॉडल उत्तर',

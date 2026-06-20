@@ -395,7 +395,7 @@ export const DesignSystemPage = () => (
 
       <Section kicker="Components" title="Section heading">
         <Card className="space-y-6">
-          <SectionHeading eyebrow="Today" title="Practice queue" description="Pick something to work on right now." action={<a href="#" className="text-sm font-semibold text-brand-700 hover:text-brand-800">View all</a>} />
+          <SectionHeading eyebrow="Today" title="Practice queue" description="Pick something to work on right now." action={<button type="button" className="text-sm font-semibold text-brand-700 hover:text-brand-800">View all</button>} />
           <div className="border-t border-ink-100" />
           <SectionHeading title="Recent activity" />
         </Card>

@@ -53,6 +53,10 @@ export function ResyncAssignmentModal({ assignmentId, open, onClose, onApplied }
   };
 
   return (
+    // Backdrop click-to-dismiss is a pointer-only convenience; keyboard users
+    // close via Escape (handled in the effect above) or the dialog's own close
+    // control, so no key handler is needed on the overlay itself.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events
     <div
       role="dialog"
       aria-modal="true"

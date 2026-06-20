@@ -142,6 +142,10 @@ const AddToProblemSetSheet = ({
   };
 
   return (
+    // Backdrop click-to-dismiss is a pointer-only convenience; keyboard users
+    // close via Escape (handled in the effect above) or the panel's own close
+    // control, so no key handler is needed on the overlay itself.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
       className="fixed inset-0 z-50 flex justify-end bg-ink-900/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}

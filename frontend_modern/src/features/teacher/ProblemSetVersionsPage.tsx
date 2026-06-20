@@ -100,62 +100,66 @@ export const ProblemSetVersionsPage = () => {
           {rows.map((v) => {
             const state = stateForRow(v.id);
             return (
-              <li
-                key={v.id}
-                data-testid={`version-row-${v.id}`}
-                data-state={state}
-                className={`flex cursor-pointer items-center justify-between gap-3 border-b border-ink-100 px-4 py-3 last:border-b-0 transition-colors ${
-                  state === 'target'
-                    ? 'bg-brand-50'
-                    : state === 'against'
-                      ? 'bg-amber-50'
-                      : 'hover:bg-ink-50'
-                }`}
-                onClick={() => handleRowClick(v)}
-              >
-                <div>
-                  <p className="text-sm font-semibold text-ink-900">
-                    {t('psVersions.version', { number: v.version_number })}
-                    {state === 'target' && (
-                      <span className="ml-2 rounded bg-brand-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-brand-900">
-                        {t('psVersions.target')}
-                      </span>
-                    )}
-                    {state === 'against' && (
-                      <span className="ml-2 rounded bg-amber-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-900">
-                        {t('psVersions.against')}
-                      </span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-500">
-                    {formatDate(v.created_at, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    {v.created_by_name && <> · {v.created_by_name}</>}
-                  </p>
-                </div>
-                <div className="text-right text-xs text-ink-500">
-                  <p>
-                    {t(
-                      v.question_count === 1
-                        ? 'psVersions.questionsCountOne'
-                        : 'psVersions.questionsCountMany',
-                      { count: v.question_count },
-                    )}
-                  </p>
-                  <p
-                    className={`mt-0.5 ${v.assignment_count > 0 ? 'font-semibold text-ink-700' : ''}`}
-                  >
-                    {t(
-                      v.assignment_count === 1 ? 'psVersions.pinnedOne' : 'psVersions.pinnedMany',
-                      { count: v.assignment_count },
-                    )}
-                  </p>
-                </div>
+              <li key={v.id} className="border-b border-ink-100 last:border-b-0">
+                {/* Native <button> for built-in keyboard/focus semantics; the
+                    row content is all non-interactive text. */}
+                <button
+                  type="button"
+                  data-testid={`version-row-${v.id}`}
+                  data-state={state}
+                  onClick={() => handleRowClick(v)}
+                  className={`flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                    state === 'target'
+                      ? 'bg-brand-50'
+                      : state === 'against'
+                        ? 'bg-amber-50'
+                        : 'hover:bg-ink-50'
+                  }`}
+                >
+                  <span className="block">
+                    <span className="block text-sm font-semibold text-ink-900">
+                      {t('psVersions.version', { number: v.version_number })}
+                      {state === 'target' && (
+                        <span className="ml-2 rounded bg-brand-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-brand-900">
+                          {t('psVersions.target')}
+                        </span>
+                      )}
+                      {state === 'against' && (
+                        <span className="ml-2 rounded bg-amber-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-900">
+                          {t('psVersions.against')}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ink-500">
+                      {formatDate(v.created_at, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      {v.created_by_name && <> · {v.created_by_name}</>}
+                    </span>
+                  </span>
+                  <span className="block text-right text-xs text-ink-500">
+                    <span className="block">
+                      {t(
+                        v.question_count === 1
+                          ? 'psVersions.questionsCountOne'
+                          : 'psVersions.questionsCountMany',
+                        { count: v.question_count },
+                      )}
+                    </span>
+                    <span
+                      className={`mt-0.5 block ${v.assignment_count > 0 ? 'font-semibold text-ink-700' : ''}`}
+                    >
+                      {t(
+                        v.assignment_count === 1 ? 'psVersions.pinnedOne' : 'psVersions.pinnedMany',
+                        { count: v.assignment_count },
+                      )}
+                    </span>
+                  </span>
+                </button>
               </li>
             );
           })}

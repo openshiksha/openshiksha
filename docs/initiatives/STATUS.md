@@ -11,7 +11,24 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-18 (latest) — **Mobile Shell & PWA-Offline — Batch 4
+**Last updated:** 2026-06-19 (latest) — **New top initiative promoted:
+Accessibility — WCAG 2.1 AA.** With Mobile Shell & PWA-Offline complete and the
+board carrying no unblocked next bet, the 2026-06-19 planning run promotes the
+backlog's **accessibility audit** candidate — the only named next bet that is both
+unblocked and decomposes into atomic, low-risk, frontend-only PRs (AI-tutor is a
+~5k-line non-atomic rebase; `/ai/predictions/` is a deferred product call). The
+runway already exists: `@axe-core/playwright` + `axe-core` devDeps, an
+`e2e/a11y.spec.ts` axe spec (reporting-mode, `/design` only), and a CI `frontend-e2e`
+job that runs it and uploads the report; M6-01 (#202) shipped a focused baseline and
+**explicitly deferred** the full audit "for a dedicated a11y initiative." **Batch 1
+(A11Y-1..5)** planned in [2026-06-19-plan.md](../daily-plans/2026-06-19-plan.md):
+per-route axe baseline across the public surfaces → `eslint-plugin-jsx-a11y` static
+gate → structural (label/landmark/heading) + colour-contrast remediation → **flip the
+axe gate** (`FAIL_ON_BLOCKING = true`) for the cleaned routes so the gain can't
+regress. Initiative doc `2026-accessibility-wcag-aa.md` is created in A11Y-1. The
+`ai-features` routine fence is respected (AI-Native Interactive Learning untouched).
+
+**Earlier (2026-06-18)** — **Mobile Shell & PWA-Offline — Batch 4
 (RML-1..5) SHIPPED: route-level mobile layouts — INITIATIVE COMPLETE**
 ([plan](../daily-plans/2026-06-18-plan.md), [#382](https://github.com/openshiksha/openshiksha/pull/382)–[#385](https://github.com/openshiksha/openshiksha/pull/385)).
 The dense teacher surfaces that still overflowed horizontally on a phone are now

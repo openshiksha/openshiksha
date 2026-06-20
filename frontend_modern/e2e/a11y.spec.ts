@@ -14,11 +14,19 @@ import path from 'node:path';
 // **Gating is per-route.** A route with `gate: true` asserts zero
 // serious/critical (blocking) violations — turning CI's `frontend-e2e` job into
 // a regression gate for that surface. A route with `gate: false` only records
-// (reporting mode). Batch 1 (A11Y-1) lands every route in reporting mode to
-// produce the fix inventory; A11Y-5 flips the cleaned public routes to
-// `gate: true`. `/design` deliberately renders edge cases (intentional
-// low-contrast swatches, sandboxed widget iframe) so it stays reporting-mode
-// until that known noise is triaged/annotated.
+// (reporting mode).
+//
+// A11Y-5 flips the **genuinely-clean** public routes to `gate: true`. A route is
+// only gated once its CTA renders disabled at load (so axe scans it) *or* its
+// brand surfaces compute clean — i.e. axe has zero `violations`. Routes whose
+// primary `.btn-brand` is **enabled at load** (e.g. the HomePage hero) currently
+// land their white-on-`brand-600` contrast failure in axe's `incomplete` bucket
+// (axe can't always compute the background), so they stay reporting-mode until
+// the systemic brand-button contrast is remediated (a design-shade decision —
+// see the initiative doc / A11Y-4). The spec therefore also records `incomplete`
+// so that masked risk is visible in the CI artifact instead of looking "clean".
+// `/design` additionally renders deliberate edge cases (low-contrast swatches,
+// sandboxed widget iframes) so it stays reporting-mode too.
 interface AuditRoute {
   name: string;
   path: string;
@@ -26,12 +34,18 @@ interface AuditRoute {
 }
 
 const ROUTES: AuditRoute[] = [
+  // Auth/enquiry forms: primary CTA is disabled until valid input, so the
+  // enabled brand-button contrast question never renders at load → axe-clean →
+  // safe to gate now.
+  { name: 'login', path: '/login', gate: true },
+  { name: 'register', path: '/register', gate: true },
+  { name: 'register-school', path: '/register/school', gate: true },
+  { name: 'register-open', path: '/register/open', gate: true },
+  { name: 'enquire', path: '/enquire', gate: true },
+  // Enabled hero `.btn-brand` → contrast lands in `incomplete`; reporting-mode
+  // until the brand-button contrast fix (A11Y-4) lands.
   { name: 'home', path: '/', gate: false },
-  { name: 'login', path: '/login', gate: false },
-  { name: 'register', path: '/register', gate: false },
-  { name: 'register-school', path: '/register/school', gate: false },
-  { name: 'register-open', path: '/register/open', gate: false },
-  { name: 'enquire', path: '/enquire', gate: false },
+  // Deliberate showcase edge cases + widget iframes → reporting-mode.
   { name: 'design', path: '/design', gate: false },
 ];
 
@@ -65,6 +79,16 @@ test.describe('public surfaces — accessibility (axe-core)', () => {
         total: results.violations.length,
         byImpact,
         blocking: blocking.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          help: v.help,
+          nodes: v.nodes.length,
+        })),
+        // `incomplete` = checks axe could not decide automatically (most often
+        // colour-contrast over a background it can't read). Recorded so masked
+        // risk — e.g. the enabled brand-button contrast — is visible rather than
+        // hidden behind a zero-violations summary. Does not affect the gate.
+        incomplete: results.incomplete.map((v) => ({
           id: v.id,
           impact: v.impact,
           help: v.help,

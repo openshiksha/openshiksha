@@ -90,8 +90,8 @@ it in = flip that row's `gate` once it's clean.
 
 | PR | Increment | Class | Summary |
 |---|---|---|---|
-| _A11Y-1_ | Initiative doc + per-route axe baseline | New | This doc + parameterized `e2e/a11y.spec.ts` emitting per-route `axe-report/<route>.json` (reporting mode). |
-| _A11Y-2_ | `eslint-plugin-jsx-a11y` static gate | New | _(filled on merge)_ |
-| _A11Y-3_ | Form-label / landmark / heading-order fixes | Improve | _(filled on merge)_ |
-| _A11Y-4_ | Colour-contrast remediation on V2 tokens | Improve | _(filled on merge)_ |
-| _A11Y-5_ | Gate clean public routes + close-out | New + Docs | _(filled on merge)_ |
+| [#389](https://github.com/openshiksha/openshiksha/pull/389) | A11Y-1 — initiative doc + per-route axe baseline | New | This doc + parameterized `e2e/a11y.spec.ts` emitting per-route `axe-report/<route>.json` (reporting mode). |
+| [#390](https://github.com/openshiksha/openshiksha/pull/390) | A11Y-2 — `eslint-plugin-jsx-a11y` static gate | New | `flatConfigs.recommended` wired into flat ESLint config; npm `overrides` for the stale eslint peer; 11 hits fixed; `--max-warnings 0` green. |
+| — | A11Y-3 — form-label / landmark / heading fixes | — | **No remediation needed.** Baseline found the public/auth surfaces structurally clean (0 label/landmark/heading violations). Only `/design`'s widget-iframe range inputs lack labels (known-noise). |
+| — | A11Y-4 — colour-contrast remediation | **Deferred** | One systemic finding: `.btn-brand` (white on `#FF6F00`, ≈ 2.8 : 1) fails AA enabled. Needs a **brand-shade design decision** before the mechanical fix — see [change doc](../changes/2026-06-19-a11y-batch1.md). |
+| A11Y-5 (this batch) | Gate clean public routes + close-out | New + Docs | Recorded axe `incomplete`; gated `/login`, `/register`, `/register/school`, `/register/open`, `/enquire` (`gate: true`); `/` + `/design` stay reporting-mode; change doc + manual checklist. |

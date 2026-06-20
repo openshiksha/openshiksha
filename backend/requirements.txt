@@ -27,7 +27,7 @@ daphne==4.2.2
 
 # Validation & Serialization
 pydantic==2.10.5
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2
 jsonschema==4.25.1  # per-kind widget_config validation (DTB-1); also a drf-spectacular dep
 
 # HTTP Client (for Cabinet API)

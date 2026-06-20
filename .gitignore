@@ -32,6 +32,7 @@ frontend_modern/.cache/
 frontend_modern/test-results/
 frontend_modern/playwright-report/
 frontend_modern/playwright/.cache/
+frontend_modern/e2e/__artifacts__/
 frontend_modern/axe-report/
 frontend_modern/.lighthouseci/
 

@@ -162,8 +162,47 @@ npx vitest run src/features/teacher/WidgetGalleryPanel.test.tsx \
 Or in the running app: open **Create Question**, click **Add interactive widget**,
 type a description, and watch the validated widget render in the live preview.
 
-> 📸 _Screenshot/gif of the describe box → live preview to be captured on the next
-> dev-stack run (the cloudflared tunnel host) and dropped in here._
+---
 
-*Next beat:* **DTB-4** — record this describe-it beat as a captured screenshot/gif
-and an e2e smoke that drives type → generate → render → (student) grade end to end.
+## Beat 3 — The student is graded by the runtime (DTB-4) · *the payoff, on screen*
+
+The describe-it beats end with a widget *rendered*. This beat closes the loop: a
+**student** picks up that exact widget, manipulates it, and the answer they
+produce is the value the **deterministic per-subpart grader** scores — proving the
+last principle on screen. **AI authored the manipulative; it never graded it.**
+
+The AI-described widget renders inside a **sandboxed iframe** (`sandbox=
+"allow-scripts"`, deliberately *without* `allow-same-origin`). The student drags
+the point (or arrows it) to ½; the widget snaps to `step` and reports the value
+across the `postMessage` trust boundary to the host. That reported value — and
+nothing the AI said — is what flows into the submission form and the numeric
+grader.
+
+![Describe-to-build: a number line rendered in the sandbox, student answer 0.5 reported to the host](assets/dtb4-describe-to-build.png)
+
+**Why it's iron-clad:** the runtime is network-less and deterministic (principle
+1); the only thing that scores the student is the per-subpart grader reading the
+widget's reported value (principle 2); the AI's role ended at *authoring* the
+config. The grade signal crosses a real sandbox boundary that no unit test in
+jsdom can exercise — so we pin it with a **real-browser e2e** that stays
+backend-free (it drives the public `/widgets/dev` playground, which mounts the
+same `InteractiveWidget` host the teacher/student flows use).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Renders the AI-described number line in the real sandbox, drives a student
+# interaction, and asserts the host receives the graded answer 0.5 — the value
+# the deterministic grader scores. Also (re)captures the screenshot above, so it
+# can never go stale relative to the code:
+npx playwright test describe-to-build-grade
+```
+
+The captured screenshot is regenerated on every run into
+`docs/demo/assets/dtb4-describe-to-build.png` (the e2e writes it as part of the
+assertion run) — the first use of the "routine accumulates the demo" mechanic
+with a reproducible, not-hand-captured artifact.
+
+*Next beat:* **DTB-5** — variable-aware generation: the AI may emit `{{var}}`
+bindings so the described widget is **per-student randomized** via croupier.

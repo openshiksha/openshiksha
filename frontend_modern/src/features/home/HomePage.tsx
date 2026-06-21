@@ -120,7 +120,7 @@ export const HomePage = () => {
             <img src="/home/teacher.jpg" alt={t('home.teacherAlt')} className="h-full w-full object-cover" />
           </div>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
               {t('home.missionKicker')}
             </p>
             <h2 className="mt-3 font-display text-3xl font-semibold text-ink-900 text-balance">

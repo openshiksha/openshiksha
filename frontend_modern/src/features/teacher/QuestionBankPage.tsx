@@ -158,7 +158,7 @@ const AddToProblemSetSheet = ({
       >
         <div className="flex items-center justify-between border-b border-ink-100 px-6 py-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
+            <p className="text-xs font-semibold uppercase tracking-widest text-brand-700">
               {t('addToSet.eyebrow')}
             </p>
             <h3

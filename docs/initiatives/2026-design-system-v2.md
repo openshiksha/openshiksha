@@ -89,8 +89,9 @@ Established in the kickoff session (2026-05-30):
 
 | Token | Hex | Use |
 |---|---|---|
-| `brand-600` | `#FF6F00` | Primary actions, active state, progress fill, the mark. The "unlock" colour. |
-| `brand-500/700` | `#FB7705` / `#CC5800` | Hover / pressed. |
+| `brand-600` | `#FF6F00` | **Decorative / large-element anchor only** (logo, chalk-underline, large hero numerals, borders, focus rings, big badges, progress fill). White text on it is ≈ 2.8 : 1 — **never `text-white` on `brand-600` for text.** |
+| `brand-700` | `#C05300` | **The on-text / CTA brand shade** — ≥ 4.5 : 1 with white *and* on paper. `.btn-brand` fill and all small brand text/links (`text-brand-700`). |
+| `brand-500/800` | `#FB7705` / `#9E4500` | Decorative accent / hover-pressed (`.btn-brand` hovers to `brand-800`). |
 | `brand-50/100` | `#FFF8F1` / `#FFEEDC` | Tinted backgrounds, soft highlights, app paper. |
 | `ink-900/800` | `#0F0E0D` / `#1A1816` | Headings, chalkboard surfaces. |
 | `ink-600/500` | `#34302B` / `#4A463F` | Body text. |
@@ -101,6 +102,16 @@ Established in the kickoff session (2026-05-30):
 > **Rule:** components reference **tokens only** — never a raw hex. If a needed
 > shade is missing, add it to the token scale (and note it in the ledger), don't
 > inline it.
+
+> **Contrast rules (WCAG 2.1 AA — A11Y-4).**
+> - `brand-600` (`#FF6F00`) is **decorative / large-element only**: the logo,
+>   `chalk-underline`, large display numerals (≥ 24 px, or ≥ 19 px bold → 3 : 1
+>   suffices), borders, focus rings, icon glyphs, big badges. It is **not** an
+>   on-text colour.
+> - For **white text on a brand fill** (`.btn-brand`) and **small brand text/links
+>   on paper**, use **`brand-700` (`#C05300`, ≥ 4.5 : 1)** — `text-brand-700`.
+>   Hover/pressed deepens to `brand-800`.
+> - Never put `text-white` on `brand-600` for text.
 
 ### Typography
 

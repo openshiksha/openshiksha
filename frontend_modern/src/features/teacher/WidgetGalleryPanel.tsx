@@ -423,11 +423,11 @@ export function WidgetGalleryPanel({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{t('widgetGallery.config')}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-700">{t('widgetGallery.config')}</p>
           <ConfigForm schema={schema} config={config} onChange={setConfig} />
         </div>
         <div className="grid gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{t('widgetGallery.preview')}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-brand-700">{t('widgetGallery.preview')}</p>
           <InteractiveWidget
             kind={selected.kind}
             config={config}

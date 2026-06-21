@@ -60,9 +60,9 @@
   /* Primary action — the "unlock" button. One per screen, ideally. */
   .btn-brand {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
-           bg-brand-600 text-white font-semibold shadow-soft
+           bg-brand-700 text-white font-semibold shadow-soft
            transition-all duration-150
-           hover:bg-brand-700 hover:shadow-lift
+           hover:bg-brand-800 hover:shadow-lift
            active:translate-y-px
            disabled:bg-brand-300 disabled:shadow-none disabled:cursor-not-allowed;
   }
@@ -124,7 +124,7 @@
     @apply italic;
   }
   .prose-osh a {
-    @apply text-brand-600 underline decoration-brand-300 hover:text-brand-700;
+    @apply text-brand-700 underline decoration-brand-300 hover:text-brand-800;
   }
   .prose-osh code {
     @apply px-1 py-0.5 rounded bg-ink-50 text-ink-800 text-[0.9em];

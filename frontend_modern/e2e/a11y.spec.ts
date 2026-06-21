@@ -42,9 +42,9 @@ const ROUTES: AuditRoute[] = [
   { name: 'register-school', path: '/register/school', gate: true },
   { name: 'register-open', path: '/register/open', gate: true },
   { name: 'enquire', path: '/enquire', gate: true },
-  // Enabled hero `.btn-brand` → contrast lands in `incomplete`; reporting-mode
-  // until the brand-button contrast fix (A11Y-4) lands.
-  { name: 'home', path: '/', gate: false },
+  // A11Y-4 landed: `.btn-brand` repainted to `bg-brand-700` (#C05300, ≥4.5:1
+  // white) so the enabled hero CTA now clears AA — `/` is gated.
+  { name: 'home', path: '/', gate: true },
   // Deliberate showcase edge cases + widget iframes → reporting-mode.
   { name: 'design', path: '/design', gate: false },
 ];

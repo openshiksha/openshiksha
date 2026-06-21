@@ -500,7 +500,7 @@ export const CreateProblemSetPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/teacher/questions/new')}
-                  className="mt-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+                  className="mt-2 text-sm font-medium text-brand-700 hover:text-brand-800"
                 >
                   {t('setForm.authorOne')}
                 </button>

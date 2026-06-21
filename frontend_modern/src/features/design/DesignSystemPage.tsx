@@ -52,7 +52,7 @@ const INK_SCALE: Array<[string, string]> = [
 const Section = ({ title, kicker, children }: { title: string; kicker?: string; children: React.ReactNode }) => (
   <section className="animate-fade-up">
     <div className="mb-5">
-      {kicker && <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{kicker}</p>}
+      {kicker && <p className="text-xs font-semibold uppercase tracking-widest text-brand-700">{kicker}</p>}
       <h2 className="font-display text-2xl font-semibold text-ink-900">{title}</h2>
     </div>
     {children}

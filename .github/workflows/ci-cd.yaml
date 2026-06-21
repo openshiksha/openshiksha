@@ -390,14 +390,16 @@ jobs:
     # ─── Deploy to QA env ────────────────────────────────────────────────────
     # DISABLED for now: there is no dedicated qa cluster yet. The single droplet
     # currently serves the PROD env, deployed from the `qa` branch (see deploy-prod
-    # below). Intended future wiring: `modernization` branch -> qa env, once a qa
-    # cluster and its `openshiksha-qa` secret exist — flip the `if` below to
-    # `github.ref == 'refs/heads/modernization'` then.
+    # below). The wiring here is the intended future state — `modernization`
+    # branch -> qa env — but gated off by the `QA_ENV_ENABLED` repo variable
+    # (currently unset, so this job never runs). To activate: provision a qa
+    # cluster + its `openshiksha-qa` secret, then set the repo Actions variable
+    # QA_ENV_ENABLED=true.
     deploy-qa:
         name: Deploy to QA Cluster
         timeout-minutes: 15
         needs: build-publish
-        if: false
+        if: github.ref == 'refs/heads/modernization' && vars.QA_ENV_ENABLED == 'true'
         runs-on: ubuntu-latest
         environment: qa
         steps:

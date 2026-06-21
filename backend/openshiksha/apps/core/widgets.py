@@ -262,3 +262,113 @@ def repair_widget_config(kind: str, raw_config: Any) -> dict:
         if coerced is not _DROP:
             repaired[key] = coerced
     return repaired
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Variable-aware authoring support (DTB-5)
+#
+# Describe-to-Build may bind a config field to a croupier ``{{var}}`` token so a
+# generated widget is randomised per student (e.g. "a number line marking a
+# random fraction"). For that to be iron-clad the AI's declared sampling ranges
+# (``variable_constraints``) must be validated deterministically before they
+# reach the croupier, and every retained token must have a backing constraint —
+# otherwise a literal ``{{var}}`` would leak into the runtime. This is the
+# pure, LLM-free guardrail those bindings ride on (initiative principles #3
+# validate-before-store and #4 deterministic fallback). It mirrors the
+# ``variable_constraints`` shape the croupier already samples from
+# (``apps.api.croupier.sample_variable_values``): ``{name: {min, max, integer
+# [, decimals]}}``.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Croupier samples a rounded float; cap the declared precision so the AI can't
+# ask for an absurd number of decimals.
+_MAX_VAR_DECIMALS = 6
+
+
+def _token_var_name(value: Any) -> Optional[str]:
+    """The identifier of a pure ``{{name}}`` token string, else ``None``."""
+
+    if not _is_template_token(value):
+        return None
+    return value.strip()[2:-2].strip()
+
+
+def _clean_constraint(spec: Any) -> Optional[dict]:
+    """Coerce one raw constraint into ``{min, max, integer[, decimals]}`` or ``None``.
+
+    Rejects anything that isn't two real numbers with ``min <= max``. ``integer``
+    defaults to ``True`` (so a bad/absent flag samples whole numbers); ``decimals``
+    is only kept for float vars and is clamped to ``[0, _MAX_VAR_DECIMALS]``.
+    """
+
+    if not isinstance(spec, dict):
+        return None
+    lo, hi = spec.get("min"), spec.get("max")
+    # bool is an int subclass — reject it as a numeric bound.
+    if isinstance(lo, bool) or isinstance(hi, bool):
+        return None
+    if not isinstance(lo, (int, float)) or not isinstance(hi, (int, float)):
+        return None
+    if lo > hi:
+        return None
+
+    is_int = spec.get("integer", True)
+    if not isinstance(is_int, bool):
+        is_int = True
+
+    clean: dict = {"min": lo, "max": hi, "integer": is_int}
+    if not is_int:
+        decimals = spec.get("decimals", 2)
+        if isinstance(decimals, bool) or not isinstance(decimals, int):
+            decimals = 2  # non-int (or bool) → the default precision
+        else:
+            decimals = max(0, min(decimals, _MAX_VAR_DECIMALS))  # clamp into range
+        clean["decimals"] = decimals
+    return clean
+
+
+def reconcile_widget_variables(kind: str, config: Any, raw_constraints: Any) -> tuple[dict, dict]:
+    """Pair a config's ``{{var}}`` bindings with validated croupier constraints.
+
+    Returns ``(config, variable_constraints)`` where, by construction:
+
+    - every retained ``{{name}}`` token in the config has a valid matching
+      constraint (``min <= max`` real numbers, ``integer`` bool, ``decimals``
+      0..6);
+    - a config field bound to a var with **no** valid constraint is **dropped**
+      (every authorable field is optional, so it falls back to the kind default —
+      a literal ``{{var}}`` can never reach the runtime);
+    - only referenced, valid constraints are kept (no dangling declarations).
+
+    Pass ``raw_constraints={}`` to *strip* any token bindings entirely (the
+    non-variable-aware path). Never raises: a non-dict config yields ``({}, {})``.
+    Only pure single-identifier tokens (``"{{lo}}"``) are treated as bindings;
+    that is the exact contract the variable-aware prompt asks the model for.
+    """
+
+    if not isinstance(config, dict):
+        return {}, {}
+    raw_constraints = raw_constraints if isinstance(raw_constraints, dict) else {}
+
+    valid: dict = {}
+    for name, spec in raw_constraints.items():
+        if not isinstance(name, str) or not name.isidentifier():
+            continue
+        clean = _clean_constraint(spec)
+        if clean is not None:
+            valid[name] = clean
+
+    out_config: dict = {}
+    used: set[str] = set()
+    for key, value in config.items():
+        name = _token_var_name(value)
+        if name is None:
+            out_config[key] = value
+            continue
+        if name in valid:
+            out_config[key] = value
+            used.add(name)
+        # else: token has no backing constraint → drop the field (uses default).
+
+    constraints = {name: valid[name] for name in used}
+    return out_config, constraints

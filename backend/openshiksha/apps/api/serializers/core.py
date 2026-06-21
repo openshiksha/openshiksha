@@ -127,16 +127,19 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
 def _substitute_in_json(node, sampled_values: dict):
     """Walk a JSON tree and substitute ``{{var}}`` tokens in every string leaf.
 
-    Reuses the existing ``substitute_variables`` helper so widget configs share
-    the croupier's per-student token semantics — same tokens, same evaluator,
-    same fallback behaviour on bad expressions. Non-string leaves
-    (numbers, bools, None) pass through unchanged; nested dicts and lists are
-    recursed into.
+    Reuses the croupier's ``substitute_typed`` helper so widget configs share the
+    per-student token semantics — same tokens, same evaluator, same fallback on
+    bad expressions. A string leaf that is *nothing but* a single ``{{var}}``
+    token resolves to the variable's **native typed value** (a number/bool), so a
+    numeric widget field bound to a croupier variable (DTB-5) arrives as a number
+    rather than the string ``"3"`` (which a ``Number.isFinite``-guarded runtime
+    would silently ignore). Other non-string leaves pass through unchanged; nested
+    dicts and lists are recursed into.
     """
-    from openshiksha.apps.api.croupier import substitute_variables
+    from openshiksha.apps.api.croupier import substitute_typed
 
     if isinstance(node, str):
-        return substitute_variables(node, sampled_values)
+        return substitute_typed(node, sampled_values)
     if isinstance(node, dict):
         return {k: _substitute_in_json(v, sampled_values) for k, v in node.items()}
     if isinstance(node, list):

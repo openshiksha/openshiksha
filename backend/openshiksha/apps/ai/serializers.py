@@ -309,6 +309,10 @@ class WidgetAuthoringRequestSerializer(serializers.Serializer):
     # Optional teacher hint; validated against the authorable set in the view so
     # the choice list stays single-sourced in apps.core.widgets.
     kind_hint = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    # DTB-5: opt in to per-student randomisation. When set, the AI may bind
+    # numeric fields to croupier ``{{var}}`` tokens and the response carries the
+    # validated ``variable_constraints`` to attach alongside the config.
+    allow_variables = serializers.BooleanField(required=False, default=False)
 
 
 class WeeklyClassReportSerializer(serializers.ModelSerializer):

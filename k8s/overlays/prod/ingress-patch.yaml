@@ -2,8 +2,14 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: openshiksha
+  annotations:
+    # cert-manager auto-issues + renews the Let's Encrypt cert for the tls hosts
+    # below (ClusterIssuer `letsencrypt-prod` must exist on the cluster).
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   rules:
+    # Apex and www both serve the app so www.openshiksha.org resolves rather than
+    # 404ing. (Future nicety: 301 www -> apex via a Traefik redirect middleware.)
     - host: openshiksha.org
       http:
         paths:
@@ -35,3 +41,40 @@ spec:
                 name: frontend
                 port:
                   number: 80
+    - host: www.openshiksha.org
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+  # TLS via cert-manager — SAN cert covering apex + www.
+  tls:
+    - hosts:
+        - openshiksha.org
+        - www.openshiksha.org
+      secretName: openshiksha-tls

@@ -63,6 +63,11 @@ spec:
               path: /healthz/
               port: 8000
               httpHeaders:
+                # kubelet probes use the pod IP as Host, which isn't in
+                # ALLOWED_HOSTS -> Django 400s. `backend` is in ALLOWED_HOSTS for
+                # both qa and prod overlays, so send it explicitly.
+                - name: Host
+                  value: backend
                 - name: X-Forwarded-Proto
                   value: https
             initialDelaySeconds: 10
@@ -73,6 +78,11 @@ spec:
               path: /healthz/
               port: 8000
               httpHeaders:
+                # kubelet probes use the pod IP as Host, which isn't in
+                # ALLOWED_HOSTS -> Django 400s. `backend` is in ALLOWED_HOSTS for
+                # both qa and prod overlays, so send it explicitly.
+                - name: Host
+                  value: backend
                 - name: X-Forwarded-Proto
                   value: https
             initialDelaySeconds: 30

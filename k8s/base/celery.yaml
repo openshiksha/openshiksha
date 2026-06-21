@@ -28,8 +28,11 @@ spec:
             - secretRef:
                 name: openshiksha-secrets
           readinessProbe:
+            # Wrap in `sh -c` so $(hostname) is shell-expanded — exec probes do
+            # NOT run a shell, so the bare form pings a literal "celery@$(hostname)"
+            # node that never matches and the probe fails forever.
             exec:
-              command: ["celery", "-A", "openshiksha", "inspect", "ping", "-d", "celery@$(hostname)"]
+              command: ["sh", "-c", "celery -A openshiksha inspect ping -d celery@$(hostname) >/dev/null 2>&1"]
             initialDelaySeconds: 20
             periodSeconds: 30
             timeoutSeconds: 10

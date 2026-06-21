@@ -974,11 +974,14 @@ class WidgetAuthoringViewSet(ViewSet):
     is untouched — AI only authors.
 
     Request body:
-        description  string   what the teacher wants ("a number line marking 3/4")
-        kind_hint    string   optional preferred widget kind
+        description      string   what the teacher wants ("a number line marking 3/4")
+        kind_hint        string   optional preferred widget kind
+        allow_variables  bool     DTB-5: allow per-student {{var}} randomisation
 
     Response: 200 with
-        {"widget_kind", "widget_config", "model_used", "ai_available", "repaired"}
+        {"widget_kind", "widget_config", "model_used", "ai_available", "repaired",
+         "variable_constraints"}  — the last maps each {{var}} bound in the config
+        to its validated croupier sampling range (empty {} when not randomised).
     """
 
     permission_classes = [IsAuthenticated]
@@ -998,6 +1001,7 @@ class WidgetAuthoringViewSet(ViewSet):
             result = generate_widget_config(
                 description=d["description"],
                 kind_hint=d.get("kind_hint") or None,
+                allow_variables=d.get("allow_variables", False),
             )
         except Exception:
             import logging
@@ -1015,6 +1019,9 @@ class WidgetAuthoringViewSet(ViewSet):
                 "model_used": result["model"],
                 "ai_available": result["ai_available"],
                 "repaired": result["repaired"],
+                # DTB-5: validated per-student sampling ranges for any {{var}}
+                # bindings (empty {} when the proposal isn't randomised).
+                "variable_constraints": result.get("variable_constraints", {}),
             }
         )
 

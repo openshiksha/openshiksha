@@ -23,12 +23,15 @@ from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, SAFE_DEFAU
 # ─────────────────────────────────────────────────────────────
 
 
-def _claude_returns(widget_kind, widget_config):
+def _claude_returns(widget_kind, widget_config, variable_constraints=None):
     """Patch the shared Claude tool caller to return a fixed widget proposal."""
+    data = {"widget_kind": widget_kind, "widget_config": widget_config}
+    if variable_constraints is not None:
+        data["variable_constraints"] = variable_constraints
     return patch(
         "openshiksha.apps.ai.llm_client._call_anthropic_tool",
         return_value={
-            "data": {"widget_kind": widget_kind, "widget_config": widget_config},
+            "data": data,
             "model": "claude-sonnet-4-6",
             "input_tokens": 10,
             "output_tokens": 20,
@@ -111,6 +114,60 @@ def test_fallback_path_no_provider_returns_safe_default(monkeypatch):
 
 
 # ─────────────────────────────────────────────────────────────
+# DTB-5 — variable-aware generation (no DB)
+# ─────────────────────────────────────────────────────────────
+
+
+@patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False)
+def test_variable_aware_keeps_backed_tokens_and_returns_constraints():
+    config = {"min": "{{lo}}", "max": "{{hi}}", "label": "Mark the fraction"}
+    constraints = {"lo": {"min": 0, "max": 2, "integer": True}, "hi": {"min": 8, "max": 10, "integer": True}}
+    with _claude_returns("number-line", config, constraints):
+        result = generate_widget_config("a number line marking a random point", allow_variables=True)
+
+    assert result["ai_available"] is True
+    assert result["widget_config"] == config  # both tokens backed → preserved
+    assert result["variable_constraints"]["lo"] == {"min": 0, "max": 2, "integer": True}
+    assert is_valid_widget_config(result["widget_kind"], result["widget_config"])
+
+
+@patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False)
+def test_variable_aware_drops_unbacked_token():
+    # {{hi}} has no constraint → its field is dropped; the config stays valid.
+    config = {"min": "{{lo}}", "max": "{{hi}}"}
+    with _claude_returns("number-line", config, {"lo": {"min": 0, "max": 3, "integer": True}}):
+        result = generate_widget_config("randomise the low end", allow_variables=True)
+
+    assert result["widget_config"] == {"min": "{{lo}}"}
+    assert set(result["variable_constraints"]) == {"lo"}
+    assert result["repaired"] is True  # dropping the unbacked field is a repair
+    assert is_valid_widget_config(result["widget_kind"], result["widget_config"])
+
+
+@patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False)
+def test_variables_stripped_when_not_allowed():
+    # Default (allow_variables=False): a stray token must never escape, and no
+    # constraints come back — DTB-2/3 callers get a fully-concrete config.
+    config = {"min": "{{lo}}", "max": 10}
+    with _claude_returns("number-line", config, {"lo": {"min": 0, "max": 2, "integer": True}}):
+        result = generate_widget_config("a plain number line")
+
+    assert result["widget_config"] == {"max": 10}
+    assert result["variable_constraints"] == {}
+
+
+def test_stub_proposal_has_no_variables(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_AI_API_KEY", raising=False)
+    monkeypatch.setattr("openshiksha.apps.ai.llm_client._ollama_reachable", lambda _url: False)
+
+    result = generate_widget_config("a random fraction bar", allow_variables=True)
+
+    assert result["ai_available"] is False  # deterministic default is never randomised
+    assert result["variable_constraints"] == {}
+
+
+# ─────────────────────────────────────────────────────────────
 # POST /api/v1/ai/widget-authoring/ — endpoint
 # ─────────────────────────────────────────────────────────────
 
@@ -162,7 +219,9 @@ def test_endpoint_success_returns_proposal(teacher_client):
     assert response.data["model_used"] == "claude-sonnet-4-6"
     assert response.data["ai_available"] is True
     assert response.data["repaired"] is False
-    mock_gen.assert_called_once_with(description="a number line where students mark 3/4", kind_hint=None)
+    mock_gen.assert_called_once_with(
+        description="a number line where students mark 3/4", kind_hint=None, allow_variables=False
+    )
 
 
 @pytest.mark.django_db
@@ -182,7 +241,49 @@ def test_endpoint_passes_kind_hint(teacher_client):
     assert response.status_code == 200, response.data
     # Stub returned → honestly reported as not AI-generated.
     assert response.data["ai_available"] is False
-    mock_gen.assert_called_once_with(description="show a quarter", kind_hint="fraction-bar")
+    mock_gen.assert_called_once_with(description="show a quarter", kind_hint="fraction-bar", allow_variables=False)
+
+
+@pytest.mark.django_db
+def test_endpoint_passes_allow_variables_and_returns_constraints(teacher_client):
+    mock_result = {
+        "widget_kind": "number-line",
+        "widget_config": {"min": "{{lo}}", "max": 10},
+        "model": "claude-sonnet-4-6",
+        "ai_available": True,
+        "repaired": False,
+        "variable_constraints": {"lo": {"min": 0, "max": 3, "integer": True}},
+    }
+    with patch("openshiksha.apps.ai.views.generate_widget_config", return_value=mock_result) as mock_gen:
+        response = teacher_client.post(
+            URL,
+            {"description": "a number line marking a random point", "allow_variables": True},
+            format="json",
+        )
+
+    assert response.status_code == 200, response.data
+    assert response.data["variable_constraints"] == {"lo": {"min": 0, "max": 3, "integer": True}}
+    mock_gen.assert_called_once_with(
+        description="a number line marking a random point", kind_hint=None, allow_variables=True
+    )
+
+
+@pytest.mark.django_db
+def test_endpoint_defaults_allow_variables_false_and_empty_constraints(teacher_client):
+    mock_result = {
+        "widget_kind": "number-line",
+        "widget_config": {"min": 0, "max": 10, "step": 1, "label": "Mark"},
+        "model": "claude-sonnet-4-6",
+        "ai_available": True,
+        "repaired": False,
+        "variable_constraints": {},
+    }
+    with patch("openshiksha.apps.ai.views.generate_widget_config", return_value=mock_result) as mock_gen:
+        response = teacher_client.post(URL, {"description": "a number line"}, format="json")
+
+    assert response.status_code == 200, response.data
+    assert response.data["variable_constraints"] == {}
+    mock_gen.assert_called_once_with(description="a number line", kind_hint=None, allow_variables=False)
 
 
 @pytest.mark.django_db

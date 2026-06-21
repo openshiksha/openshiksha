@@ -1649,7 +1649,7 @@ def _best_guess_widget_kind(description: str) -> str:
     return "number-line"
 
 
-def _build_widget_authoring_prompt(description: str, kind_hint: str | None) -> str:
+def _build_widget_authoring_prompt(description: str, kind_hint: str | None, allow_variables: bool = False) -> str:
     import json
 
     from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, get_widget_schema
@@ -1673,6 +1673,22 @@ def _build_widget_authoring_prompt(description: str, kind_hint: str | None) -> s
             f"\nThe teacher suggested the '{kind_hint}' kind — prefer it unless the description clearly fits another.\n"
         )
 
+    # DTB-5: per-student randomisation. Off by default so DTB-2/3 callers get
+    # fully-concrete configs; when on, the model may bind a numeric field to a
+    # croupier token and declare its sampling range.
+    variables_block = ""
+    if allow_variables:
+        variables_block = (
+            "\nPER-STUDENT RANDOMISATION (optional): To give each student different "
+            'numbers, you MAY set a NUMERIC field\'s value to a variable token written EXACTLY as "{{name}}" '
+            "(a single lower-case identifier, the whole string nothing else), and declare every such name in a "
+            'top-level "variable_constraints" object of the form '
+            '{"name": {"min": <number>, "max": <number>, "integer": <true|false>}}. '
+            "Use this ONLY when the description asks for randomisation (e.g. 'a random fraction', 'a different "
+            "point each time'); otherwise use concrete numbers and an empty variable_constraints. Never bind a "
+            "field to a token without also declaring its constraint.\n"
+        )
+
     return (
         "You build interactive math/science manipulatives for school students by "
         "emitting CONFIGURATION DATA for one of a fixed set of widget kinds. You "
@@ -1680,7 +1696,7 @@ def _build_widget_authoring_prompt(description: str, kind_hint: str | None) -> s
         "chosen kind's schema exactly.\n\n"
         f"Available widget kinds:\n\n{kinds_doc}\n\n"
         f'Teacher\'s description of the widget they want:\n"{description}"\n'
-        f"{hint_line}\n"
+        f"{hint_line}{variables_block}\n"
         "Choose the single best-fitting widget_kind, then produce a widget_config that:\n"
         "- uses ONLY fields declared in that kind's schema (no extra keys);\n"
         "- respects every type, enum, and numeric bound in the schema;\n"
@@ -1705,40 +1721,85 @@ _WIDGET_AUTHORING_TOOL = {
                 "type": "object",
                 "description": "Config object matching the chosen kind's schema.",
             },
+            "variable_constraints": {
+                "type": "object",
+                "description": (
+                    "Optional (DTB-5). Sampling range for each {{name}} token bound into widget_config: "
+                    '{"name": {"min": number, "max": number, "integer": bool}}. Empty when not randomising.'
+                ),
+            },
         },
     },
 }
 
 
-def _finalize_widget_proposal(raw_kind: object, raw_config: object, description: str, model: str) -> dict:
+def _finalize_widget_proposal(
+    raw_kind: object,
+    raw_config: object,
+    description: str,
+    model: str,
+    raw_constraints: object = None,
+    allow_variables: bool = False,
+) -> dict:
     """Run an LLM proposal through the deterministic guardrail.
 
     validate → clamp-repair → safe default, returning a config that is *always*
     schema-valid. ``ai_available`` is True only when the returned config genuinely
     came from the model (possibly clamped); when the model output had to be
     discarded for the canned default, it is False so the UI badges it honestly.
+
+    DTB-5: when ``allow_variables`` is set, the finalised config's ``{{var}}``
+    bindings are reconciled with the model's ``raw_constraints`` — only tokens
+    with a valid backing constraint survive, and the validated constraints ride
+    back on ``variable_constraints``. When it is **not** set, any stray token
+    bindings are stripped so non-variable-aware callers never receive a literal
+    ``{{var}}``.
     """
-    from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, is_valid_widget_config, repair_widget_config
+    from openshiksha.apps.core.widgets import (
+        AI_AUTHORABLE_WIDGET_KINDS,
+        is_valid_widget_config,
+        reconcile_widget_variables,
+        repair_widget_config,
+    )
 
     kind = raw_kind if raw_kind in AI_AUTHORABLE_WIDGET_KINDS else _best_guess_widget_kind(description)
 
+    config: object = None
+    repaired_flag = False
     # 1. Accept the model's config as-is when it is already valid and non-empty.
     if isinstance(raw_config, dict) and raw_config and is_valid_widget_config(kind, raw_config):
-        return {
-            "widget_kind": kind,
-            "widget_config": raw_config,
-            "model": model,
-            "ai_available": True,
-            "repaired": False,
-        }
-
-    # 2. One deterministic clamp/drop repair pass.
-    repaired = repair_widget_config(kind, raw_config)
-    if repaired and is_valid_widget_config(kind, repaired):
-        return {"widget_kind": kind, "widget_config": repaired, "model": model, "ai_available": True, "repaired": True}
+        config = raw_config
+    else:
+        # 2. One deterministic clamp/drop repair pass.
+        repaired = repair_widget_config(kind, raw_config)
+        if repaired and is_valid_widget_config(kind, repaired):
+            config, repaired_flag = repaired, True
 
     # 3. Un-salvageable → deterministic safe default for the best-guess kind.
-    return _stub_widget_proposal(description)
+    if config is None:
+        return _stub_widget_proposal(description)
+
+    # 4. Reconcile {{var}} bindings with validated constraints (or strip them when
+    #    variables aren't allowed). Dropping an unbacked token field is a repair.
+    constraints_input = raw_constraints if allow_variables else {}
+    reconciled, variable_constraints = reconcile_widget_variables(kind, config, constraints_input)
+    if reconciled != config:
+        repaired_flag = True
+    config = reconciled
+
+    # Dropping a field can never invalidate a token-tolerant config, but guard the
+    # guardrail: if anything left it invalid, fall to the safe default.
+    if not is_valid_widget_config(kind, config):
+        return _stub_widget_proposal(description)
+
+    return {
+        "widget_kind": kind,
+        "widget_config": config,
+        "model": model,
+        "ai_available": True,
+        "repaired": repaired_flag,
+        "variable_constraints": variable_constraints,
+    }
 
 
 def _stub_widget_proposal(description: str) -> dict:
@@ -1752,21 +1813,23 @@ def _stub_widget_proposal(description: str) -> dict:
         "model": "stub",
         "ai_available": False,
         "repaired": False,
+        # The deterministic default is never randomised — a static, valid widget.
+        "variable_constraints": {},
     }
 
 
-def _parse_widget_json(text: str) -> tuple[object, object]:
-    """Extract (widget_kind, widget_config) from a fenced/plain JSON string."""
+def _parse_widget_json(text: str) -> tuple[object, object, object]:
+    """Extract (widget_kind, widget_config, variable_constraints) from JSON text."""
     import json as _json
 
     cleaned = text.lstrip("```json").lstrip("```").rstrip("```").strip()
     data = _json.loads(cleaned)
     if not isinstance(data, dict):
-        return None, None
-    return data.get("widget_kind"), data.get("widget_config")
+        return None, None, None
+    return data.get("widget_kind"), data.get("widget_config"), data.get("variable_constraints")
 
 
-def generate_widget_config(description: str, kind_hint: str | None = None) -> dict:
+def generate_widget_config(description: str, kind_hint: str | None = None, allow_variables: bool = False) -> dict:
     """Propose a validated interactive widget from a plain-English description.
 
     Provider cascade (Claude tool-use → Gemini/Ollama JSON → deterministic
@@ -1774,11 +1837,17 @@ def generate_widget_config(description: str, kind_hint: str | None = None) -> di
     validated, then clamp-repaired, then replaced by the kind's safe default if it
     still cannot be salvaged. AI never touches grading; this only authors config.
 
+    DTB-5: when ``allow_variables`` is set, the model may bind numeric fields to
+    croupier ``{{var}}`` tokens and declare their sampling ranges, returned on
+    ``variable_constraints`` after deterministic validation/reconciliation. When
+    it is unset (the default), any stray tokens are stripped and
+    ``variable_constraints`` is empty.
+
     Returns:
         {"widget_kind": str, "widget_config": dict, "model": str,
-         "ai_available": bool, "repaired": bool}
+         "ai_available": bool, "repaired": bool, "variable_constraints": dict}
     """
-    prompt = _build_widget_authoring_prompt(description, kind_hint)
+    prompt = _build_widget_authoring_prompt(description, kind_hint, allow_variables)
     json_hint = '\n\nRespond ONLY with JSON: {"widget_kind": "...", "widget_config": {...}}, no markdown fences.'
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -1788,7 +1857,12 @@ def generate_widget_config(description: str, kind_hint: str | None = None) -> di
             if result:
                 data = result["data"]
                 return _finalize_widget_proposal(
-                    data.get("widget_kind"), data.get("widget_config"), description, result["model"]
+                    data.get("widget_kind"),
+                    data.get("widget_config"),
+                    description,
+                    result["model"],
+                    data.get("variable_constraints"),
+                    allow_variables,
                 )
         except Exception:
             logger.exception("generate_widget_config: Anthropic failed, trying next provider")
@@ -1797,8 +1871,10 @@ def generate_widget_config(description: str, kind_hint: str | None = None) -> di
     if google_key:
         try:
             res = _call_google_ai_studio(prompt + json_hint, google_key)
-            raw_kind, raw_config = _parse_widget_json(res["text"])
-            return _finalize_widget_proposal(raw_kind, raw_config, description, res["model"])
+            raw_kind, raw_config, raw_constraints = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(
+                raw_kind, raw_config, description, res["model"], raw_constraints, allow_variables
+            )
         except Exception:
             logger.exception("generate_widget_config: Google AI Studio call failed, trying next provider")
 
@@ -1806,8 +1882,10 @@ def generate_widget_config(description: str, kind_hint: str | None = None) -> di
     if _ollama_reachable(ollama_url):
         try:
             res = _call_ollama(prompt + json_hint, ollama_url)
-            raw_kind, raw_config = _parse_widget_json(res["text"])
-            return _finalize_widget_proposal(raw_kind, raw_config, description, res["model"])
+            raw_kind, raw_config, raw_constraints = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(
+                raw_kind, raw_config, description, res["model"], raw_constraints, allow_variables
+            )
         except Exception:
             logger.exception("generate_widget_config: Ollama failed, falling back to default")
 

@@ -341,8 +341,12 @@ class TestWidgetConfigSubstitution:
 
         data = QuestionSubpartStudentSerializer(sp, context={"request": req}).data
         cfg = data["widget_config"]
-        assert cfg["initialVolume"] == "5"
+        # DTB-5: a *pure* {{token}} leaf resolves to the variable's NATIVE type, so
+        # a numeric widget field bound to a croupier var arrives as a number (not
+        # the string "5", which a Number.isFinite-guarded runtime would ignore).
+        assert cfg["initialVolume"] == 5 and isinstance(cfg["initialVolume"], int)
         assert cfg["maxHeat"] == 100
+        # Mixed strings still render as strings.
         assert cfg["nested"] == {"label": "Value = 5", "n": 42}
         assert cfg["list"] == ["x=5", 7, True, None]
 

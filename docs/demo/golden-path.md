@@ -204,5 +204,79 @@ The captured screenshot is regenerated on every run into
 assertion run) — the first use of the "routine accumulates the demo" mechanic
 with a reproducible, not-hand-captured artifact.
 
-*Next beat:* **DTB-5** — variable-aware generation: the AI may emit `{{var}}`
-bindings so the described widget is **per-student randomized** via croupier.
+---
+
+## Beat 4 — One description, a different widget per student (DTB-5) · *the multiplier, off-screen*
+
+The describe-it beats so far produce **one** widget with fixed numbers. This beat
+makes a single description produce a widget that is **randomized per student**:
+the teacher types *"a number line where each student marks a random point between
+0 and 10"* and every student gets a *different* number line — same skill, no two
+identical answers to copy.
+
+The AI does this by binding a numeric field to a croupier `{{var}}` token and
+declaring its sampling range. `POST /api/v1/ai/widget-authoring/` with
+`{"description": "...", "allow_variables": true}` returns:
+
+```jsonc
+// → 200
+{
+  "widget_kind": "number-line",
+  "widget_config": { "min": "{{lo}}", "max": "{{hi}}", "label": "Mark the value" },
+  "variable_constraints": {
+    "lo": { "min": 0, "max": 2, "integer": true },
+    "hi": { "min": 8, "max": 10, "integer": true }
+  },
+  "model_used": "claude-sonnet-4-6",
+  "ai_available": true,
+  "repaired": false
+}
+```
+
+When the teacher attaches this, the **existing croupier** samples `lo`/`hi`
+per `(student, subpart)` — deterministically, so the same student always sees the
+same widget and the grader can reproduce it at grading time. Student #1 might get
+`[1, 9]`, student #2 `[0, 10]` — from one sentence.
+
+**Two deterministic guardrails make this iron-clad, both LLM-free:**
+
+1. **`variable_constraints` are validated before they reach the croupier** —
+   each must be two real numbers with `min <= max`; a malformed range is dropped.
+2. **Every retained `{{var}}` token must have a backing constraint.** A token the
+   AI bound but failed to declare is *dropped from the config* (the field falls
+   back to the kind default), so a literal `{{var}}` can **never** reach the
+   runtime. Conversely, with `allow_variables` off (the DTB-2/3 default) **all**
+   tokens are stripped — a non-variable-aware caller never gets a token.
+
+And the value actually lands as the right **type**: a pure `{{lo}}` leaf resolves
+to the variable's *native* number (not the string `"3"`, which the
+`Number.isFinite`-guarded number-line runtime would silently ignore), so the
+randomization is real on screen, not swallowed.
+
+**Why it's iron-clad:** the AI only *authors* config + sampling ranges on the host
+(principles 1, 2 — the grader still scores deterministically); the ranges and the
+token↔constraint pairing are schema-validated/reconciled before store (3); no key
+or malformed output yields a static, valid, **un-randomized** widget with empty
+`variable_constraints` rather than a 500 or a leaked token (4); the model is
+grounded in the real kind schemas and constraint shape (5); a randomized config is
+still `✨ AI-generated`, the static default is `Auto-built` (6).
+
+**Verify it:**
+
+```bash
+cd backend
+# The reconcile guardrail (token kept/dropped, malformed range dropped, decimals
+# clamped, real per-student randomisation within bounds) and the typed-leaf
+# substitution (a numeric {{var}} arrives as a number, not "3"):
+./venv/Scripts/python.exe -m pytest \
+  openshiksha/apps/core/tests/test_widget_variables.py \
+  openshiksha/apps/ai/tests/test_widget_authoring.py -q --no-cov
+```
+
+Or against the live API as a teacher: `POST /api/v1/ai/widget-authoring/` with
+`allow_variables: true` and a "random …" description, then attach the proposal and
+open the question as two different students — the numbers differ, deterministically.
+
+*Next beat:* **DTB-5b** — surface the randomization in the Describe-it UI (an
+"each student gets different numbers" toggle that persists `variable_constraints`
+on attach), then Phase 2 (guided step-validator).

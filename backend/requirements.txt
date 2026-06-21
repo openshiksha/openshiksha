@@ -35,7 +35,7 @@ httpx==0.28.1
 requests==2.34.2
 
 # AI / LLM
-anthropic==0.109.1
+anthropic==0.111.0
 google-genai==2.8.0
 
 # Utilities

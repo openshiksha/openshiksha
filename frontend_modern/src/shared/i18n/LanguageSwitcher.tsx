@@ -12,7 +12,7 @@ export const LanguageSwitcher = ({ className = '' }: { className?: string }) => 
   const { locale, setLocale, t } = useI18n();
 
   const segment = (active: boolean) =>
-    `min-w-[2.5rem] rounded-md px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+    `min-w-[2.5rem] rounded-md px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
       active ? 'bg-brand-100 text-brand-800' : 'text-ink-500 hover:text-ink-900'
     }`;
 

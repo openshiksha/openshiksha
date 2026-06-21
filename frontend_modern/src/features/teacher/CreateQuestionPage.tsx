@@ -353,7 +353,7 @@ const AIGenerationPanel = ({
             </label>
             <textarea
               rows={2}
-              className="w-full border border-brand-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              className="w-full border border-brand-300 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 bg-white"
               placeholder={t('cqp.topicPlaceholder')}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -364,7 +364,7 @@ const AIGenerationPanel = ({
             <div>
               <label className="block text-xs font-medium text-brand-800 mb-1">{t('cqp.typeLabelShort')}</label>
               <select
-                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 bg-white"
                 value={qType}
                 onChange={(e) => setQType(e.target.value as QuestionType)}
               >
@@ -377,7 +377,7 @@ const AIGenerationPanel = ({
             <div>
               <label className="block text-xs font-medium text-brand-800 mb-1">{t('cqp.difficulty')}</label>
               <select
-                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 bg-white"
                 value={difficulty}
                 onChange={(e) => setDifficulty(Number(e.target.value))}
               >
@@ -389,7 +389,7 @@ const AIGenerationPanel = ({
             <div>
               <label className="block text-xs font-medium text-brand-800 mb-1">{t('cqp.countLabel')}</label>
               <select
-                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                className="w-full border border-brand-300 rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 bg-white"
                 value={count}
                 onChange={(e) => setCount(Number(e.target.value))}
               >
@@ -762,7 +762,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.subject')}</label>
               <select
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 value={selectedSubjectId}
                 onChange={(e) => {
                   setSelectedSubjectId(e.target.value ? Number(e.target.value) : '');
@@ -779,7 +779,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.chapter')}</label>
               <select
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                 value={selectedChapterId}
                 onChange={(e) => setSelectedChapterId(e.target.value ? Number(e.target.value) : '')}
                 disabled={!selectedSubjectId || !chapters}
@@ -853,7 +853,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.questionType')}</label>
               <select
-                className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 value={current.question_type}
                 onChange={(e) =>
                   updateSubpart(activeSubpart, { question_type: e.target.value as QuestionType })
@@ -878,7 +878,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               <textarea
                 rows={3}
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 placeholder={
                   current.question_type === 'numeric' || current.question_type === 'fill_blank'
                     ? t('cqp.questionTextPlaceholderVar')
@@ -916,7 +916,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               <input
                 type="url"
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 placeholder={t('cqp.imageUrlPlaceholder')}
                 value={current.image_url}
                 onChange={(e) => updateSubpart(activeSubpart, { image_url: e.target.value })}
@@ -959,7 +959,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               <textarea
                 rows={3}
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 placeholder={t('cqp.solutionPlaceholder')}
                 value={current.solution_text}
                 onChange={(e) => updateSubpart(activeSubpart, { solution_text: e.target.value })}
@@ -972,7 +972,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               <textarea
                 rows={2}
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 placeholder={t('cqp.hintPlaceholder')}
                 value={current.hint_text}
                 onChange={(e) => updateSubpart(activeSubpart, { hint_text: e.target.value })}
@@ -1058,7 +1058,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                       <span className="w-6 text-sm font-medium text-ink-500">{opt.key}</span>
                       <input
                         type="text"
-                        className="flex-1 border border-ink-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="flex-1 border border-ink-200 rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                         placeholder={t('cqp.optionPlaceholder', { key: opt.key })}
                         value={opt.text}
                         onChange={(e) => updateOption(activeSubpart, oi, e.target.value)}
@@ -1081,7 +1081,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               {current.question_type === 'mcq' ? (
                 <select
-                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                   value={current.correct_answer}
                   onChange={(e) =>
                     updateSubpart(activeSubpart, { correct_answer: e.target.value })
@@ -1097,7 +1097,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               ) : (
                 <input
                   type="text"
-                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                   placeholder={current.question_type === 'numeric' ? t('cqp.correctNumericPlaceholder') : t('cqp.correctAnswerPlaceholder')}
                   value={current.correct_answer}
                   onChange={(e) =>

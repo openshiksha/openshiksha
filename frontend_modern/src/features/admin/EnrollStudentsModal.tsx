@@ -66,7 +66,7 @@ export const EnrollStudentsModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-ink-400 hover:text-ink-700 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+            className="text-ink-400 hover:text-ink-700 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

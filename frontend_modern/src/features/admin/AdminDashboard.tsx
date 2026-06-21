@@ -147,7 +147,7 @@ const ClassroomRow = ({ classroom }: { classroom: Classroom }) => {
           navigate(`/admin/classrooms/${classroom.id}`);
         }
       }}
-      className={`os-card p-4 cursor-pointer hover:border-brand-300 hover:bg-brand-50/40 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
+      className={`os-card p-4 cursor-pointer hover:border-brand-300 hover:bg-brand-50/40 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
         !classroom.is_active ? 'opacity-60' : ''
       }`}
     >
@@ -172,7 +172,7 @@ const ClassroomRow = ({ classroom }: { classroom: Classroom }) => {
               type="button"
               onClick={onDelete}
               disabled={deleteClassroom.isPending}
-              className="text-xs text-rose-600 hover:text-rose-700 disabled:opacity-50 focus:outline-none focus-visible:underline"
+              className="text-xs text-rose-600 hover:text-rose-700 disabled:opacity-50 focus:outline-hidden focus-visible:underline"
             >
               Archive
             </button>

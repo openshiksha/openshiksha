@@ -183,7 +183,7 @@ export const AssignmentDetailPage = () => {
         <button
           type="button"
           onClick={() => navigate('/student')}
-          className="text-sm text-brand-700 font-medium hover:underline mb-3 flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+          className="text-sm text-brand-700 font-medium hover:underline mb-3 flex items-center gap-1 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
           <span>&#8592;</span> {t('assignmentDetail.back')}
         </button>

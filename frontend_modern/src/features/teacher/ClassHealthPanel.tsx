@@ -84,7 +84,7 @@ export const ClassHealthPanel = ({ subjectRoomId }: Props) => {
     <div className="mt-3 border-t border-ink-100 pt-3">
       <button
         onClick={() => setIsExpanded((v) => !v)}
-        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         <span>{t('teacher.classHealth')}</span>
         <span

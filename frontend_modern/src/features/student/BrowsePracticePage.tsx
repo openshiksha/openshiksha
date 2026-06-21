@@ -54,7 +54,7 @@ export const BrowsePracticePage = () => {
         Failed to load questions.{' '}
         <button
           onClick={() => navigate('/student/browse')}
-          className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+          className="underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
           Go back
         </button>
@@ -126,7 +126,7 @@ export const BrowsePracticePage = () => {
       <div className="mb-4">
         <Link
           to="/student/browse"
-          className="rounded text-sm font-medium text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="rounded text-sm font-medium text-brand-700 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           ← Browse
         </Link>

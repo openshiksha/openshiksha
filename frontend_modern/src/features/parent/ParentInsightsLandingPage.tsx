@@ -47,7 +47,7 @@ export const ParentInsightsLandingPage = () => {
           <Link
             key={child.id}
             to={`/parent/insights/${child.id}`}
-            className="os-card p-5 hover:border-brand-300 hover:shadow-sm transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+            className="os-card p-5 hover:border-brand-300 hover:shadow-xs transition-all motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <p className="font-display font-semibold text-ink-900">
               {child.first_name || child.username}

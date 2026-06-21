@@ -137,7 +137,7 @@ export const ClassroomManagePage = () => {
       <button
         type="button"
         onClick={() => navigate('/admin')}
-        className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+        className="text-sm text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         ← Back to dashboard
       </button>
@@ -158,7 +158,7 @@ export const ClassroomManagePage = () => {
           <button
             type="button"
             onClick={() => setShowRoster(true)}
-            className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             Manage students
           </button>
@@ -175,7 +175,7 @@ export const ClassroomManagePage = () => {
           <button
             type="button"
             onClick={() => setShowNewRoom((v) => !v)}
-            className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             + Add subject room
           </button>
@@ -211,7 +211,7 @@ export const ClassroomManagePage = () => {
                   <button
                     type="button"
                     onClick={() => setEnrollingRoom(room)}
-                    className="text-xs text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+                    className="text-xs text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
                   >
                     Manage students
                   </button>

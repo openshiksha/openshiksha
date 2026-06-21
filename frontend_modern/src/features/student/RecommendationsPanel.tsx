@@ -92,7 +92,7 @@ export const RecommendationsPanel = () => {
               </div>
               <Link
                 to={`/student/browse/chapter/${rec.chapter}`}
-                className="text-xs font-semibold text-brand-700 hover:text-white border border-brand-200 rounded-full px-3 py-1 hover:bg-brand-600 hover:border-brand-600 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                className="text-xs font-semibold text-brand-700 hover:text-white border border-brand-200 rounded-full px-3 py-1 hover:bg-brand-600 hover:border-brand-600 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
               >
                 {t('common.practice')}
               </Link>
@@ -114,13 +114,13 @@ export const RecommendationsPanel = () => {
           <div className="flex items-center gap-3">
             <Link
               to="/student/proficiency"
-              className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-none focus-visible:underline"
+              className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-hidden focus-visible:underline"
             >
               {t('recommendations.viewProgress')}
             </Link>
             <Link
               to="/student/learning-path"
-              className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-none focus-visible:underline"
+              className="text-xs font-medium text-brand-700 hover:text-brand-800 focus:outline-hidden focus-visible:underline"
             >
               {t('recommendations.viewLearningPath')}
             </Link>

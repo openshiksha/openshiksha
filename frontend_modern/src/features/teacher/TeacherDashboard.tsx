@@ -33,7 +33,7 @@ const AssignmentRow = ({ assignment }: { assignment: Assignment }) => {
     <button
       type="button"
       onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
-      className="os-card w-full p-4 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      className="os-card w-full p-4 text-left transition-colors hover:border-brand-300 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -81,7 +81,7 @@ const RoomInsights = ({ subjectRoomId }: { subjectRoomId: number }) => {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-600 transition-colors hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold text-ink-600 transition-colors hover:text-ink-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         <span className="text-ink-400">{open ? '▾' : '▸'}</span>
         {open ? t('teacher.hideInsights') : t('teacher.viewInsights')}

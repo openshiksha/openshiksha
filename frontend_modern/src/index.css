@@ -86,7 +86,7 @@
     @apply w-full px-4 py-2.5 rounded-xl bg-white border border-ink-200
            text-ink-800 placeholder-ink-300
            transition-colors duration-150
-           focus:outline-none focus:border-brand-500;
+           focus:outline-hidden focus:border-brand-500;
   }
 
   /* Hand-drawn chalk underline — the signature active-nav / accent mark. */

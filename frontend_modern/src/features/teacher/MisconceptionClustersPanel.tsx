@@ -129,7 +129,7 @@ export const MisconceptionClustersPanel = ({ subjectRoomId }: Props) => {
               <button
                 type="button"
                 onClick={() => void refetch()}
-                className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+                className="font-medium underline hover:text-rose-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
               >
                 {t('explanation.retry')}
               </button>

@@ -48,7 +48,7 @@ export const ParentInsightsPage = () => {
           action={
             <Link
               to="/parent/insights"
-              className="text-brand-700 text-sm font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+              className="text-brand-700 text-sm font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
             >
               Pick a child
             </Link>
@@ -64,7 +64,7 @@ export const ParentInsightsPage = () => {
         <div>
           <Link
             to="/parent"
-            className="text-sm text-brand-700 font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             ← Back to dashboard
           </Link>

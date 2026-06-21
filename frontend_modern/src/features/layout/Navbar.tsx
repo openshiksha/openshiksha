@@ -77,7 +77,7 @@ export const Navbar = () => {
           <div className="flex items-center gap-6">
             <Link
               to="/"
-              className="flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="flex items-center rounded focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
               aria-label="OpenShiksha home"
             >
               <Logo size="sm" className="hidden sm:inline-flex" />
@@ -140,7 +140,7 @@ export const Navbar = () => {
                   onClick={() => setUserMenuOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={userMenuOpen}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-ink-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                 >
                   <div className="w-7 h-7 bg-brand-100 rounded-full flex items-center justify-center">
                     <span className="text-brand-700 text-xs font-bold">
@@ -172,7 +172,7 @@ export const Navbar = () => {
                     <Link
                       to="/profile"
                       role="menuitem"
-                      className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-none focus-visible:bg-ink-50"
+                      className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:bg-ink-50"
                     >
                       Profile
                     </Link>
@@ -180,7 +180,7 @@ export const Navbar = () => {
                       <Link
                         to="/student/proficiency"
                         role="menuitem"
-                        className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-none focus-visible:bg-ink-50"
+                        className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:bg-ink-50"
                       >
                         My Progress
                       </Link>
@@ -189,7 +189,7 @@ export const Navbar = () => {
                     <button
                       onClick={logout}
                       role="menuitem"
-                      className="w-full text-left px-4 py-2 text-sm text-rose-700 hover:bg-rose-50 transition-colors focus-visible:outline-none focus-visible:bg-rose-50"
+                      className="w-full text-left px-4 py-2 text-sm text-rose-700 hover:bg-rose-50 transition-colors focus-visible:outline-hidden focus-visible:bg-rose-50"
                     >
                       Sign out
                     </button>
@@ -204,7 +204,7 @@ export const Navbar = () => {
             {user && (
               <button
                 ref={hamburgerRef}
-                className="sm:hidden p-2 rounded-md text-ink-500 hover:text-ink-800 hover:bg-ink-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="sm:hidden p-2 rounded-md text-ink-500 hover:text-ink-800 hover:bg-ink-100 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-label={menuOpen ? 'Close account menu' : 'Open account menu'}
                 aria-expanded={menuOpen}
@@ -290,7 +290,7 @@ export const Navbar = () => {
                   logout();
                   setMenuOpen(false);
                 }}
-                className="w-full text-left px-3 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="w-full text-left px-3 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 Sign out
               </button>
@@ -312,7 +312,7 @@ const NavLink = ({ to, active, children }: NavLinkProps) => (
   <Link
     to={to}
     aria-current={active ? 'page' : undefined}
-    className={`px-1 py-2 text-sm font-medium rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+    className={`px-1 py-2 text-sm font-medium rounded transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
       active ? 'chalk-underline text-ink-900' : 'text-ink-500 hover:text-ink-900'
     }`}
   >
@@ -323,7 +323,7 @@ const NavLink = ({ to, active, children }: NavLinkProps) => (
 const MobileNavLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link
     to={to}
-    className="block px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+    className="block px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100 rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
   >
     {children}
   </Link>

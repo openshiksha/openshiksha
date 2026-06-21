@@ -36,7 +36,7 @@ requests==2.34.2
 
 # AI / LLM
 anthropic==0.111.0
-google-genai==2.8.0
+google-genai==2.9.0
 
 # Utilities
 python-dotenv==1.2.2

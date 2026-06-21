@@ -387,15 +387,17 @@ jobs:
                 cache-from: type=gha,scope=${{ matrix.service }}
                 cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-    # ─── Deploy to QA ────────────────────────────────────────────────────────
-    # Renders the qa overlay with the just-built image digest pinned (so the
-    # rollout actually picks up the new code instead of re-pulling a stale tag),
-    # applies, and rolls each Deployment so the new pods come up clean.
+    # ─── Deploy to QA env ────────────────────────────────────────────────────
+    # DISABLED for now: there is no dedicated qa cluster yet. The single droplet
+    # currently serves the PROD env, deployed from the `qa` branch (see deploy-prod
+    # below). Intended future wiring: `modernization` branch -> qa env, once a qa
+    # cluster and its `openshiksha-qa` secret exist — flip the `if` below to
+    # `github.ref == 'refs/heads/modernization'` then.
     deploy-qa:
         name: Deploy to QA Cluster
         timeout-minutes: 15
         needs: build-publish
-        if: github.ref == 'refs/heads/qa'
+        if: false
         runs-on: ubuntu-latest
         environment: qa
         steps:
@@ -433,12 +435,16 @@ jobs:
                 kubectl -n openshiksha-qa rollout status deployment/celery-worker --timeout=180s
                 kubectl -n openshiksha-qa rollout status deployment/celery-beat --timeout=180s
 
-    # ─── Deploy to Prod ──────────────────────────────────────────────────────
+    # ─── Deploy to Prod env ──────────────────────────────────────────────────
+    # Triggered by the `qa` branch: qa is the release branch that promotes to the
+    # prod environment (openshiksha.org) on the single droplet. (Future: when a
+    # dedicated `main`/`master` branch exists, point this at it and move the qa
+    # branch back to deploy-qa above.)
     deploy-prod:
         name: Deploy to Prod Cluster
         timeout-minutes: 15
         needs: build-publish
-        if: github.ref == 'refs/heads/prod'
+        if: github.ref == 'refs/heads/qa'
         runs-on: ubuntu-latest
         environment: prod
         steps:

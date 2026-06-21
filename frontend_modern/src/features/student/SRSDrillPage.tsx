@@ -122,7 +122,7 @@ export const SRSDrillPage = () => {
           action={
             <Link
               to="/student"
-              className="btn-brand inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              className="btn-brand inline-block focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
               Back to dashboard
             </Link>
@@ -207,7 +207,7 @@ export const SRSDrillPage = () => {
         <button
           type="button"
           onClick={() => navigate('/student')}
-          className="text-sm text-brand-700 font-medium hover:underline mb-3 inline-flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+          className="text-sm text-brand-700 font-medium hover:underline mb-3 inline-flex items-center gap-1 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
           ← Back
         </button>
@@ -236,7 +236,7 @@ export const SRSDrillPage = () => {
           action={
             <Link
               to="/student"
-              className="btn-brand inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              className="btn-brand inline-block focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
               Back to dashboard
             </Link>
@@ -274,7 +274,7 @@ export const SRSDrillPage = () => {
           <div className="mt-6 sticky bottom-4">
             <Button
               size="lg"
-              className="w-full shadow-sm"
+              className="w-full shadow-xs"
               onClick={handleSubmit}
               disabled={isPending || answeredCount === 0}
             >

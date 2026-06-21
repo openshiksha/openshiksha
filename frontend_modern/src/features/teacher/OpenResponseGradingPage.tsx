@@ -315,7 +315,7 @@ export const OpenResponseGradingPage = () => {
         <button
           type="button"
           onClick={() => navigate('/teacher')}
-          className="text-sm text-brand-700 font-medium hover:underline mb-3 inline-flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+          className="text-sm text-brand-700 font-medium hover:underline mb-3 inline-flex items-center gap-1 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
         >
           {t('grading.backDashboard')}
         </button>
@@ -378,7 +378,7 @@ export const OpenResponseGradingPage = () => {
           <button
             type="button"
             onClick={() => void refetch()}
-            className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+            className="font-medium underline hover:text-rose-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
           >
             {t('grading.retry')}
           </button>

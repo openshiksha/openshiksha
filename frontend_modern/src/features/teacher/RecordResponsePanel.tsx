@@ -106,7 +106,7 @@ const RubricForm = ({ subpartId, existing, onDone }: RubricFormProps) => {
               type="button"
               aria-label={t('recordResp.removeCriterionAria', { n: i + 1 })}
               onClick={() => setCriteria((rows) => rows.filter((_, idx) => idx !== i))}
-              className="text-ink-400 hover:text-rose-600 text-sm px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+              className="text-ink-400 hover:text-rose-600 text-sm px-1 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
             >
               ✕
             </button>
@@ -231,7 +231,7 @@ export const RecordResponsePanel = () => {
         type="button"
         onClick={() => setIsExpanded((v) => !v)}
         aria-expanded={isExpanded}
-        className="flex w-full items-center gap-1.5 text-left text-sm font-semibold text-ink-700 hover:text-ink-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+        className="flex w-full items-center gap-1.5 text-left text-sm font-semibold text-ink-700 hover:text-ink-900 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
       >
         <span>{t('recordResp.recordForAI')}</span>
         <span className={`ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▾</span>

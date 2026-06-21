@@ -33,7 +33,7 @@ export const InstallBanner = () => {
       <button
         type="button"
         onClick={promptInstall}
-        className="rounded-md bg-brand-600 px-3 py-1 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+        className="rounded-md bg-brand-600 px-3 py-1 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300"
       >
         {t('pwa.install')}
       </button>
@@ -41,7 +41,7 @@ export const InstallBanner = () => {
         type="button"
         onClick={dismiss}
         aria-label={t('pwa.installDismiss')}
-        className="rounded-md px-2 py-1 text-ink-500 transition hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+        className="rounded-md px-2 py-1 text-ink-500 transition hover:text-ink-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-300"
       >
         ✕
       </button>

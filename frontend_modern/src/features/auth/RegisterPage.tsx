@@ -20,7 +20,7 @@ export const RegisterPage = () => {
       <div className="space-y-4">
         <Link
           to="/register/school"
-          className="os-card group flex items-start gap-4 p-5 transition-shadow hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="os-card group flex items-start gap-4 p-5 transition-shadow hover:shadow-lift focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-50 transition-colors group-hover:bg-brand-100">
             <svg className="h-6 w-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -39,7 +39,7 @@ export const RegisterPage = () => {
 
         <Link
           to="/register/open"
-          className="os-card group flex items-start gap-4 p-5 transition-shadow hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="os-card group flex items-start gap-4 p-5 transition-shadow hover:shadow-lift focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 transition-colors group-hover:bg-emerald-100">
             <svg className="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

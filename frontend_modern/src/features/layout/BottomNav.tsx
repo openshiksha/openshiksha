@@ -183,7 +183,7 @@ export const BottomNav = () => {
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
                   'flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1 text-[11px] font-semibold leading-tight transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+                  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500',
                   active ? 'text-brand-700' : 'text-ink-500 hover:text-ink-800',
                 )}
               >

@@ -95,7 +95,7 @@ export const TeacherAssignmentDetailPage = () => {
           action={
             <button
               onClick={() => navigate('/teacher')}
-              className="rounded text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="rounded text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
             >
               ← {t('teacher.adBackToDashboard')}
             </button>
@@ -160,7 +160,7 @@ export const TeacherAssignmentDetailPage = () => {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <button
         onClick={() => navigate('/teacher')}
-        className="flex items-center gap-1 rounded text-sm text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        className="flex items-center gap-1 rounded text-sm text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
       >
         ← {t('teacher.adBackToDashboard')}
       </button>

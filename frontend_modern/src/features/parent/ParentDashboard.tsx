@@ -145,7 +145,7 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
         });
 
         return (
-          <Card key={a.id} className="p-4 hover:shadow-sm transition-shadow motion-reduce:transition-none">
+          <Card key={a.id} className="p-4 hover:shadow-xs transition-shadow motion-reduce:transition-none">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold text-ink-900 truncate">{a.problem_set.title}</p>
@@ -213,7 +213,7 @@ export const ParentDashboard = () => {
             <button
               key={child.id}
               onClick={() => setSelectedChildId(child.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
                 child.id === effectiveChildId
                   ? 'bg-brand-600 text-white'
                   : 'bg-white border border-ink-200 text-ink-700 hover:bg-brand-50'
@@ -245,7 +245,7 @@ export const ParentDashboard = () => {
             </div>
             <Link
               to={`/parent/insights/${selectedChild.id}`}
-              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
               {t('parent.viewInsights')}
             </Link>
@@ -257,7 +257,7 @@ export const ParentDashboard = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
                   activeTab === tab
                     ? 'border-brand-600 text-brand-700 chalk-underline'
                     : 'border-transparent text-ink-500 hover:text-ink-700'

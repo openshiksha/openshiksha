@@ -164,7 +164,7 @@ function PropertyField({
         value={value === undefined || value === null ? '' : String(value)}
         onChange={(e) => onChange(coerceValue(prop, e.target.value))}
         placeholder={prop.default !== undefined ? `default: ${String(prop.default)}` : undefined}
-        className="rounded border border-ink-200 bg-paper px-2 py-1 focus:border-brand-600 focus:outline-none"
+        className="rounded border border-ink-200 bg-paper px-2 py-1 focus:border-brand-600 focus:outline-hidden"
       />
       {description && <span className="text-xs text-ink-500">{description}</span>}
     </label>
@@ -330,7 +330,7 @@ export function WidgetGalleryPanel({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('widgetGallery.describePlaceholder')}
-            className="rounded border border-ink-200 bg-paper px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-none"
+            className="rounded border border-ink-200 bg-paper px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-hidden"
           />
           <div className="flex items-center justify-between gap-3">
             <button

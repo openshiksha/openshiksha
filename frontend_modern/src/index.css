@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+/* Keep the JS design-token config (brand/ink palettes, Fraunces/Inter fonts,
+   warm shadows, radii). v4 no longer auto-detects tailwind.config.js — it must
+   be loaded explicitly. */
+@config '../tailwind.config.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    OpenShiksha V2 — "Chalk & Unlock" design system
@@ -84,7 +86,7 @@
     @apply w-full px-4 py-2.5 rounded-xl bg-white border border-ink-200
            text-ink-800 placeholder-ink-300
            transition-colors duration-150
-           focus:outline-none focus:border-brand-500;
+           focus:outline-hidden focus:border-brand-500;
   }
 
   /* Hand-drawn chalk underline — the signature active-nav / accent mark. */

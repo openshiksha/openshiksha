@@ -25,7 +25,7 @@ export const VideosPanel = ({ chapterId }: VideosPanelProps) => {
               <button
                 type="button"
                 onClick={() => setOpenId(isOpen ? null : video.id)}
-                className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left transition-colors hover:bg-brand-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left transition-colors hover:bg-brand-50/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                 aria-expanded={isOpen}
               >
                 <span className="text-sm font-medium text-ink-800">{video.title}</span>

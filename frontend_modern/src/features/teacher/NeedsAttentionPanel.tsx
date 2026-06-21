@@ -34,7 +34,7 @@ export const NeedsAttentionPanel = ({ assignments }: Props) => {
   return (
     <section
       aria-label="Needs attention"
-      className="rounded-xl border border-ink-100 bg-paper p-4 shadow-sm"
+      className="rounded-xl border border-ink-100 bg-paper p-4 shadow-xs"
       data-testid="needs-attention"
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -48,7 +48,7 @@ export const NeedsAttentionPanel = ({ assignments }: Props) => {
               key={bucket.label}
               type="button"
               onClick={() => navigate(`/teacher/assignments/${first.id}`)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${toneClass[bucket.tone]}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${toneClass[bucket.tone]}`}
               data-testid={`needs-attention-${bucket.label.replace(/\s/g, '-')}`}
             >
               {t(bucketKey[bucket.label], { count: bucket.items.length })}

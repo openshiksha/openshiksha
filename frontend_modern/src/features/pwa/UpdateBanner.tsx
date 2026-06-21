@@ -24,7 +24,7 @@ export const UpdateBanner = ({ onRefresh }: UpdateBannerProps) => {
       <button
         type="button"
         onClick={onRefresh}
-        className="rounded-md bg-white/20 px-3 py-1 text-sm font-semibold text-white transition hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="rounded-md bg-white/20 px-3 py-1 text-sm font-semibold text-white transition hover:bg-white/30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
       >
         {t('pwa.refresh')}
       </button>

@@ -90,7 +90,7 @@ export const ExplanationPanel = ({
         <button
           type="button"
           onClick={() => setRequested(true)}
-          className="text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
+          className="text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:underline"
         >
           {t('explanation.cta')}
         </button>
@@ -126,7 +126,7 @@ export const ExplanationPanel = ({
             <button
               type="button"
               onClick={handleRegenerate}
-              className="mt-2 text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
+              className="mt-2 text-xs font-medium text-brand-700 hover:text-brand-800 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:underline"
             >
               {t('explanation.regenerateInLocale')}
             </button>
@@ -146,7 +146,7 @@ export const ExplanationPanel = ({
             generate.reset();
             void listQuery.refetch();
           }}
-          className="font-medium underline hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+          className="font-medium underline hover:text-rose-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
         >
           {t('explanation.retry')}
         </button>

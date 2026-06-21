@@ -49,7 +49,7 @@ function CollapsibleReveal({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`text-xs font-medium transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline ${styles.btn}`}
+        className={`text-xs font-medium transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:underline ${styles.btn}`}
       >
         {open ? '▾' : '▸'} {label}
       </button>
@@ -85,7 +85,7 @@ function AIHintPanel({ subpartId }: { subpartId: number }) {
         <button
           type="button"
           onClick={handleStart}
-          className="text-xs font-medium text-amber-800 hover:text-amber-900 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
+          className="text-xs font-medium text-amber-800 hover:text-amber-900 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:underline"
         >
           💡 Get a hint
         </button>
@@ -117,7 +117,7 @@ function AIHintPanel({ subpartId }: { subpartId: number }) {
         <button
           type="button"
           onClick={() => setRevealed((n) => Math.min(n + 1, hints.length))}
-          className="mt-2 text-xs font-medium text-amber-800 hover:text-amber-900 transition-colors motion-reduce:transition-none focus:outline-none focus-visible:underline"
+          className="mt-2 text-xs font-medium text-amber-800 hover:text-amber-900 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:underline"
         >
           ▸ Show next hint ({revealed}/{hints.length})
         </button>

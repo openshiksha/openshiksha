@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { setupStudentAuth } from './support/auth';
 
 // Per-route accessibility baseline (axe-core, WCAG 2.1 AA).
 //
@@ -31,6 +32,9 @@ interface AuditRoute {
   name: string;
   path: string;
   gate: boolean;
+  // A11Y-6: when set, seed a student JWT + stub the core-loop API before
+  // navigating so `ProtectedRoute` admits the page and it renders content.
+  auth?: boolean;
 }
 
 const ROUTES: AuditRoute[] = [
@@ -47,6 +51,13 @@ const ROUTES: AuditRoute[] = [
   { name: 'home', path: '/', gate: false },
   // Deliberate showcase edge cases + widget iframes → reporting-mode.
   { name: 'design', path: '/design', gate: false },
+  // A11Y-6: authenticated student core-loop. Reporting-mode for now — this PR
+  // establishes the baseline inventory (axe-report/student-*.json); A11Y-7
+  // remediates and A11Y-8 flips these to `gate: true`.
+  { name: 'student-dashboard', path: '/student', gate: false, auth: true },
+  { name: 'assignment-detail', path: '/student/assignments/1', gate: false, auth: true },
+  { name: 'proficiency', path: '/student/proficiency', gate: false, auth: true },
+  { name: 'srs-drill', path: '/student/srs-drill/1', gate: false, auth: true },
 ];
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -54,6 +65,7 @@ const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 test.describe('public surfaces — accessibility (axe-core)', () => {
   for (const route of ROUTES) {
     test(`${route.name} (${route.path})`, async ({ page }, testInfo) => {
+      if (route.auth) await setupStudentAuth(page);
       await page.goto(route.path);
       // Settle async chrome (fonts, lazy chunks) before the scan so contrast
       // and structure are measured against the final rendered UI, and keep a

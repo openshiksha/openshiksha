@@ -8,6 +8,8 @@ interface LogoProps {
   wordmarkClassName?: string;
   /** Gentle float — hero marks only. */
   float?: boolean;
+  /** Hide the wordmark below the `sm` breakpoint (icon-only brand on phones). */
+  hideWordmarkOnMobile?: boolean;
   className?: string;
 }
 
@@ -26,6 +28,7 @@ export const Logo = ({
   size = 'md',
   wordmarkClassName,
   float = false,
+  hideWordmarkOnMobile = false,
   className,
 }: LogoProps) => {
   const s = SIZES[size];
@@ -44,6 +47,7 @@ export const Logo = ({
           className={clsx(
             'font-display font-semibold tracking-tight leading-none',
             s.text,
+            hideWordmarkOnMobile && 'hidden sm:inline',
             wordmarkClassName ?? 'text-ink-900',
           )}
         >

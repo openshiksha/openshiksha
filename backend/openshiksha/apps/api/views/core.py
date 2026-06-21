@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, parsers, permissions, status, viewsets
@@ -181,9 +182,10 @@ class UserViewSet(viewsets.GenericViewSet):
 
         try:
             validate_password(new_password, request.user)
-        except Exception as exc:
-            messages = getattr(exc, "messages", None)
-            return Response({"new_password": messages or [str(exc)]}, status=400)
+        except ValidationError as exc:
+            return Response({"new_password": exc.messages}, status=400)
+        except Exception:
+            return Response({"new_password": ["Unable to validate the new password."]}, status=400)
 
         request.user.set_password(new_password)
         request.user.save(update_fields=["password"])

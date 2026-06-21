@@ -45,7 +45,7 @@ const SubpartPreview = ({
   return (
     <div className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
       {total > 1 && (
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-600">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-700">
           {t('qpreview.part', { letter: String.fromCharCode(97 + index) })}
         </p>
       )}

@@ -18,8 +18,8 @@ export default {
           300: '#FDBA74',
           400: '#FB8E3C',
           500: '#FB7705',
-          600: '#FF6F00', // ← brand anchor (legacy logo orange)
-          700: '#CC5800',
+          600: '#FF6F00', // ← brand anchor (legacy logo orange) — decorative/large only (≥3:1)
+          700: '#C05300', // ← on-text/CTA brand shade — ≥4.5:1 on white & on paper (A11Y-4)
           800: '#9E4500',
           900: '#7A3500',
         },

@@ -842,7 +842,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             ))}
             <button
               onClick={addSubpart}
-              className="flex min-h-[44px] items-end pb-3 px-3 text-sm text-brand-600 hover:text-brand-800 whitespace-nowrap"
+              className="flex min-h-[44px] items-end pb-3 px-3 text-sm text-brand-700 hover:text-brand-800 whitespace-nowrap"
             >
               {t('cqp.addPart')}
             </button>

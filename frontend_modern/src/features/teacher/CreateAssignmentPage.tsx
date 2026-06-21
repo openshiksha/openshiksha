@@ -557,7 +557,7 @@ const AssignmentPreview = ({ room, set, dueDate, valid, submitting, error }: Ass
       <div className="flex-1 space-y-4">
         {/* What students will see */}
         <div className="rounded-xl border border-ink-100 bg-paper p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-600">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-700">
             {t('assignForm.whatStudentsSee')}
           </p>
           {set ? (

@@ -3,5 +3,8 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  # 2 replicas in prod for HA during rolling updates and node restarts.
-  replicas: 2
+  # 1 replica on the single-node droplet: (a) the migrate initContainer runs per
+  # pod, so 2 replicas race `migrate` on a fresh DB and collide (duplicate table);
+  # (b) RAM headroom on the 4 GB node. Raise once migrations run as a separate
+  # run-once Job and the node has more memory.
+  replicas: 1

@@ -43,13 +43,15 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-    # Debug Toolbar
-    try:
+    # Debug Toolbar — guard on INSTALLED_APPS, not just DEBUG. In debug_toolbar
+    # v5+ importing its URLconf also loads a model (HistoryEntry), which raises
+    # if the app isn't registered. The test settings run with DEBUG=True but
+    # drop debug_toolbar from INSTALLED_APPS, so an unconditional import breaks
+    # `manage.py check` and test collection. Only mount it when installed.
+    if "debug_toolbar" in settings.INSTALLED_APPS:
         import debug_toolbar
 
         urlpatterns += [path("__debug__/", include(debug_toolbar.urls))]
-    except ImportError:
-        pass
 
 # Custom admin configuration
 admin.site.site_header = "OpenShiksha Administration"

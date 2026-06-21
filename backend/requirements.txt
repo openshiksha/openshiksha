@@ -43,7 +43,7 @@ python-dotenv==1.2.2
 Pillow==12.2.0
 
 # Development
-django-debug-toolbar==4.4.6
+django-debug-toolbar==7.0.0
 django-extensions==4.1
 ipython==9.14.1
 

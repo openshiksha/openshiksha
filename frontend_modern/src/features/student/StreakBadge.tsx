@@ -69,12 +69,17 @@ export const StreakBadge = ({ streak, tier, longestStreak, graceUsed }: StreakBa
     >
       <span>{config.icon}</span>
       <span>{t('streak.days', { count: streak })}</span>
-      <span className="font-normal opacity-70">· {t(config.labelKey)}</span>
+      {/* Secondary labels are de-emphasised by weight (`font-normal` vs the
+          badge's `font-semibold`), NOT opacity: an `opacity-70/60` overlay
+          dropped the tinted text below the 4.5:1 AA contrast bar against the
+          badge fill (A11Y-7). The tier `textColor` tokens clear AA on their own
+          fill at full opacity. */}
+      <span className="font-normal">· {t(config.labelKey)}</span>
       {longestStreak > streak && (
-        <span className="font-normal opacity-60">· {t('streak.best', { count: longestStreak })}</span>
+        <span className="font-normal">· {t('streak.best', { count: longestStreak })}</span>
       )}
       {graceUsed && (
-        <span className="font-normal opacity-60" title={t('streak.graceTitle')}>
+        <span className="font-normal" title={t('streak.graceTitle')}>
           · {t('streak.grace')}
         </span>
       )}

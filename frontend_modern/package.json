@@ -35,7 +35,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-katex": "^3.0.1",
-    "react-router-dom": "^7.17.0",
+    "react-router-dom": "^7.18.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

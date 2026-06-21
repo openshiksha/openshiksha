@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+/* Keep the JS design-token config (brand/ink palettes, Fraunces/Inter fonts,
+   warm shadows, radii). v4 no longer auto-detects tailwind.config.js — it must
+   be loaded explicitly. */
+@config '../tailwind.config.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    OpenShiksha V2 — "Chalk & Unlock" design system

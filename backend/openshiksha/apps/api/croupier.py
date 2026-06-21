@@ -179,6 +179,41 @@ def substitute_variables(text: str, variable_values: dict) -> str:
     return _TOKEN_RE.sub(_repl, text)
 
 
+# A string that is *nothing but* a single ``{{ ... }}`` token (DTB-5). Such a
+# leaf is a deferred binding whose whole value is the token, so it can resolve to
+# the token's native typed value rather than a rendered string.
+_PURE_TOKEN_RE = re.compile(r"^\s*\{\{([^{}]+)\}\}\s*$")
+
+
+def substitute_typed(value, variable_values: dict):
+    """Substitute a JSON string leaf, preserving native type for a pure token.
+
+    When ``value`` is *nothing but* a single ``{{...}}`` token (e.g. ``"{{lo}}"``
+    or ``"{{a+1}}"``), it resolves to the token's **native** evaluated value — an
+    ``int`` / ``float`` / ``bool`` — so a numeric widget field bound to a croupier
+    variable arrives as a number, not the string ``"3"`` (which a runtime guarded
+    by ``Number.isFinite`` would reject as non-finite and silently ignore). Mixed
+    strings (``"value {{a}}"``) keep the existing string substitution; non-strings
+    pass through unchanged.
+
+    A token that fails to evaluate (unknown var / bad expression) falls back to
+    string substitution, which leaves the literal token intact rather than
+    raising — so a single bad binding never blanks the field.
+    """
+    if not isinstance(value, str):
+        return value
+    match = _PURE_TOKEN_RE.match(value)
+    if not match:
+        return substitute_variables(value, variable_values)
+    expr = match.group(1).strip()
+    try:
+        if expr.isidentifier() and expr in variable_values:
+            return variable_values[expr]
+        return _eval_expression(expr, variable_values)
+    except Exception:
+        return substitute_variables(value, variable_values)
+
+
 def substitute_variables_for_student(
     question_text: str,
     options: "list[dict] | None",

@@ -687,7 +687,10 @@ def generate_explanation_for_subpart(
             language=language,
         )
 
-        obj, _ = SubpartExplanation.objects.update_or_create(
+        # ``submission`` is a nullable FK (None for SRS-drill rows); django-stubs
+        # 6.x types the ``*_id`` lookup as ``str | int``, so passing ``int | None``
+        # trips a false positive — the None case is valid runtime behaviour.
+        obj, _ = SubpartExplanation.objects.update_or_create(  # type: ignore[misc]
             student=student,
             question_subpart=subpart,
             submission_id=submission_id,
@@ -921,7 +924,10 @@ def diagnose_misconception_for_subpart(
             grade_level=grade_level,
         )
 
-        obj, _ = StudentMisconception.objects.update_or_create(
+        # ``submission`` is a nullable FK (None for SRS-drill rows); django-stubs
+        # 6.x types the ``*_id`` lookup as ``str | int``, so passing ``int | None``
+        # trips a false positive — the None case is valid runtime behaviour.
+        obj, _ = StudentMisconception.objects.update_or_create(  # type: ignore[misc]
             student=student,
             question_subpart=subpart,
             submission_id=submission_id,

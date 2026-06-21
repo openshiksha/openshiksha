@@ -231,7 +231,7 @@ export default defineWidget({
     // Keyboard accessibility — arrow keys / Home / End nudge the point.
     svg.setAttribute('tabindex', '0');
     svg.addEventListener('keydown', (ev) => {
-      let next = currentValue;
+      let next: number;
       if (ev.key === 'ArrowLeft' || ev.key === 'ArrowDown') next = currentValue - step;
       else if (ev.key === 'ArrowRight' || ev.key === 'ArrowUp') next = currentValue + step;
       else if (ev.key === 'Home') next = min;

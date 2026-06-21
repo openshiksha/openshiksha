@@ -64,7 +64,7 @@ export const I18nProvider = ({
   const [seededProfileLocale, setSeededProfileLocale] = useState<Locale | undefined>(undefined);
   if (profileLocale && profileLocale !== seededProfileLocale) {
     setSeededProfileLocale(profileLocale);
-    let hasDeviceOverride = false;
+    let hasDeviceOverride: boolean;
     try {
       hasDeviceOverride = localStorage.getItem(LOCALE_STORAGE_KEY) !== null;
     } catch {

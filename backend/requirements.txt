@@ -25,6 +25,10 @@ channels==4.3.2
 channels-redis==4.3.0
 daphne==4.2.2
 
+# Static file serving in production (collectstatic + WhiteNoise middleware/storage,
+# see settings/production.py — required for the prod Docker image build)
+whitenoise==6.12.0
+
 # Validation & Serialization
 pydantic==2.13.4
 pydantic-settings==2.14.2

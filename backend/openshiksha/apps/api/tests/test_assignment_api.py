@@ -170,6 +170,48 @@ class TestAssignmentPermissions:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["count"] == 1
 
+    def test_assignment_list_includes_my_submission_for_students(self, api_client, student, assignment, db):
+        """Regression for the StudentDashboard "due soon even though submitted"
+        bug: the LIST endpoint must surface ``my_submission`` so the dashboard
+        can group submitted rows into Completed instead of Due Soon. Used to
+        be on the detail serializer only; promoted to the base serializer."""
+        from django.utils import timezone
+
+        from openshiksha.apps.core.models import Submission
+
+        Submission.objects.create(
+            assignment=assignment,
+            student=student,
+            answers={},
+            completion=1.0,
+            submitted_at=timezone.now(),
+        )
+        api_client.force_authenticate(user=student)
+        response = api_client.get(reverse("assignment-list"))
+        assert response.status_code == status.HTTP_200_OK
+        row = response.data["results"][0]
+        assert "my_submission" in row
+        assert row["my_submission"] is not None
+        assert row["my_submission"]["submitted_at"] is not None
+
+    def test_assignment_list_my_submission_is_null_when_unsubmitted(self, api_client, student, assignment):
+        """Unsubmitted assignments must explicitly serialise ``my_submission: null``
+        so the frontend filter doesn't have to infer "missing key" semantics."""
+        api_client.force_authenticate(user=student)
+        response = api_client.get(reverse("assignment-list"))
+        assert response.status_code == status.HTTP_200_OK
+        row = response.data["results"][0]
+        assert row.get("my_submission") is None
+
+    def test_assignment_list_my_submission_is_null_for_teachers(self, api_client, teacher, assignment):
+        """``my_submission`` is a student concept — for teachers the field must
+        return ``null`` rather than leaking the first matched submission."""
+        api_client.force_authenticate(user=teacher)
+        response = api_client.get(reverse("assignment-list"))
+        assert response.status_code == status.HTTP_200_OK
+        row = response.data["results"][0]
+        assert row.get("my_submission") is None
+
 
 class TestSubmissionWorkflow:
     def test_student_can_create_submission(self, api_client, student, assignment):

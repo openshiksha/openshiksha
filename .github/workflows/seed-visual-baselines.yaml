@@ -1,0 +1,87 @@
+name: Seed visual-regression baselines
+
+# Manual one-shot workflow that generates Linux Playwright snapshots for
+# e2e/visual.spec.ts and pushes them back to the originating branch. See
+# docs/changes/2026-06-04-visual-regression.md for context.
+#
+# Usage:
+#   1. Push a branch where you want baselines (typically a feature branch
+#      that intentionally changed the visual).
+#   2. Trigger this workflow against that branch from the Actions tab.
+#   3. The job pushes the generated PNGs + a baseline-activation commit
+#      that drops the `test.describe.skip` from visual.spec.ts (only on the
+#      first run; subsequent runs just refresh the PNGs).
+
+on:
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: 'Branch to update baselines on (default: current branch)'
+                required: false
+                default: ''
+
+jobs:
+    seed:
+        name: Generate + commit Linux baselines
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the target branch
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.branch || github.ref_name }}
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: frontend_modern/package-lock.json
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Cache Playwright browsers
+              uses: actions/cache@v5
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: playwright-${{ runner.os }}-${{ hashFiles('frontend_modern/package-lock.json') }}
+
+            - name: Install Playwright browsers
+              run: npx playwright install --with-deps chromium
+
+            - name: Drop the .skip from visual.spec.ts (first-run activation)
+              run: |
+                  if grep -q 'test.describe.skip' e2e/visual.spec.ts; then
+                      echo "Activating visual.spec.ts (replacing test.describe.skip with test.describe)"
+                      sed -i 's/test\.describe\.skip(/test.describe(/' e2e/visual.spec.ts
+                  else
+                      echo "visual.spec.ts already activated — only refreshing baselines"
+                  fi
+
+            - name: Generate baselines
+              # --update-snapshots writes (or refreshes) PNGs under
+              # e2e/visual.spec.ts-snapshots/*.png suffixed -chromium-linux.png.
+              run: npx playwright test visual.spec.ts --update-snapshots
+
+            - name: Configure git
+              run: |
+                  git config --global user.name 'github-actions[bot]'
+                  git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+            - name: Commit + push (if anything changed)
+              working-directory: ${{ github.workspace }}
+              run: |
+                  git add frontend_modern/e2e/visual.spec.ts \
+                          frontend_modern/e2e/visual.spec.ts-snapshots
+                  if git diff --cached --quiet; then
+                      echo "No baseline changes to commit."
+                      exit 0
+                  fi
+                  git commit -m "ci(visual): refresh Linux Playwright baselines"
+                  git push origin HEAD:${{ inputs.branch || github.ref_name }}

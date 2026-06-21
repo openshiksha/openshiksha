@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  LoadingSpinner,
+  SectionHeading,
+  Select,
+} from '@/shared/ui';
 import { useBrowseChapters } from './useBrowseChapters';
 import { useSubjects } from '../teacher/useSubjects';
 
@@ -21,39 +28,45 @@ export const BrowsePage = () => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{greeting}</h1>
-        <p className="text-gray-500 mt-1 text-sm">
-          Practice from the shared question bank — choose a chapter to start.
-        </p>
-      </div>
+      <SectionHeading
+        as="h1"
+        eyebrow="Self-directed practice"
+        title={greeting}
+        description="Practice from the shared question bank — choose a chapter to start."
+        className="mb-6"
+      />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <select
+      <div className="os-card mb-6 flex flex-wrap items-end gap-3 p-4">
+        <Select
+          label="Subject"
           value={selectedSubject}
           onChange={(e) => setSelectedSubject(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="min-w-[12rem]"
+          block={false}
         >
           <option value="">All Subjects</option>
           {subjects?.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
-        </select>
-
-        <select
+        </Select>
+        <Select
+          label="Grade"
           value={selectedStandard}
           onChange={(e) => setSelectedStandard(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="min-w-[10rem]"
+          block={false}
         >
           <option value="">All Standards</option>
           {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>Grade {n}</option>
+            <option key={n} value={n}>
+              Grade {n}
+            </option>
           ))}
-        </select>
+        </Select>
       </div>
 
-      {/* Chapter list */}
       {isLoading && (
         <div className="flex justify-center py-16">
           <LoadingSpinner size="lg" />
@@ -61,53 +74,65 @@ export const BrowsePage = () => {
       )}
 
       {isError && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="os-card border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
           Failed to load chapters. Please refresh the page.
         </div>
       )}
 
       {chapters && chapters.length === 0 && !isLoading && (
-        <div className="text-center py-16 text-gray-400">
-          <svg className="w-12 h-12 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-            />
-          </svg>
-          <p className="font-medium">No chapters found</p>
-          <p className="text-sm mt-1">Try a different subject or standard filter.</p>
-        </div>
+        <EmptyState
+          title="No chapters found"
+          description="Try a different subject or standard filter."
+        />
       )}
 
       {chapters && chapters.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="os-card overflow-x-auto p-0">
+          <table className="w-full min-w-[24rem] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 font-medium text-gray-700">Chapter</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-700 hidden sm:table-cell">Subject</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-700 hidden sm:table-cell">Grade</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-700">Questions</th>
+              <tr className="border-b border-ink-100 bg-ink-50">
+                <th className="px-4 py-3 text-left font-display font-semibold text-ink-700">
+                  Chapter
+                </th>
+                <th className="hidden px-4 py-3 text-left font-display font-semibold text-ink-700 sm:table-cell">
+                  Subject
+                </th>
+                <th className="hidden px-4 py-3 text-left font-display font-semibold text-ink-700 sm:table-cell">
+                  Grade
+                </th>
+                <th className="px-4 py-3 text-right font-display font-semibold text-ink-700">
+                  Questions
+                </th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-ink-100">
               {chapters.map((ch) => (
-                <tr key={ch.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{ch.name}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{ch.subject}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">Grade {ch.standard}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                      {ch.question_count} Q
-                    </span>
+                <tr
+                  key={ch.id}
+                  className="transition-colors hover:bg-brand-50/40"
+                >
+                  <td className="px-4 py-3 font-medium text-ink-900">{ch.name}</td>
+                  <td className="hidden px-4 py-3 text-ink-500 sm:table-cell">
+                    {ch.subject}
+                  </td>
+                  <td className="hidden px-4 py-3 text-ink-500 sm:table-cell">
+                    Grade {ch.standard}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
+                    <Badge tone="brand">{ch.question_count} Q</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      variant="brand"
+                      size="sm"
                       onClick={() => navigate(`/student/browse/chapter/${ch.id}`)}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
                       Practice →
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}

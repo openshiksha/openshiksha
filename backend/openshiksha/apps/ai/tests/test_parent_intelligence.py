@@ -443,15 +443,15 @@ def test_generate_parent_summary_anthropic(monkeypatch):
 def test_generate_parent_summary_google(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     monkeypatch.setenv("GOOGLE_AI_API_KEY", "fake")
-    mock_result = {"text": "Gemma parent note.", "model": "gemma-4-it", "input_tokens": 70, "output_tokens": 30}
+    mock_result = {"text": "Gemma parent note.", "model": "gemini-2.5-flash", "input_tokens": 70, "output_tokens": 30}
 
-    with patch("openshiksha.apps.ai.llm_client._call_google_gemma", return_value=mock_result) as mock_call:
+    with patch("openshiksha.apps.ai.llm_client._call_google_ai_studio", return_value=mock_result) as mock_call:
         from openshiksha.apps.ai import llm_client
 
         result = llm_client.generate_parent_summary(_STATS)
 
     mock_call.assert_called_once()
-    assert result["model"] == "gemma-4-it"
+    assert result["model"] == "gemini-2.5-flash"
 
 
 def test_generate_parent_summary_ollama(monkeypatch):
@@ -808,8 +808,68 @@ def test_enqueue_weekly_parent_summaries_fans_out_per_pair(setup):
         setup["parent"].pk,
         setup["child"].pk,
         week_start_iso=expected_week,
+        language="en",
         send_email=True,
     )
+
+
+@pytest.mark.django_db
+def test_enqueue_weekly_parent_summaries_passes_parent_language(setup):
+    """LA-7: a Hindi-preferring parent gets a Hindi AI summary from the Monday batch."""
+    from openshiksha.apps.ai.tasks import enqueue_weekly_parent_summaries
+
+    setup["parent"].preferred_language = "hi"
+    setup["parent"].save()
+
+    with patch("openshiksha.apps.ai.tasks.generate_parent_progress_summary.delay") as mock_delay:
+        enqueue_weekly_parent_summaries()
+
+    assert mock_delay.call_args.kwargs["language"] == "hi"
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_renders_hindi_chrome(setup, summary, settings):
+    """LA-7: email chrome follows parent.preferred_language; the AI narrative
+    text is embedded as stored (already language-aware via the generate task)."""
+    from django.core import mail
+
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox = []
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].preferred_language = "hi"
+    setup["parent"].save()
+
+    sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is True
+    assert len(mail.outbox) == 1
+    assert "साप्ताहिक लर्निंग समरी" in mail.outbox[0].subject
+    assert "Aanya" in mail.outbox[0].subject
+    body = mail.outbox[0].body
+    assert "नमस्ते" in body
+    assert "इनसाइट्स खोलें" in body
+    # The stored narrative passes through verbatim.
+    assert "Aanya did well this week." in body
+
+
+@pytest.mark.django_db
+def test_notify_parent_weekly_summary_english_default(setup, summary, settings):
+    from django.core import mail
+
+    from openshiksha.apps.ai.emails import notify_parent_weekly_summary
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox = []
+    setup["parent"].email = "parent@example.com"
+    setup["parent"].save()
+
+    sent = notify_parent_weekly_summary(setup["parent"], setup["child"], summary)
+
+    assert sent is True
+    assert "weekly learning summary" in mail.outbox[0].subject
+    assert "Hi " in mail.outbox[0].body
 
 
 @pytest.mark.django_db

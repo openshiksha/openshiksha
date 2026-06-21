@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  # 2 replicas in prod for HA during rolling updates and node restarts.
+  replicas: 2

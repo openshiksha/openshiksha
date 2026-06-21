@@ -1,0 +1,282 @@
+# Golden-Path Demo — AI-Native Interactive Learning
+
+> The ~2-minute demo this initiative assembles, one iron-clad beat at a time.
+> Each beat is **(a) not in the market, (b) tactile and verifiable on screen, and
+> (c) iron-clad by construction.** Beats land here as the
+> [`openshiksha-ai-features`](../initiatives/ai-native-interactive-learning.md)
+> routine ships the increments behind them.
+
+**The story:** a teacher types a plain-English description of a manipulative — *"a
+number line where students mark ¾"* — and a **validated, sandboxed, auto-graded
+interactive widget** appears in the live preview, ready to attach to a question. A
+student then drags the point and is graded by the deterministic per-subpart
+grader. AI **authored** the widget; it never **graded** it.
+
+---
+
+## Beat 0 — The guardrail keystone (DTB-1) · *foundation, off-screen*
+
+Before any AI emits a widget, the platform can already **prove a widget config is
+well-formed**. Every `widget_config` written through the teacher API is validated
+against its kind's JSON Schema on the server — types, bounds, enums, required
+fields, and `additionalProperties: false`. A malformed config is rejected with a
+clear `400` *at write time*, never discovered later inside the sandbox.
+
+This is the safety floor the whole demo stands on: when DTB-2's AI proposes a
+`{widget_kind, widget_config}`, it is run through this exact validator before it
+is ever rendered or stored. **Malformed AI output cannot escape into the runtime
+or the DB.**
+
+**Why it's iron-clad:** the schemas are *data*, not code; correctness is a
+deterministic schema check (no AI in the path); a kind with no vendored schema or
+an unreadable file degrades to floor-only validation rather than a 500; and
+`{{var}}` croupier bindings are first-class, so variable-randomized widgets still
+validate.
+
+**Verify it (no UI yet):**
+
+```bash
+cd backend
+# Valid + invalid config per kind, the {{var}} tolerance, and the deterministic
+# fallback path are all exercised here:
+./venv/Scripts/python.exe -m pytest \
+  openshiksha/apps/core/tests/test_widget_fields.py -q --no-cov
+```
+
+Or against the live API — a bogus config is refused:
+
+```jsonc
+// POST /api/v1/questions/  (teacher auth) with a subpart:
+{ "widget_kind": "number-line", "widget_config": { "step": 0 } }
+// → 400  "number-line config field 'step': 0 is less than or equal to ... 0"
+```
+
+while a real one (`{"min": 0, "max": 1, "step": 0.25, "label": "Mark ¾"}`) is
+accepted.
+
+---
+
+## Beat 1 — Describe-to-Build, the endpoint (DTB-2) · *the engine, off-screen*
+
+Now the platform can turn a teacher's sentence into a widget. `POST
+/api/v1/ai/widget-authoring/` with `{"description": "a number line where students
+mark 3/4"}` returns a **validated** proposal:
+
+```jsonc
+// → 200
+{
+  "widget_kind": "number-line",
+  "widget_config": { "min": 0, "max": 1, "step": 0.25, "label": "Mark the value" },
+  "model_used": "claude-sonnet-4-6",
+  "ai_available": true,
+  "repaired": false
+}
+```
+
+The endpoint grounds the model in the **real, vendored schemas** of the four
+authorable kinds (`number-line`, `fraction-bar`, `function-plotter`,
+`thermo-piston`) and asks only for *config data* — never code. Whatever the model
+returns is run through the Beat 0 guardrail before it leaves the server:
+
+1. **Valid** → returned as-is (`ai_available: true`, `repaired: false`).
+2. **Out of bounds / unknown keys / bad enum** → one deterministic **clamp-repair**
+   pass (e.g. `denominator: 1000 → 40`, unknown keys dropped) then re-validated
+   (`repaired: true`).
+3. **Un-salvageable** (wrong kind, non-object config) **or no LLM provider** → the
+   kind's **deterministic safe default**, honestly flagged `ai_available: false`
+   so the UI badges it `Auto-…`, never as a real generation.
+
+So the response is **always schema-valid by construction**, and a missing key /
+dead provider yields a working widget instead of a `500`. The grader is never
+touched — AI authors, it does not grade.
+
+**Why it's iron-clad:** AI runs on the host, never in the sandbox (principle 1);
+its output is config-as-data, schema-validated before render/store (3); there is a
+deterministic clamp-repair *and* a safe-default fallback, both tested (4); the
+prompt is grounded in the actual kind schemas (5); provenance is honest via
+`ai_available` / `model_used` (6).
+
+**Verify it (no UI yet):**
+
+```bash
+cd backend
+# Real path, clamp-repair path, un-salvageable path, and the no-provider
+# fallback — each asserted to return a schema-valid config:
+./venv/Scripts/python.exe -m pytest \
+  openshiksha/apps/ai/tests/test_widget_authoring.py -q --no-cov
+```
+
+Or against the live API as a teacher — note `ai_available: false` when no LLM key
+is configured, with a still-valid default config you can attach immediately.
+
+---
+
+## Beat 2 — Describe-to-Build, on screen (DTB-3) · *the wow, in the UI*
+
+This is where the engine becomes a moment a viewer can **watch**. In
+**Create Question → Add interactive widget**, the gallery now opens with a
+**"✨ Describe it — AI builds the widget"** prompt box above the kind grid. The
+teacher types
+
+> *a number line where students mark 3/4*
+
+and clicks **Generate widget**. The panel calls the Beat 1 endpoint, and the
+returned proposal drops **straight into the existing configure view** — the same
+**live sandboxed iframe preview** + schema-driven form the teacher already uses.
+The widget is *right there*, rendered and interactive, with every field
+pre-filled. The teacher can tweak any value (the preview re-renders on each
+change) and click **Use this widget** to attach it — no JSON, no code.
+
+Because the proposal arrives **schema-valid by construction** (Beat 0 validation →
+Beat 1 clamp-repair → safe default), the UI never has to validate or sanitize it;
+it trusts the contract and renders. The grader is untouched.
+
+**Honest provenance, on screen:**
+
+- Real LLM proposal → a brand **`✨ AI-generated`** `AIBadge` next to the widget
+  title.
+- No key / timeout / un-salvageable output → the backend's deterministic safe
+  default arrives as `ai_available: false`; the UI shows a neutral **`Auto-built`**
+  badge **and** a friendly line — *"AI is unavailable right now — here's a safe
+  starter you can edit and attach."* The stub is **never** dressed up as a real
+  generation.
+
+**Why it's iron-clad:** the AI call is host-mediated (principle 1) and its output
+is config-as-data the backend already validated before it reaches the iframe (3);
+the no-provider path renders a working, editable default with an honest badge
+rather than an error (4, 6); the prompt is grounded in the real kinds (5); and the
+deterministic per-subpart grader is the only thing that ever scores the student —
+AI authored the manipulative, it never grades it (2).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Real-proposal path (✨ AI-generated badge + config populates the form) AND the
+# deterministic fallback path (neutral Auto-built badge + "AI unavailable" line)
+# are both exercised here, plus the transport-error and pending states:
+npx vitest run src/features/teacher/WidgetGalleryPanel.test.tsx \
+               src/features/teacher/useWidgetAuthoring.test.ts
+```
+
+Or in the running app: open **Create Question**, click **Add interactive widget**,
+type a description, and watch the validated widget render in the live preview.
+
+---
+
+## Beat 3 — The student is graded by the runtime (DTB-4) · *the payoff, on screen*
+
+The describe-it beats end with a widget *rendered*. This beat closes the loop: a
+**student** picks up that exact widget, manipulates it, and the answer they
+produce is the value the **deterministic per-subpart grader** scores — proving the
+last principle on screen. **AI authored the manipulative; it never graded it.**
+
+The AI-described widget renders inside a **sandboxed iframe** (`sandbox=
+"allow-scripts"`, deliberately *without* `allow-same-origin`). The student drags
+the point (or arrows it) to ½; the widget snaps to `step` and reports the value
+across the `postMessage` trust boundary to the host. That reported value — and
+nothing the AI said — is what flows into the submission form and the numeric
+grader.
+
+![Describe-to-build: a number line rendered in the sandbox, student answer 0.5 reported to the host](assets/dtb4-describe-to-build.png)
+
+**Why it's iron-clad:** the runtime is network-less and deterministic (principle
+1); the only thing that scores the student is the per-subpart grader reading the
+widget's reported value (principle 2); the AI's role ended at *authoring* the
+config. The grade signal crosses a real sandbox boundary that no unit test in
+jsdom can exercise — so we pin it with a **real-browser e2e** that stays
+backend-free (it drives the public `/widgets/dev` playground, which mounts the
+same `InteractiveWidget` host the teacher/student flows use).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Renders the AI-described number line in the real sandbox, drives a student
+# interaction, and asserts the host receives the graded answer 0.5 — the value
+# the deterministic grader scores. Also (re)captures the screenshot above, so it
+# can never go stale relative to the code:
+npx playwright test describe-to-build-grade
+```
+
+The captured screenshot is regenerated on every run into
+`docs/demo/assets/dtb4-describe-to-build.png` (the e2e writes it as part of the
+assertion run) — the first use of the "routine accumulates the demo" mechanic
+with a reproducible, not-hand-captured artifact.
+
+---
+
+## Beat 4 — One description, a different widget per student (DTB-5) · *the multiplier, off-screen*
+
+The describe-it beats so far produce **one** widget with fixed numbers. This beat
+makes a single description produce a widget that is **randomized per student**:
+the teacher types *"a number line where each student marks a random point between
+0 and 10"* and every student gets a *different* number line — same skill, no two
+identical answers to copy.
+
+The AI does this by binding a numeric field to a croupier `{{var}}` token and
+declaring its sampling range. `POST /api/v1/ai/widget-authoring/` with
+`{"description": "...", "allow_variables": true}` returns:
+
+```jsonc
+// → 200
+{
+  "widget_kind": "number-line",
+  "widget_config": { "min": "{{lo}}", "max": "{{hi}}", "label": "Mark the value" },
+  "variable_constraints": {
+    "lo": { "min": 0, "max": 2, "integer": true },
+    "hi": { "min": 8, "max": 10, "integer": true }
+  },
+  "model_used": "claude-sonnet-4-6",
+  "ai_available": true,
+  "repaired": false
+}
+```
+
+When the teacher attaches this, the **existing croupier** samples `lo`/`hi`
+per `(student, subpart)` — deterministically, so the same student always sees the
+same widget and the grader can reproduce it at grading time. Student #1 might get
+`[1, 9]`, student #2 `[0, 10]` — from one sentence.
+
+**Two deterministic guardrails make this iron-clad, both LLM-free:**
+
+1. **`variable_constraints` are validated before they reach the croupier** —
+   each must be two real numbers with `min <= max`; a malformed range is dropped.
+2. **Every retained `{{var}}` token must have a backing constraint.** A token the
+   AI bound but failed to declare is *dropped from the config* (the field falls
+   back to the kind default), so a literal `{{var}}` can **never** reach the
+   runtime. Conversely, with `allow_variables` off (the DTB-2/3 default) **all**
+   tokens are stripped — a non-variable-aware caller never gets a token.
+
+And the value actually lands as the right **type**: a pure `{{lo}}` leaf resolves
+to the variable's *native* number (not the string `"3"`, which the
+`Number.isFinite`-guarded number-line runtime would silently ignore), so the
+randomization is real on screen, not swallowed.
+
+**Why it's iron-clad:** the AI only *authors* config + sampling ranges on the host
+(principles 1, 2 — the grader still scores deterministically); the ranges and the
+token↔constraint pairing are schema-validated/reconciled before store (3); no key
+or malformed output yields a static, valid, **un-randomized** widget with empty
+`variable_constraints` rather than a 500 or a leaked token (4); the model is
+grounded in the real kind schemas and constraint shape (5); a randomized config is
+still `✨ AI-generated`, the static default is `Auto-built` (6).
+
+**Verify it:**
+
+```bash
+cd backend
+# The reconcile guardrail (token kept/dropped, malformed range dropped, decimals
+# clamped, real per-student randomisation within bounds) and the typed-leaf
+# substitution (a numeric {{var}} arrives as a number, not "3"):
+./venv/Scripts/python.exe -m pytest \
+  openshiksha/apps/core/tests/test_widget_variables.py \
+  openshiksha/apps/ai/tests/test_widget_authoring.py -q --no-cov
+```
+
+Or against the live API as a teacher: `POST /api/v1/ai/widget-authoring/` with
+`allow_variables: true` and a "random …" description, then attach the proposal and
+open the question as two different students — the numbers differ, deterministically.
+
+*Next beat:* **DTB-5b** — surface the randomization in the Describe-it UI (an
+"each student gets different numbers" toggle that persists `variable_constraints`
+on attach), then Phase 2 (guided step-validator).

@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { Button, Card, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
+import { useI18n, toAiLanguage } from '@/shared/i18n';
 import { useChildren } from './useChildren';
 import { useLatestParentSummary, useGenerateParentSummary } from './useParentSummary';
 import { NarrativeCard } from './components/NarrativeCard';
@@ -22,15 +23,17 @@ export const ParentInsightsPage = () => {
     refetch,
   } = useLatestParentSummary(validChildId);
   const generate = useGenerateParentSummary();
+  const { locale } = useI18n();
 
   const handleGenerate = () => {
     if (!validChildId) return;
+    // The weekly summary generates in the reader's language (LA-4) — the
+    // backend prompts the LLM in Devanagari for 'hi'. A pilot locale (mr) has
+    // no authored prompt yet, so AI content falls back to English (LA-9).
     generate.mutate(
-      { child_id: validChildId, language: 'en' },
+      { child_id: validChildId, language: toAiLanguage(locale) },
       {
         onSuccess: () => {
-          // Backend queues a Celery task; in eager mode the summary is ready immediately.
-          // Refetch after a short pause to pick up either case.
           setTimeout(() => refetch(), 1500);
         },
       },
@@ -40,12 +43,17 @@ export const ParentInsightsPage = () => {
   if (!validChildId) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-gray-500 font-medium">No child selected</p>
-          <Link to="/parent/insights" className="text-indigo-600 text-sm font-medium mt-2 inline-block">
-            Pick a child
-          </Link>
-        </div>
+        <EmptyState
+          title="No child selected"
+          action={
+            <Link
+              to="/parent/insights"
+              className="text-brand-700 text-sm font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+            >
+              Pick a child
+            </Link>
+          }
+        />
       </div>
     );
   }
@@ -56,60 +64,53 @@ export const ParentInsightsPage = () => {
         <div>
           <Link
             to="/parent"
-            className="text-sm text-indigo-600 font-medium hover:underline"
+            className="text-sm text-brand-700 font-medium hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
           >
             ← Back to dashboard
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">
-            {child ? `${child.first_name || child.username}'s Insights` : 'Insights'}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            A weekly progress narrative, alerts, and suggested home activities.
-          </p>
+          <div className="mt-1">
+            <SectionHeading
+              as="h1"
+              title={child ? `${child.first_name || child.username}'s Insights` : 'Insights'}
+              description="A weekly progress narrative, alerts, and suggested home activities."
+            />
+          </div>
         </div>
       </header>
 
       {isLoading && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <Card>
           <div className="flex items-center justify-center py-8">
             <LoadingSpinner />
           </div>
-        </div>
+        </Card>
       )}
 
       {!isLoading && isError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5">
-          <p className="font-semibold text-red-800">Couldn't load the summary</p>
-          <p className="text-sm text-red-700 mt-1">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
+          <p className="font-semibold text-rose-800">Couldn't load the summary</p>
+          <p className="text-sm text-rose-700 mt-1">
             {(error as { message?: string })?.message || 'Please try again in a moment.'}
           </p>
-          <button
-            onClick={() => refetch()}
-            className="mt-3 px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
-          >
+          <Button size="sm" className="mt-3" onClick={() => refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
       {!isLoading && !isError && !summary && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-          <p className="font-semibold text-gray-900">No summary yet</p>
-          <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto">
-            We haven't generated a weekly summary for this child yet. Tap below to create one now —
-            it usually takes about 30 seconds.
-          </p>
-          <button
-            onClick={handleGenerate}
-            disabled={generate.isPending}
-            className="mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {generate.isPending ? 'Generating…' : "Generate this week's summary"}
-          </button>
+        <div>
+          <EmptyState
+            title="No summary yet"
+            description="We haven't generated a weekly summary for this child yet. Tap below to create one now — it usually takes about 30 seconds."
+            action={
+              <Button onClick={handleGenerate} disabled={generate.isPending}>
+                {generate.isPending ? 'Generating…' : "Generate this week's summary"}
+              </Button>
+            }
+          />
           {generate.isError && (
-            <p className="text-sm text-red-600 mt-3">
-              Generation failed. Please try again.
-            </p>
+            <p className="text-center text-sm text-rose-600 mt-3">Generation failed. Please try again.</p>
           )}
         </div>
       )}
@@ -121,13 +122,9 @@ export const ParentInsightsPage = () => {
           <HomeActivitiesPanel activities={summary.home_activities} />
 
           <div className="flex justify-end">
-            <button
-              onClick={handleGenerate}
-              disabled={generate.isPending}
-              className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={generate.isPending}>
               {generate.isPending ? 'Regenerating…' : 'Regenerate'}
-            </button>
+            </Button>
           </div>
         </>
       )}

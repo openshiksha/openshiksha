@@ -11,6 +11,11 @@ export interface LoginResponse {
   refresh: string;
 }
 
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await apiClient.post<LoginResponse>('/auth/login/', credentials);
@@ -50,10 +55,18 @@ export const authApi = {
 
   updateProfile: async (
     data: Partial<
-      Pick<User, 'first_name' | 'last_name' | 'email' | 'phone_number' | 'email_reminders_opt_out'>
+      Pick<
+        User,
+        'first_name' | 'last_name' | 'email' | 'phone_number' | 'email_reminders_opt_out' | 'preferred_language'
+      >
     >
   ): Promise<User> => {
     const response = await apiClient.patch<User>('/users/me/profile/', data);
+    return response.data;
+  },
+
+  changePassword: async (data: ChangePasswordRequest): Promise<{ detail: string }> => {
+    const response = await apiClient.post<{ detail: string }>('/users/me/password/', data);
     return response.data;
   },
 };

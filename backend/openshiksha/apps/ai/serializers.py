@@ -18,6 +18,7 @@ from .models import (
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
+    QuestionDifficultyCalibration,
     SpacedRepetitionEntry,
     StudentMastery,
     StudentMisconception,
@@ -275,6 +276,7 @@ class SubpartExplanationSerializer(serializers.ModelSerializer):
             "explanation_text",
             "language",
             "grade_level",
+            "model_used",
             "generated_at",
         ]
         read_only_fields = fields
@@ -298,6 +300,19 @@ class GenerateQuestionsRequestSerializer(serializers.Serializer):
     question_type = serializers.ChoiceField(choices=[qt[0] for qt in QuestionType.choices])
     difficulty = serializers.IntegerField(min_value=1, max_value=5, default=2)
     count = serializers.IntegerField(min_value=1, max_value=5, default=3)
+
+
+class WidgetAuthoringRequestSerializer(serializers.Serializer):
+    """Request body for Describe-to-Build AI widget authoring (DTB-2)."""
+
+    description = serializers.CharField(max_length=500, trim_whitespace=True)
+    # Optional teacher hint; validated against the authorable set in the view so
+    # the choice list stays single-sourced in apps.core.widgets.
+    kind_hint = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    # DTB-5: opt in to per-student randomisation. When set, the AI may bind
+    # numeric fields to croupier ``{{var}}`` tokens and the response carries the
+    # validated ``variable_constraints`` to attach alongside the config.
+    allow_variables = serializers.BooleanField(required=False, default=False)
 
 
 class WeeklyClassReportSerializer(serializers.ModelSerializer):
@@ -492,6 +507,55 @@ class TriggerMisconceptionClusterSerializer(serializers.Serializer):
 
     subject_room_id = serializers.IntegerField()
     lookback_days = serializers.IntegerField(required=False, min_value=1, max_value=365)
+
+
+class QuestionDifficultyCalibrationSerializer(serializers.ModelSerializer):
+    """Read serializer for an item-analysis calibration row (teacher-facing)."""
+
+    flag_display = serializers.CharField(source="get_flag_display", read_only=True)
+    difficulty_delta = serializers.IntegerField(read_only=True)
+    needs_review = serializers.BooleanField(read_only=True)
+    subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
+    question_id = serializers.IntegerField(source="question_subpart.question_id", read_only=True)
+    subpart_index = serializers.IntegerField(source="question_subpart.index", read_only=True)
+    chapter_name = serializers.CharField(source="question_subpart.question.chapter.name", read_only=True)
+    question_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuestionDifficultyCalibration
+        fields = [
+            "id",
+            "subject_room",
+            "subject_name",
+            "question_subpart",
+            "question_id",
+            "subpart_index",
+            "chapter_name",
+            "question_preview",
+            "sample_size",
+            "attempt_count",
+            "facility_index",
+            "discrimination_index",
+            "empirical_difficulty",
+            "declared_difficulty",
+            "difficulty_delta",
+            "flag",
+            "flag_display",
+            "needs_review",
+            "computed_at",
+        ]
+        read_only_fields = fields
+
+    def get_question_preview(self, obj) -> str:
+        """First ~120 chars of the subpart text, for at-a-glance identification."""
+        text = (obj.question_subpart.question_text or "").strip()
+        return text[:120] + ("…" if len(text) > 120 else "")
+
+
+class TriggerDifficultyCalibrationSerializer(serializers.Serializer):
+    """Request body for queuing a difficulty-calibration refresh for a room."""
+
+    subject_room_id = serializers.IntegerField()
 
 
 class AssignmentDraftSerializer(serializers.ModelSerializer):

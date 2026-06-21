@@ -1,27 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/api/client';
 import type { Submission, PaginatedResponse } from '@/types/index';
+import {
+  SUBMISSION_CREATE_KEY,
+  SUBMISSION_PATCH_KEY,
+  type PatchSubmissionVars,
+} from '@/shared/query/offlineMutations';
 
 const fetchSubmission = async (assignmentId: number): Promise<Submission | null> => {
   const response = await apiClient.get<PaginatedResponse<Submission>>(
     `/submissions/?assignment=${assignmentId}`
   );
   return response.data.results[0] ?? null;
-};
-
-const createSubmission = async (assignmentId: number): Promise<Submission> => {
-  const response = await apiClient.post<Submission>('/submissions/', {
-    assignment: assignmentId,
-  });
-  return response.data;
-};
-
-const patchSubmission = async (
-  id: number,
-  data: Partial<Pick<Submission, 'answers' | 'completion' | 'submitted_at'>>
-): Promise<Submission> => {
-  const response = await apiClient.patch<Submission>(`/submissions/${id}/`, data);
-  return response.data;
 };
 
 export const useSubmission = (assignmentId: number) => {
@@ -33,25 +23,25 @@ export const useSubmission = (assignmentId: number) => {
   });
 };
 
+/**
+ * MSO-7: submission writes are keyed mutations whose `mutationFn`, `networkMode:
+ * 'offlineFirst'`, and cache-reconciling `onSuccess` are registered once in
+ * `offlineMutations.ts`. The components reference them only by `mutationKey`, so
+ * offline they pause + persist + replay instead of failing — and a rehydrated
+ * paused mutation (no live observer) still resolves its function and updates the
+ * cache on replay.
+ */
 export const useCreateSubmission = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: createSubmission,
-    onSuccess: (data) => {
-      queryClient.setQueryData(['submission', data.assignment], data);
-    },
+  return useMutation<Submission, Error, number>({
+    mutationKey: SUBMISSION_CREATE_KEY,
   });
 };
 
-export const usePatchSubmission = (assignmentId: number) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof patchSubmission>[1] }) =>
-      patchSubmission(id, data),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['submission', assignmentId], updated);
-      // Invalidate assignment list so completion/score reflects in dashboard
-      queryClient.invalidateQueries({ queryKey: ['assignments'] });
-    },
+// `assignmentId` is no longer needed for cache reconciliation (the default
+// `onSuccess` derives it from the server response) but the signature is kept so
+// callers don't change.
+export const usePatchSubmission = (_assignmentId: number) => {
+  return useMutation<Submission, Error, PatchSubmissionVars>({
+    mutationKey: SUBMISSION_PATCH_KEY,
   });
 };

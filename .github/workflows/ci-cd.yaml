@@ -2,21 +2,69 @@ name: CI/CD Pipeline
 # This workflow is triggered on pushes to the repository.
 on: push
 
+# Cancel in-progress CI runs when a newer commit lands on the same feature
+# branch — the older run's results are stale anyway, and waiting on them
+# burns minutes and delays feedback. Long-lived branches that gate deploys
+# (modernization / qa / prod) are excluded: their runs build and publish
+# images and roll out to k3s, so cancelling mid-flight could leave the
+# cluster pointing at a half-pushed image. For those, each push runs to
+# completion and the most recent one wins by ordering.
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
+
+# Least-privilege default for the GITHUB_TOKEN. Without an explicit block the
+# token inherits the repository/org default, which can be the legacy
+# read/write-all scope — far more than any of these jobs need. Most jobs only
+# check out the repo, so `contents: read` covers them. The two jobs that need
+# more declare their own (overriding) block:
+#   - `test` adds `pull-requests: write` to post the coverage comment
+#   - `build-publish` adds `packages: write` to push images to GHCR
+# Setting the floor here keeps every other job (lint, typecheck, security,
+# frontend, frontend-e2e, lighthouse, deploy-*) read-only on contents.
+permissions:
+    contents: read
+
 jobs:
+    workflow-lint:
+        name: Workflow Lint (actionlint)
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Install actionlint
+              # Use the official install script from the actionlint maintainer
+              # (rhysd). Pinning to a script URL avoids a third-party action
+              # dependency for a job that just runs a static linter.
+              id: install-actionlint
+              run: |
+                bash <(curl --silent --show-error --fail https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+                echo "actionlint=$(pwd)/actionlint" >> "$GITHUB_OUTPUT"
+            - name: Run actionlint
+              # Validates GitHub Actions workflow YAML — catches typos in
+              # `uses:` versions, bad expression syntax, mismatched `needs:`
+              # references, and other footguns that otherwise only fail at
+              # run time. Shellcheck integration is disabled (-shellcheck=)
+              # because the inline `gh` script in the coverage-comment step
+              # trips style warnings that aren't worth gating CI on.
+              run: ${{ steps.install-actionlint.outputs.actionlint }} -color -shellcheck=
+
     lint:
         name: Lint
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
-                python-version: '3.11'
+                python-version: '3.12'
                 cache: 'pip'
                 cache-dependency-path: 'backend/requirements.txt'
             - name: Install Code Quality Tools
-              run: pip install black==26.3.1 flake8==7.1.1 isort==5.13.2
+              run: pip install black==26.5.1 flake8==7.3.0 isort==8.0.1
               working-directory: backend
             - name: Check formatting (black)
               run: black --check --line-length=120 openshiksha/
@@ -30,14 +78,15 @@ jobs:
 
     typecheck:
         name: Type Check (mypy)
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
-                python-version: '3.11'
+                python-version: '3.12'
                 cache: 'pip'
                 cache-dependency-path: 'backend/requirements.txt'
             - name: Install Dependencies
@@ -52,14 +101,15 @@ jobs:
 
     security:
         name: Security Audit
+        timeout-minutes: 10
         runs-on: ubuntu-latest
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
-                python-version: '3.11'
+                python-version: '3.12'
                 cache: 'pip'
                 cache-dependency-path: 'backend/requirements.txt'
             - name: Install pip-audit
@@ -74,6 +124,7 @@ jobs:
 
     test:
         name: Test
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         # No external services needed — tests use SQLite in-memory and LocMemCache
         permissions:
@@ -83,9 +134,9 @@ jobs:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Setup Python Runtime
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v6
               with:
-                python-version: '3.11'
+                python-version: '3.12'
                 cache: 'pip'
                 cache-dependency-path: 'backend/requirements.txt'
             - name: Install Dependencies
@@ -120,7 +171,7 @@ jobs:
               env:
                 SECRET_KEY: test-secret-key-not-for-production
             - name: Upload coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: coverage-report
@@ -165,6 +216,7 @@ jobs:
 
     frontend:
         name: Frontend (Lint, Types, Tests)
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         defaults:
             run:
@@ -190,7 +242,7 @@ jobs:
               # Thresholds enforced via test.coverage.thresholds in vite.config.ts.
               run: npm test -- --run --coverage
             - name: Upload frontend coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: frontend-coverage-report
@@ -198,9 +250,14 @@ jobs:
                 retention-days: 14
             - name: Build
               run: npm run build
+            - name: Check bundle-size budget (PERF-06)
+              # Fails if the entry chunk grows past the documented ceiling.
+              # See docs/perf/budget.md for the raise-the-ceiling protocol.
+              run: npm run check:budget
 
     frontend-e2e:
         name: Frontend E2E (Playwright smoke)
+        timeout-minutes: 20
         runs-on: ubuntu-latest
         defaults:
             run:
@@ -217,7 +274,7 @@ jobs:
             - name: Install dependencies
               run: npm ci
             - name: Cache Playwright browsers
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                 path: ~/.cache/ms-playwright
                 key: playwright-${{ runner.os }}-${{ hashFiles('frontend_modern/package-lock.json') }}
@@ -230,7 +287,7 @@ jobs:
               # its `webServer` block; no separate "build" step needed.
               run: npm run test:e2e
             - name: Upload Playwright HTML report on failure
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: failure()
               with:
                 name: playwright-report
@@ -241,48 +298,176 @@ jobs:
               # itself is non-blocking (see e2e/a11y.spec.ts); this artifact
               # is how we track the baseline over time before the WCAG 2.1 AA
               # initiative starts.
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               if: always()
               with:
                 name: axe-report
                 path: frontend_modern/axe-report
                 retention-days: 14
 
+    lighthouse:
+        name: Lighthouse (runtime perf budget)
+        timeout-minutes: 20
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                node-version: '20'
+                cache: 'npm'
+                cache-dependency-path: frontend_modern/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Build
+              run: npm run build
+            - name: Run Lighthouse CI
+              # PERF-07 — runtime-perf budget. Complements the static bundle-size
+              # budget (PERF-06, check:budget) with real throttled-mobile metrics
+              # (LCP / TBT / CLS) that bundle bytes can't capture. Audits the
+              # public, backend-free /design showcase via `vite preview`, the same
+              # build users get. Assertions in lighthouserc.json are `warn`-level
+              # by design (Lighthouse scores vary run-to-run); the job only fails
+              # if collection itself breaks — i.e. a build that won't boot or a
+              # crashing /design route. See docs/perf/lighthouse.md for the
+              # tighten-to-error protocol.
+              run: npm run lighthouse
+
+    # ─── Build & publish the MODERN stack ────────────────────────────────────
+    # Two images go to ghcr.io: backend (Django 4.2 + daphne) and frontend
+    # (multi-stage build → nginx). The legacy root Dockerfile is intentionally
+    # NOT built — see docs/deploy/README.md for why. The matrix lets both
+    # images build in parallel.
     build-publish:
-        name: Build & Publish
+        name: Build & Publish (${{ matrix.service }})
+        timeout-minutes: 30
         needs: [lint, typecheck, security, test, frontend, frontend-e2e]
-        # only run this on qa & prod branches
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - service: backend
+                      context: ./backend
+                      dockerfile: ./backend/Dockerfile.prod
+                    - service: frontend
+                      context: ./frontend_modern
+                      dockerfile: ./frontend_modern/Dockerfile.prod
         steps:
             - name: Check out the repo
               uses: actions/checkout@v4
             - name: Extract Branch name for Tagging
               run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
               id: extract_branch
-            - name: Build Docker Image & Push to GitHub Container Registry
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build & push ${{ matrix.service }} image
               uses: docker/build-push-action@v6
               with:
-                context: .
+                context: ${{ matrix.context }}
+                file: ${{ matrix.dockerfile }}
                 push: true
                 tags: |
-                    ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}
-                    ghcr.io/${{ github.repository }}:${{ github.sha }}
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
+                    ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ github.sha }}
+                cache-from: type=gha,scope=${{ matrix.service }}
+                cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-    deploy-prod:
-        name: Deploy to Cluster
+    # ─── Deploy to QA ────────────────────────────────────────────────────────
+    # Renders the qa overlay with the just-built image digest pinned (so the
+    # rollout actually picks up the new code instead of re-pulling a stale tag),
+    # applies, and rolls each Deployment so the new pods come up clean.
+    deploy-qa:
+        name: Deploy to QA Cluster
+        timeout-minutes: 15
         needs: build-publish
-        # only run this on prod branch
-        if: github.ref == 'refs/heads/prod'
+        if: github.ref == 'refs/heads/qa'
         runs-on: ubuntu-latest
+        environment: qa
         steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
             - name: Set Cluster Context
-              uses: azure/k8s-set-context@v3
+              uses: azure/k8s-set-context@v5
               with:
                 method: kubeconfig
                 kubeconfig: '${{ secrets.KUBECONFIG }}'
                 context: k3s-personal-server
-            - name: Restart pods
-              run: kubectl rollout restart deployment openshiksha openshiksha-celery-worker openshiksha-celery-beat -n openshiksha
+            - name: Set up kubectl + kustomize
+              uses: azure/setup-kubectl@v4
+              with:
+                version: 'v1.31.0'
+            - name: Pin image tags to commit SHA
+              # The committed overlay points at the `:qa` tag, but tags can be
+              # re-pushed — so we override to the exact SHA we just built. This
+              # forces a real new digest into the Deployment spec, which forces
+              # a rollout.
+              working-directory: k8s/overlays/qa
+              run: |
+                kubectl kustomize . > /dev/null  # sanity-render before edits
+                kustomize edit set image \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-backend=ghcr.io/${{ github.repository_owner }}/openshiksha-backend:${{ github.sha }} \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-frontend=ghcr.io/${{ github.repository_owner }}/openshiksha-frontend:${{ github.sha }}
+            - name: Apply qa manifests
+              run: kubectl apply -k k8s/overlays/qa
+            - name: Wait for rollouts
+              run: |
+                kubectl -n openshiksha-qa rollout status statefulset/postgres --timeout=180s
+                kubectl -n openshiksha-qa rollout status statefulset/redis --timeout=120s
+                kubectl -n openshiksha-qa rollout status deployment/backend --timeout=300s
+                kubectl -n openshiksha-qa rollout status deployment/frontend --timeout=180s
+                kubectl -n openshiksha-qa rollout status deployment/celery-worker --timeout=180s
+                kubectl -n openshiksha-qa rollout status deployment/celery-beat --timeout=180s
+
+    # ─── Deploy to Prod ──────────────────────────────────────────────────────
+    deploy-prod:
+        name: Deploy to Prod Cluster
+        timeout-minutes: 15
+        needs: build-publish
+        if: github.ref == 'refs/heads/prod'
+        runs-on: ubuntu-latest
+        environment: prod
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Set Cluster Context
+              uses: azure/k8s-set-context@v5
+              with:
+                method: kubeconfig
+                kubeconfig: '${{ secrets.KUBECONFIG }}'
+                context: k3s-personal-server
+            - name: Set up kubectl + kustomize
+              uses: azure/setup-kubectl@v4
+              with:
+                version: 'v1.31.0'
+            - name: Pin image tags to commit SHA
+              working-directory: k8s/overlays/prod
+              run: |
+                kubectl kustomize . > /dev/null
+                kustomize edit set image \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-backend=ghcr.io/${{ github.repository_owner }}/openshiksha-backend:${{ github.sha }} \
+                  ghcr.io/${{ github.repository_owner }}/openshiksha-frontend=ghcr.io/${{ github.repository_owner }}/openshiksha-frontend:${{ github.sha }}
+            - name: Apply prod manifests
+              run: kubectl apply -k k8s/overlays/prod
+            - name: Wait for rollouts
+              run: |
+                kubectl -n openshiksha-prod rollout status statefulset/postgres --timeout=180s
+                kubectl -n openshiksha-prod rollout status statefulset/redis --timeout=120s
+                kubectl -n openshiksha-prod rollout status deployment/backend --timeout=300s
+                kubectl -n openshiksha-prod rollout status deployment/frontend --timeout=180s
+                kubectl -n openshiksha-prod rollout status deployment/celery-worker --timeout=180s
+                kubectl -n openshiksha-prod rollout status deployment/celery-beat --timeout=180s

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Logo } from '@/shared/ui';
+import { LanguageSwitcher } from '@/shared/i18n';
 import { UserRole } from '@/types/index';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -26,23 +27,39 @@ export const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close menus on route change (adjust state during render — react.dev/learn/you-might-not-need-an-effect)
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
     setMenuOpen(false);
     setUserMenuOpen(false);
-  }, [location.pathname]);
+  }
 
-  // Close user dropdown on outside click
+  // Close dropdowns on outside click + ESC
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (userMenuOpen) setUserMenuOpen(false);
+        if (menuOpen) {
+          setMenuOpen(false);
+          hamburgerRef.current?.focus();
+        }
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen, userMenuOpen]);
 
   const isStudent = user?.role === UserRole.STUDENT || user?.role === UserRole.OPEN_STUDENT;
   const isTeacher = user?.role === UserRole.TEACHER;
@@ -50,12 +67,19 @@ export const Navbar = () => {
   const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
-    <nav className="bg-white/90 backdrop-blur border-b border-ink-100 sticky top-0 z-20">
+    <nav
+      aria-label="Top"
+      className="bg-white/90 backdrop-blur border-b border-ink-100 sticky top-0 z-20 pt-[env(safe-area-inset-top)]"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand + Desktop nav links */}
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center" aria-label="OpenShiksha home">
+            <Link
+              to="/"
+              className="flex items-center rounded focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+              aria-label="OpenShiksha home"
+            >
               <Logo size="sm" className="hidden sm:inline-flex" />
               <Logo size="sm" variant="mark" className="sm:hidden" />
             </Link>
@@ -107,13 +131,16 @@ export const Navbar = () => {
             </div>
           </div>
 
-          {/* Right: User avatar dropdown (desktop) + hamburger (mobile) */}
+          {/* Right: Language toggle + user avatar dropdown (desktop) + hamburger (mobile) */}
           <div className="flex items-center gap-2">
+            <LanguageSwitcher className="hidden sm:inline-flex" />
             {user && (
               <div className="relative hidden sm:block" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen((v) => !v)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-ink-50 transition-colors"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                 >
                   <div className="w-7 h-7 bg-brand-100 rounded-full flex items-center justify-center">
                     <span className="text-brand-700 text-xs font-bold">
@@ -121,23 +148,48 @@ export const Navbar = () => {
                     </span>
                   </div>
                   <span className="text-sm text-ink-700">{user.first_name || user.username}</span>
-                  <svg className="w-4 h-4 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <svg
+                    aria-hidden
+                    className="w-4 h-4 text-ink-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-1 w-44 bg-white border border-ink-100 rounded-lg shadow-card z-30 py-1"
+                  >
                     <Link
                       to="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:bg-ink-50"
                     >
                       Profile
                     </Link>
-                    <div className="border-t border-gray-100 my-1" />
+                    {isStudent && (
+                      <Link
+                        to="/student/proficiency"
+                        role="menuitem"
+                        className="block px-4 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors focus-visible:outline-hidden focus-visible:bg-ink-50"
+                      >
+                        My Progress
+                      </Link>
+                    )}
+                    <div className="border-t border-ink-100 my-1" />
                     <button
                       onClick={logout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      role="menuitem"
+                      className="w-full text-left px-4 py-2 text-sm text-rose-700 hover:bg-rose-50 transition-colors focus-visible:outline-hidden focus-visible:bg-rose-50"
                     >
                       Sign out
                     </button>
@@ -146,21 +198,47 @@ export const Navbar = () => {
               </div>
             )}
 
-            {/* Hamburger button — mobile only */}
+            {/* Hamburger button — mobile only. Bottom-tab bar covers primary nav,
+                so this sheet now only hosts account actions + role-specific
+                secondary links (e.g. student Proficiency). */}
             {user && (
               <button
-                className="sm:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                ref={hamburgerRef}
+                className="sm:hidden p-2 rounded-md text-ink-500 hover:text-ink-800 hover:bg-ink-100 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                 onClick={() => setMenuOpen((v) => !v)}
-                aria-label="Toggle navigation"
+                aria-label={menuOpen ? 'Close account menu' : 'Open account menu'}
                 aria-expanded={menuOpen}
+                aria-controls="navbar-mobile-sheet"
               >
                 {menuOpen ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    aria-hidden
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <svg
+                    aria-hidden
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
                   </svg>
                 )}
               </button>
@@ -169,51 +247,50 @@ export const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile dropdown menu */}
+      {/* Mobile account sheet */}
       {menuOpen && user && (
-        <div className="sm:hidden border-t border-gray-200 bg-white z-20">
+        <div
+          id="navbar-mobile-sheet"
+          className="sm:hidden border-t border-ink-100 bg-white z-20"
+        >
           <div className="px-4 py-3 space-y-1">
             {/* User identity */}
-            <div className="flex items-center gap-2 pb-3 border-b border-gray-100 mb-2">
-              <span className="text-sm font-medium text-gray-900">
-                {user.first_name || user.username}
-              </span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  ROLE_COLORS[user.role] ?? 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                {ROLE_LABELS[user.role] ?? user.role}
-              </span>
+            <div className="flex items-center gap-2 pb-3 border-b border-ink-100 mb-2">
+              <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center">
+                <span className="text-brand-700 text-xs font-bold">
+                  {(user.first_name?.[0] ?? user.username[0]).toUpperCase()}
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink-900 truncate">
+                  {user.first_name || user.username}
+                </p>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                    ROLE_COLORS[user.role] ?? 'bg-ink-100 text-ink-700'
+                  }`}
+                >
+                  {ROLE_LABELS[user.role] ?? user.role}
+                </span>
+              </div>
             </div>
 
-            {/* Role-specific nav links */}
-            {isStudent && (
-              <>
-                <MobileNavLink to="/student">Dashboard</MobileNavLink>
-                <MobileNavLink to="/student/browse">Browse Subjects</MobileNavLink>
-                <MobileNavLink to="/student/learning-path">Learning Path</MobileNavLink>
-                <MobileNavLink to="/student/proficiency">My Progress</MobileNavLink>
-              </>
-            )}
-            {isTeacher && (
-              <>
-                <MobileNavLink to="/teacher">Dashboard</MobileNavLink>
-                <MobileNavLink to="/teacher/questions">Questions</MobileNavLink>
-              </>
-            )}
-            {isParent && <MobileNavLink to="/parent">Dashboard</MobileNavLink>}
-            {isAdmin && <MobileNavLink to="/admin">School Admin</MobileNavLink>}
+            <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-widest text-ink-400">
+              Account
+            </p>
+            <MobileNavLink to="/profile">Profile</MobileNavLink>
+            {isStudent && <MobileNavLink to="/student/proficiency">My Progress</MobileNavLink>}
+            <div className="px-3 py-2">
+              <LanguageSwitcher />
+            </div>
 
-            {/* Profile + Sign out */}
-            <div className="pt-2 border-t border-gray-100 mt-2 space-y-1">
-              <MobileNavLink to="/profile">Profile</MobileNavLink>
+            <div className="pt-2 border-t border-ink-100 mt-2">
               <button
                 onClick={() => {
                   logout();
                   setMenuOpen(false);
                 }}
-                className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                className="w-full text-left px-3 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 Sign out
               </button>
@@ -234,10 +311,9 @@ interface NavLinkProps {
 const NavLink = ({ to, active, children }: NavLinkProps) => (
   <Link
     to={to}
-    className={`px-1 py-2 text-sm font-medium transition-colors ${
-      active
-        ? 'chalk-underline text-ink-900'
-        : 'text-ink-500 hover:text-ink-900'
+    aria-current={active ? 'page' : undefined}
+    className={`px-1 py-2 text-sm font-medium rounded transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
+      active ? 'chalk-underline text-ink-900' : 'text-ink-500 hover:text-ink-900'
     }`}
   >
     {children}
@@ -247,7 +323,7 @@ const NavLink = ({ to, active, children }: NavLinkProps) => (
 const MobileNavLink = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link
     to={to}
-    className="block px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+    className="block px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100 rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
   >
     {children}
   </Link>

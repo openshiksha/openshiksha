@@ -357,13 +357,13 @@ def test_generate_draft_rationale_anthropic(monkeypatch):
 def test_generate_draft_rationale_google(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     monkeypatch.setenv("GOOGLE_AI_API_KEY", "fake-google")
-    mock_result = {"text": "Gemma note.", "model": "gemma-4-it", "input_tokens": 70, "output_tokens": 30}
-    with patch("openshiksha.apps.ai.llm_client._call_google_gemma", return_value=mock_result) as mock_call:
+    mock_result = {"text": "Gemma note.", "model": "gemini-2.5-flash", "input_tokens": 70, "output_tokens": 30}
+    with patch("openshiksha.apps.ai.llm_client._call_google_ai_studio", return_value=mock_result) as mock_call:
         from openshiksha.apps.ai import llm_client
 
         result = llm_client.generate_draft_rationale("Mathematics", 8, _CHAPTERS, 6)
     mock_call.assert_called_once()
-    assert result["model"] == "gemma-4-it"
+    assert result["model"] == "gemini-2.5-flash"
 
 
 def test_generate_draft_rationale_ollama(monkeypatch):

@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  LoadingSpinner,
+  SectionHeading,
+  Select,
+  Stat,
+} from '@/shared/ui';
 import { useStandards } from '@/features/teacher/useStandards';
 import { useAdminSummary } from './useAdminSummary';
 import { useSchoolTeachers } from './useSchoolPeople';
@@ -13,17 +22,9 @@ import {
 
 const defaultAcademicYear = (): string => {
   const now = new Date();
-  // Indian academic year runs ~Apr–Mar; before April belongs to the prior year's intake.
   const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
   return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
 };
-
-const SummaryCard = ({ label, value }: { label: string; value: number }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-5">
-    <p className="text-2xl font-bold text-gray-900">{value}</p>
-    <p className="text-sm text-gray-500 mt-1">{label}</p>
-  </div>
-);
 
 const NewClassroomForm = ({ onDone }: { onDone: () => void }) => {
   const { data: standards } = useStandards();
@@ -58,20 +59,19 @@ const NewClassroomForm = ({ onDone }: { onDone: () => void }) => {
             'Could not create classroom. Check for duplicates.';
           setError(detail);
         },
-      }
+      },
     );
   };
 
   return (
-    <form onSubmit={submit} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-      <h3 className="font-semibold text-gray-900">New Classroom</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Standard</span>
-          <select
+    <Card>
+      <form onSubmit={submit} className="space-y-4">
+        <h3 className="font-display font-semibold text-ink-900">New Classroom</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Select
+            label="Standard"
             value={standard}
             onChange={(e) => setStandard(e.target.value === '' ? '' : Number(e.target.value))}
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Select…</option>
             {standards?.map((s) => (
@@ -79,34 +79,25 @@ const NewClassroomForm = ({ onDone }: { onDone: () => void }) => {
                 Grade {s.number}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Division</span>
-          <input
+          </Select>
+          <Input
+            label="Division"
             type="text"
             value={division}
             onChange={(e) => setDivision(e.target.value)}
             placeholder="A"
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Academic Year</span>
-          <input
+          <Input
+            label="Academic Year"
             type="text"
             value={academicYear}
             onChange={(e) => setAcademicYear(e.target.value)}
             placeholder="2026-27"
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Class Teacher (optional)</span>
-          <select
+          <Select
+            label="Class Teacher (optional)"
             value={classTeacher}
             onChange={(e) => setClassTeacher(e.target.value === '' ? '' : Number(e.target.value))}
-            className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">None</option>
             {teachers?.map((t) => (
@@ -114,27 +105,19 @@ const NewClassroomForm = ({ onDone }: { onDone: () => void }) => {
                 {t.full_name}
               </option>
             ))}
-          </select>
-        </label>
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onDone}
-          className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={createClassroom.isPending}
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-        >
-          {createClassroom.isPending ? 'Creating…' : 'Create'}
-        </button>
-      </div>
-    </form>
+          </Select>
+        </div>
+        {error && <p className="text-sm text-rose-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={createClassroom.isPending}>
+            {createClassroom.isPending ? 'Creating…' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 };
 
@@ -146,7 +129,7 @@ const ClassroomRow = ({ classroom }: { classroom: Classroom }) => {
     e.stopPropagation();
     if (
       window.confirm(
-        `Deactivate Grade ${classroom.standard_number}-${classroom.division}? It will be archived, not deleted.`
+        `Deactivate Grade ${classroom.standard_number}-${classroom.division}? It will be archived, not deleted.`,
       )
     ) {
       deleteClassroom.mutate(classroom.id);
@@ -155,32 +138,41 @@ const ClassroomRow = ({ classroom }: { classroom: Classroom }) => {
 
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:border-indigo-300 transition-colors ${
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/admin/classrooms/${classroom.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate(`/admin/classrooms/${classroom.id}`);
+        }
+      }}
+      className={`os-card p-4 cursor-pointer hover:border-brand-300 hover:bg-brand-50/40 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
         !classroom.is_active ? 'opacity-60' : ''
       }`}
-      onClick={() => navigate(`/admin/classrooms/${classroom.id}`)}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900">
+          <p className="font-semibold text-ink-900">
             Grade {classroom.standard_number}-{classroom.division}
             {!classroom.is_active && (
-              <span className="ml-2 text-xs font-medium text-gray-400">(archived)</span>
+              <span className="ml-2 text-xs font-medium text-ink-400">(archived)</span>
             )}
           </p>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-ink-500 mt-0.5">
             {classroom.class_teacher_name ?? 'No class teacher'} · {classroom.academic_year}
           </p>
         </div>
         <div className="text-right shrink-0 flex items-center gap-4">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-ink-700">
             {classroom.student_count} student{classroom.student_count !== 1 ? 's' : ''}
           </p>
           {classroom.is_active && (
             <button
+              type="button"
               onClick={onDelete}
               disabled={deleteClassroom.isPending}
-              className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+              className="text-xs text-rose-600 hover:text-rose-700 disabled:opacity-50 focus:outline-hidden focus-visible:underline"
             >
               Archive
             </button>
@@ -199,45 +191,43 @@ export const AdminDashboard = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {summary?.school.name ?? 'School Admin'}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Manage classrooms, enrollment, and subject rooms.</p>
-        </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          + New Classroom
-        </button>
-      </div>
+      <SectionHeading
+        as="h1"
+        title={summary?.school.name ?? 'School Admin'}
+        description="Manage classrooms, enrollment, and subject rooms."
+        action={
+          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+            + New Classroom
+          </Button>
+        }
+      />
 
       {summaryLoading ? (
         <div className="flex justify-center py-6">
           <LoadingSpinner size="lg" />
         </div>
       ) : summary ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <SummaryCard label="Classrooms" value={summary.classroom_count} />
-          <SummaryCard label="Teachers" value={summary.teacher_count} />
-          <SummaryCard label="Students" value={summary.student_count} />
-          <SummaryCard label="Subject Rooms" value={summary.active_subject_rooms} />
-        </div>
+        <Card>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            <Stat label="Classrooms" value={summary.classroom_count} />
+            <Stat label="Teachers" value={summary.teacher_count} />
+            <Stat label="Students" value={summary.student_count} />
+            <Stat label="Subject Rooms" value={summary.active_subject_rooms} />
+          </div>
+        </Card>
       ) : null}
 
       {showForm && <NewClassroomForm onDone={() => setShowForm(false)} />}
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-800">Classrooms</h2>
-          <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+          <h2 className="text-lg font-display font-semibold text-ink-800">Classrooms</h2>
+          <label className="flex items-center gap-2 text-sm text-ink-500 cursor-pointer">
             <input
               type="checkbox"
               checked={includeInactive}
               onChange={(e) => setIncludeInactive(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
             />
             Show archived
           </label>
@@ -247,9 +237,10 @@ export const AdminDashboard = () => {
             <LoadingSpinner size="lg" />
           </div>
         ) : !classrooms || classrooms.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 bg-white rounded-xl border border-gray-200">
-            <p className="text-sm">No classrooms yet. Create one to start onboarding your school.</p>
-          </div>
+          <EmptyState
+            title="No classrooms yet"
+            description="Create one to start onboarding your school."
+          />
         ) : (
           <div className="space-y-3">
             {classrooms.map((c) => (

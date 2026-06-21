@@ -40,6 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
             "grade",
             "phone_number",
             "email_reminders_opt_out",
+            "preferred_language",
         ]
         read_only_fields = ["id", "username", "role", "grade"]
 
@@ -51,7 +52,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "phone_number", "email_reminders_opt_out"]
+        fields = ["first_name", "last_name", "email", "phone_number", "email_reminders_opt_out", "preferred_language"]
 
     def validate_email(self, value):
         if not value:
@@ -118,7 +119,32 @@ class QuestionSubpartSerializer(serializers.ModelSerializer):
             "image_url",
             "solution_text",
             "hint_text",
+            "widget_kind",
+            "widget_config",
         ]
+
+
+def _substitute_in_json(node, sampled_values: dict):
+    """Walk a JSON tree and substitute ``{{var}}`` tokens in every string leaf.
+
+    Reuses the croupier's ``substitute_typed`` helper so widget configs share the
+    per-student token semantics — same tokens, same evaluator, same fallback on
+    bad expressions. A string leaf that is *nothing but* a single ``{{var}}``
+    token resolves to the variable's **native typed value** (a number/bool), so a
+    numeric widget field bound to a croupier variable (DTB-5) arrives as a number
+    rather than the string ``"3"`` (which a ``Number.isFinite``-guarded runtime
+    would silently ignore). Other non-string leaves pass through unchanged; nested
+    dicts and lists are recursed into.
+    """
+    from openshiksha.apps.api.croupier import substitute_typed
+
+    if isinstance(node, str):
+        return substitute_typed(node, sampled_values)
+    if isinstance(node, dict):
+        return {k: _substitute_in_json(v, sampled_values) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_substitute_in_json(v, sampled_values) for v in node]
+    return node
 
 
 class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
@@ -149,6 +175,8 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
             "hint_text",
             "is_interactive",
             "interactive_html",
+            "widget_kind",
+            "widget_config",
         ]
 
     def to_representation(self, instance):
@@ -196,6 +224,13 @@ class QuestionSubpartStudentSerializer(serializers.ModelSerializer):
                 data["solution_text"] = substitute_variables(data["solution_text"], sampled_values)
             if "hint_text" in data:
                 data["hint_text"] = substitute_variables(data["hint_text"], sampled_values)
+
+            # IW-3b: substitute the same per-student values into widget_config so
+            # the framework runtime receives already-resolved numbers in its
+            # init payload. We walk the JSON tree and only touch string leaves,
+            # leaving numbers/bools/None untouched.
+            if data.get("widget_config"):
+                data["widget_config"] = _substitute_in_json(data["widget_config"], sampled_values)
 
         # Phase 1: MCQ option shuffling (applied after variable substitution)
         options = data.get("options")
@@ -267,6 +302,10 @@ class QuestionSerializer(serializers.ModelSerializer):
     chapter_name = serializers.CharField(source="chapter.name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     standard_number = serializers.IntegerField(source="standard.number", read_only=True)
+    # AIV-3a — see ProblemSetSerializer for rationale. "In use" here means a
+    # problem set that contains this question is referenced by an Assignment.
+    assigned_count = serializers.SerializerMethodField()
+    has_graded_submissions = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -284,9 +323,23 @@ class QuestionSerializer(serializers.ModelSerializer):
             "stem_text",
             "tags",
             "subparts",
+            "assigned_count",
+            "has_graded_submissions",
             "is_active",
             "created_at",
         ]
+
+    def get_assigned_count(self, obj) -> int:
+        anno = getattr(obj, "assigned_count_anno", None)
+        if anno is not None:
+            return int(anno)
+        return Assignment.objects.filter(problem_set__questions=obj).count()
+
+    def get_has_graded_submissions(self, obj) -> bool:
+        anno = getattr(obj, "has_graded_submissions_anno", None)
+        if anno is not None:
+            return bool(anno)
+        return Submission.objects.filter(assignment__problem_set__questions=obj, score__isnull=False).exists()
 
 
 class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
@@ -303,12 +356,33 @@ class QuestionSubpartWriteSerializer(serializers.ModelSerializer):
             "variable_constraints",
             "solution_text",
             "hint_text",
+            "widget_kind",
+            "widget_config",
         ]
         extra_kwargs = {
             "subpart_type": {"required": False},
             "solution_text": {"required": False},
             "hint_text": {"required": False},
+            "widget_kind": {"required": False},
+            "widget_config": {"required": False},
         }
+
+    def validate(self, attrs):
+        from openshiksha.apps.core.widgets import validate_widget_config
+
+        kind = (
+            attrs.get("widget_kind", "")
+            if "widget_kind" in attrs
+            else (self.instance.widget_kind if self.instance else "")
+        )
+        config = (
+            attrs.get("widget_config")
+            if "widget_config" in attrs
+            else (self.instance.widget_config if self.instance else {})
+        )
+        if kind:
+            validate_widget_config(kind, config if config is not None else {})
+        return super().validate(attrs)
 
 
 class QuestionWriteSerializer(serializers.ModelSerializer):
@@ -475,6 +549,18 @@ class ProblemSetSerializer(serializers.ModelSerializer):
     question_count = serializers.SerializerMethodField()
     subject_name = serializers.CharField(source="subject.name", read_only=True)
     chapter_name = serializers.CharField(source="chapter.name", read_only=True)
+    # AIV-3a: edit-safety read flags. Integrity is already guaranteed by AIV-1/2
+    # (snapshots); these flags exist only to drive teacher UX so the editor can
+    # say "this is in use" and mean it. Backed by queryset annotations on
+    # ProblemSetViewSet.get_queryset to avoid N+1 on list endpoints; falls back
+    # to a single per-row query when the annotation isn't present (e.g. POST
+    # response on freshly created rows).
+    assigned_count = serializers.SerializerMethodField()
+    has_graded_submissions = serializers.SerializerMethodField()
+    # TW-2 / AIV-4: signals whether the current teacher created this set so the
+    # editable preview can show / hide its add+remove affordances without the
+    # frontend having to re-derive the rule (creator == request.user).
+    created_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = ProblemSet
@@ -493,11 +579,33 @@ class ProblemSetSerializer(serializers.ModelSerializer):
             "is_active",
             "is_remedial",
             "source_assignment",
+            "assigned_count",
+            "has_graded_submissions",
+            "created_by_me",
             "created_at",
         ]
 
     def get_question_count(self, obj) -> int:
         return obj.questions.count()
+
+    def get_assigned_count(self, obj) -> int:
+        anno = getattr(obj, "assigned_count_anno", None)
+        if anno is not None:
+            return int(anno)
+        return obj.assignments.count()
+
+    def get_has_graded_submissions(self, obj) -> bool:
+        anno = getattr(obj, "has_graded_submissions_anno", None)
+        if anno is not None:
+            return bool(anno)
+        return Submission.objects.filter(assignment__problem_set=obj, score__isnull=False).exists()
+
+    def get_created_by_me(self, obj) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        return obj.created_by_id == user.pk
 
 
 class ProblemSetDetailSerializer(ProblemSetSerializer):
@@ -518,6 +626,32 @@ class ProblemSetStudentDetailSerializer(ProblemSetSerializer):
         fields = ProblemSetSerializer.Meta.fields + ["questions"]
 
 
+class ProblemSetVersionSummarySerializer(serializers.Serializer):
+    """
+    AIV-8: lightweight row for the version-history list. ``assignment_count``
+    is annotated by the viewset's queryset to keep the list endpoint N+1-free.
+    """
+
+    id = serializers.IntegerField()
+    version_number = serializers.IntegerField()
+    content_hash = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    created_by_name = serializers.SerializerMethodField()
+    question_count = serializers.SerializerMethodField()
+    assignment_count = serializers.IntegerField()
+
+    def get_created_by_name(self, obj) -> str | None:
+        if obj.created_by_id is None:
+            return None
+        # ``created_by`` is the User row; fall back to username when no name set.
+        user = obj.created_by
+        full = (user.get_full_name() or "").strip()
+        return full or user.username
+
+    def get_question_count(self, obj) -> int:
+        return len((obj.content or {}).get("questions") or [])
+
+
 class AssignmentSerializer(serializers.ModelSerializer):
     problem_set = ProblemSetSerializer(read_only=True)
     problem_set_id = serializers.PrimaryKeyRelatedField(
@@ -529,6 +663,15 @@ class AssignmentSerializer(serializers.ModelSerializer):
     submission_count = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
     child_submission_status = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
+    # ``my_submission`` is the student's own submission row, surfaced on
+    # *every* assignment payload (list + detail) so the dashboard can group
+    # rows into Due Soon / Overdue / Completed without an extra round-trip
+    # per assignment. Used to be on AssignmentDetailSerializer only, which
+    # meant the list view never knew whether a row was already submitted —
+    # the StudentDashboard couldn't tell the two apart and showed every
+    # assignment as "Start" + "Due in N days", even after grading.
+    my_submission = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -548,8 +691,37 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "student_count",
             "child_submission_status",
             "target_student",
+            "my_submission",
+            "closed_at",
+            "status",
         ]
-        read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate"]
+        read_only_fields = ["assigned_by", "assigned_at", "average_score", "completion_rate", "closed_at", "status"]
+
+    def get_my_submission(self, obj) -> dict | None:
+        """Return the current student's own Submission (if any).
+
+        Returns ``None`` for unauthenticated requests and for non-student
+        roles (teachers and admins don't have a "my" submission against
+        another teacher's assignment). Uses the prefetch cache populated
+        by ``AssignmentViewSet.get_queryset`` so listing N assignments
+        does not fan out into N submission queries.
+        """
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        user = request.user
+        if getattr(user, "role", None) not in (UserRole.STUDENT, UserRole.OPEN_STUDENT):
+            return None
+        # When the viewset prefetched with a Prefetch(..., to_attr="my_submissions")
+        # filtered to the current user, read it directly to avoid N+1.
+        prefetched = getattr(obj, "my_submissions", None)
+        if prefetched is not None:
+            submission = prefetched[0] if prefetched else None
+        else:
+            submission = obj.submissions.filter(student=user).first()
+        if submission is None:
+            return None
+        return SubmissionSerializer(submission, context=self.context).data
 
     def get_submission_count(self, obj) -> int:
         return obj.submissions.count()
@@ -592,6 +764,16 @@ class AssignmentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
         validated_data["assigned_by"] = request.user
+        # AIV-1: freeze the problem set's questions at assign time so the
+        # grader and student renderer can never be affected by later edits.
+        # AIV-7: also pin a deduplicated ProblemSetVersion FK. Both fields are
+        # populated so legacy fallback paths keep working.
+        from openshiksha.apps.core.snapshots import build_assignment_snapshot, get_or_create_version_for
+
+        problem_set = validated_data["problem_set"]
+        version, _ = get_or_create_version_for(problem_set, created_by=request.user)
+        validated_data["problem_set_version"] = version
+        validated_data["assigned_content"] = build_assignment_snapshot(problem_set)
         return super().create(validated_data)
 
 
@@ -602,23 +784,58 @@ class AssignmentDetailSerializer(AssignmentSerializer):
 
     Uses ProblemSetStudentDetailSerializer so correct_answer is never exposed
     to students via the assignment detail endpoint.
+
+    AIV-2b: when ``Assignment.assigned_content`` is populated, the embedded
+    problem-set's ``questions`` array is built from the snapshot — so a student
+    always sees exactly what they were assigned, even after the live set
+    drifts. Response shape is preserved 1:1 with the live path.
+
+    AIV-5: also surfaces ``snapshot_drift`` — true when the live set has moved
+    past the frozen snapshot. Lets the teacher UI flag "this assignment's
+    content predates the latest edits" without re-fetching the live set.
     """
 
+    # ``my_submission`` is inherited from AssignmentSerializer now — the
+    # detail serializer only swaps the problem-set serializer for the
+    # student-safe variant that hides ``correct_answer``.
     problem_set = ProblemSetStudentDetailSerializer(read_only=True)
-    my_submission = serializers.SerializerMethodField()
+    snapshot_drift = serializers.SerializerMethodField()
+    has_resync_history = serializers.SerializerMethodField()
 
     class Meta(AssignmentSerializer.Meta):
-        fields = AssignmentSerializer.Meta.fields + ["my_submission"]
+        fields = AssignmentSerializer.Meta.fields + ["snapshot_drift", "has_resync_history"]
 
-    def get_my_submission(self, obj) -> dict | None:
+    def get_snapshot_drift(self, obj) -> bool:
+        from openshiksha.apps.core.snapshots import resolve_assignment_content, snapshot_has_drifted
+
+        # AIV-7: read from the ProblemSetVersion FK when populated; falls back
+        # to assigned_content for legacy assignments the backfill missed.
+        return snapshot_has_drifted(resolve_assignment_content(obj), obj.problem_set)
+
+    def get_has_resync_history(self, obj) -> bool:
+        # AIV-6: surface whether undo is available. ``snapshot_history`` is the
+        # related_name on AssignmentSnapshotHistory.assignment.
+        return obj.snapshot_history.exists()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        from openshiksha.apps.core.snapshots import render_snapshot_for_student, resolve_assignment_content
+
+        snapshot = resolve_assignment_content(instance)
+        if not (snapshot and snapshot.get("questions")):
+            return data
+
         request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            return None
-        try:
-            submission = obj.submissions.get(student=request.user)
-            return SubmissionSerializer(submission, context=self.context).data
-        except Submission.DoesNotExist:
-            return None
+        student_id = request.user.id if (request and request.user.is_authenticated) else None
+        include_solutions = bool(self.context.get("include_solutions"))
+
+        if isinstance(data.get("problem_set"), dict):
+            data["problem_set"]["questions"] = render_snapshot_for_student(
+                snapshot,
+                student_id=student_id,
+                include_solutions=include_solutions,
+            )
+        return data
 
 
 class SubmissionSerializer(serializers.ModelSerializer):
@@ -653,11 +870,27 @@ class SubmissionSerializer(serializers.ModelSerializer):
         if user.role not in [UserRole.STUDENT, UserRole.OPEN_STUDENT]:
             raise serializers.ValidationError("Only students can submit answers.")
 
+        # MSO-6: a submission is immutable once submitted. Any further write — a
+        # replayed offline auto-save, or a duplicate submit that was queued offline
+        # then also sent online — must be a harmless idempotent no-op rather than a
+        # 400 or a re-grade. Skip the create/closed validations here so the replay
+        # returns 200 with the existing record; update() short-circuits the save.
+        if self.instance is not None and self.instance.submitted_at is not None:
+            return attrs
+
         # On create: check no existing submission
         if self.instance is None:
             assignment = attrs.get("assignment")
             if assignment and Submission.objects.filter(assignment=assignment, student=user).exists():
                 raise serializers.ValidationError("You have already submitted this assignment.")
+
+        # Block writes (create or update) when the target assignment is closed.
+        # Reads remain unaffected — students should still see closed assignments.
+        assignment = attrs.get("assignment") or (self.instance and self.instance.assignment)
+        if assignment is not None and assignment.is_closed:
+            raise serializers.ValidationError(
+                {"detail": "This assignment is closed and no longer accepts submissions."}
+            )
 
         return attrs
 
@@ -665,6 +898,15 @@ class SubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         validated_data["student"] = request.user
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # MSO-6: a submitted submission is immutable. Short-circuit the save so a
+        # replayed/duplicate write never re-fires the grading signal (defense in
+        # depth alongside the signal's ``score is None`` gate) and never mutates the
+        # graded snapshot. Returns the existing instance → HTTP 200 with current data.
+        if instance.submitted_at is not None:
+            return instance
+        return super().update(instance, validated_data)
 
 
 class ProblemSetWriteSerializer(serializers.ModelSerializer):

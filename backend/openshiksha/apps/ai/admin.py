@@ -16,6 +16,7 @@ from .models import (
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
+    QuestionDifficultyCalibration,
     SpacedRepetitionEntry,
     StudentMastery,
     StudentMisconception,
@@ -442,3 +443,34 @@ class InterventionSuggestionAdmin(admin.ModelAdmin):
         "severity",
     ]
     list_select_related = ["student", "subject_room__subject"]
+
+
+@admin.register(QuestionDifficultyCalibration)
+class QuestionDifficultyCalibrationAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "subject_room",
+        "question_subpart",
+        "flag",
+        "facility_index",
+        "discrimination_index",
+        "empirical_difficulty",
+        "declared_difficulty",
+        "sample_size",
+        "computed_at",
+    ]
+    list_filter = ["flag", "subject_room__subject"]
+    search_fields = ["question_subpart__question_text", "question_subpart__question__stem_text"]
+    readonly_fields = [
+        "subject_room",
+        "question_subpart",
+        "sample_size",
+        "attempt_count",
+        "facility_index",
+        "discrimination_index",
+        "empirical_difficulty",
+        "declared_difficulty",
+        "flag",
+        "computed_at",
+    ]
+    list_select_related = ["subject_room__subject", "question_subpart"]

@@ -1,6 +1,7 @@
 /**
  * Core type definitions for OpenShiksha
  */
+import type { Locale } from '../shared/i18n';
 
 export interface User {
   id: number;
@@ -12,6 +13,9 @@ export interface User {
   grade?: number | null;
   phone_number?: string;
   email_reminders_opt_out?: boolean;
+  // Mirrors the i18n locale registry (LA-9a) so a new pilot language stays in
+  // sync without editing this type.
+  preferred_language?: Locale;
 }
 
 export interface ClassroomInviteCode {
@@ -95,14 +99,32 @@ export interface QuestionSubpart {
   image_url?: string;
   solution_text?: string;
   hint_text?: string;
-  /** M7-11: true when this subpart has an authored interactive widget. */
+  /**
+   * @deprecated (IW-7) — paired with `interactive_html` below. The
+   * going-forward signal that a subpart has a widget is `widget_kind`
+   * being non-blank; this flag is kept only so the legacy raw-HTML path
+   * keeps rendering until every row has been migrated to `custom-html`.
+   */
   is_interactive?: boolean;
   /**
-   * Resolved widget HTML (script + markup) for the sandboxed iframe. Only
-   * present when is_interactive. SECURITY: render ONLY via InteractiveWidget's
-   * sandboxed iframe — never through dangerouslySetInnerHTML / RichContent.
+   * @deprecated (IW-7) — legacy raw widget HTML. Resolved + tokenised
+   * server-side. New rows should use `widget_kind='custom-html'` +
+   * `widget_config.html`. Rendered ONLY via the InteractiveWidget
+   * sandbox — never through dangerouslySetInnerHTML / RichContent.
    */
   interactive_html?: string;
+  /**
+   * Registry key of an Interactive Widgets Framework kind (e.g.
+   * `'thermo-piston'`, `'custom-html'`). When set, the widget renders
+   * via the SDK path; the deprecated `interactive_html` is ignored.
+   */
+  widget_kind?: string;
+  /**
+   * Per-widget config, already substituted server-side for `{{var}}`
+   * tokens (IW-3b). Shape varies by kind — see each widget's
+   * `params.schema.json`.
+   */
+  widget_config?: Record<string, unknown>;
 }
 
 export interface AIHint {
@@ -136,6 +158,10 @@ export interface Question {
   stem_text?: string;
   tags: QuestionTag[];
   subparts: QuestionSubpart[];
+  /** AIV-3a: number of assignments using a problem set that contains this question. */
+  assigned_count?: number;
+  /** AIV-3a: true when at least one graded submission exists against an assignment using this question. */
+  has_graded_submissions?: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -167,6 +193,10 @@ export interface ProblemSet {
   is_active: boolean;
   is_remedial: boolean;
   source_assignment: number | null;
+  /** AIV-3a: number of assignments using this set. */
+  assigned_count?: number;
+  /** AIV-3a: true when at least one graded submission exists against an assignment using this set. */
+  has_graded_submissions?: boolean;
 }
 
 export interface ProblemSetWithQuestions extends ProblemSet {
@@ -205,6 +235,21 @@ export interface Assignment {
   student_count: number;
   my_submission?: Submission | null;
   child_submission_status?: 'submitted' | 'not_submitted' | null;
+  closed_at?: string | null;
+  status?: 'active' | 'overdue' | 'closed';
+  /**
+   * AIV-5: true when the live ProblemSet has moved past this assignment's
+   * frozen ``assigned_content`` snapshot. Drives the drift banner on the
+   * teacher assignment detail view; students never see this field act on
+   * anything because they grade and render from the snapshot regardless.
+   */
+  snapshot_drift?: boolean;
+  /** AIV-6: at least one prior snapshot is in ``AssignmentSnapshotHistory``, so undo is offered. */
+  has_resync_history?: boolean;
+}
+
+export interface AssignmentDetail extends Assignment {
+  problem_set: ProblemSetWithQuestions;
 }
 
 export interface Subject {
@@ -264,6 +309,10 @@ export interface QuestionSubpartWrite {
   image_url?: string;
   solution_text?: string;
   hint_text?: string;
+  /** IW-5: registry kind of an interactive widget attached to this subpart. */
+  widget_kind?: string;
+  /** IW-5: per-widget config validated against the kind's params schema. */
+  widget_config?: Record<string, unknown>;
 }
 
 export interface QuestionCreate {

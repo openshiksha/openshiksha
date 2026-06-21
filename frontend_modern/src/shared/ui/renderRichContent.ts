@@ -1,5 +1,29 @@
-import DOMPurify from 'dompurify';
-import katex from 'katex';
+import createDOMPurify from 'dompurify';
+import type Katex from 'katex';
+
+// KaTeX is the largest single dependency in the bundle (~257 kB / ~77 kB gzip).
+// We dynamic-import it from `<RichContent>` only when the text actually contains
+// math delimiters, so dashboards / browse pages / non-math content never pay for
+// it on first paint. The component pokes the loaded module in here via
+// `setKatex()`; until that happens (or for non-math content) `renderRichContent`
+// is fully usable and just renders math expressions as escaped fallback text.
+//
+// In Vitest, `src/test-setup.ts` preloads KaTeX synchronously so the existing
+// sync renderer tests don't have to become async.
+let katexRef: typeof Katex | null = null;
+export function setKatex(mod: typeof Katex): void {
+  katexRef = mod;
+}
+export function isKatexLoaded(): boolean {
+  return katexRef !== null;
+}
+
+// Cheap pre-check so `<RichContent>` can decide whether to even kick off the
+// dynamic import. Matches the same delimiters the renderer recognises.
+const MATH_HINT_PATTERN = /\$|\\\(|\\\[|\\begin\{/;
+export function textContainsMath(text: string): boolean {
+  return MATH_HINT_PATTERN.test(text);
+}
 
 /**
  * Pure HTML+LaTeX renderer used by `<RichContent />`. Split into its own file
@@ -26,19 +50,9 @@ const ALLOWED_ATTR = ['href', 'src', 'alt', 'width', 'height', 'title', 'class',
 // rewritten to absolute raw.githubusercontent.com URLs at import time, so any
 // non-http(s) `src` (relative leftovers, `data:` SVG payloads, `javascript:`)
 // is an XSS vector or a guaranteed broken image — drop the attribute entirely.
-// Registered once at module load; DOMPurify hooks are process-global.
 const HTTP_SRC = /^https?:\/\//i;
-let imgSrcHookRegistered = false;
-function ensureImgSrcHook(): void {
-  if (imgSrcHookRegistered) return;
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.nodeName === 'IMG' && node.hasAttribute('src')) {
-      const src = node.getAttribute('src') ?? '';
-      if (!HTTP_SRC.test(src)) node.removeAttribute('src');
-    }
-  });
-  imgSrcHookRegistered = true;
-}
+const DOMPurify = createDOMPurify(window);
+const FORBIDDEN_CONTENT_SELECTOR = 'script, style, iframe, object, embed';
 
 // `exprGroup: 0` means feed the entire match to KaTeX (used for un-delimited
 // `\begin{X}…\end{X}` environments where the begin/end tokens are part of the
@@ -89,8 +103,15 @@ function escapeHtml(s: string): string {
 }
 
 function renderKatex(expr: string, block: boolean): string {
+  if (!katexRef) {
+    // Fallback before the lazy KaTeX chunk has finished loading. We render the
+    // raw expression as inline-code so the user sees something readable rather
+    // than a blank flash; the component re-renders once KaTeX is ready.
+    const tag = block ? 'div' : 'span';
+    return `<${tag} class="katex-pending font-mono text-ink-700">${escapeHtml(expr)}</${tag}>`;
+  }
   try {
-    return katex.renderToString(expr, {
+    return katexRef.renderToString(expr, {
       throwOnError: false,
       displayMode: block,
       strict: 'ignore',
@@ -99,6 +120,20 @@ function renderKatex(expr: string, block: boolean): string {
   } catch {
     return `<span class="text-rose-700 underline decoration-rose-400 decoration-dotted">${escapeHtml(expr)}</span>`;
   }
+}
+
+function dropForbiddenContent(text: string): string {
+  const template = document.createElement('template');
+  template.innerHTML = text;
+  template.content.querySelectorAll(FORBIDDEN_CONTENT_SELECTOR).forEach((node) => node.remove());
+  return template.innerHTML;
+}
+
+function dropUnsafeImageSources(fragment: DocumentFragment): void {
+  fragment.querySelectorAll('img[src]').forEach((img) => {
+    const src = img.getAttribute('src') ?? '';
+    if (!HTTP_SRC.test(src)) img.removeAttribute('src');
+  });
 }
 
 function injectMath(fragment: DocumentFragment): string {
@@ -138,8 +173,7 @@ function injectMath(fragment: DocumentFragment): string {
 export function renderRichContent(text: string): string {
   if (!text) return '';
 
-  ensureImgSrcHook();
-  const cleanHtml = DOMPurify.sanitize(text, {
+  const cleanHtml = DOMPurify.sanitize(`<div>${dropForbiddenContent(text)}</div>`, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
@@ -149,5 +183,6 @@ export function renderRichContent(text: string): string {
 
   const template = document.createElement('template');
   template.innerHTML = cleanHtml;
+  dropUnsafeImageSources(template.content);
   return injectMath(template.content);
 }

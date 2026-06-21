@@ -9,8 +9,8 @@ export default {
       colors: {
         // ── V2 "Unlock" brand palette ──────────────────────────────────────
         // Anchored on the legacy logo orange (#FF6F00 — the keyhole graduation
-        // cap). This is the V2 brand colour; the Phase 2 UI rebuild migrates
-        // `primary` (blue, below) over to `brand`. See docs/V2_ROADMAP.md.
+        // cap). This is the only brand colour; the legacy `primary` blue was
+        // retired in M6-02 once every authenticated surface moved to `brand`.
         brand: {
           50: '#FFF8F1',
           100: '#FFEEDC',
@@ -18,8 +18,8 @@ export default {
           300: '#FDBA74',
           400: '#FB8E3C',
           500: '#FB7705',
-          600: '#FF6F00', // ← brand anchor (legacy logo orange)
-          700: '#CC5800',
+          600: '#FF6F00', // ← brand anchor (legacy logo orange) — decorative/large only (≥3:1)
+          700: '#C05300', // ← on-text/CTA brand shade — ≥4.5:1 on white & on paper (A11Y-4)
           800: '#9E4500',
           900: '#7A3500',
         },
@@ -37,24 +37,13 @@ export default {
           800: '#1A1816',
           900: '#0F0E0D',
         },
-        // Legacy blue — retained so existing screens render unchanged until the
-        // Phase 2 migration. New work should prefer `brand`.
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-        },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Fraunces"', 'Georgia', 'serif'],
+        // Noto Sans Devanagari sits behind Inter/Fraunces: neither covers
+        // Devanagari, so Hindi glyphs (the hi locale, हिन्दी in copy) fall
+        // through to it instead of an unstyled system font.
+        sans: ['Inter', '"Noto Sans Devanagari"', 'system-ui', 'sans-serif'],
+        display: ['"Fraunces"', '"Noto Sans Devanagari"', 'Georgia', 'serif'],
       },
       boxShadow: {
         // Warm-toned elevation (ink, not cold black) — the V2 surface system.

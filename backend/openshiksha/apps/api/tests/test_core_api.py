@@ -10,6 +10,8 @@ Covers:
 
 import pytest
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -159,6 +161,30 @@ class TestUserMeEndpoint:
         response = api_client.get(url)
         assert "password" not in response.data
 
+    def test_user_can_change_password(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("user-change-password")
+        response = api_client.post(
+            url,
+            {"current_password": "pass", "new_password": "new-secure-pass-123"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        teacher.refresh_from_db()
+        assert teacher.check_password("new-secure-pass-123")
+
+    def test_change_password_rejects_wrong_current_password(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("user-change-password")
+        response = api_client.post(
+            url,
+            {"current_password": "wrong", "new_password": "new-secure-pass-123"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "current_password" in response.data
+
 
 # ---------------------------------------------------------------------------
 # Authentication: JWT login
@@ -297,6 +323,32 @@ class TestSubjectRoomVisibility:
         assert response.status_code == status.HTTP_200_OK
         ids = [r["id"] for r in response.data["results"]]
         assert subject_room.pk not in ids
+
+
+class TestSubjectRoomStudentsAction:
+    """GET /api/subject-rooms/{id}/students/ — roster for teacher pickers (ASA-7b)."""
+
+    def test_teacher_lists_own_room_roster(self, api_client, teacher, student, subject_room):
+        api_client.force_authenticate(user=teacher)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        rows = response.data["results"]
+        assert {"id", "full_name", "username"} <= set(rows[0].keys())
+        assert student.pk in [r["id"] for r in rows]
+
+    def test_other_teacher_cannot_see_roster(self, api_client, other_teacher, subject_room):
+        api_client.force_authenticate(user=other_teacher)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        # get_queryset scopes to the teacher's own rooms → 404, not a leak
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_student_cannot_enumerate_classmates(self, api_client, student, subject_room):
+        api_client.force_authenticate(user=student)
+        url = reverse("subjectroom-students", kwargs={"pk": subject_room.pk})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestSubjectRoomPermissions:
@@ -462,3 +514,26 @@ class TestQuestionSubpartImageUrl:
         assert response.status_code == 200
         subpart = response.data["subparts"][0]
         assert subpart["image_url"] == ""
+
+    @override_settings(MEDIA_ROOT="/tmp/openshiksha-test-media")
+    def test_teacher_can_upload_question_image(self, api_client, teacher):
+        api_client.force_authenticate(user=teacher)
+        upload = SimpleUploadedFile(
+            "diagram.png",
+            b"\x89PNG\r\n\x1a\n",
+            content_type="image/png",
+        )
+
+        response = api_client.post("/api/v1/questions/upload-image/", {"image": upload}, format="multipart")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["image_url"].startswith("http://testserver/media/question_uploads/")
+        assert response.data["image_url"].endswith(".png")
+
+    def test_student_cannot_upload_question_image(self, api_client, student):
+        api_client.force_authenticate(user=student)
+        upload = SimpleUploadedFile("diagram.png", b"png", content_type="image/png")
+
+        response = api_client.post("/api/v1/questions/upload-image/", {"image": upload}, format="multipart")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN

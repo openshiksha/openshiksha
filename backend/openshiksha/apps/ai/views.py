@@ -11,7 +11,7 @@ Permission rules:
 """
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Count, Max
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions
+from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions, generate_widget_config
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
@@ -35,6 +35,7 @@ from openshiksha.apps.core.models import (
 from .models import (
     AssignmentDraft,
     AssignmentDraftStatus,
+    CalibrationFlag,
     ClassInsight,
     ClassMisconceptionCluster,
     ContentRecommendation,
@@ -52,6 +53,7 @@ from .models import (
     ParentProgressSummary,
     PerformancePrediction,
     PracticePlan,
+    QuestionDifficultyCalibration,
     SpacedRepetitionEntry,
     StudentMastery,
     StudentMisconception,
@@ -82,6 +84,7 @@ from .serializers import (
     ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
+    QuestionDifficultyCalibrationSerializer,
     ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
     StudentMasterySerializer,
@@ -90,12 +93,14 @@ from .serializers import (
     SubpartExplanationSerializer,
     TriggerAdaptiveSerializer,
     TriggerAnalysisSerializer,
+    TriggerDifficultyCalibrationSerializer,
     TriggerInterventionsSerializer,
     TriggerMisconceptionClusterSerializer,
     TriggerRecommendationsSerializer,
     TriggerWeeklyReportSerializer,
     UpdateInterventionStatusSerializer,
     WeeklyClassReportSerializer,
+    WidgetAuthoringRequestSerializer,
 )
 from .tasks import (
     analyze_student_subject_room,
@@ -111,6 +116,7 @@ from .tasks import (
     grade_open_response,
     rebuild_learning_path,
     refresh_class_misconception_clusters,
+    refresh_difficulty_calibrations,
     refresh_recommendations_for_student,
 )
 
@@ -523,6 +529,14 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         Updates SM-2 schedule:
           score >= 0.6 → successful recall, interval grows
           score <  0.6 → failed recall, reset to interval=1
+
+        Idempotency contract (ASA-9): the SM-2 schedule mutates at most once
+        per entry per local day. If the entry was already reviewed today, the
+        call still grades submitted answers (the practice round stays useful)
+        but skips the schedule update, the proficiency ticks and the streak,
+        and returns 200 with `"already_reviewed_today": true` alongside the
+        unchanged entry. Normal calls return the same shape with the flag set
+        to false.
         """
         entry = self.get_object()
         if entry.student_id != request.user.id:
@@ -531,6 +545,10 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
         from datetime import timedelta
 
         from django.utils import timezone
+
+        already_reviewed_today = (
+            entry.last_reviewed_at is not None and timezone.localdate(entry.last_reviewed_at) == timezone.localdate()
+        )
 
         from openshiksha.apps.core.models import QuestionSubpart
         from openshiksha.apps.core.tasks import _grade_subpart
@@ -585,6 +603,16 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
                     {"detail": "Provide either answers (object) or score (0.0–1.0)."},
                     status=400,
                 )
+
+        if already_reviewed_today:
+            # Defence-in-depth (ASA-9): the client already avoids the double
+            # call in-app (ASA-3), but the server must guarantee one sitting
+            # can never compound the interval/easiness-factor. Grade, don't
+            # schedule — and don't double-count proficiency or streak either.
+            data = self.get_serializer(entry).data
+            data["score"] = round(score, 4)
+            data["already_reviewed_today"] = True
+            return Response(data)
 
         if score >= 0.60:
             if entry.repetitions == 0:
@@ -651,6 +679,7 @@ class SpacedRepetitionViewSet(ReadOnlyModelViewSet):
 
         data = self.get_serializer(entry).data
         data["score"] = round(score, 4)
+        data["already_reviewed_today"] = False
         return Response(data)
 
     @action(detail=False, methods=["get"], url_path="due")
@@ -896,7 +925,7 @@ class GenerateQuestionsViewSet(ViewSet):
         )
 
         try:
-            drafts = generate_questions(
+            result = generate_questions(
                 topic=d["topic"],
                 chapter_name=chapter.name,
                 subject_name=chapter.subject.name,
@@ -914,9 +943,87 @@ class GenerateQuestionsViewSet(ViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
+        # ``generate_questions`` returns ``ai_available: False`` when no LLM
+        # provider was configured and the deterministic stub was used. Surface
+        # that to the client so the UI shows an "unavailable" state instead of
+        # presenting placeholder text as a real draft (see DraftCard).
+        ai_available = result["ai_available"]
+        drafts = result["questions"] if ai_available else []
+
         out_serializer = GeneratedQuestionDraftSerializer(data=drafts, many=True)
         out_serializer.is_valid()
-        return Response({"questions": out_serializer.data})
+        return Response({"questions": out_serializer.data, "ai_available": ai_available})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Describe-to-Build — AI Widget Authoring (DTB-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class WidgetAuthoringViewSet(ViewSet):
+    """
+    POST /api/v1/ai/widget-authoring/   — teacher-only
+
+    Describe-to-Build: a plain-English description of an interactive widget →
+    a validated ``{widget_kind, widget_config}`` proposal the teacher can preview,
+    edit via the existing schema form, and attach (DTB-3).
+
+    The proposal is config-as-data, never code, and is always schema-valid by
+    construction: the LLM output is validated, then clamp-repaired, then replaced
+    by the kind's deterministic safe default if it cannot be salvaged. The grader
+    is untouched — AI only authors.
+
+    Request body:
+        description      string   what the teacher wants ("a number line marking 3/4")
+        kind_hint        string   optional preferred widget kind
+        allow_variables  bool     DTB-5: allow per-student {{var}} randomisation
+
+    Response: 200 with
+        {"widget_kind", "widget_config", "model_used", "ai_available", "repaired",
+         "variable_constraints"}  — the last maps each {{var}} bound in the config
+        to its validated croupier sampling range (empty {} when not randomised).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can author widgets."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = WidgetAuthoringRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        try:
+            result = generate_widget_config(
+                description=d["description"],
+                kind_hint=d.get("kind_hint") or None,
+                allow_variables=d.get("allow_variables", False),
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_widget_config: unexpected error")
+            return Response(
+                {"detail": "Widget authoring failed. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "widget_kind": result["widget_kind"],
+                "widget_config": result["widget_config"],
+                "model_used": result["model"],
+                "ai_available": result["ai_available"],
+                "repaired": result["repaired"],
+                # DTB-5: validated per-student sampling ranges for any {{var}}
+                # bindings (empty {} when the proposal isn't randomised).
+                "variable_constraints": result.get("variable_constraints", {}),
+            }
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1323,6 +1430,109 @@ class ClassMisconceptionClusterViewSet(ReadOnlyModelViewSet):
         refresh_class_misconception_clusters.delay(subject_room.pk, lookback_days)
         return Response(
             {"detail": "Class misconception cluster refresh queued."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Empirical Question Difficulty Calibration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class QuestionDifficultyCalibrationViewSet(ReadOnlyModelViewSet):
+    """
+    Empirical item-analysis calibrations for a teacher's SubjectRooms.
+
+    list:     GET  /api/v1/ai/difficulty-calibrations/                    — all calibrations across teacher's rooms
+              GET  /api/v1/ai/difficulty-calibrations/?subject_room=<id>  — filter by room
+              GET  /api/v1/ai/difficulty-calibrations/?flag=mislabeled    — filter by quality flag
+              GET  /api/v1/ai/difficulty-calibrations/?needs_review=true  — only flagged (non-OK) items
+    retrieve: GET  /api/v1/ai/difficulty-calibrations/{id}/
+    summary:  GET  /api/v1/ai/difficulty-calibrations/summary/?subject_room=<id>
+                  — per-flag counts + totals for a room (dashboard header)
+    refresh:  POST /api/v1/ai/difficulty-calibrations/refresh/            — queue async recompute
+                  body: {subject_room_id}
+
+    Calibrations are derived purely from the room's grading data (no LLM); a
+    teacher only ever sees calibrations for SubjectRooms they teach.
+    """
+
+    serializer_class = QuestionDifficultyCalibrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != UserRole.TEACHER:
+            return QuestionDifficultyCalibration.objects.none()
+
+        qs = QuestionDifficultyCalibration.objects.select_related(
+            "subject_room__subject",
+            "question_subpart__question__chapter",
+        ).filter(subject_room__teacher=user)
+
+        if subject_room_id := self.request.query_params.get("subject_room"):
+            qs = qs.filter(subject_room_id=subject_room_id)
+        if flag := self.request.query_params.get("flag"):
+            qs = qs.filter(flag=flag)
+        if self.request.query_params.get("needs_review", "").lower() == "true":
+            qs = qs.exclude(flag=CalibrationFlag.OK)
+
+        return qs
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """Per-flag counts and totals for one room — feeds the dashboard header."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers have difficulty calibrations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        subject_room_id = request.query_params.get("subject_room")
+        if not subject_room_id:
+            return Response(
+                {"detail": "subject_room query param is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = self.get_queryset().filter(subject_room_id=subject_room_id)
+        counts = {flag.value: 0 for flag in CalibrationFlag}
+        for row in qs.values("flag").annotate(n=Count("id")):
+            counts[row["flag"]] = row["n"]
+
+        total = sum(counts.values())
+        flagged = total - counts[CalibrationFlag.OK]
+        return Response(
+            {
+                "subject_room": int(subject_room_id),
+                "total_calibrated": total,
+                "flagged": flagged,
+                "by_flag": counts,
+            }
+        )
+
+    @action(detail=False, methods=["post"], url_path="refresh")
+    def refresh(self, request):
+        """Queue async recomputation of calibrations for a SubjectRoom the teacher owns."""
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can refresh difficulty calibrations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = TriggerDifficultyCalibrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        subject_room = get_object_or_404(SubjectRoom, pk=serializer.validated_data["subject_room_id"])
+        if subject_room.teacher_id != request.user.pk:
+            return Response(
+                {"detail": "You do not teach this subject room."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        refresh_difficulty_calibrations.delay(subject_room.pk)
+        return Response(
+            {"detail": "Difficulty calibration refresh queued."},
             status=status.HTTP_202_ACCEPTED,
         )
 

@@ -2,10 +2,22 @@
 LLM client for AI-generated explanations.
 
 Provider cascade (first available wins):
-  1. Anthropic Claude   — set ANTHROPIC_API_KEY
-  2. Google Gemma 4     — set GOOGLE_AI_API_KEY (Google AI Studio free tier)
-  3. Ollama (Gemma)     — set OLLAMA_BASE_URL or run Ollama at localhost:11434
-  4. Stub               — plain text fallback for dev/test with no keys
+  1. Anthropic Claude     — set ANTHROPIC_API_KEY
+  2. Google AI Studio     — set GOOGLE_AI_API_KEY (free tier)
+                            override model with GOOGLE_AI_MODEL (default gemini-2.5-flash)
+  3. Ollama (local)       — set OLLAMA_BASE_URL, or run Ollama at localhost:11434
+                            override model with OLLAMA_MODEL (default gemma3:4b)
+  4. Stub                 — plain text fallback for dev/test with no keys
+
+Free-tier model note (as of 2026-06):
+  - ``gemini-2.5-flash`` works on Google AI Studio's free tier with generous
+    daily quota — this is the safe default.
+  - ``gemini-2.0-flash`` requires billing even though the docs imply otherwise;
+    a brand-new free-tier key returns ``RESOURCE_EXHAUSTED`` on the first call.
+  - The previous default ``gemma-4-it`` does **not exist** as a model name —
+    the real Gemma 4 models on AI Studio are ``gemma-4-26b-a4b-it`` and
+    ``gemma-4-31b-it`` (slower and less reliable than Gemini Flash for our
+    use cases).
 
 Grade calibration tiers:
   1–6  (primary):  very simple words, short sentences, real-world analogies
@@ -15,6 +27,11 @@ Grade calibration tiers:
 Language support:
   en — English (default)
   hi — Hindi (LLM prompted to respond in Hindi)
+
+UI locales beyond these (e.g. "mr", LA-9) have translated chrome but no
+authored LLM prompt yet, so AI-*generated* content falls back to English — see
+``resolve_ai_language``. This keeps authored/AI content a separate track from
+the UI locale (initiative principle 1).
 """
 
 import logging
@@ -23,11 +40,41 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Languages the LLM can be reliably prompted to generate content in. A request
+# for any other locale falls back to English rather than emitting a blank or
+# untranslated language instruction.
+AI_SUPPORTED_LANGUAGES = ("en", "hi")
+
+
+def resolve_ai_language(language: str | None) -> str:
+    """
+    Map a requested UI locale to a supported AI-generation language.
+
+    Pilot/regional locales (e.g. "mr") have no authored prompt yet, so they fall
+    back to English (LA-9). Centralizing the rule here means every generation
+    entry point — and the persisted ``language`` field — stays consistent with
+    the language the content was actually produced in.
+    """
+    return language if language in AI_SUPPORTED_LANGUAGES else "en"
+
+
 CLAUDE_MODEL = "claude-sonnet-4-6"
-GEMMA_MODEL = "gemma-4-it"  # Gemma 4 instruction-tuned via Google AI Studio
-OLLAMA_MODEL = "gemma3:4b"  # fallback if Gemma 4 not in local Ollama cache
+# Google AI Studio default. Env-overridable via GOOGLE_AI_MODEL so a deployment
+# can pin to a different free-tier-eligible Gemini/Gemma model without code
+# changes. The default must work on the AI Studio free tier with no billing.
+GOOGLE_AI_DEFAULT_MODEL = "gemini-2.5-flash"
+# Local Ollama default. Env-overridable via OLLAMA_MODEL.
+OLLAMA_DEFAULT_MODEL = "gemma3:4b"
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
 MAX_TOKENS = 300
+
+
+def _google_ai_model() -> str:
+    return os.environ.get("GOOGLE_AI_MODEL", "") or GOOGLE_AI_DEFAULT_MODEL
+
+
+def _ollama_model() -> str:
+    return os.environ.get("OLLAMA_MODEL", "") or OLLAMA_DEFAULT_MODEL
 
 
 # ─────────────────────────────────────────────────────────────
@@ -113,14 +160,19 @@ def _call_anthropic(prompt: str, api_key: str) -> dict:
     }
 
 
-def _call_google_gemma(prompt: str, api_key: str) -> dict:
-    """Call Gemma 4 via Google AI Studio (free tier)."""
+def _call_google_ai_studio(prompt: str, api_key: str) -> dict:
+    """Call a Google AI Studio model (default: gemini-2.5-flash, free tier).
+
+    Reads the active model from GOOGLE_AI_MODEL env var (or the default).
+    Works for both Gemini and Gemma family — same SDK, same endpoint.
+    """
     from google import genai
     from google.genai import types
 
+    model = _google_ai_model()
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=GEMMA_MODEL,
+        model=model,
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=MAX_TOKENS,
@@ -134,7 +186,7 @@ def _call_google_gemma(prompt: str, api_key: str) -> dict:
     output_tokens = getattr(usage, "candidates_token_count", 0) or 0
     return {
         "text": text,
-        "model": GEMMA_MODEL,
+        "model": model,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
     }
@@ -144,9 +196,10 @@ def _call_ollama(prompt: str, base_url: str) -> dict:
     """Call a local Ollama instance (on-device, zero cost)."""
     import httpx
 
+    model = _ollama_model()
     url = f"{base_url.rstrip('/')}/api/generate"
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": model,
         "prompt": prompt,
         "stream": False,
         "options": {"num_predict": MAX_TOKENS, "temperature": 0.7},
@@ -157,7 +210,7 @@ def _call_ollama(prompt: str, base_url: str) -> dict:
     text = data.get("response", "").strip()
     return {
         "text": text,
-        "model": f"ollama/{OLLAMA_MODEL}",
+        "model": f"ollama/{model}",
         "input_tokens": data.get("prompt_eval_count", 0),
         "output_tokens": data.get("eval_count", 0),
     }
@@ -193,13 +246,16 @@ def generate_explanation(
 
     Provider cascade (first available wins):
       1. Anthropic Claude  — ANTHROPIC_API_KEY env var
-      2. Google Gemma 4    — GOOGLE_AI_API_KEY env var (free tier)
+      2. Google AI Studio    — GOOGLE_AI_API_KEY env var (free tier)
       3. Ollama (local)    — OLLAMA_BASE_URL env var, or localhost:11434
       4. Stub              — plain text, no LLM call
 
     Returns:
         {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
     """
+    # Pilot/regional locales (mr) have no authored prompt — fall back to English
+    # so the LLM never receives a blank language instruction (LA-9).
+    language = resolve_ai_language(language)
     prompt = _build_prompt(
         question_text=question_text,
         options=options,
@@ -219,14 +275,14 @@ def generate_explanation(
         except Exception:
             logger.exception("generate_explanation: Anthropic call failed, trying next provider")
 
-    # 2. Google Gemma 4 (free tier via Google AI Studio)
+    # 2. Google AI Studio (free tier via Google AI Studio)
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_explanation: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_explanation: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_explanation: Google Gemma call failed, trying next provider")
+            logger.exception("generate_explanation: Google AI Studio call failed, trying next provider")
 
     # 3. Ollama (on-device, zero cost)
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
@@ -395,33 +451,72 @@ def _call_anthropic_generate_questions(prompt: str, api_key: str) -> list[dict]:
     for block in message.content:
         if isinstance(block, ToolUseBlock) and block.name == "save_questions":
             input_data = block.input if isinstance(block.input, dict) else {}
-            return input_data.get("questions", [])
+            questions = input_data.get("questions", [])
+            return questions if isinstance(questions, list) else []
     return []
 
 
 def _call_google_generate_questions(prompt: str, api_key: str) -> list[dict]:
-    """Fallback: ask Gemma to return JSON and parse it."""
+    """Call Google AI Studio with structured JSON output (response_mime_type).
+
+    Uses Gemini's native JSON mode so the response is guaranteed valid JSON —
+    no markdown fences, no free-text wrapping, no fragile string parsing.
+    The response_schema mirrors the Anthropic tool's input_schema so both
+    providers return the same shape.
+    """
     import json as _json
 
     from google import genai
     from google.genai import types
 
-    json_prompt = (
-        prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects, "
-        'no markdown fences, no explanation. Example: [{"question_text": "...", ...}]'
-    )
+    response_schema = {
+        "type": "object",
+        "required": ["questions"],
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["question_text", "correct_answer"],
+                    "properties": {
+                        "question_text": {"type": "string"},
+                        "options": {
+                            "type": "array",
+                            "nullable": True,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "key": {"type": "string"},
+                                    "text": {"type": "string"},
+                                },
+                            },
+                        },
+                        "correct_answer": {"type": "string"},
+                        "variable_constraints": {"type": "object", "nullable": True},
+                        "suggested_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "solution": {"type": "string"},
+                    },
+                },
+            }
+        },
+    }
+
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=GEMMA_MODEL,
-        contents=json_prompt,
+        model=_google_ai_model(),
+        contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=QUESTION_GEN_MAX_TOKENS,
             temperature=0.8,
+            response_mime_type="application/json",
+            response_schema=response_schema,
         ),
     )
-    text = (response.text or "").strip()
-    text = text.lstrip("```json").lstrip("```").rstrip("```").strip()
-    return _json.loads(text)
+    data = _json.loads(response.text or "{}")
+    return data.get("questions", [])
 
 
 def _call_ollama_generate_questions(prompt: str, base_url: str) -> list[dict]:
@@ -431,7 +526,7 @@ def _call_ollama_generate_questions(prompt: str, base_url: str) -> list[dict]:
 
     json_prompt = prompt + "\n\nIMPORTANT: Respond ONLY with a valid JSON array of question objects."
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": _ollama_model(),
         "prompt": json_prompt,
         "stream": False,
         "options": {"num_predict": QUESTION_GEN_MAX_TOKENS, "temperature": 0.8},
@@ -474,12 +569,20 @@ def generate_questions(
     question_type: str,
     difficulty: int,
     count: int,
-) -> list[dict]:
+) -> dict:
     """
     Generate question drafts using the same LLM cascade as generate_explanation.
 
-    Returns a list of draft dicts:
-        [{question_text, options, correct_answer, variable_constraints, suggested_tags}]
+    Returns a dict:
+        {
+            "questions": [{question_text, options, correct_answer,
+                           variable_constraints, suggested_tags}, ...],
+            "ai_available": bool,   # False when every provider was exhausted
+                                    # and the deterministic stub was returned
+        }
+
+    Callers should surface ``ai_available is False`` to the user rather than
+    presenting the stub placeholders as genuine drafts.
     """
     prompt = _build_question_gen_prompt(
         topic=topic,
@@ -495,28 +598,28 @@ def generate_questions(
     if anthropic_key:
         try:
             logger.debug("generate_questions: using Anthropic Claude")
-            return _call_anthropic_generate_questions(prompt, anthropic_key)
+            return {"questions": _call_anthropic_generate_questions(prompt, anthropic_key), "ai_available": True}
         except Exception:
             logger.exception("generate_questions: Anthropic failed, trying next provider")
 
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_questions: using Google Gemma 4")
-            return _call_google_generate_questions(prompt, google_key)
+            logger.debug("generate_questions: using Google AI Studio")
+            return {"questions": _call_google_generate_questions(prompt, google_key), "ai_available": True}
         except Exception:
-            logger.exception("generate_questions: Google Gemma failed, trying next provider")
+            logger.exception("generate_questions: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
         try:
             logger.debug("generate_questions: using Ollama at %s", ollama_url)
-            return _call_ollama_generate_questions(prompt, ollama_url)
+            return {"questions": _call_ollama_generate_questions(prompt, ollama_url), "ai_available": True}
         except Exception:
             logger.exception("generate_questions: Ollama failed, falling back to stub")
 
     logger.warning("generate_questions: no LLM provider available — returning stub")
-    return _stub_questions(question_type, count)
+    return {"questions": _stub_questions(question_type, count), "ai_available": False}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -613,10 +716,10 @@ def generate_class_summary(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_class_summary: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_class_summary: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_class_summary: Google Gemma failed, trying next provider")
+            logger.exception("generate_class_summary: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -710,10 +813,10 @@ def generate_draft_rationale(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_draft_rationale: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_draft_rationale: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_draft_rationale: Google Gemma failed, trying next provider")
+            logger.exception("generate_draft_rationale: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -917,7 +1020,7 @@ def generate_hint_sequence(
             json_prompt = (
                 prompt + "\n\nRespond ONLY with a JSON array like " '[{"level": 1, "text": "..."}], no markdown fences.'
             )
-            res = _call_google_gemma(json_prompt, google_key)
+            res = _call_google_ai_studio(json_prompt, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return {
                 "hints": _parse_hints(_json.loads(text), num_hints),
@@ -926,7 +1029,7 @@ def generate_hint_sequence(
                 "output_tokens": res["output_tokens"],
             }
         except Exception:
-            logger.exception("generate_hint_sequence: Google Gemma failed, trying next provider")
+            logger.exception("generate_hint_sequence: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1032,11 +1135,11 @@ def diagnose_misconception(
                 prompt + "\n\nRespond ONLY with JSON: "
                 '{"misconception_label": "...", "diagnosis": "...", "remediation": "..."}'
             )
-            res = _call_google_gemma(json_prompt, google_key)
+            res = _call_google_ai_studio(json_prompt, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return _shape(_json.loads(text), res["model"], res["input_tokens"], res["output_tokens"])
         except Exception:
-            logger.exception("diagnose_misconception: Google Gemma failed, trying next provider")
+            logger.exception("diagnose_misconception: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1149,6 +1252,8 @@ def generate_parent_summary(stats: dict, language: str = "en") -> dict:
     Returns:
         {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
     """
+    # Fall back to English for locales without an authored prompt (LA-9).
+    language = resolve_ai_language(language)
     prompt = _build_parent_summary_prompt(stats, language)
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -1162,10 +1267,10 @@ def generate_parent_summary(stats: dict, language: str = "en") -> dict:
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_parent_summary: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_parent_summary: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_parent_summary: Google Gemma failed, trying next provider")
+            logger.exception("generate_parent_summary: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1363,13 +1468,13 @@ def grade_open_response(
         try:
             import json as _json
 
-            res = _call_google_gemma(prompt + json_hint, google_key)
+            res = _call_google_ai_studio(prompt + json_hint, google_key)
             text = res["text"].lstrip("```json").lstrip("```").rstrip("```").strip()
             return _shape_open_grade(
                 _json.loads(text), max_marks, res["model"], res["input_tokens"], res["output_tokens"]
             )
         except Exception:
-            logger.exception("grade_open_response: Google Gemma failed, trying next provider")
+            logger.exception("grade_open_response: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1483,10 +1588,10 @@ def generate_intervention_plan(
     google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if google_key:
         try:
-            logger.debug("generate_intervention_plan: using Google Gemma 4")
-            return _call_google_gemma(prompt, google_key)
+            logger.debug("generate_intervention_plan: using Google AI Studio")
+            return _call_google_ai_studio(prompt, google_key)
         except Exception:
-            logger.exception("generate_intervention_plan: Google Gemma failed, trying next provider")
+            logger.exception("generate_intervention_plan: Google AI Studio call failed, trying next provider")
 
     ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
     if _ollama_reachable(ollama_url):
@@ -1503,3 +1608,286 @@ def generate_intervention_plan(
         "input_tokens": 0,
         "output_tokens": 0,
     }
+
+
+# ─────────────────────────────────────────────────────────────
+# Describe-to-Build — AI Widget Authoring (DTB-2)
+#
+# A teacher types a plain-English description ("a number line where students
+# mark ¾") and the LLM proposes a {widget_kind, widget_config}. The proposal is
+# *config-as-data*, never code, and is run through the deterministic guardrail
+# (apps.core.widgets) before it is ever returned: validated, and on failure
+# clamp-repaired, and on un-repairable failure replaced by the kind's safe
+# default. So malformed LLM output can never escape into the runtime or DB
+# (initiative principle #3), and a missing key / dead provider still yields a
+# working widget (principle #4). The grader is untouched — AI only authors.
+# ─────────────────────────────────────────────────────────────
+
+WIDGET_AUTHORING_MAX_TOKENS = 600
+
+# Deterministic keyword → kind heuristic. Grounds the best-guess fallback kind
+# (used when the LLM is unavailable or names a kind we cannot author) entirely in
+# the teacher's own words — no imagination about unseen content (principle #5).
+_WIDGET_KIND_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("fraction-bar", ("fraction", "numerator", "denominator", "shade", "/", "part of a whole")),
+    ("function-plotter", ("plot", "graph", "function", "curve", "parabola", "y =", "f(x)", "axis", "sine")),
+    ("thermo-piston", ("piston", "thermo", "heat", "work", "gas", "first law", "internal energy")),
+    ("number-line", ("number line", "mark", "point", "integer", "drag", "value", "position")),
+]
+
+
+def _best_guess_widget_kind(description: str) -> str:
+    """Pick the most likely authorable kind from the description text.
+
+    Deterministic; defaults to ``number-line`` (the simplest answer-producing
+    kind) when nothing matches, so there is always a safe fallback target.
+    """
+    text = (description or "").lower()
+    for kind, keywords in _WIDGET_KIND_KEYWORDS:
+        if any(kw in text for kw in keywords):
+            return kind
+    return "number-line"
+
+
+def _build_widget_authoring_prompt(description: str, kind_hint: str | None, allow_variables: bool = False) -> str:
+    import json
+
+    from openshiksha.apps.core.widgets import AI_AUTHORABLE_WIDGET_KINDS, get_widget_schema
+
+    schema_blocks = []
+    for kind in AI_AUTHORABLE_WIDGET_KINDS:
+        schema = get_widget_schema(kind)
+        if schema is None:
+            continue
+        title = schema.get("title", kind)
+        purpose = schema.get("description", "")
+        schema_blocks.append(
+            f"### {kind} — {title}\n{purpose}\nJSON Schema for widget_config:\n"
+            + json.dumps({"properties": schema.get("properties", {})}, ensure_ascii=False)
+        )
+    kinds_doc = "\n\n".join(schema_blocks)
+
+    hint_line = ""
+    if kind_hint in AI_AUTHORABLE_WIDGET_KINDS:
+        hint_line = (
+            f"\nThe teacher suggested the '{kind_hint}' kind — prefer it unless the description clearly fits another.\n"
+        )
+
+    # DTB-5: per-student randomisation. Off by default so DTB-2/3 callers get
+    # fully-concrete configs; when on, the model may bind a numeric field to a
+    # croupier token and declare its sampling range.
+    variables_block = ""
+    if allow_variables:
+        variables_block = (
+            "\nPER-STUDENT RANDOMISATION (optional): To give each student different "
+            'numbers, you MAY set a NUMERIC field\'s value to a variable token written EXACTLY as "{{name}}" '
+            "(a single lower-case identifier, the whole string nothing else), and declare every such name in a "
+            'top-level "variable_constraints" object of the form '
+            '{"name": {"min": <number>, "max": <number>, "integer": <true|false>}}. '
+            "Use this ONLY when the description asks for randomisation (e.g. 'a random fraction', 'a different "
+            "point each time'); otherwise use concrete numbers and an empty variable_constraints. Never bind a "
+            "field to a token without also declaring its constraint.\n"
+        )
+
+    return (
+        "You build interactive math/science manipulatives for school students by "
+        "emitting CONFIGURATION DATA for one of a fixed set of widget kinds. You "
+        "never write code or HTML — only a JSON config object that matches the "
+        "chosen kind's schema exactly.\n\n"
+        f"Available widget kinds:\n\n{kinds_doc}\n\n"
+        f'Teacher\'s description of the widget they want:\n"{description}"\n'
+        f"{hint_line}{variables_block}\n"
+        "Choose the single best-fitting widget_kind, then produce a widget_config that:\n"
+        "- uses ONLY fields declared in that kind's schema (no extra keys);\n"
+        "- respects every type, enum, and numeric bound in the schema;\n"
+        "- uses concrete numbers that realise the teacher's intent (e.g. a bar "
+        "showing 3/4 → numerator 3, denominator 4).\n\n"
+        "Return the chosen widget_kind and widget_config."
+    )
+
+
+_WIDGET_AUTHORING_TOOL = {
+    "name": "save_widget",
+    "description": "Save the proposed interactive widget kind and its config.",
+    "input_schema": {
+        "type": "object",
+        "required": ["widget_kind", "widget_config"],
+        "properties": {
+            "widget_kind": {
+                "type": "string",
+                "description": "One of the available widget kinds.",
+            },
+            "widget_config": {
+                "type": "object",
+                "description": "Config object matching the chosen kind's schema.",
+            },
+            "variable_constraints": {
+                "type": "object",
+                "description": (
+                    "Optional (DTB-5). Sampling range for each {{name}} token bound into widget_config: "
+                    '{"name": {"min": number, "max": number, "integer": bool}}. Empty when not randomising.'
+                ),
+            },
+        },
+    },
+}
+
+
+def _finalize_widget_proposal(
+    raw_kind: object,
+    raw_config: object,
+    description: str,
+    model: str,
+    raw_constraints: object = None,
+    allow_variables: bool = False,
+) -> dict:
+    """Run an LLM proposal through the deterministic guardrail.
+
+    validate → clamp-repair → safe default, returning a config that is *always*
+    schema-valid. ``ai_available`` is True only when the returned config genuinely
+    came from the model (possibly clamped); when the model output had to be
+    discarded for the canned default, it is False so the UI badges it honestly.
+
+    DTB-5: when ``allow_variables`` is set, the finalised config's ``{{var}}``
+    bindings are reconciled with the model's ``raw_constraints`` — only tokens
+    with a valid backing constraint survive, and the validated constraints ride
+    back on ``variable_constraints``. When it is **not** set, any stray token
+    bindings are stripped so non-variable-aware callers never receive a literal
+    ``{{var}}``.
+    """
+    from openshiksha.apps.core.widgets import (
+        AI_AUTHORABLE_WIDGET_KINDS,
+        is_valid_widget_config,
+        reconcile_widget_variables,
+        repair_widget_config,
+    )
+
+    kind = raw_kind if raw_kind in AI_AUTHORABLE_WIDGET_KINDS else _best_guess_widget_kind(description)
+
+    config: object = None
+    repaired_flag = False
+    # 1. Accept the model's config as-is when it is already valid and non-empty.
+    if isinstance(raw_config, dict) and raw_config and is_valid_widget_config(kind, raw_config):
+        config = raw_config
+    else:
+        # 2. One deterministic clamp/drop repair pass.
+        repaired = repair_widget_config(kind, raw_config)
+        if repaired and is_valid_widget_config(kind, repaired):
+            config, repaired_flag = repaired, True
+
+    # 3. Un-salvageable → deterministic safe default for the best-guess kind.
+    if config is None:
+        return _stub_widget_proposal(description)
+
+    # 4. Reconcile {{var}} bindings with validated constraints (or strip them when
+    #    variables aren't allowed). Dropping an unbacked token field is a repair.
+    constraints_input = raw_constraints if allow_variables else {}
+    reconciled, variable_constraints = reconcile_widget_variables(kind, config, constraints_input)
+    if reconciled != config:
+        repaired_flag = True
+    config = reconciled
+
+    # Dropping a field can never invalidate a token-tolerant config, but guard the
+    # guardrail: if anything left it invalid, fall to the safe default.
+    if not is_valid_widget_config(kind, config):
+        return _stub_widget_proposal(description)
+
+    return {
+        "widget_kind": kind,
+        "widget_config": config,
+        "model": model,
+        "ai_available": True,
+        "repaired": repaired_flag,
+        "variable_constraints": variable_constraints,
+    }
+
+
+def _stub_widget_proposal(description: str) -> dict:
+    """Deterministic, schema-valid default widget — the no-LLM / unsalvageable path."""
+    from openshiksha.apps.core.widgets import SAFE_DEFAULT_CONFIGS
+
+    kind = _best_guess_widget_kind(description)
+    return {
+        "widget_kind": kind,
+        "widget_config": dict(SAFE_DEFAULT_CONFIGS[kind]),
+        "model": "stub",
+        "ai_available": False,
+        "repaired": False,
+        # The deterministic default is never randomised — a static, valid widget.
+        "variable_constraints": {},
+    }
+
+
+def _parse_widget_json(text: str) -> tuple[object, object, object]:
+    """Extract (widget_kind, widget_config, variable_constraints) from JSON text."""
+    import json as _json
+
+    cleaned = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+    data = _json.loads(cleaned)
+    if not isinstance(data, dict):
+        return None, None, None
+    return data.get("widget_kind"), data.get("widget_config"), data.get("variable_constraints")
+
+
+def generate_widget_config(description: str, kind_hint: str | None = None, allow_variables: bool = False) -> dict:
+    """Propose a validated interactive widget from a plain-English description.
+
+    Provider cascade (Claude tool-use → Gemini/Ollama JSON → deterministic
+    default). Every path returns a **schema-valid** config — the LLM proposal is
+    validated, then clamp-repaired, then replaced by the kind's safe default if it
+    still cannot be salvaged. AI never touches grading; this only authors config.
+
+    DTB-5: when ``allow_variables`` is set, the model may bind numeric fields to
+    croupier ``{{var}}`` tokens and declare their sampling ranges, returned on
+    ``variable_constraints`` after deterministic validation/reconciliation. When
+    it is unset (the default), any stray tokens are stripped and
+    ``variable_constraints`` is empty.
+
+    Returns:
+        {"widget_kind": str, "widget_config": dict, "model": str,
+         "ai_available": bool, "repaired": bool, "variable_constraints": dict}
+    """
+    prompt = _build_widget_authoring_prompt(description, kind_hint, allow_variables)
+    json_hint = '\n\nRespond ONLY with JSON: {"widget_kind": "...", "widget_config": {...}}, no markdown fences.'
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _WIDGET_AUTHORING_TOOL, WIDGET_AUTHORING_MAX_TOKENS)
+            if result:
+                data = result["data"]
+                return _finalize_widget_proposal(
+                    data.get("widget_kind"),
+                    data.get("widget_config"),
+                    description,
+                    result["model"],
+                    data.get("variable_constraints"),
+                    allow_variables,
+                )
+        except Exception:
+            logger.exception("generate_widget_config: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            res = _call_google_ai_studio(prompt + json_hint, google_key)
+            raw_kind, raw_config, raw_constraints = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(
+                raw_kind, raw_config, description, res["model"], raw_constraints, allow_variables
+            )
+        except Exception:
+            logger.exception("generate_widget_config: Google AI Studio call failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            res = _call_ollama(prompt + json_hint, ollama_url)
+            raw_kind, raw_config, raw_constraints = _parse_widget_json(res["text"])
+            return _finalize_widget_proposal(
+                raw_kind, raw_config, description, res["model"], raw_constraints, allow_variables
+            )
+        except Exception:
+            logger.exception("generate_widget_config: Ollama failed, falling back to default")
+
+    logger.warning("generate_widget_config: no LLM provider available — returning safe default")
+    return _stub_widget_proposal(description)

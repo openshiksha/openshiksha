@@ -276,9 +276,9 @@ def test_llm_client_google_gemma_path(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     monkeypatch.setenv("GOOGLE_AI_API_KEY", "fake-google-key")
 
-    mock_result = {"text": "Gemma says: correct!", "model": "gemma-4-it", "input_tokens": 80, "output_tokens": 20}
+    mock_result = {"text": "Gemma says: correct!", "model": "gemini-2.5-flash", "input_tokens": 80, "output_tokens": 20}
 
-    with patch("openshiksha.apps.ai.llm_client._call_google_gemma", return_value=mock_result) as mock_google:
+    with patch("openshiksha.apps.ai.llm_client._call_google_ai_studio", return_value=mock_result) as mock_google:
         from openshiksha.apps.ai import llm_client
 
         result = llm_client.generate_explanation(
@@ -291,7 +291,7 @@ def test_llm_client_google_gemma_path(monkeypatch):
         )
 
     mock_google.assert_called_once()
-    assert result["model"] == "gemma-4-it"
+    assert result["model"] == "gemini-2.5-flash"
     assert result["text"] == "Gemma says: correct!"
 
 
@@ -379,6 +379,61 @@ def test_build_prompt_hindi_instruction():
 
 
 # ─────────────────────────────────────────────────────────────
+# LA-9: AI-language fallback guard (mr → en)
+# ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "requested,expected",
+    [("en", "en"), ("hi", "hi"), ("mr", "en"), ("fr", "en"), (None, "en"), ("", "en")],
+)
+def test_resolve_ai_language_falls_back_to_english(requested, expected):
+    from openshiksha.apps.ai.llm_client import resolve_ai_language
+
+    assert resolve_ai_language(requested) == expected
+
+
+def _force_stub_path(monkeypatch):
+    """Remove provider keys + make Ollama unreachable so the LLM cascade lands on
+    the offline stub — no network call regardless of the dev environment."""
+    for var in ("ANTHROPIC_API_KEY", "GOOGLE_AI_API_KEY", "OLLAMA_BASE_URL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr("openshiksha.apps.ai.llm_client._ollama_reachable", lambda *a, **k: False)
+
+
+def test_generate_explanation_resolves_marathi_to_english_prompt(monkeypatch):
+    """A pilot/regional locale (mr) has no authored prompt, so generate_explanation
+    must build the prompt for English — never pass an unsupported language token
+    through to the prompt builder."""
+    from openshiksha.apps.ai import llm_client
+
+    _force_stub_path(monkeypatch)
+    with patch.object(llm_client, "_build_prompt", return_value="PROMPT") as mock_build:
+        llm_client.generate_explanation(
+            question_text="2+2=?",
+            options=None,
+            student_answer="4",
+            correct_answer={"answer": "4"},
+            is_correct=True,
+            grade_level=6,
+            language="mr",
+        )
+
+    assert mock_build.call_args.kwargs["language"] == "en"
+
+
+def test_generate_parent_summary_resolves_marathi_to_english_prompt(monkeypatch):
+    from openshiksha.apps.ai import llm_client
+
+    _force_stub_path(monkeypatch)
+    with patch.object(llm_client, "_build_parent_summary_prompt", return_value="PROMPT") as mock_build:
+        llm_client.generate_parent_summary({"ticks_recorded": 0}, language="mr")
+
+    # Positional (stats, language) — the second arg must be the resolved "en".
+    assert mock_build.call_args.args[1] == "en"
+
+
+# ─────────────────────────────────────────────────────────────
 # Celery task tests (mocked LLM)
 # ─────────────────────────────────────────────────────────────
 
@@ -453,6 +508,53 @@ def test_generate_explanation_for_subpart_task(setup):
     exp = SubpartExplanation.objects.get(pk=result["explanation_id"])
     assert exp.student == setup["student"]
     assert exp.is_correct is True
+
+
+@pytest.mark.django_db
+def test_generate_for_subpart_regenerates_in_place_on_language_change(setup):
+    """LA-4: requesting a different language replaces the stored explanation
+    (update_or_create on the (student, subpart, submission) key) instead of
+    duplicating it — an explanation exists in one language at a time."""
+    from openshiksha.apps.ai.models import SubpartExplanation
+    from openshiksha.apps.ai.tasks import generate_explanation_for_subpart
+
+    common = {
+        "student_id": setup["student"].pk,
+        "subpart_id": setup["subpart"].pk,
+        "student_answer": "B",
+        "is_correct": True,
+        "grade_level": 8,
+    }
+    with patch("openshiksha.apps.ai.llm_client.generate_explanation", return_value=MOCK_LLM_RESULT):
+        first = generate_explanation_for_subpart(**common, language="en")
+        second = generate_explanation_for_subpart(**common, language="hi")
+
+    assert first["explanation_id"] == second["explanation_id"]
+    assert SubpartExplanation.objects.filter(student=setup["student"], question_subpart=setup["subpart"]).count() == 1
+    exp = SubpartExplanation.objects.get(pk=second["explanation_id"])
+    assert exp.language == "hi"
+
+
+@pytest.mark.django_db
+def test_generate_for_subpart_same_language_is_idempotent(setup):
+    from openshiksha.apps.ai.models import SubpartExplanation
+    from openshiksha.apps.ai.tasks import generate_explanation_for_subpart
+
+    common = {
+        "student_id": setup["student"].pk,
+        "subpart_id": setup["subpart"].pk,
+        "student_answer": "B",
+        "is_correct": True,
+        "grade_level": 8,
+    }
+    with patch("openshiksha.apps.ai.llm_client.generate_explanation", return_value=MOCK_LLM_RESULT):
+        first = generate_explanation_for_subpart(**common, language="hi")
+        second = generate_explanation_for_subpart(**common, language="hi")
+
+    assert first["explanation_id"] == second["explanation_id"]
+    exp = SubpartExplanation.objects.get(pk=second["explanation_id"])
+    assert exp.language == "hi"
+    assert SubpartExplanation.objects.filter(student=setup["student"], question_subpart=setup["subpart"]).count() == 1
 
 
 # ─────────────────────────────────────────────────────────────

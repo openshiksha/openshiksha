@@ -88,7 +88,8 @@ MOCK_DRAFTS = [
 
 @pytest.mark.django_db
 def test_generate_questions_success(teacher_client, chapter):
-    with patch("openshiksha.apps.ai.views.generate_questions", return_value=MOCK_DRAFTS) as mock_gen:
+    mock_result = {"questions": MOCK_DRAFTS, "ai_available": True}
+    with patch("openshiksha.apps.ai.views.generate_questions", return_value=mock_result) as mock_gen:
         url = "/api/v1/ai/generate-questions/"
         response = teacher_client.post(
             url,
@@ -104,6 +105,7 @@ def test_generate_questions_success(teacher_client, chapter):
 
     assert response.status_code == 200, response.data
     assert "questions" in response.data
+    assert response.data["ai_available"] is True
     assert len(response.data["questions"]) == 1
     q = response.data["questions"][0]
     assert q["question_text"] == MOCK_DRAFTS[0]["question_text"]
@@ -117,6 +119,44 @@ def test_generate_questions_success(teacher_client, chapter):
         difficulty=2,
         count=1,
     )
+
+
+@pytest.mark.django_db
+def test_generate_questions_stub_mode_returns_no_drafts(teacher_client, chapter):
+    """
+    When no LLM provider is configured the cascade falls back to a deterministic
+    stub. The endpoint must report ``ai_available: False`` and withhold the
+    placeholder drafts so the UI never presents stub text as a real question.
+    """
+    stub_result = {
+        "questions": [
+            {
+                "question_text": "Sample mcq question 1 (AI provider unavailable)",
+                "options": [{"key": "A", "text": "Option A"}],
+                "correct_answer": "A",
+                "variable_constraints": None,
+                "suggested_tags": ["sample"],
+            }
+        ],
+        "ai_available": False,
+    }
+    with patch("openshiksha.apps.ai.views.generate_questions", return_value=stub_result):
+        response = teacher_client.post(
+            "/api/v1/ai/generate-questions/",
+            {
+                "topic": "Polynomials",
+                "chapter_id": chapter.id,
+                "question_type": "mcq",
+                "difficulty": 2,
+                "count": 1,
+            },
+            format="json",
+        )
+
+    assert response.status_code == 200, response.data
+    assert response.data["ai_available"] is False
+    # Stub placeholders must NOT leak to the client as real drafts.
+    assert response.data["questions"] == []
 
 
 @pytest.mark.django_db

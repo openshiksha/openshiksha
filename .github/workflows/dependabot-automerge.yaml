@@ -1,0 +1,98 @@
+name: Dependabot auto-merge
+# Auto-merges Dependabot version-update PRs that are *minor* or *patch* bumps,
+# once the full CI pipeline is green. Majors (e.g. django 4.2 → 6.0, eslint 8 →
+# 10) are runtime/API upgrades that need a human to review against CI and mypy,
+# so they are deliberately left for manual handling.
+#
+# Why this exists: routine minor/patch bumps otherwise pile up unattended (20+
+# open at one point). Every PR already runs the full CI gate (lint, typecheck,
+# security, test, frontend, e2e, lighthouse), so a green minor/patch bump is
+# safe to land without manual clicks.
+#
+# Why we wait-then-merge instead of `gh pr merge --auto`: GitHub's native
+# auto-merge can only be *enabled* while a PR is blocked by **required status
+# checks** — i.e. the base branch has branch protection. Our integration branch
+# `modernization` is intentionally unprotected (the build routines push to it
+# directly, which required checks would reject), so `--auto` fails with
+# "Pull request is in unstable status (enablePullRequestAutoMerge)" and nothing
+# ever merges. Instead we watch this commit's "CI/CD Pipeline" run and, when it
+# succeeds, merge directly. Same CI gate — we just poll for it rather than
+# delegating to a branch-protection rule that doesn't exist.
+#
+# Trigger is `pull_request` (not push) so `dependabot/fetch-metadata` has the PR
+# context it needs to classify the bump (it also handles grouped updates). For
+# Dependabot-authored runs GitHub honours the elevated `permissions` below.
+
+on: pull_request
+
+# Cancel a stale auto-merge run if Dependabot force-pushes (rebase) a newer
+# commit onto the same PR — we only ever want to act on the latest head.
+concurrency:
+    group: dependabot-automerge-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+# Least-privilege: only what's needed to approve and merge.
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    dependabot-automerge:
+        name: Approve + auto-merge after CI (minor/patch)
+        runs-on: ubuntu-latest
+        # Only act on Dependabot-authored PRs.
+        if: github.actor == 'dependabot[bot]'
+        # Cap the CI wait so a hung/cancelled pipeline never pins a runner.
+        timeout-minutes: 30
+        steps:
+            - name: Fetch Dependabot metadata
+              # Exposes the semver update-type (incl. for grouped updates, where
+              # it reports the highest bump in the group) without parsing titles.
+              id: metadata
+              uses: dependabot/fetch-metadata@v2
+              with:
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Approve the PR
+              # A record of automated approval. Not required to merge an
+              # unprotected branch, so never let it block the merge.
+              if: |
+                steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+                steps.metadata.outputs.update-type == 'version-update:semver-patch'
+              continue-on-error: true
+              env:
+                PR_URL: ${{ github.event.pull_request.html_url }}
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh pr review --approve "$PR_URL"
+
+            - name: Wait for CI to pass, then squash-merge
+              if: |
+                steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+                steps.metadata.outputs.update-type == 'version-update:semver-patch'
+              env:
+                REPO: ${{ github.repository }}
+                BRANCH: ${{ github.event.pull_request.head.ref }}
+                SHA: ${{ github.event.pull_request.head.sha }}
+                PR_URL: ${{ github.event.pull_request.html_url }}
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                set -euo pipefail
+                echo "Waiting for the CI/CD Pipeline run on ${SHA} ..."
+                conclusion=""
+                for _ in $(seq 1 60); do
+                  run=$(gh run list --repo "$REPO" --workflow "CI/CD Pipeline" \
+                          --branch "$BRANCH" --limit 20 \
+                          --json headSha,status,conclusion \
+                          --jq "map(select(.headSha == \"$SHA\")) | .[0] // empty")
+                  if [ -n "$run" ] && [ "$(echo "$run" | jq -r '.status')" = "completed" ]; then
+                    conclusion=$(echo "$run" | jq -r '.conclusion')
+                    break
+                  fi
+                  sleep 20
+                done
+                if [ "$conclusion" != "success" ]; then
+                  echo "CI did not pass (conclusion='${conclusion:-timeout}') — leaving the PR for manual handling."
+                  exit 0
+                fi
+                echo "CI is green — squash-merging."
+                gh pr merge --squash --delete-branch "$PR_URL"

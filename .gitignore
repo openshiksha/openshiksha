@@ -32,7 +32,9 @@ frontend_modern/.cache/
 frontend_modern/test-results/
 frontend_modern/playwright-report/
 frontend_modern/playwright/.cache/
+frontend_modern/e2e/__artifacts__/
 frontend_modern/axe-report/
+frontend_modern/.lighthouseci/
 
 # Backend (Python / Django)
 backend/__pycache__/
@@ -42,6 +44,12 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
 backend/htmlcov/
+backend/coverage.xml
+backend/.coverage
+# Coverage artifacts (any location)
+coverage.xml
+.coverage
+.coverage.*
 backend/logs/
 backend/staticfiles/
 backend/media/

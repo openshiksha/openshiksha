@@ -2,6 +2,8 @@
 Development-specific Django settings for OpenShiksha
 """
 
+import os
+
 from .base import *  # noqa: F403
 
 # DEBUG mode ON for development
@@ -33,9 +35,22 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Logging - More verbose in development
 LOGGING["root"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
 LOGGING["loggers"]["django"]["level"] = "DEBUG"  # noqa: F405  # type: ignore[index]
+# django.template at DEBUG floods the console with internal VariableDoesNotExist
+# tracebacks every time Django renders its own technical 404/500 pages — pages
+# whose templates probe optional context keys by design. The flood buries the
+# *real* exception several screens up, so keep this one logger at INFO.
+LOGGING["loggers"]["django.template"] = {  # noqa: F405  # type: ignore[index]
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+}
 
-# Email - Console backend for development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# Email — console backend by default so dev never sends real mail by accident.
+# Set EMAIL_BACKEND in the env (backend/.env) to send for real — e.g. point
+# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend at Gmail SMTP to test
+# delivery locally or through the cloudflared tunnel. EMAIL_HOST / EMAIL_PORT /
+# EMAIL_USE_TLS / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD are read from env in base.py.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 
 # Disable some security features for development
 SECURE_SSL_REDIRECT = False

@@ -31,7 +31,7 @@ export const SectionHeading = ({
     <div className={clsx('flex items-end justify-between gap-4', className)} {...props}>
       <div className="min-w-0">
         {eyebrow && (
-          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-brand-600">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-brand-700">
             {eyebrow}
           </p>
         )}

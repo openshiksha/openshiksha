@@ -1,74 +1,55 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTeacherAssignmentDetail } from './useTeacherAssignmentDetail';
 import { useQuestionMistakes } from './useQuestionMistakes';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { AssignmentSnapshotPreview } from './AssignmentSnapshotPreview';
+import {
+  Badge,
+  EmptyState,
+  LoadingSpinner,
+  SectionHeading,
+  Stat,
+  ResponsiveTable,
+  type ResponsiveColumn,
+} from '@/shared/ui';
+import { useI18n, useFormat, type Translate } from '@/shared/i18n';
 import type { SubmissionWithStudent } from './useTeacherAssignmentDetail';
 import type { QuestionMistake } from './useQuestionMistakes';
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
 const isOverdue = (dueAt: string) => new Date(dueAt) < new Date();
 
-const ScoreBadge = ({ score }: { score: number | null }) => {
+const ScoreBadge = ({ score, t }: { score: number | null; t: Translate }) => {
   if (score === null) {
-    return <span className="text-xs text-gray-400 italic">Grading...</span>;
+    return <span className="text-xs italic text-ink-400">{t('teacher.adGrading')}</span>;
   }
   const pct = Math.round(score * 100);
-  const color = pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-yellow-600' : 'text-red-600';
-  return <span className={`text-sm font-semibold ${color}`}>{pct}%</span>;
+  const tone = pct >= 70 ? 'text-emerald-700' : pct >= 40 ? 'text-amber-700' : 'text-rose-700';
+  return <span className={`text-sm font-semibold ${tone}`}>{pct}%</span>;
 };
 
-const SubmissionRow = ({ sub }: { sub: SubmissionWithStudent }) => (
-  <tr className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-    <td className="px-4 py-3 text-sm text-gray-900">{sub.student_name}</td>
-    <td className="px-4 py-3 text-sm text-gray-500">
-      {sub.submitted_at ? formatDate(sub.submitted_at) : <span className="text-gray-300">—</span>}
-    </td>
-    <td className="px-4 py-3">
-      {sub.submitted_at ? (
-        <ScoreBadge score={sub.score} />
-      ) : (
-        <span className="text-xs text-gray-400">—</span>
-      )}
-    </td>
-    <td className="px-4 py-3">
-      {sub.submitted_at ? (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-          ✓ Submitted
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-          ⏳ Pending
-        </span>
-      )}
-    </td>
-  </tr>
-);
-
 const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) => {
+  const { t } = useI18n();
   if (!mistakes.length) return null;
   const maxRegression = Math.max(...mistakes.map((m) => m.regression));
   return (
-    <div className="mt-6 bg-white rounded-xl border border-red-100 p-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">
-        Hardest Questions{' '}
-        <span className="text-gray-400 font-normal">(by cumulative marks lost)</span>
+    <div className="os-card mt-6 p-5">
+      <h3 className="mb-3 font-display text-base font-semibold text-ink-900">
+        {t('teacher.adHardestTitle')}{' '}
+        <span className="font-normal text-ink-400">{t('teacher.adHardestSub')}</span>
       </h3>
       <div className="space-y-3">
         {mistakes.slice(0, 5).map((m) => (
           <div key={m.id} className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-gray-700 line-clamp-2">{m.question_text}</p>
-              <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <p className="line-clamp-2 text-xs text-ink-700">{m.question_text}</p>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
                 <div
-                  className="h-full bg-red-400 rounded-full"
+                  className="h-full rounded-full bg-rose-500"
                   style={{ width: `${Math.round((m.regression / maxRegression) * 100)}%` }}
                 />
               </div>
             </div>
-            <span className="shrink-0 text-xs font-semibold text-red-700">
-              {m.regression.toFixed(1)} pts lost
+            <span className="shrink-0 text-xs font-semibold text-rose-700">
+              {t('teacher.adPtsLost', { pts: m.regression.toFixed(1) })}
             </span>
           </div>
         ))}
@@ -80,7 +61,16 @@ const HardestQuestionsPanel = ({ mistakes }: { mistakes: QuestionMistake[] }) =>
 export const TeacherAssignmentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const { formatDate } = useFormat();
   const assignmentId = id ? parseInt(id, 10) : 0;
+
+  const submissionDateOpts: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  };
 
   const { metaQuery, submissionsQuery } = useTeacherAssignmentDetail(assignmentId);
   const { data: mistakes } = useQuestionMistakes(metaQuery.data?.subject_room);
@@ -90,7 +80,7 @@ export const TeacherAssignmentDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
+      <div className="flex min-h-64 items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -98,11 +88,19 @@ export const TeacherAssignmentDetailPage = () => {
 
   if (isError || !metaQuery.data) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8 text-center text-gray-500">
-        <p>Failed to load assignment. It may not exist or you may not have access.</p>
-        <button onClick={() => navigate('/teacher')} className="mt-4 text-indigo-600 hover:underline text-sm">
-          ← Back to dashboard
-        </button>
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <EmptyState
+          title={t('teacher.adLoadFailTitle')}
+          description={t('teacher.adLoadFailDesc')}
+          action={
+            <button
+              onClick={() => navigate('/teacher')}
+              className="rounded text-sm font-semibold text-brand-700 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              ← {t('teacher.adBackToDashboard')}
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -113,95 +111,146 @@ export const TeacherAssignmentDetailPage = () => {
   const submittedCount = submissions.filter((s) => s.submitted_at).length;
   const totalStudents = assignment.student_count;
   const avgScore = assignment.average_score;
-  const dueDate = new Date(assignment.due_at).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  const dueDate = formatDate(assignment.due_at);
   const overdue = isOverdue(assignment.due_at);
   const submissionPct = totalStudents > 0 ? (submittedCount / totalStudents) * 100 : 0;
 
+  const submissionColumns: ResponsiveColumn<SubmissionWithStudent>[] = [
+    {
+      key: 'student',
+      header: t('teacher.adThStudent'),
+      primary: true,
+      cell: (sub) => <span className="font-medium text-ink-900">{sub.student_name}</span>,
+    },
+    {
+      key: 'submitted',
+      header: t('teacher.adThSubmitted'),
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <span className="text-ink-500">{formatDate(sub.submitted_at, submissionDateOpts)}</span>
+        ) : (
+          <span className="text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'score',
+      header: t('teacher.adThScore'),
+      align: 'right',
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <ScoreBadge score={sub.score} t={t} />
+        ) : (
+          <span className="text-xs text-ink-400">—</span>
+        ),
+    },
+    {
+      key: 'status',
+      header: t('teacher.adThStatus'),
+      align: 'right',
+      cell: (sub) =>
+        sub.submitted_at ? (
+          <Badge tone="success">✓ {t('teacher.adBadgeSubmitted')}</Badge>
+        ) : (
+          <Badge tone="attention">⏳ {t('teacher.adBadgePending')}</Badge>
+        ),
+    },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      {/* Back link */}
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <button
         onClick={() => navigate('/teacher')}
-        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+        className="flex items-center gap-1 rounded text-sm text-ink-500 transition-colors hover:text-ink-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
       >
-        ← Back to dashboard
+        ← {t('teacher.adBackToDashboard')}
       </button>
 
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h1 className="text-xl font-bold text-gray-900">{assignment.problem_set.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">{assignment.subject_room_display}</p>
+      <div className="os-card p-6">
+        <SectionHeading
+          as="h1"
+          eyebrow={assignment.subject_room_display}
+          title={assignment.problem_set.title}
+          action={
+            overdue ? (
+              <Badge tone="urgent">{t('teacher.adOverdue')}</Badge>
+            ) : (
+              <Badge tone="brand">{t('teacher.adActive')}</Badge>
+            )
+          }
+        />
 
-        <div className="flex flex-wrap gap-4 mt-4 text-sm">
-          <div>
-            <span className="text-gray-400">Due</span>{' '}
-            <span className={`font-medium ${overdue ? 'text-red-500' : 'text-gray-700'}`}>
-              {dueDate}{overdue ? ' (overdue)' : ''}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-400">Submitted</span>{' '}
-            <span className="font-medium text-gray-700">
-              {submittedCount}/{totalStudents}
-            </span>
-          </div>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Stat
+            label={t('teacher.adStatDue')}
+            value={dueDate}
+            delta={overdue ? t('teacher.adOverdue') : undefined}
+            tone="urgent"
+          />
+          <Stat
+            label={t('teacher.adStatSubmitted')}
+            value={`${submittedCount}/${totalStudents}`}
+          />
           {avgScore !== null && (
-            <div>
-              <span className="text-gray-400">Avg score</span>{' '}
-              <span className="font-medium text-gray-700">{Math.round(avgScore * 100)}%</span>
-            </div>
+            <Stat label={t('teacher.adStatAvg')} value={`${Math.round(avgScore * 100)}%`} />
           )}
         </div>
 
-        {/* Progress bar */}
-        <div className="mt-4">
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="mt-5">
+          <div
+            className="h-2 overflow-hidden rounded-full bg-ink-100"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(submissionPct)}
+          >
             <div
-              className="h-full bg-indigo-500 rounded-full transition-all"
+              className="h-full rounded-full bg-brand-600 transition-all"
               style={{ width: `${submissionPct}%` }}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-1">{Math.round(submissionPct)}% submitted</p>
+          <p className="mt-1 text-xs text-ink-400">
+            {t('teacher.adSubmittedPct', { pct: Math.round(submissionPct) })}
+          </p>
         </div>
       </div>
 
-      {/* Submissions table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Student Submissions</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {submissions.length} submission{submissions.length !== 1 ? 's' : ''} recorded
+      <AssignmentSnapshotPreview
+        assignmentId={assignment.id}
+        problemSet={assignment.problem_set}
+        snapshotDrift={assignment.snapshot_drift === true}
+        hasResyncHistory={assignment.has_resync_history === true}
+      />
+
+      <div className="os-card p-0">
+        <div className="border-b border-ink-100 px-6 py-4">
+          <h2 className="font-display text-base font-semibold text-ink-900">
+            {t('teacher.adSubmissionsTitle')}
+          </h2>
+          <p className="mt-0.5 text-xs text-ink-400">
+            {t(
+              submissions.length === 1
+                ? 'teacher.adSubmissionsRecordedOne'
+                : 'teacher.adSubmissionsRecordedMany',
+              { count: submissions.length },
+            )}
             {totalStudents > submissions.length && (
-              <> · {totalStudents - submissions.length} students have not started</>
+              <> · {t('teacher.adNotStarted', { count: totalStudents - submissions.length })}</>
             )}
           </p>
         </div>
 
         {submissions.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <p className="text-sm">No submissions yet.</p>
+          <div className="px-6 py-12">
+            <EmptyState title={t('teacher.adNoSubmissions')} />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                <tr>
-                  <th className="px-4 py-3">Student</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Score</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.map((sub) => (
-                  <SubmissionRow key={sub.id} sub={sub} />
-                ))}
-              </tbody>
-            </table>
+          <div className="px-4 py-2 sm:px-6 sm:py-3">
+            <ResponsiveTable
+              aria-label={t('teacher.adSubmissionsTitle')}
+              rows={submissions}
+              rowKey={(sub) => sub.id}
+              columns={submissionColumns}
+            />
           </div>
         )}
       </div>

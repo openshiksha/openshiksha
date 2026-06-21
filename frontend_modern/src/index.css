@@ -1,12 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+/* Keep the JS design-token config (brand/ink palettes, Fraunces/Inter fonts,
+   warm shadows, radii). v4 no longer auto-detects tailwind.config.js — it must
+   be loaded explicitly. */
+@config '../tailwind.config.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    OpenShiksha V2 — "Chalk & Unlock" design system
    See docs/initiatives/2026-design-system-v2.md. Tokens live in
-   tailwind.config.js. Migrated code uses the classes below + `ui/` components;
-   never raw hex, never the legacy `primary`/cold-gray palette.
+   tailwind.config.js. All code uses the classes below + `ui/` components;
+   never raw hex, never the cold-gray palette. The legacy `primary` blue
+   palette was removed in M6-02.
    ════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
@@ -33,11 +36,25 @@
     color: #1a1816;
   }
 
-  /* Consistent, branded focus ring for keyboard users across the app. */
+  /* Consistent, branded focus ring for keyboard users across the app
+     (WCAG 2.4.7 Focus Visible, 2.1.1 Keyboard, 1.4.11 Non-text Contrast).
+     Uses `outline` rather than a box-shadow ring on purpose: a box-shadow ring
+     is (a) suppressed on the primitives that set their own box-shadow in the
+     higher-precedence `components` layer (e.g. `.btn-brand`'s `shadow-soft`),
+     and (b) clipped by any `overflow:hidden` ancestor. An outline is painted by
+     the UA on top and survives both. `outline-offset` opens a paper-coloured
+     gap so the ring reads on any surface; modern UAs follow `border-radius`.
+     Colour is `brand-700` (#C05300, ≥ 3:1 on paper) — the brand anchor #FF6F00
+     is only ≈ 2.8:1 on paper and would fail Non-text Contrast as an indicator. */
   :focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px #fffaf3, 0 0 0 4px rgba(255, 111, 0, 0.55);
+    outline: 2px solid #c05300;
+    outline-offset: 2px;
     border-radius: 0.375rem;
+  }
+  /* On the solid-orange `.btn-brand`, the offset ring sits next to the brand
+     fill — a dark ink outline frames it far more legibly (≈ 16:1 on paper). */
+  .btn-brand:focus-visible {
+    outline-color: #1a1816;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -57,9 +74,9 @@
   /* Primary action — the "unlock" button. One per screen, ideally. */
   .btn-brand {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
-           bg-brand-600 text-white font-semibold shadow-soft
+           bg-brand-700 text-white font-semibold shadow-soft
            transition-all duration-150
-           hover:bg-brand-700 hover:shadow-lift
+           hover:bg-brand-800 hover:shadow-lift
            active:translate-y-px
            disabled:bg-brand-300 disabled:shadow-none disabled:cursor-not-allowed;
   }
@@ -83,7 +100,7 @@
     @apply w-full px-4 py-2.5 rounded-xl bg-white border border-ink-200
            text-ink-800 placeholder-ink-300
            transition-colors duration-150
-           focus:outline-none focus:border-brand-500;
+           focus:outline-hidden focus:border-brand-500;
   }
 
   /* Hand-drawn chalk underline — the signature active-nav / accent mark. */
@@ -121,7 +138,7 @@
     @apply italic;
   }
   .prose-osh a {
-    @apply text-brand-600 underline decoration-brand-300 hover:text-brand-700;
+    @apply text-brand-700 underline decoration-brand-300 hover:text-brand-800;
   }
   .prose-osh code {
     @apply px-1 py-0.5 rounded bg-ink-50 text-ink-800 text-[0.9em];
@@ -164,25 +181,7 @@
   }
 }
 
-/* ── Legacy classes — retained so un-migrated pages keep rendering. ─────────
-   Do NOT use in new/migrated code; prefer the brand components above. */
 @layer components {
-  .btn-primary {
-    @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors;
-  }
-
-  .btn-secondary {
-    @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors;
-  }
-
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
-  }
-
   .katex-display {
     @apply my-4;
   }

@@ -12,6 +12,7 @@ from .models import (
     ClassRoom,
     ClassroomInviteCode,
     ProblemSet,
+    PushSubscription,
     Question,
     QuestionSubpart,
     QuestionTag,
@@ -21,6 +22,7 @@ from .models import (
     Subject,
     SubjectRoom,
     Submission,
+    TeacherWidget,
     User,
 )
 
@@ -36,7 +38,10 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ["username", "first_name", "last_name", "email"]
 
     fieldsets = BaseUserAdmin.fieldsets + (  # type: ignore[operator]
-        ("Profile Information", {"fields": ("role", "school", "grade", "phone_number", "date_of_birth")}),
+        (
+            "Profile Information",
+            {"fields": ("role", "school", "grade", "phone_number", "date_of_birth", "preferred_language")},
+        ),
     )
 
     add_fieldsets = BaseUserAdmin.add_fieldsets + (("Profile Information", {"fields": ("role", "school", "grade")}),)
@@ -115,6 +120,8 @@ class QuestionSubpartInline(admin.TabularInline):
         "hint_text",
         "is_interactive",
         "interactive_html",
+        "widget_kind",
+        "widget_config",
         "tags",
     ]
     filter_horizontal = ["tags"]
@@ -202,8 +209,9 @@ class AssignmentAdmin(admin.ModelAdmin):
         "due_at",
         "average_score",
         "completion_rate",
+        "closed_at",
     ]
-    list_filter = ["subject_room__subject", "subject_room__classroom__school"]
+    list_filter = ["subject_room__subject", "subject_room__classroom__school", "closed_at"]
     search_fields = ["problem_set__title", "subject_room__classroom__school__name", "target_student__username"]
     raw_id_fields = ["assigned_by", "target_student"]
     readonly_fields = ["assigned_at", "average_score", "completion_rate"]
@@ -234,3 +242,20 @@ class ClassroomInviteCodeAdmin(admin.ModelAdmin):
     search_fields = ["code", "classroom__school__name", "created_by__username"]
     raw_id_fields = ["created_by"]
     readonly_fields = ["created_at"]
+
+
+@admin.register(TeacherWidget)
+class TeacherWidgetAdmin(admin.ModelAdmin):
+    list_display = ["name", "school", "visibility", "created_by", "scene_version", "updated_at"]
+    list_filter = ["visibility", "school"]
+    search_fields = ["name", "description", "created_by__username"]
+    raw_id_fields = ["created_by", "school"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(PushSubscription)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ["user", "endpoint", "user_agent", "created_at"]
+    search_fields = ["user__username", "user__first_name", "user__last_name", "endpoint"]
+    raw_id_fields = ["user"]
+    readonly_fields = ["endpoint", "p256dh", "auth", "user_agent", "created_at"]

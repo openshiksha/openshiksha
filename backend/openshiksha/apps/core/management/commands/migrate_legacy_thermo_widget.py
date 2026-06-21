@@ -1,0 +1,156 @@
+"""
+IW-3b — one-shot migration that points the legacy thermodynamics-piston
+question (Cabinet `1/1/11/3/44/22`) at the `thermo-piston` registry widget.
+
+This command **does not** delete `interactive_html` — IW-7 deprecates that
+field once the React widget (IW-2) ships and renders identically. For now it
+only *adds* the kind-based path so the data model is ready the moment the
+runtime + widget land.
+
+Idempotent: safe to re-run. Supports `--dry-run` for inspection without writes.
+
+Identification: the legacy thermo subpart is uniquely identified by carrying
+`is_interactive=True` on Standard 11 / subject "Physics" (Thermodynamics
+chapter). The Cabinet importer stamps the chapter + standard reliably; if more
+than one match is found the command refuses to write rather than guess.
+"""
+
+from __future__ import annotations
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from openshiksha.apps.core.models import QuestionSubpart
+
+# Initial config for the thermo-piston widget (IW-2). Bounds mirror the
+# legacy jQuery-UI slider's min:-200 / max:200 and the piston's ~200 px of
+# vertical travel. The per-student substitution still happens at serializer
+# time (IW-3b), but none of the *legacy* variables (`k`, `j`) are direct
+# widget inputs — they are answer-related values the student sees in the
+# question text, and the widget surfaces them via `ctx.variables` as a hint
+# instead of binding them to controls.
+DEFAULT_THERMO_CONFIG: dict = {
+    "heatMin": -200,
+    "heatMax": 200,
+    "workMax": 200,
+    "workStep": 5,
+    "title": "Thermodynamics — piston & First Law",
+}
+
+THERMO_WIDGET_KIND = "thermo-piston"
+
+# The legacy thermo question_text was extracted from the original Cabinet
+# `interactive_html` blob during the M7-08 cleanup, so it carries every label
+# the *widget* used to render natively (the ΔU formula readout, "Piston
+# (doing work):", "Heat supplied to the system:", a redundant "Part b)"
+# marker, etc.). The new React widget shows all of that itself, so once the
+# kind path is active those labels are pure visual noise above the prompt.
+#
+# `PROMPT_MARKER` is the unmistakable opening of the *real* question. Every
+# observed cabinet variation of the thermo prompt begins with this phrase.
+# Stripping everything before it leaves exactly the sentence the student
+# needs to answer (still carrying the per-student `{{k}}` / `{{j}}` tokens
+# the croupier substitutes server-side).
+PROMPT_MARKER = "Based on the calculations above"
+
+
+def derive_clean_prompt(original_text: str) -> "str | None":
+    """Strip the legacy preamble from a thermo subpart's ``question_text``.
+
+    Returns the cleaned prompt when there is a recognisable preamble to drop,
+    or ``None`` when the text is already clean (or doesn't match the pattern,
+    in which case the command leaves it alone rather than risk destroying the
+    only copy of the prompt).
+    """
+    if not original_text:
+        return None
+    idx = original_text.find(PROMPT_MARKER)
+    if idx <= 0:
+        # idx == -1: not a recognisable preamble; leave the row alone.
+        # idx ==  0: already clean; nothing to do (idempotent re-run).
+        return None
+    return original_text[idx:].strip()
+
+
+class Command(BaseCommand):
+    help = "Stamp widget_kind='thermo-piston' on the legacy thermo subpart (IW-3b)."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Report what would change without writing.",
+        )
+        parser.add_argument(
+            "--subpart-id",
+            type=int,
+            default=None,
+            help=(
+                "Optional explicit QuestionSubpart id, for tests / re-runs against "
+                "a known row. When omitted the command auto-detects the legacy "
+                "thermo subpart via is_interactive on Standard 11 / Physics."
+            ),
+        )
+
+    def _find_subparts(self, subpart_id: int | None):
+        if subpart_id is not None:
+            return QuestionSubpart.objects.filter(id=subpart_id)
+        return QuestionSubpart.objects.filter(
+            is_interactive=True,
+            question__standard__number=11,
+            question__subject__name__iexact="Physics",
+        )
+
+    @transaction.atomic
+    def handle(self, *args, dry_run: bool = False, subpart_id: int | None = None, **opts):
+        qs = self._find_subparts(subpart_id)
+        count = qs.count()
+        if count == 0:
+            self.stdout.write(self.style.WARNING("No legacy thermo subpart found — nothing to migrate."))
+            return
+        if count > 1 and subpart_id is None:
+            raise CommandError(
+                f"Found {count} interactive Std-11 Physics subparts — refuse to guess. "
+                "Re-run with --subpart-id <id> to disambiguate."
+            )
+
+        updated = 0
+        skipped = 0
+        for sp in qs:
+            # Two independent transformations the command may need to apply.
+            # Keeping them independent means a re-run after IW-2's prompt
+            # cleanup (added in this PR) picks up just the text change on
+            # rows where the kind+config were already stamped by an earlier
+            # run.
+            needs_kind_stamp = not (sp.widget_kind == THERMO_WIDGET_KIND and sp.widget_config)
+            cleaned_prompt = derive_clean_prompt(sp.question_text)
+
+            if not needs_kind_stamp and cleaned_prompt is None:
+                skipped += 1
+                self.stdout.write(f"  • subpart {sp.id}: already on {THERMO_WIDGET_KIND} with cleaned prompt; skipping")
+                continue
+
+            actions: list[str] = []
+            update_fields: list[str] = []
+            if needs_kind_stamp:
+                actions.append(f"widget_kind {sp.widget_kind!r} → {THERMO_WIDGET_KIND!r}")
+                sp.widget_kind = THERMO_WIDGET_KIND
+                sp.widget_config = dict(DEFAULT_THERMO_CONFIG)
+                update_fields += ["widget_kind", "widget_config"]
+            # Direct ``is not None`` test (rather than a bool alias) so mypy
+            # narrows ``cleaned_prompt`` to ``str`` inside this branch.
+            if cleaned_prompt is not None:
+                original_len = len(sp.question_text)
+                actions.append(f"question_text {original_len} → {len(cleaned_prompt)} chars (stripped legacy preamble)")
+                sp.question_text = cleaned_prompt
+                update_fields.append("question_text")
+
+            self.stdout.write(f"  • subpart {sp.id} (Q{sp.question_id}): " + "; ".join(actions))
+            if not dry_run:
+                sp.save(update_fields=update_fields)
+            updated += 1
+
+        if dry_run:
+            self.stdout.write(self.style.SUCCESS(f"[dry-run] would update {updated} subpart(s); skipped {skipped}."))
+        else:
+            self.stdout.write(self.style.SUCCESS(f"Updated {updated} subpart(s); skipped {skipped}."))

@@ -1,5 +1,8 @@
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { Badge, Button } from '@/shared/ui';
+import { useI18n } from '@/shared/i18n';
+import { dateFnsLocaleFor } from '@/shared/i18n/dateFnsLocale';
 import type { Assignment } from '@/types/index';
 
 interface AssignmentCardProps {
@@ -8,6 +11,8 @@ interface AssignmentCardProps {
 
 export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
   const navigate = useNavigate();
+  const { t, locale } = useI18n();
+  const dateLocale = dateFnsLocaleFor(locale);
   const { problem_set, due_at, my_submission } = assignment;
   const dueDate = parseISO(due_at);
   const isOverdue = isPast(dueDate);
@@ -16,78 +21,104 @@ export const AssignmentCard = ({ assignment }: AssignmentCardProps) => {
   const score = my_submission?.score;
 
   const dueDateLabel = isOverdue
-    ? `Overdue by ${formatDistanceToNow(dueDate)}`
-    : `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`;
+    ? t('assignment.overdueBy', { distance: formatDistanceToNow(dueDate, { locale: dateLocale }) })
+    : t('assignment.dueIn', {
+        distance: formatDistanceToNow(dueDate, { addSuffix: true, locale: dateLocale }),
+      });
 
-  const cta = isSubmitted ? 'Review' : completion > 0 ? 'Continue' : 'Start';
-  const ctaStyle = isSubmitted
-    ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-    : 'bg-indigo-600 text-white hover:bg-indigo-700';
+  // Submitted assignments surface *when* they were submitted instead of the
+  // due date — once you've turned it in, the due date is irrelevant and the
+  // student wants to know "did I do this recently?" at a glance.
+  const submittedLabel =
+    isSubmitted && my_submission?.submitted_at
+      ? t('assignment.submittedAgo', {
+          distance: formatDistanceToNow(parseISO(my_submission.submitted_at), {
+            addSuffix: true,
+            locale: dateLocale,
+          }),
+        })
+      : t('assignment.submitted');
+
+  const cta = isSubmitted
+    ? t('assignment.ctaReview')
+    : completion > 0
+      ? t('assignment.ctaContinue')
+      : t('assignment.ctaStart');
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-4">
-        {/* Left: Content info */}
+    <div
+      className={`os-card w-full min-w-0 p-5 hover:shadow-md transition-shadow motion-reduce:transition-none ${
+        // Submitted cards get a subtle emerald edge so the difference reads
+        // at a glance in a mixed list, without leaning on color alone (the
+        // "Submitted" label + score badge + ghost CTA still carry the
+        // signal for users with reduced color vision).
+        isSubmitted ? 'border-emerald-200/80 bg-emerald-50/30' : ''
+      }`}
+    >
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs font-medium text-indigo-600 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
               {problem_set.subject.name}
             </p>
             {problem_set.is_remedial && (
-              <span className="inline-flex items-center text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                Remedial Practice
-              </span>
+              <Badge tone="attention">{t('assignment.remedialBadge')}</Badge>
             )}
           </div>
-          <h3 className="font-semibold text-gray-900 truncate">
+          <h3 className="font-display font-semibold text-ink-900 truncate">
             {problem_set.title}
           </h3>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {problem_set.chapter.name}
-          </p>
+          <p className="text-sm text-ink-500 mt-0.5">{problem_set.chapter.name}</p>
         </div>
 
-        {/* Right: Score badge */}
         {isSubmitted && score !== null && score !== undefined && (
           <div className="flex-shrink-0">
-            <div className={`text-sm font-semibold rounded-lg px-3 py-1 ${
-              score >= 0.8 ? 'bg-green-100 text-green-700'
-              : score >= 0.5 ? 'bg-yellow-100 text-yellow-700'
-              : 'bg-red-100 text-red-700'
-            }`}>
+            <Badge
+              tone={score >= 0.8 ? 'success' : score >= 0.5 ? 'attention' : 'urgent'}
+              className="px-3 py-1 text-sm"
+            >
               {Math.round(score * 100)}%
-            </div>
+            </Badge>
           </div>
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — uses unlock motif: brand fill on warm ink-100 track */}
       {!isSubmitted && completion > 0 && (
         <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span>Progress</span>
+          <div className="flex items-center justify-between text-xs text-ink-500 mb-1">
+            <span>{t('assignment.progress')}</span>
             <span>{Math.round(completion * 100)}%</span>
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-500 rounded-full transition-all"
+              className="h-full bg-brand-500 rounded-full transition-all motion-reduce:transition-none"
               style={{ width: `${completion * 100}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* Footer: due date + CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
-        <span className={`text-xs ${isOverdue && !isSubmitted ? 'text-red-600 font-medium' : 'text-gray-400'}`}>
-          {isSubmitted ? 'Submitted' : dueDateLabel}
+      <div className="flex min-w-0 flex-col gap-3 mt-4 sm:flex-row sm:items-center sm:justify-between">
+        <span
+          className={`min-w-0 text-xs ${
+            isSubmitted
+              ? 'text-emerald-700 font-medium'
+              : isOverdue
+                ? 'text-rose-600 font-medium'
+                : 'text-ink-400'
+          }`}
+        >
+          {isSubmitted ? submittedLabel : dueDateLabel}
         </span>
-        <button
+        <Button
+          variant={isSubmitted ? 'ghost' : 'brand'}
+          size="sm"
+          className="w-full sm:w-auto"
           onClick={() => navigate(`/student/assignments/${assignment.id}`)}
-          className={`w-full sm:w-auto text-sm font-medium px-4 py-2.5 sm:py-1.5 rounded-lg transition-colors ${ctaStyle}`}
         >
           {cta}
-        </button>
+        </Button>
       </div>
     </div>
   );

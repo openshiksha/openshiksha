@@ -223,18 +223,18 @@ def test_grade_open_response_google_cascade():
 
     mock_result = {
         "text": '{"score": 3, "feedback": "Good", "confidence": 0.8, "criterion_scores": []}',
-        "model": "gemma-4-it",
+        "model": "gemini-2.5-flash",
         "input_tokens": 10,
         "output_tokens": 5,
     }
     with (
         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "", "GOOGLE_AI_API_KEY": "gkey"}, clear=False),
-        patch("openshiksha.apps.ai.llm_client._call_google_gemma", return_value=mock_result) as mock_call,
+        patch("openshiksha.apps.ai.llm_client._call_google_ai_studio", return_value=mock_result) as mock_call,
     ):
         result = llm_client.grade_open_response("Q?", "model", [], "answer", max_marks=5)
     mock_call.assert_called_once()
     assert result["score"] == 3.0
-    assert result["model"] == "gemma-4-it"
+    assert result["model"] == "gemini-2.5-flash"
 
 
 def test_grade_open_response_prompt_includes_rubric():

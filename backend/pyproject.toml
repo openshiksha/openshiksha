@@ -23,7 +23,7 @@ skip = ["migrations", "venv", ".venv"]
 # This section is kept here for documentation purposes only.
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 plugins = ["mypy_django_plugin.main"]
 ignore_missing_imports = true
 warn_unused_ignores = true

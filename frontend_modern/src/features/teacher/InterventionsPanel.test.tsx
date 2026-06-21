@@ -37,7 +37,7 @@ const SUGGESTION: InterventionSuggestion = {
   misconception_labels: [{ label: 'adds numerators and denominators', count: 3 }],
   acknowledged_by: null,
   acknowledged_at: null,
-  model_used: 'stub',
+  model_used: 'test-model',
   generated_at: '2026-06-02T10:00:00Z',
 };
 
@@ -90,6 +90,95 @@ describe('InterventionsPanel', () => {
         status: 'acknowledged',
       })
     );
+  });
+
+  it('labels real LLM strategies as AI-generated', async () => {
+    mockGet.mockResolvedValue({ data: { results: [SUGGESTION] } });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+
+    expect(screen.getByText('✨ AI-generated')).toBeDefined();
+    expect(screen.queryByText('Auto-strategy')).toBeNull();
+  });
+
+  it('labels stub-mode strategies as Auto-strategy with a fallback note', async () => {
+    mockGet.mockResolvedValue({
+      data: { results: [{ ...SUGGESTION, model_used: 'stub' }] },
+    });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+
+    expect(screen.getByText('Auto-strategy')).toBeDefined();
+    expect(screen.getByText(/AI was unavailable/)).toBeDefined();
+    expect(screen.queryByText('✨ AI-generated')).toBeNull();
+  });
+
+  it('surfaces a friendly error when generation fails', async () => {
+    mockGet.mockResolvedValue({ data: { results: [] } });
+    mockPost.mockRejectedValue(new Error('boom'));
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() => expect(screen.getByText(/No struggling students flagged/)).toBeDefined());
+
+    fireEvent.click(screen.getByText('Generate'));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't generate suggestions just now/)).toBeDefined()
+    );
+  });
+
+  it('shows shape-matched skeletons — not the empty state — while the list loads', async () => {
+    let resolveGet!: (value: { data: { results: InterventionSuggestion[] } }) => void;
+    mockGet.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGet = resolve;
+        })
+    );
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/No struggling students flagged/)).toBeNull();
+
+    resolveGet({ data: { results: [SUGGESTION] } });
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+  });
+
+  it('shows an error with retry — not the empty state — when the list fetch fails', async () => {
+    mockGet.mockRejectedValue(new Error('network down'));
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load suggestions just now/)).toBeDefined()
+    );
+    // A failed fetch must not read as "no struggling students in this class".
+    expect(screen.queryByText(/No struggling students flagged/)).toBeNull();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeDefined();
+  });
+
+  it('recovers when retry succeeds after a failed list fetch', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    mockGet.mockResolvedValue({ data: { results: [SUGGESTION] } });
+    renderPanel();
+
+    fireEvent.click(screen.getByText('Intervention Suggestions'));
+    await waitFor(() =>
+      expect(screen.getByText(/Couldn't load suggestions just now/)).toBeDefined()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => expect(screen.getByText('Asha Rao')).toBeDefined());
+    expect(screen.queryByText(/Couldn't load suggestions just now/)).toBeNull();
   });
 
   it('shows an empty state and a Generate action when there are no suggestions', async () => {

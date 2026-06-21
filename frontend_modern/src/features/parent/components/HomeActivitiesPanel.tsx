@@ -1,3 +1,4 @@
+import { Badge } from '@/shared/ui';
 import type { HomeActivity } from '../useParentSummary';
 
 interface Props {
@@ -11,7 +12,7 @@ export const HomeActivitiesPanel = ({ activities }: Props) => {
 
   return (
     <section aria-label="Home Activities" className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+      <h3 className="text-sm font-semibold text-ink-700 uppercase tracking-wide">
         Try this week at home
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -22,18 +23,18 @@ export const HomeActivitiesPanel = ({ activities }: Props) => {
               key={`${activity.title}-${idx}`}
               data-celebrate={celebrate || undefined}
               className={`rounded-xl border p-4 ${
-                celebrate ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'
+                celebrate ? 'border-emerald-200 bg-emerald-50' : 'os-card'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-gray-900">{activity.title}</p>
+                <p className="font-semibold text-ink-900">{activity.title}</p>
                 {activity.chapter_name && (
-                  <span className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+                  <Badge tone="brand" className="shrink-0">
                     {activity.chapter_name}
-                  </span>
+                  </Badge>
                 )}
               </div>
-              <p className="text-sm text-gray-700 mt-2 leading-relaxed">{activity.description}</p>
+              <p className="text-sm text-ink-700 mt-2 leading-relaxed">{activity.description}</p>
             </div>
           );
         })}

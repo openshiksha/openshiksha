@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect } from 'vitest';
+import { I18nProvider } from '@/shared/i18n';
 import { AssignmentList } from './AssignmentList';
 import type { Assignment } from '@/types/index';
 import { addDays, subDays, formatISO } from 'date-fns';
@@ -81,6 +82,23 @@ describe('AssignmentList', () => {
     const assignment = makeAssignment({ due_at: formatISO(addDays(new Date(), 2)) });
     renderWithRouter(<AssignmentList assignments={[assignment]} />);
     expect(screen.getByText(/due soon/i)).toBeDefined();
+  });
+
+  it('renders sections, card labels, and the CTA in Hindi when the locale is hi', async () => {
+    const assignment = makeAssignment({ due_at: formatISO(addDays(new Date(), 7)) });
+    render(
+      <I18nProvider initialLocale="hi">
+        <MemoryRouter>
+          <AssignmentList assignments={[assignment]} />
+        </MemoryRouter>
+      </I18nProvider>,
+    );
+
+    // Hindi dictionary loads via dynamic import — wait for the swap.
+    await waitFor(() => expect(screen.getByText('आने वाले')).toBeDefined());
+    expect(screen.getByRole('button', { name: 'शुरू करें' })).toBeDefined();
+    // Authored content (titles, chapter/subject names) stays as authored.
+    expect(screen.getByText('Chapter 3 Practice Set')).toBeDefined();
   });
 
   it('correctly categorizes multiple assignments into separate sections', () => {

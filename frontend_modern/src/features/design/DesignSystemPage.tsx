@@ -3,8 +3,7 @@ import {
   Button,
   Card,
   Badge,
-  RichContent,
-  InteractiveWidget,
+  AIBadge,
   Skeleton,
   LoadingSpinner,
   Input,
@@ -13,7 +12,11 @@ import {
   Stat,
   SectionHeading,
   EmptyState,
+  ResponsiveTable,
+  type ResponsiveColumn,
 } from '@/shared/ui';
+import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
+import { RichContent } from '@/shared/ui/RichContent';
 
 /**
  * Living catalogue of the V2 "Chalk & Unlock" design system. Every new `ui/`
@@ -49,7 +52,7 @@ const INK_SCALE: Array<[string, string]> = [
 const Section = ({ title, kicker, children }: { title: string; kicker?: string; children: React.ReactNode }) => (
   <section className="animate-fade-up">
     <div className="mb-5">
-      {kicker && <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">{kicker}</p>}
+      {kicker && <p className="text-xs font-semibold uppercase tracking-widest text-brand-700">{kicker}</p>}
       <h2 className="font-display text-2xl font-semibold text-ink-900">{title}</h2>
     </div>
     {children}
@@ -144,6 +147,17 @@ export const DesignSystemPage = () => (
           <Badge tone="attention">Needs practice</Badge>
           <Badge tone="urgent">Sharp drop</Badge>
         </Card>
+        <p className="mt-4 mb-3 text-sm text-ink-500">
+          AI provenance — <code>&lt;AIBadge /&gt;</code> labels every AI surface honestly:
+          brand for genuine LLM output, a neutral <em>Auto-…</em> label when the provider
+          cascade fell back to the deterministic stub.
+        </p>
+        <Card className="flex flex-wrap gap-2">
+          <AIBadge modelUsed="claude-sonnet-4-6" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-summary" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-strategy" />
+          <AIBadge modelUsed="stub" stubLabel="Auto-explanation" />
+        </Card>
       </Section>
 
       <Section kicker="Components" title="Rich content (HTML + LaTeX)">
@@ -206,6 +220,151 @@ export const DesignSystemPage = () => (
         </Card>
       </Section>
 
+      <Section kicker="Interactive Widgets" title="Runtime preview">
+        <p className="mb-3 text-sm text-ink-500">
+          The new <strong>Widgets Framework</strong> path renders a registered
+          widget kind through the SDK runtime — no raw HTML, no jQuery.
+          Contributors write one file at{' '}
+          <code>src/widgets/&lt;kind&gt;/index.ts</code> calling{' '}
+          <code>defineWidget()</code>; the host serialises the render function,
+          inlines it in the sandbox srcdoc, and wraps it with{' '}
+          <code>reportValue</code> / <code>requestResize</code> hooks.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={120}
+            kind="_hello"
+            config={{ kind: '_hello' }}
+          />
+        </Card>
+        <p className="mt-3 text-xs text-ink-400">
+          Try{' '}
+          <code>
+            &lt;InteractiveWidget kind=&quot;not-real&quot; config=&#123;&#123;&#125;&#125; /&gt;
+          </code>{' '}
+          to see the typed-error fallback.
+        </p>
+      </Section>
+
+      <Section kicker="Interactive Widgets" title="function-plotter">
+        <p className="mb-3 text-sm text-ink-500">
+          Plots <code>y = f(x)</code> over a configurable domain. Expression
+          parsed by a tiny in-sandbox recursive-descent evaluator (numbers,
+          identifiers, <code>+ - * / **</code>, function calls — no{' '}
+          <code>eval()</code>, no <code>Function()</code>). Try
+          <code> sin(x) + 0.5*x</code> or <code>x**3 - 4*x</code>.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={300}
+            kind="function-plotter"
+            config={{
+              expr: 'sin(x) + 0.5 * x',
+              xMin: -6,
+              xMax: 6,
+              yMin: -4,
+              yMax: 4,
+              title: 'y = sin(x) + ½x',
+            }}
+          />
+        </Card>
+      </Section>
+
+      <Section kicker="Interactive Widgets" title="fraction-bar">
+        <p className="mb-3 text-sm text-ink-500">
+          Shaded bar showing <code>numerator / denominator</code>. Default mode
+          hides the numerals so the question can ask the student to name the
+          fraction. The <code>labelled</code> mode (right-hand example) shows
+          <code> n/d</code> below the bar for hints and worked solutions.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Card>
+            <InteractiveWidget
+              minHeight={140}
+              kind="fraction-bar"
+              config={{ numerator: 3, denominator: 8, title: 'Bar A (shaded mode)' }}
+            />
+          </Card>
+          <Card>
+            <InteractiveWidget
+              minHeight={160}
+              kind="fraction-bar"
+              config={{ numerator: 5, denominator: 12, mode: 'labelled', title: 'Bar B (labelled)' }}
+            />
+          </Card>
+        </div>
+      </Section>
+
+      <Section kicker="Interactive Widgets" title="number-line">
+        <p className="mb-3 text-sm text-ink-500">
+          The student drags the orange point along the axis (or uses arrow keys
+          / Home / End for keyboard access). Every snap calls{' '}
+          <code>ctx.reportValue(v)</code>; in a real question the host routes
+          that value straight into the submission form, and the existing
+          numeric grader scores it against <code>correct_answer</code>. Try
+          the drag below — open the browser devtools and you'll see the
+          typed <code>value</code> messages on each snap.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={180}
+            kind="number-line"
+            config={{ min: 0, max: 10, step: 1, label: 'Drag to a number between 0 and 10' }}
+            onValue={(v) => {
+              console.log('[number-line showcase] reportValue →', v);
+            }}
+          />
+        </Card>
+      </Section>
+
+      <Section kicker="Interactive Widgets" title="custom-html">
+        <p className="mb-3 text-sm text-ink-500">
+          The last piece of the framework: an admin-only registry kind whose
+          single config field is a raw HTML string. With this in the registry,
+          the legacy <code>interactive_html</code> field is now deprecated —
+          every authoring path on the platform flows through the same
+          sandboxed host. <code>{'<script>'}</code> tags inside the HTML run
+          (the widget re-executes them in document order after innerHTML
+          insertion).
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={140}
+            kind="custom-html"
+            config={{
+              html:
+                '<p style="margin:0 0 8px 0">Authored HTML — the script below runs in the sandbox:</p>' +
+                '<input id="r" type="range" min="0" max="10" value="3" style="width:160px" />' +
+                '<p style="margin:8px 0 0 0">Value: <b id="out">3</b></p>' +
+                '<script>(function(){var r=document.getElementById("r"),' +
+                'o=document.getElementById("out");' +
+                'r.addEventListener("input",function(){o.textContent=r.value;});})();</script>',
+            }}
+          />
+        </Card>
+      </Section>
+
+      <Section kicker="Interactive Widgets" title="thermo-piston">
+        <p className="mb-3 text-sm text-ink-500">
+          A re-implementation of Cabinet question <code>1/1/11/3/44/22</code>
+          (Class-11 Thermodynamics, First Law). Same physics (ΔU = ΔQ − ΔW)
+          and the same slider /
+          piston / readout story as the legacy — but no jQuery, no embedded
+          <code>&lt;script&gt;</code>, no Bootstrap glyphicons. ~280 KB of
+          vendor head dropped; ~3 KB of vanilla SVG took its place. Per-student
+          variables flow through <code>ctx.variables</code> the same way the
+          croupier substitutes them server-side.
+        </p>
+        <Card>
+          <InteractiveWidget
+            minHeight={160}
+            kind="thermo-piston"
+            config={{}}
+            variables={{ k: 80, j: 30 }}
+          />
+        </Card>
+      </Section>
+
       <Section kicker="Components" title="Form inputs">
         <Card className="grid gap-4 sm:grid-cols-2">
           <Input label="Full name" placeholder="Aanya Sharma" />
@@ -236,7 +395,7 @@ export const DesignSystemPage = () => (
 
       <Section kicker="Components" title="Section heading">
         <Card className="space-y-6">
-          <SectionHeading eyebrow="Today" title="Practice queue" description="Pick something to work on right now." action={<a href="#" className="text-sm font-semibold text-brand-700 hover:text-brand-800">View all</a>} />
+          <SectionHeading eyebrow="Today" title="Practice queue" description="Pick something to work on right now." action={<button type="button" className="text-sm font-semibold text-brand-700 hover:text-brand-800">View all</button>} />
           <div className="border-t border-ink-100" />
           <SectionHeading title="Recent activity" />
         </Card>
@@ -251,6 +410,31 @@ export const DesignSystemPage = () => (
           />
           <EmptyState title="No streak yet" description="Answer one question today to start the chain." />
         </div>
+      </Section>
+
+      <Section kicker="Components" title="Responsive table">
+        <Card>
+          <p className="mb-3 text-sm text-ink-500">
+            A real <code>&lt;table&gt;</code> at <code>sm:</code> and up; a stacked
+            label/value card list below it. Resize the viewport to switch.
+          </p>
+          <ResponsiveTable<{ id: number; chapter: string; avg: number; status: string }>
+            aria-label="Demo class health"
+            rows={[
+              { id: 1, chapter: 'Polynomials', avg: 82, status: 'Proficient' },
+              { id: 2, chapter: 'Triangles', avg: 54, status: 'At risk' },
+              { id: 3, chapter: 'Real Numbers', avg: 38, status: 'Struggling' },
+            ]}
+            rowKey={(r) => r.id}
+            columns={
+              [
+                { key: 'chapter', header: 'Chapter', primary: true, cell: (r) => r.chapter },
+                { key: 'avg', header: 'Avg', align: 'right', cell: (r) => `${r.avg}%` },
+                { key: 'status', header: 'Status', align: 'right', cell: (r) => r.status },
+              ] as ResponsiveColumn<{ id: number; chapter: string; avg: number; status: string }>[]
+            }
+          />
+        </Card>
       </Section>
 
       <Section kicker="Components" title="Skeleton (loading)">

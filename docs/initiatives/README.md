@@ -80,10 +80,15 @@ Each `docs/initiatives/<id>.md` contains, in this order:
 
 See [`STATUS.md`](STATUS.md) for the live priority order and headline progress.
 
-- [`2026-design-system-v2.md`](2026-design-system-v2.md) — **V2 "Chalk & Unlock"
-  design overhaul.** Replace the generic blue template with a warm, branded,
-  professional-but-fun design system, page by page, improving the system itself
-  each session.
+The active top initiative is
+[`2026-language-access.md`](2026-language-access.md) (promoted 2026-06-11):
+make the product usable end-to-end in Hindi — i18n foundation, language
+switcher, `preferred_language` on User, UI chrome translation, and wiring the
+already-shipped `language` parameters on AI explanations and parent summaries.
+[`ai-surface-activation.md`](ai-surface-activation.md) closed 2026-06-11.
+[`interactive-widgets-framework.md`](interactive-widgets-framework.md) remains
+paused after IW-8: configure/code widgets are shipped, while Widget Studio is
+deferred pending product validation.
 
 ---
 

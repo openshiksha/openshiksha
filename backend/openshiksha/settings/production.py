@@ -12,6 +12,12 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")  # noqa: F405
 
 # Security Settings
 SECURE_SSL_REDIRECT = True
+# When deployed behind a TLS-terminating ingress (Traefik on k3s, ALB, etc.),
+# Django sees plain HTTP at the socket. It has to trust the proxy's
+# X-Forwarded-Proto header to know the original request was HTTPS, otherwise
+# SECURE_SSL_REDIRECT triggers an infinite redirect loop. Only safe when the
+# ingress strips this header from client input (Traefik does by default).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
@@ -36,7 +42,13 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 # Static files - Use WhiteNoise or CDN in production
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Django 5.1+ removed STATICFILES_STORAGE/DEFAULT_FILE_STORAGE in favour of the
+# STORAGES dict; on Django 6 the old setting is silently ignored, so WhiteNoise's
+# compressed+hashed manifest storage MUST be wired through STORAGES instead.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 # Database - Production database should be managed/replicated
 DATABASES["default"]["CONN_MAX_AGE"] = 600  # noqa: F405

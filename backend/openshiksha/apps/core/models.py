@@ -74,6 +74,18 @@ class User(AbstractUser):
         help_text="If True, the student will not receive assignment due-date reminder emails.",
     )
 
+    # Language Access (i18n) — the durable half of the locale precedence
+    # contract: device localStorage > this field > "en".
+    preferred_language = models.CharField(
+        max_length=8,
+        # LA-9: "mr" (Marathi) is a pilot UI locale — the frontend renders a
+        # growing subset and falls back to English elsewhere. AI-generated
+        # content for unsupported locales also falls back to English (LA-9d).
+        choices=[("en", "English"), ("hi", "Hindi"), ("mr", "Marathi")],
+        default="en",
+        help_text="Preferred UI/content language; follows the user across devices.",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -495,23 +507,46 @@ class QuestionSubpart(models.Model):
     is_interactive = models.BooleanField(
         default=False,
         help_text=(
-            "True when this subpart carries an authored interactive widget "
-            "(embedded <script>/event handlers). The widget HTML lives in "
-            "interactive_html and is rendered ONLY inside a sandboxed iframe "
-            "(M7-11). question_text holds a safe, script-free fallback."
+            "DEPRECATED (IW-7) — paired with interactive_html below. The going-"
+            "forward signal that a subpart carries a widget is widget_kind being "
+            "non-blank; this flag is kept only so the legacy thermo question "
+            "keeps rendering until the migration command stamps it with "
+            "widget_kind='custom-html'. Do not set on new rows."
         ),
     )
     interactive_html = models.TextField(
         blank=True,
         default="",
         help_text=(
-            "Raw authored widget HTML (may contain <script>). SECURITY: stored "
-            "raw on purpose — NEVER render this into the app DOM or via "
-            "dangerouslySetInnerHTML. It is delivered ONLY to a sandboxed "
-            '<iframe sandbox="allow-scripts"> (no allow-same-origin) so the '
-            "script cannot reach app cookies/storage/DOM. {{var}} tokens are "
-            "substituted per student by the serializer; image tokens are "
-            "resolved to absolute URLs at import."
+            "DEPRECATED (IW-7) — raw authored widget HTML, kept as a read-only "
+            "legacy surface until the migration command moves its content into "
+            "widget_kind='custom-html' + widget_config={'html': <this>}. New "
+            "authoring MUST use widget_kind + widget_config; this column will be "
+            "dropped once the legacy thermo row has been migrated. SECURITY "
+            "invariants unchanged while present: stored raw, NEVER rendered into "
+            "the app DOM, delivered ONLY to a sandboxed "
+            '<iframe sandbox="allow-scripts"> (no allow-same-origin).'
+        ),
+    )
+    widget_kind = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=(
+            "Registry key of an interactive widget (e.g. 'thermo-piston', "
+            "'custom-html'). Blank = no widget. The kind-based path is the "
+            "ONE going-forward Widgets Framework contract — the legacy "
+            "interactive_html escape hatch above is deprecated in favour of "
+            "widget_kind='custom-html' + widget_config={'html': ...} (IW-7)."
+        ),
+    )
+    widget_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Per-widget config validated against the kind's params schema. "
+            "May contain {{var}} tokens substituted per student by the "
+            "serializer (IW-3b)."
         ),
     )
 
@@ -660,6 +695,61 @@ class ProblemSet(models.Model):
         return f"{self.title} (Std {self.standard.number}, {self.subject.name}, Ch {self.chapter.name} #{self.number})"
 
 
+class ProblemSetVersion(models.Model):
+    """
+    AIV-7: immutable, deduplicated content version for a ``ProblemSet``.
+
+    Every assignment created (or re-synced) points at one of these rows via
+    ``Assignment.problem_set_version``. Identical content under the same set
+    is stored once — ``unique_together = [problem_set, content_hash]`` plus
+    ``get_or_create_version_for(problem_set)`` enforces dedup.
+
+    Rows are **never mutated** after creation. The grader, the student
+    serializer, the drift check, and the diff/re-sync flow all read
+    ``self.content`` here in preference to the per-assignment
+    ``Assignment.assigned_content`` snapshot kept for backward compatibility.
+    """
+
+    problem_set = models.ForeignKey(
+        "ProblemSet",
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    version_number = models.PositiveIntegerField(
+        help_text="1-based ordinal within the parent set, assigned at creation time.",
+    )
+    content_hash = models.CharField(
+        max_length=64,
+        help_text="sha256 over the canonical (sort_keys) JSON of the questions block. Drives dedup.",
+    )
+    content = models.JSONField(
+        help_text="Frozen snapshot dict — the same shape build_assignment_snapshot() returns.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="problem_set_versions_created",
+        help_text=(
+            "Teacher whose action minted this version (assigned the set, or re-synced "
+            "an assignment). Null for backfilled rows."
+        ),
+    )
+
+    class Meta:
+        db_table = "problem_set_versions"
+        unique_together = [["problem_set", "content_hash"]]
+        ordering = ["problem_set_id", "version_number"]
+        indexes = [
+            models.Index(fields=["problem_set", "-version_number"]),
+        ]
+
+    def __str__(self):
+        return f"{self.problem_set_id}@v{self.version_number}"
+
+
 class Assignment(models.Model):
     """
     An assignment of a ProblemSet to a SubjectRoom.
@@ -716,6 +806,36 @@ class Assignment(models.Model):
         validators=FRACTION_VALIDATOR,
         help_text="Fraction of students who have submitted (0.0–1.0)",
     )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When set, the assignment no longer accepts submissions.",
+    )
+    assigned_content = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Frozen copy of the problem set's questions at assign time. Source "
+            "of truth for grading and rendering this assignment — editing the "
+            "live ProblemSet/Question/Subpart afterwards leaves this snapshot "
+            "untouched. See apps.core.snapshots.build_assignment_snapshot. "
+            "AIV-7: kept for backward compatibility; the canonical content "
+            "source is now ``problem_set_version`` below. New writers populate "
+            "both fields so readers can still fall back when the FK is null."
+        ),
+    )
+    problem_set_version = models.ForeignKey(
+        "ProblemSetVersion",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assignments",
+        help_text=(
+            "AIV-7: the deduplicated, immutable content version this assignment "
+            "pins. Preferred source of truth; falls back to ``assigned_content`` "
+            "when null (legacy rows the backfill couldn't reach)."
+        ),
+    )
 
     class Meta:
         db_table = "assignments"
@@ -726,6 +846,20 @@ class Assignment(models.Model):
 
     def __str__(self):
         return f"Assignment: {self.problem_set.title} → {self.subject_room} (due {self.due_at.date()})"
+
+    @property
+    def is_closed(self) -> bool:
+        return self.closed_at is not None
+
+    @property
+    def status(self) -> str:
+        if self.closed_at is not None:
+            return "closed"
+        from django.utils import timezone
+
+        if self.due_at < timezone.now():
+            return "overdue"
+        return "active"
 
 
 class Submission(models.Model):
@@ -787,6 +921,47 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"Submission: {self.student} → {self.assignment}"
+
+
+class AssignmentSnapshotHistory(models.Model):
+    """
+    AIV-6: one row per superseded snapshot for an assignment.
+
+    Re-sync ("Update this assignment to the latest content") replaces
+    ``Assignment.assigned_content`` with a fresh snapshot of the live
+    ``ProblemSet``. We record the *prior* snapshot here before swapping so the
+    action is reversible — Undo restores the most recent history row.
+
+    Sorted by ``replaced_at`` descending. The newest row is the "undo target";
+    older rows are kept for audit. Nothing reads from history except the undo
+    path; grading and rendering always go through ``Assignment.assigned_content``.
+    """
+
+    assignment = models.ForeignKey(
+        "Assignment",
+        on_delete=models.CASCADE,
+        related_name="snapshot_history",
+    )
+    content = models.JSONField(help_text="The snapshot that was replaced (immutable).")
+    replaced_at = models.DateTimeField(auto_now_add=True)
+    replaced_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assignment_resyncs",
+        help_text="Teacher who triggered the re-sync that displaced this snapshot.",
+    )
+
+    class Meta:
+        db_table = "assignment_snapshot_history"
+        ordering = ["-replaced_at"]
+        indexes = [
+            models.Index(fields=["assignment", "-replaced_at"]),
+        ]
+
+    def __str__(self):
+        return f"Snapshot history for assignment {self.assignment_id} @ {self.replaced_at:%Y-%m-%d %H:%M}"
 
 
 class AssignmentReminder(models.Model):
@@ -948,3 +1123,144 @@ class StudentStreak(models.Model):
                 "updated_at",
             ]
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Interactive Widgets Framework — Tier 2 (Widget Studio) data model
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TeacherWidgetVisibility(models.TextChoices):
+    """Where a teacher-composed widget surfaces in the gallery (IW-9).
+
+    Default ``personal`` keeps a draft author-only; ``school`` shares with the
+    teacher's school once they're happy with it; ``pending_review`` is the
+    queue state the Studio uses when an admin opt-in is required to cross
+    schools (cross-school sharing itself ships later, gated on this state).
+    """
+
+    PERSONAL = "personal", "Personal"
+    SCHOOL = "school", "School"
+    PENDING_REVIEW = "pending_review", "Pending review"
+
+
+class TeacherWidget(models.Model):
+    """A teacher-composed Tier-2 widget (the **Widget Studio** output).
+
+    Model-only slice of IW-9 — DRF endpoints, the serializer, and the scene
+    schema validator land in IW-9 proper (after IW-1 + IW-2). Shipping the
+    table now is a cheap, low-risk migration that unblocks the Studio later
+    without adding a schema change to that PR's diff.
+
+    ``scene`` is the pure-data Studio composition: a list of primitive
+    instances + bindings + simple formula expressions. The runtime
+    *interprets* the scene inside the same sandbox every other widget uses —
+    no ``eval``, no ``Function``, no script string evaluation. ``scene_version``
+    lets a future Studio runtime migrate older scenes without breaking
+    content.
+    """
+
+    name = models.CharField(max_length=200, help_text="Display name of the widget in the teacher gallery.")
+    description = models.TextField(
+        blank=True, default="", help_text="Optional one-paragraph blurb for the gallery card."
+    )
+    school = models.ForeignKey(
+        "School",
+        on_delete=models.CASCADE,
+        related_name="teacher_widgets",
+        null=True,
+        blank=True,
+        help_text="Owning school (null for personal widgets authored by an open / unaffiliated teacher).",
+    )
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.PROTECT,
+        related_name="teacher_widgets_authored",
+        limit_choices_to={"role": UserRole.TEACHER},
+        help_text="Teacher who composed this widget.",
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=TeacherWidgetVisibility.choices,
+        default=TeacherWidgetVisibility.PERSONAL,
+        help_text="Gallery visibility — see TeacherWidgetVisibility for the state machine.",
+    )
+    scene_version = models.PositiveIntegerField(
+        default=1,
+        help_text=(
+            "Scene-schema version this widget was authored against. A future Studio "
+            "runtime uses this to migrate older scenes on read."
+        ),
+    )
+    scene = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Pure-data Studio composition: {primitives: [...], bindings: [...], formulas: [...]}. "
+            "Interpreted by the runtime — never eval'd."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teacher_widgets"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["school", "visibility"]),
+            models.Index(fields=["created_by", "updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.visibility})"
+
+
+class PushSubscription(models.Model):
+    """
+    A Web Push subscription for a user's browser / installed PWA.
+
+    Persists the W3C Push API ``PushSubscription`` so the backend can deliver
+    notifications (due-date reminders) to a student's home-screen install even
+    when the app is closed — the mobile-native channel that complements email
+    (see docs/initiatives/2026-mobile-shell-pwa-offline.md, web-push phase).
+
+    One row per browser endpoint. ``endpoint`` is unique so re-subscribing from
+    the same browser upserts rather than duplicating. Stale endpoints (a 404/410
+    from the push service) are pruned by ``core.push.send_web_push``.
+    """
+
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+        help_text="Owner of this browser subscription.",
+    )
+    endpoint = models.URLField(
+        max_length=512,
+        unique=True,
+        help_text="Push service endpoint URL (unique per browser).",
+    )
+    p256dh = models.CharField(
+        max_length=255,
+        help_text="Client public key (keys.p256dh) for payload encryption.",
+    )
+    auth = models.CharField(
+        max_length=255,
+        help_text="Client auth secret (keys.auth) for payload encryption.",
+    )
+    user_agent = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="User agent at subscribe time (diagnostics only).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "push_subscriptions"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"PushSubscription(user={self.user_id}, endpoint={self.endpoint[:40]}…)"

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Logo, Button } from '@/shared/ui';
+import { useT, LanguageSwitcher } from '@/shared/i18n';
 import { useLoginMutation } from './useLoginMutation';
 
 export const LoginPage = () => {
   const { isAuthenticated, user } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const t = useT();
 
   const loginMutation = useLoginMutation();
 
@@ -30,33 +32,37 @@ export const LoginPage = () => {
         </Link>
         <div className="max-w-md">
           <h2 className="font-display text-4xl font-semibold leading-tight text-white text-balance">
-            Unlock learning, one question at a time.
+            {t('auth.heroHeadline')}
           </h2>
-          <p className="mt-4 text-ink-200">
-            Adaptive practice, instant correction, and analytics that show every
-            student exactly what to learn next.
-          </p>
+          <p className="mt-4 text-ink-200">{t('auth.heroSubtext')}</p>
         </div>
-        <p className="text-sm text-ink-300">Non-profit · CBSE · English &amp; हिन्दी</p>
+        <p className="text-sm text-ink-300">{t('auth.heroFootnote')}</p>
       </div>
 
       {/* ── Form panel (paper) ─────────────────────────────────────────── */}
       <div className="bg-paper flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm animate-fade-up">
-          {/* Compact brand for mobile (brand panel is hidden) */}
-          <div className="mb-8 lg:hidden">
-            <Link to="/" aria-label="OpenShiksha home" className="inline-block">
+          {/* Compact brand for mobile (brand panel is hidden) + language toggle */}
+          <div className="mb-8 flex items-start justify-between">
+            <Link
+              to="/"
+              aria-label="OpenShiksha home"
+              className="inline-block lg:hidden"
+            >
               <Logo size="md" />
             </Link>
+            <LanguageSwitcher className="ml-auto" />
           </div>
 
-          <h1 className="font-display text-3xl font-semibold text-ink-900">Welcome back</h1>
-          <p className="mt-1 text-ink-500">Sign in to continue learning.</p>
+          <h1 className="font-display text-3xl font-semibold text-ink-900">
+            {t('login.title')}
+          </h1>
+          <p className="mt-1 text-ink-500">{t('login.subtitle')}</p>
 
           <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5">
             <div>
               <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-ink-700">
-                Username
+                {t('login.username')}
               </label>
               <input
                 id="username"
@@ -66,14 +72,14 @@ export const LoginPage = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="input-brand"
-                placeholder="Enter your username"
+                placeholder={t('login.usernamePlaceholder')}
                 disabled={loginMutation.isPending}
               />
             </div>
 
             <div>
               <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-ink-700">
-                Password
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -83,14 +89,14 @@ export const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-brand"
-                placeholder="Enter your password"
+                placeholder={t('login.passwordPlaceholder')}
                 disabled={loginMutation.isPending}
               />
             </div>
 
             {loginMutation.isError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-                Invalid username or password. Please try again.
+                {t('login.error')}
               </div>
             )}
 
@@ -100,21 +106,21 @@ export const LoginPage = () => {
               disabled={loginMutation.isPending || !username || !password}
               className="w-full"
             >
-              {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
+              {loginMutation.isPending ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
 
           <div className="mt-8 space-y-2 text-sm text-ink-500">
             <p>
-              Don&apos;t have an account?{' '}
+              {t('login.noAccount')}{' '}
               <Link to="/register" className="font-semibold text-brand-700 hover:text-brand-800">
-                Register
+                {t('login.registerLink')}
               </Link>
             </p>
             <p>
-              Are you a school?{' '}
+              {t('login.schoolQuestion')}{' '}
               <Link to="/enquire" className="font-semibold text-brand-700 hover:text-brand-800">
-                Enquire about OpenShiksha
+                {t('login.enquireLink')}
               </Link>
             </p>
           </div>

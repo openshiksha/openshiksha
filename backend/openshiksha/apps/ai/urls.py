@@ -17,11 +17,13 @@ from .views import (
     ParentProgressSummaryViewSet,
     PerformancePredictionViewSet,
     PracticePlanViewSet,
+    QuestionDifficultyCalibrationViewSet,
     SpacedRepetitionViewSet,
     StudentMasteryViewSet,
     StudentMisconceptionViewSet,
     SubpartExplanationViewSet,
     WeeklyClassReportViewSet,
+    WidgetAuthoringViewSet,
 )
 
 router = DefaultRouter()
@@ -43,6 +45,8 @@ router.register("learning-paths", LearningPathViewSet, basename="learning-path")
 router.register("explanations", SubpartExplanationViewSet, basename="explanation")
 # AI Question Generation (teacher-only)
 router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
+# Describe-to-Build — AI Widget Authoring (teacher-only)
+router.register("widget-authoring", WidgetAuthoringViewSet, basename="widget-authoring")
 # Teacher AI Assistant — Weekly Class Reports (teacher-only)
 router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
 # Intelligent Hint System
@@ -58,5 +62,11 @@ router.register("open-rubrics", OpenResponseRubricViewSet, basename="open-respon
 router.register("open-grades", OpenResponseGradeViewSet, basename="open-response-grade")
 # Teacher AI Assistant — Intervention Suggestions (teacher-only)
 router.register("interventions", InterventionSuggestionViewSet, basename="intervention-suggestion")
+# Empirical Question Difficulty Calibration (teacher-only)
+router.register(
+    "difficulty-calibrations",
+    QuestionDifficultyCalibrationViewSet,
+    basename="difficulty-calibration",
+)
 
 urlpatterns = router.urls

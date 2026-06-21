@@ -1,3 +1,4 @@
+import { AIBadge, isAIStub } from '@/shared/ui';
 import type { ParentProgressSummary } from '../useParentSummary';
 
 interface Props {
@@ -13,40 +14,45 @@ const formatDate = (iso: string): string => {
 };
 
 const StatTile = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-lg bg-gray-50 px-3 py-2">
-    <p className="text-xs text-gray-500 font-medium">{label}</p>
-    <p className="text-base font-semibold text-gray-900 mt-0.5">{value}</p>
+  <div className="rounded-lg bg-ink-50 px-3 py-2">
+    <p className="text-xs text-ink-500 font-medium">{label}</p>
+    <p className="text-base font-semibold text-ink-900 mt-0.5">{value}</p>
   </div>
 );
 
 export const NarrativeCard = ({ summary }: Props) => {
   const weekRange = `${formatDate(summary.week_start)} – ${formatDate(summary.week_end)}`;
+  const isStub = isAIStub(summary.model_used);
   const deltaPct = Math.round(summary.score_delta * 100);
   const deltaSign = summary.score_delta > 0 ? '+' : '';
   const deltaColor =
     summary.score_delta > 0.01
       ? 'text-emerald-700 bg-emerald-50'
       : summary.score_delta < -0.01
-        ? 'text-red-700 bg-red-50'
-        : 'text-gray-700 bg-gray-100';
+        ? 'text-rose-700 bg-rose-50'
+        : 'text-ink-700 bg-ink-100';
 
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+    <article className="os-card p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-xs uppercase tracking-wide text-gray-500 font-medium">
+          <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
             Weekly summary · {summary.child_name}
           </p>
-          <p className="text-sm text-gray-500 mt-1">{weekRange}</p>
+          <p className="text-sm text-ink-500 mt-1">{weekRange}</p>
         </div>
-        <span className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
-          {summary.model_used}
-        </span>
+        <AIBadge modelUsed={summary.model_used} stubLabel="Auto-summary" />
       </div>
 
-      <p className="mt-4 text-gray-800 leading-relaxed whitespace-pre-line">
+      <p className="mt-4 text-ink-800 leading-relaxed whitespace-pre-line">
         {summary.summary_text}
       </p>
+      {isStub && (
+        <p className="mt-2 text-xs text-ink-400">
+          AI was unavailable, so this summary was built directly from your child's
+          practice data.
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile label="Questions" value={String(summary.ticks_recorded)} />

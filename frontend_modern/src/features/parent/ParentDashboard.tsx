@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useChildren } from './useChildren';
 import { useChildProficiency } from './useChildProficiency';
 import { useChildAssignments } from './useChildAssignments';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { Badge, Card, EmptyState, LoadingSpinner, SectionHeading } from '@/shared/ui';
+import { useI18n, useT } from '@/shared/i18n';
 import type { User, StudentProficiency, Assignment } from '@/types/index';
 
 interface SubjectGroup {
@@ -25,29 +26,33 @@ const groupBySubject = (records: StudentProficiency[]): SubjectGroup[] => {
 };
 
 const ProficiencyBar = ({ record }: { record: StudentProficiency }) => {
+  const t = useT();
   const pct = Math.round(record.score * 100);
-  const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-red-400';
+  const barColor = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-400' : 'bg-rose-400';
 
   return (
     <div className="py-2.5">
       <div className="flex items-baseline justify-between gap-2 mb-1">
-        <span className="text-sm font-medium text-gray-800 truncate">{record.tag_name}</span>
-        <span className="text-sm font-semibold text-gray-700 shrink-0">{pct}%</span>
+        <span className="text-sm font-medium text-ink-800 truncate">{record.tag_name}</span>
+        <span className="text-sm font-semibold text-ink-700 shrink-0">{pct}%</span>
       </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-300 motion-reduce:transition-none ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-gray-400 mt-1">
-        {record.tick_count} question{record.tick_count !== 1 ? 's' : ''} practised
+      <p className="text-xs text-ink-400 mt-1">
+        {t(record.tick_count === 1 ? 'parent.questionsPractisedOne' : 'parent.questionsPractisedMany', {
+          count: record.tick_count,
+        })}
       </p>
     </div>
   );
 };
 
 const ChildView = ({ child }: { child: User }) => {
+  const t = useT();
   const { data: records, isLoading } = useChildProficiency(child.id);
 
   if (isLoading) {
@@ -60,12 +65,10 @@ const ChildView = ({ child }: { child: User }) => {
 
   if (!records || records.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-        <p className="text-gray-500 font-medium">No progress yet</p>
-        <p className="text-sm text-gray-400 mt-1">
-          {child.first_name || child.username} hasn't submitted any assignments yet.
-        </p>
-      </div>
+      <EmptyState
+        title={t('parent.noProgressTitle')}
+        description={t('parent.noProgressDescription', { name: child.first_name || child.username })}
+      />
     );
   }
 
@@ -74,41 +77,37 @@ const ChildView = ({ child }: { child: User }) => {
   return (
     <div className="space-y-5">
       {groups.map((group) => (
-        <div
-          key={`${group.subjectName}|${group.classroomDisplay}`}
-          className="bg-white rounded-xl border border-gray-200 p-5"
-        >
+        <Card key={`${group.subjectName}|${group.classroomDisplay}`} className="p-5">
           <div className="mb-4">
-            <h3 className="font-semibold text-gray-900">{group.subjectName}</h3>
-            <p className="text-sm text-gray-500">{group.classroomDisplay}</p>
+            <h3 className="font-display font-semibold text-ink-900">{group.subjectName}</h3>
+            <p className="text-sm text-ink-500">{group.classroomDisplay}</p>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-ink-100">
             {group.records.map((r) => (
               <ProficiencyBar key={r.id} record={r} />
             ))}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
 };
 
-const AssignmentStatusBadge = ({ status }: { status: Assignment['child_submission_status'] }) => {
-  if (status === 'submitted') {
-    return (
-      <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
-        Submitted
-      </span>
-    );
-  }
-  return (
-    <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
-      Pending
-    </span>
-  );
+const AssignmentStatusBadge = ({
+  status,
+  isOverdue,
+}: {
+  status: Assignment['child_submission_status'];
+  isOverdue: boolean;
+}) => {
+  const t = useT();
+  if (status === 'submitted') return <Badge tone="success">{t('parent.statusSubmitted')}</Badge>;
+  if (isOverdue) return <Badge tone="urgent">{t('parent.statusOverdue')}</Badge>;
+  return <Badge tone="attention">{t('parent.statusPending')}</Badge>;
 };
 
 const ChildAssignmentsView = ({ child }: { child: User }) => {
+  const { t, locale } = useI18n();
   const { data: assignments, isLoading } = useChildAssignments(child.id);
 
   if (isLoading) {
@@ -121,12 +120,10 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
 
   if (!assignments || assignments.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-        <p className="text-gray-500 font-medium">No assignments yet</p>
-        <p className="text-sm text-gray-400 mt-1">
-          Assignments will appear here once the teacher creates them.
-        </p>
-      </div>
+      <EmptyState
+        title={t('assignments.emptyTitle')}
+        description={t('parent.noAssignmentsDescription')}
+      />
     );
   }
 
@@ -141,30 +138,31 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
         const dueDate = new Date(a.due_at);
         const isOverdue = dueDate < now;
         const isSubmitted = a.child_submission_status === 'submitted';
-        const dueFmt = dueDate.toLocaleDateString('en-IN', {
+        const dueFmt = dueDate.toLocaleDateString(locale === 'hi' ? 'hi-IN' : 'en-IN', {
           day: 'numeric',
           month: 'short',
           year: 'numeric',
         });
 
         return (
-          <div key={a.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+          <Card key={a.id} className="p-4 hover:shadow-xs transition-shadow motion-reduce:transition-none">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{a.problem_set.title}</p>
-                <p className="text-sm text-gray-500 mt-0.5">{a.subject_room_display}</p>
+                <p className="font-semibold text-ink-900 truncate">{a.problem_set.title}</p>
+                <p className="text-sm text-ink-500 mt-0.5">{a.subject_room_display}</p>
               </div>
-              <AssignmentStatusBadge status={a.child_submission_status} />
+              <AssignmentStatusBadge status={a.child_submission_status} isOverdue={isOverdue && !isSubmitted} />
             </div>
             <p
               className={`text-xs mt-2 ${
-                isOverdue && !isSubmitted ? 'text-red-500 font-medium' : 'text-gray-400'
+                isOverdue && !isSubmitted ? 'text-rose-600 font-medium' : 'text-ink-400'
               }`}
             >
-              {isOverdue && !isSubmitted ? 'Overdue — ' : 'Due '}
-              {dueFmt}
+              {isOverdue && !isSubmitted
+                ? t('parent.overdueOn', { date: dueFmt })
+                : t('parent.dueOn', { date: dueFmt })}
             </p>
-          </div>
+          </Card>
         );
       })}
     </div>
@@ -172,6 +170,7 @@ const ChildAssignmentsView = ({ child }: { child: User }) => {
 };
 
 export const ParentDashboard = () => {
+  const t = useT();
   const { data: children, isLoading } = useChildren();
   const [selectedChildId, setSelectedChildId] = useState<number | undefined>();
   const [activeTab, setActiveTab] = useState<'progress' | 'assignments'>('progress');
@@ -190,23 +189,23 @@ export const ParentDashboard = () => {
   if (!children || children.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Parent Dashboard</h1>
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-gray-500 font-medium">No children linked to your account</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Ask the school admin to link your children's accounts.
-          </p>
-        </div>
+        <SectionHeading as="h1" title={t('parent.title')} className="mb-6" />
+        <EmptyState
+          title={t('parent.noChildrenTitle')}
+          description={t('parent.noChildrenDescription')}
+        />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Parent Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Monitor your children's learning progress.</p>
-      </div>
+      <SectionHeading
+        as="h1"
+        title={t('parent.title')}
+        description={t('parent.description')}
+        className="mb-6"
+      />
 
       {children.length > 1 && (
         <div className="flex gap-2 flex-wrap mb-6">
@@ -214,15 +213,17 @@ export const ParentDashboard = () => {
             <button
               key={child.id}
               onClick={() => setSelectedChildId(child.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
                 child.id === effectiveChildId
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-white border border-ink-200 text-ink-700 hover:bg-brand-50'
               }`}
             >
               {child.first_name || child.username}
               {child.grade != null && (
-                <span className="ml-1 opacity-70">Gr.{child.grade}</span>
+                <span className="ml-1 opacity-70">
+                  {t('parent.gradeShort', { grade: child.grade })}
+                </span>
               )}
             </button>
           ))}
@@ -233,34 +234,36 @@ export const ParentDashboard = () => {
         <>
           <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">
-                {selectedChild.first_name || selectedChild.username}'s Overview
+              <h2 className="text-lg font-display font-semibold text-ink-800">
+                {t('parent.overview', { name: selectedChild.first_name || selectedChild.username })}
               </h2>
               {selectedChild.grade != null && (
-                <p className="text-sm text-gray-500">Grade {selectedChild.grade}</p>
+                <p className="text-sm text-ink-500">
+                  {t('parent.grade', { grade: selectedChild.grade })}
+                </p>
               )}
             </div>
             <Link
               to={`/parent/insights/${selectedChild.id}`}
-              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
-              View Insights →
+              {t('parent.viewInsights')}
             </Link>
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex gap-1 mb-6 border-b border-gray-200">
+          {/* Tab switcher with chalk underline */}
+          <div className="flex gap-1 mb-6 border-b border-ink-200">
             {(['progress', 'assignments'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 ${
                   activeTab === tab
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-brand-600 text-brand-700 chalk-underline'
+                    : 'border-transparent text-ink-500 hover:text-ink-700'
                 }`}
               >
-                {tab === 'progress' ? 'Progress' : 'Assignments'}
+                {tab === 'progress' ? t('parent.tabProgress') : t('parent.tabAssignments')}
               </button>
             ))}
           </div>

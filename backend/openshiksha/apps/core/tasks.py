@@ -45,59 +45,129 @@ def grade_submission(self, submission_id: int) -> dict:
         return {"error": "Submission not found"}
 
     answers = submission.answers  # {str(subpart_id): answer_value}
-    problem_set = submission.assignment.problem_set
-    subject_room = submission.assignment.subject_room
+    assignment = submission.assignment
+    problem_set = assignment.problem_set
+    subject_room = assignment.subject_room
+    # AIV-7: route through resolve_assignment_content so the grader reads the
+    # ProblemSetVersion FK when set and falls back to assigned_content when not.
+    from openshiksha.apps.core.snapshots import resolve_assignment_content
 
-    # Load all subparts for this problem set's questions in one query
-    question_ids = list(problem_set.questions.values_list("id", flat=True))
-    subparts = list(
-        QuestionSubpart.objects.filter(question__in=question_ids)
-        .select_related("question")
-        .order_by("question_id", "index")
-    )
+    snapshot = resolve_assignment_content(assignment)
 
-    # Group subpart counts per question for SubjectRoomQuestionMistake
-    subpart_count_by_question: dict[int, int] = {}
-    for sp in subparts:
-        subpart_count_by_question[sp.question_id] = subpart_count_by_question.get(sp.question_id, 0) + 1
+    # AIV-2a: prefer the per-assignment snapshot — it pins the exact
+    # correct_answer/subpart_type/variable_constraints the student was given,
+    # so editing the live ProblemSet/Question afterwards cannot retroactively
+    # re-grade past work. Fall back to the live set only for legacy rows the
+    # 0023 backfill couldn't reach (defensive; should be unreachable in prod).
+    if snapshot and snapshot.get("questions"):
+        # Snapshot path. Tick still FKs the live QuestionSubpart row (we need a
+        # row to point at and the subpart_id is preserved in the snapshot), but
+        # the *grading inputs* come from the frozen copy.
+        snap_subparts: list[dict] = []
+        for q in snapshot["questions"]:
+            for sp in q.get("subparts") or []:
+                snap_subparts.append({"question_id": q["question_id"], **sp})
 
-    total_subparts = len(subparts)
-    attempted = 0
-    total_mark = 0.0
-    ticks_to_create = []
+        live_subpart_ids = [s["subpart_id"] for s in snap_subparts]
+        live_by_id = {
+            sp.id: sp for sp in QuestionSubpart.objects.filter(id__in=live_subpart_ids).select_related("question")
+        }
 
-    student_id = submission.student_id
+        subpart_count_by_question: dict[int, int] = {}
+        for s in snap_subparts:
+            qid = s["question_id"]
+            subpart_count_by_question[qid] = subpart_count_by_question.get(qid, 0) + 1
 
-    for subpart in subparts:
-        answer_key = str(subpart.id)
-        if answer_key not in answers:
-            continue
+        total_subparts = len(snap_subparts)
+        attempted = 0
+        total_mark = 0.0
+        ticks_to_create = []
+        student_id = submission.student_id
 
-        attempted += 1
-        student_answer = answers[answer_key]
-        # M7-03: grade on the per-subpart type, falling back to the question
-        # type for hand-authored rows that predate subpart_type.
-        grading_type = subpart.subpart_type or subpart.question.question_type
-        mark = _grade_subpart(
-            grading_type,
-            student_answer,
-            subpart.correct_answer,
-            student_id=student_id,
-            subpart_id=subpart.id,
-            original_options=subpart.options,
-            variable_constraints=subpart.variable_constraints,
-        )
-        total_mark += mark
+        for s in snap_subparts:
+            sp_id = s["subpart_id"]
+            answer_key = str(sp_id)
+            if answer_key not in answers:
+                continue
+            live_sp = live_by_id.get(sp_id)
+            if live_sp is None:
+                # Subpart was deleted post-assign. We still graded it as
+                # 0 (attempted but no FK target) to keep totals consistent.
+                attempted += 1
+                continue
 
-        ticks_to_create.append(
-            Tick(
-                student=submission.student,
-                question_subpart=subpart,
-                submission=submission,
-                subject_room=subject_room,
-                mark=mark,
+            attempted += 1
+            student_answer = answers[answer_key]
+            # M7-03: snapshot subpart_type falls back to the live question
+            # type for hand-authored rows that predate subpart_type.
+            grading_type = s.get("subpart_type") or live_sp.question.question_type
+            mark = _grade_subpart(
+                grading_type,
+                student_answer,
+                s.get("correct_answer") or {},
+                student_id=student_id,
+                subpart_id=sp_id,
+                original_options=s.get("options"),
+                variable_constraints=s.get("variable_constraints"),
             )
+            total_mark += mark
+
+            ticks_to_create.append(
+                Tick(
+                    student=submission.student,
+                    question_subpart=live_sp,
+                    submission=submission,
+                    subject_room=subject_room,
+                    mark=mark,
+                )
+            )
+    else:
+        # Legacy / no-snapshot fallback — graded against the live set.
+        question_ids = list(problem_set.questions.values_list("id", flat=True))
+        subparts = list(
+            QuestionSubpart.objects.filter(question__in=question_ids)
+            .select_related("question")
+            .order_by("question_id", "index")
         )
+
+        subpart_count_by_question = {}
+        for sp in subparts:
+            subpart_count_by_question[sp.question_id] = subpart_count_by_question.get(sp.question_id, 0) + 1
+
+        total_subparts = len(subparts)
+        attempted = 0
+        total_mark = 0.0
+        ticks_to_create = []
+        student_id = submission.student_id
+
+        for subpart in subparts:
+            answer_key = str(subpart.id)
+            if answer_key not in answers:
+                continue
+
+            attempted += 1
+            student_answer = answers[answer_key]
+            grading_type = subpart.subpart_type or subpart.question.question_type
+            mark = _grade_subpart(
+                grading_type,
+                student_answer,
+                subpart.correct_answer,
+                student_id=student_id,
+                subpart_id=subpart.id,
+                original_options=subpart.options,
+                variable_constraints=subpart.variable_constraints,
+            )
+            total_mark += mark
+
+            ticks_to_create.append(
+                Tick(
+                    student=submission.student,
+                    question_subpart=subpart,
+                    submission=submission,
+                    subject_room=subject_room,
+                    mark=mark,
+                )
+            )
 
     # Bulk-create all ticks in one DB round trip
     created_ticks = Tick.objects.bulk_create(ticks_to_create)
@@ -382,8 +452,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
 
     from django.utils import timezone
 
-    from openshiksha.apps.core.emails import notify_due_date_reminder
-    from openshiksha.apps.core.models import Assignment, AssignmentReminder, Submission, UserRole
+    from openshiksha.apps.core.emails import build_due_reminder_push, notify_due_date_reminder
+    from openshiksha.apps.core.models import (
+        Assignment,
+        AssignmentReminder,
+        PushSubscription,
+        Submission,
+        UserRole,
+    )
+    from openshiksha.apps.core.push import send_web_push
 
     now = timezone.now()
     window_end = now + timedelta(hours=window_hours)
@@ -423,6 +500,9 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
         reminded_ids = set(
             AssignmentReminder.objects.filter(assignment=assignment).values_list("student_id", flat=True)
         )
+        # Students with at least one Web Push subscription (MPN-5). Push reaches
+        # a home-screen PWA install even when the student has no email on file.
+        push_user_ids = set(PushSubscription.objects.filter(user__in=students).values_list("user_id", flat=True))
 
         due_str = timezone.localtime(assignment.due_at).strftime("on %B %d at %I:%M %p")
 
@@ -432,7 +512,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
             if student.id in submitted_ids or student.id in reminded_ids:
                 stats["skipped"] += 1
                 continue
-            if student.email_reminders_opt_out or not student.email:
+            # A single opt-out governs both channels (email + push) for v1.
+            if student.email_reminders_opt_out:
+                stats["skipped"] += 1
+                continue
+
+            has_email = bool(student.email)
+            has_push = student.id in push_user_ids
+            if not has_email and not has_push:
+                # No deliverable channel — don't burn the idempotency row.
                 stats["skipped"] += 1
                 continue
 
@@ -442,7 +530,15 @@ def send_due_date_reminders(window_hours: int = 24) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            if has_email:
+                notify_due_date_reminder(student, assignment.problem_set.title, due_str)
+            if has_push:
+                # send_web_push never raises into the task; email is the source
+                # of truth and must not fail because a push endpoint is dead.
+                payload = build_due_reminder_push(student, assignment.problem_set.title, due_str)
+                payload["url"] = f"/student/assignments/{assignment.id}"
+                payload["tag"] = f"assignment-{assignment.id}"
+                send_web_push(student, payload)
             stats["reminded"] += 1
 
     logger.info(
@@ -531,12 +627,20 @@ def _create_remedial_assignment(submission_id: int) -> None:
     remedial_ps.questions.set(wrong_question_ids)
 
     due = timezone.now() + timedelta(days=3)
+    # AIV-1: snapshot remedial content at creation time so the grader and
+    # student renderer read from the frozen copy, not the live remedial set.
+    # AIV-7: also pin a deduplicated ProblemSetVersion FK.
+    from openshiksha.apps.core.snapshots import build_assignment_snapshot, get_or_create_version_for
+
+    version, _ = get_or_create_version_for(remedial_ps, created_by=orig.assigned_by)
     Assignment.objects.create(
         problem_set=remedial_ps,
         subject_room=orig.subject_room,
         assigned_by=orig.assigned_by,
         due_at=due,
         target_student=submission.student,
+        assigned_content=build_assignment_snapshot(remedial_ps),
+        problem_set_version=version,
     )
 
     # Email student about the new remedial assignment

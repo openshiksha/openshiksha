@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openshiksha-qa
+
+resources:
+  - ../../base
+
+# CI rewrites these to point at the digest just pushed, so a rollout actually
+# picks up the new code rather than re-pulling a stale `:qa` tag.
+images:
+  - name: ghcr.io/openshiksha/openshiksha-backend
+    newTag: qa
+  - name: ghcr.io/openshiksha/openshiksha-frontend
+    newTag: qa
+
+patches:
+  - path: configmap-patch.yaml
+  - path: ingress-patch.yaml

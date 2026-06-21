@@ -1,0 +1,35 @@
+name: Dependency Review
+# Scans a PR's dependency diff for newly-introduced packages with known CVEs
+# or disallowed licenses. Complements the `security` (pip-audit) and
+# `frontend` (npm audit) jobs in ci-cd.yaml — those audit the committed
+# lockfile on every push; this one gates on what a PR is *adding* before it
+# lands. This lives in its own workflow because the action requires the
+# `pull_request` event, while ci-cd.yaml is push-triggered.
+
+on:
+    pull_request:
+        branches:
+            - modernization
+            - qa
+            - prod
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    dependency-review:
+        name: Dependency Review
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Dependency Review
+              uses: actions/dependency-review-action@v4
+              with:
+                fail-on-severity: high
+                # Mirror the ignores in the `security` job (ci-cd.yaml):
+                # - GHSA-grgv-6hw6-v9g4: twisted, fix only in 26.4.0rc2.
+                # - PYSEC-2025-183 has no GHSA mapping; pip-audit handles it.
+                allow-ghsas: GHSA-grgv-6hw6-v9g4
+                comment-summary-in-pr: on-failure

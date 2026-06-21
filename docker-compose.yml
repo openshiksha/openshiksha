@@ -45,7 +45,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: openshiksha-backend
-    command: python manage.py runserver 0.0.0.0:8000
+    # Migrate before serving — otherwise the DB silently drifts behind new
+    # migrations and requests blow up mid-flight (e.g. "relation
+    # problem_set_versions does not exist" when publishing an assignment).
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
       - backend_static:/app/staticfiles

@@ -18,7 +18,7 @@ django-celery-beat==2.9.0
 django-celery-results==2.6.0
 
 # Web Push notifications (VAPID) — mobile-native due-date reminders
-pywebpush==2.0.3
+pywebpush==2.3.0
 
 # WebSockets (Real-time features)
 channels==4.3.2

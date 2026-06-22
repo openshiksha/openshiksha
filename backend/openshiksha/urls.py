@@ -60,8 +60,13 @@ admin.site.site_header = "OpenShiksha Administration"
 admin.site.site_title = "OpenShiksha Admin"
 admin.site.index_title = "Welcome to OpenShiksha Admin Portal"
 
+
 # Restrict the Django admin to platform SUPERUSERS only. By default any
 # is_staff user can reach it — but the "admin" role (school admins) are is_staff
 # and must NOT, they use the in-app /admin dashboard. Overriding has_permission
 # blocks login/access at the door for non-superusers.
-admin.site.has_permission = lambda request: bool(request.user and request.user.is_active and request.user.is_superuser)
+def _admin_superuser_only(request) -> bool:
+    return bool(request.user and request.user.is_active and request.user.is_superuser)
+
+
+admin.site.has_permission = _admin_superuser_only  # type: ignore[method-assign]

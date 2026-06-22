@@ -50,6 +50,13 @@ CACHES = {
     }
 }
 
+# Disable API rate limiting in the suite — tests fire many requests and the
+# throttle cache would otherwise accumulate and cause spurious 429s. The throttle
+# behaviour itself is covered by apps/api/tests/test_throttling.py, which
+# re-enables it via override_settings.
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {}  # noqa: F405
+
 
 # Suppress migration output during tests
 class DisableMigrations:

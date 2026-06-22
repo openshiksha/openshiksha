@@ -144,6 +144,21 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "openshiksha.apps.api.exceptions.custom_exception_handler",
+    # Rate limiting (cache-backed; Redis in prod). Baseline anon/user limits on
+    # every endpoint, plus tighter per-path limits on login/register (brute force)
+    # and AI (paid LLM calls). See apps/api/throttling.py. Tests disable these
+    # (settings/test.py) to stay fast and deterministic.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "openshiksha.apps.api.throttling.PathScopedThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("THROTTLE_ANON", "60/min"),
+        "user": os.getenv("THROTTLE_USER", "300/min"),
+        "login": os.getenv("THROTTLE_LOGIN", "10/min"),
+        "ai": os.getenv("THROTTLE_AI", "30/min"),
+    },
 }
 
 # JWT Configuration

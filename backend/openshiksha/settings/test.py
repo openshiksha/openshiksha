@@ -50,12 +50,18 @@ CACHES = {
     }
 }
 
-# Disable API rate limiting in the suite — tests fire many requests and the
-# throttle cache would otherwise accumulate and cause spurious 429s. The throttle
-# behaviour itself is covered by apps/api/tests/test_throttling.py, which
-# re-enables it via override_settings.
-REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
-REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {}  # noqa: F405
+# Neutralise API rate limiting in the suite. We keep the throttle CLASSES bound
+# (DRF binds them to the views at import time, so emptying the list here would
+# make throttling untestable — override_settings can't re-attach them later), but
+# set every rate to None, which makes each throttle a no-op. The throttle
+# behaviour is covered by apps/api/tests/test_throttling.py, which re-enables a
+# scope by monkeypatching its rate on the bound class.
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
+    "anon": None,
+    "user": None,
+    "login": None,
+    "ai": None,
+}
 
 
 # Suppress migration output during tests

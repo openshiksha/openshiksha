@@ -19,6 +19,14 @@ RUN npm ci
 
 COPY . .
 
+# The frontend is served same-origin behind the ingress (/api/* -> backend), so
+# the API base must be a RELATIVE path. Vite inlines VITE_* vars at build time;
+# without this the bundle falls back to the dev default
+# (http://localhost:8000/api/v1) and every visitor's browser calls its own
+# localhost — i.e. the whole API (login included) appears dead in production.
+ARG VITE_API_BASE_URL=/api/v1
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 RUN npm run build
 # Defend the entry-chunk ceiling — fails the image build if it's blown.
 RUN npm run check:budget

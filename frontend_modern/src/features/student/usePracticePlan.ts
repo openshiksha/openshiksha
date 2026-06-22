@@ -15,9 +15,11 @@ export interface PracticePlan {
 const fetchTodaysPlan = async (): Promise<PracticePlan | null> => {
   try {
     const response = await apiClient.get<PracticePlan>('/ai/practice-plans/today/');
+    // 204 No Content = no plan for today yet (the empty state).
+    if (response.status === 204 || !response.data) return null;
     return response.data;
   } catch (err: unknown) {
-    // 404 means no plan yet — not an error for display purposes
+    // Tolerate the legacy 404 empty-state response during the rollout window.
     if (err && typeof err === 'object' && 'response' in err) {
       const axiosErr = err as { response?: { status?: number } };
       if (axiosErr.response?.status === 404) return null;

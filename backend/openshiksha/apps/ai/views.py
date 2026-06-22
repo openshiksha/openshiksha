@@ -401,10 +401,11 @@ class PracticePlanViewSet(ReadOnlyModelViewSet):
             )
             return Response(self.get_serializer(plan).data)
         except PracticePlan.DoesNotExist:
-            return Response(
-                {"detail": "No practice plan for today yet. Trigger generation via POST /ai/trigger/recommendations/."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            # "No plan yet" is an empty state, not an error — 204 keeps it out of
+            # the client's error path / network-tab noise (a new student with no
+            # activity simply has nothing to practise yet). A plan is generated
+            # from activity via POST /ai/trigger/recommendations/.
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

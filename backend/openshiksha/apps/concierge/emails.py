@@ -55,7 +55,7 @@ def notify_enquiry_received(enquirer) -> None:
             heading=f"New enquiry from {school}",
             body_html=body_html,
             cta_label="View in admin",
-            cta_url=f"{app_url}/admin/concierge/enquirer/{enquirer.pk}/change/",
+            cta_url=f"{app_url}/django-admin/concierge/enquirer/{enquirer.pk}/change/",
         )
 
         mail_admins(

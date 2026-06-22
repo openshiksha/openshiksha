@@ -17,7 +17,9 @@ spec:
     - host: PLACEHOLDER.openshiksha.org
       http:
         paths:
-          # /api/* and /admin/* go to the Django backend.
+          # /api/*, /django-admin/* and /static/* go to the Django backend.
+          # NB: /admin (no prefix here) falls through to the frontend — that's the
+          # React in-app school-admin dashboard, distinct from /django-admin.
           - path: /api
             pathType: Prefix
             backend:
@@ -25,7 +27,7 @@ spec:
                 name: backend
                 port:
                   number: 8000
-          - path: /admin
+          - path: /django-admin
             pathType: Prefix
             backend:
               service:

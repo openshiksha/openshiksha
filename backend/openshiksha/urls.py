@@ -28,8 +28,10 @@ def healthz(_request):
 urlpatterns = [
     # Cheap liveness probe — no DB / Redis / auth. See healthz() above.
     path("healthz/", healthz, name="healthz"),
-    # Django Admin
-    path("admin/", admin.site.urls),
+    # Django admin — mounted at /django-admin/ so it doesn't collide with the
+    # React app's /admin route (the in-app school-admin dashboard). Superuser-only
+    # gate is applied below.
+    path("django-admin/", admin.site.urls),
     # API v1 endpoints
     path("api/v1/", include("openshiksha.apps.api.urls")),
     # API Documentation
@@ -57,3 +59,9 @@ if settings.DEBUG:
 admin.site.site_header = "OpenShiksha Administration"
 admin.site.site_title = "OpenShiksha Admin"
 admin.site.index_title = "Welcome to OpenShiksha Admin Portal"
+
+# Restrict the Django admin to platform SUPERUSERS only. By default any
+# is_staff user can reach it — but the "admin" role (school admins) are is_staff
+# and must NOT, they use the in-app /admin dashboard. Overriding has_permission
+# blocks login/access at the door for non-superusers.
+admin.site.has_permission = lambda request: bool(request.user and request.user.is_active and request.user.is_superuser)

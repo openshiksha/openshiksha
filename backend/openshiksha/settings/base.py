@@ -252,7 +252,7 @@ VAPID_ADMIN_EMAIL = os.getenv("VAPID_ADMIN_EMAIL", "admin@openshiksha.org")
 # optionally with "Name <email>" entries:
 #   OPENSHIKSHA_ADMIN_EMAILS="Ops Team <ops@example.com>,founder@example.com"
 # Without this, mail_admins() silently no-ops — enquiries still land in the
-# DB (admin at /admin/concierge/enquirer/) but no email is sent.
+# DB (admin at /django-admin/concierge/enquirer/) but no email is sent.
 def _parse_admin_emails(raw: str) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for entry in raw.split(","):

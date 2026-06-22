@@ -277,6 +277,67 @@ Or against the live API as a teacher: `POST /api/v1/ai/widget-authoring/` with
 `allow_variables: true` and a "random …" description, then attach the proposal and
 open the question as two different students — the numbers differ, deterministically.
 
-*Next beat:* **DTB-5b** — surface the randomization in the Describe-it UI (an
-"each student gets different numbers" toggle that persists `variable_constraints`
-on attach), then Phase 2 (guided step-validator).
+---
+
+## Beat 5 — Turn on "different per student" with one checkbox (DTB-5b) · *the multiplier, on screen*
+
+Beat 4 proved the multiplier exists in the engine; this beat puts it **under the
+teacher's thumb** in the same Describe-it box. Below the description field, the
+prompt box now carries a checkbox:
+
+> ☐ **Each student gets different numbers** — *AI binds values to per-student
+> variables so every learner sees a fresh problem. The grader stays
+> deterministic.*
+
+With it **off** (the default), Describe-it behaves exactly as Beats 2–3: the
+request sends `allow_variables: false` and the AI returns concrete numbers. With
+it **on**, the request sends `allow_variables: true`; if the AI binds any
+`{{var}}` token, the validated `variable_constraints` come back and the configure
+view shows the randomization *on screen*:
+
+- a **`🎲 Randomized per student`** pill next to the widget title, and
+- a line naming the bound tokens — *"Each student gets fresh values for:
+  `{{lo}}, {{hi}}`"*.
+
+When the teacher clicks **Use this widget**, those constraints are carried to the
+subpart and merged into its `variable_constraints` — the exact field Beat 4's
+croupier samples per `(student, subpart)`. So the on-screen toggle is wired all
+the way to per-student randomization with **no JSON and no separate variables
+panel**.
+
+**Honest by construction:** the pill appears *only* when the proposal actually
+bound ≥1 token. Toggle on but the AI chose concrete numbers (empty
+`variable_constraints`) → no pill, and nothing is forwarded on attach — the badge
+never over-claims. A manual gallery pick clears any AI constraints, and the merge
+prunes constraints to tokens that still live in the text **or** the widget config,
+so removing the widget (or its tokens) never leaves an orphan range behind.
+
+**Why it's iron-clad:** the AI call stays host-mediated and its output is the
+backend-reconciled, schema-valid `variable_constraints` the UI persists verbatim
+(principles 1, 3); the deterministic per-subpart grader is still the only thing
+that scores a student (2); `allow_variables` off is a complete deterministic path
+(no token, no randomization) and is tested (4); the model is grounded in the real
+constraint shape (5); the `🎲` pill is shown only for a genuine binding (6).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Toggle off → allow_variables:false; toggle on → allow_variables:true; a
+# randomised proposal shows the 🎲 pill + bound tokens and forwards the
+# constraints on attach; a non-randomised proposal shows no pill and forwards
+# nothing. Plus the persist/prune chokepoint (a widget-config token survives a
+# text edit; an orphan is dropped):
+npx vitest run src/features/teacher/WidgetGalleryPanel.test.tsx \
+               src/features/teacher/useWidgetAuthoring.test.ts \
+               src/features/teacher/createQuestionConstraints.test.ts
+```
+
+Or in the running app: **Create Question → Add interactive widget**, tick *Each
+student gets different numbers*, describe *"a number line where each student marks
+a random point between 0 and 10"*, **Generate**, and watch the `🎲 Randomized per
+student` pill appear; attach it and open the question as two students — the
+numbers differ, deterministically.
+
+*Next beat:* Phase 2 — the guided step-validator (a deterministic engine checks
+each algebra step; AI only explains a wrong one).

@@ -5,7 +5,7 @@ import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { useT } from '@/shared/i18n';
 import { widgetRegistry } from '@/widgets/registry';
 import type { WidgetModule } from '@/widgets/_sdk/defineWidget';
-import { useWidgetAuthoring } from './useWidgetAuthoring';
+import { useWidgetAuthoring, type WidgetVariableConstraint } from './useWidgetAuthoring';
 
 /**
  * Tier-1 "Configure" authoring surface — the teacher gallery for the
@@ -63,8 +63,17 @@ interface WidgetGalleryPanelProps {
   initialKind?: string;
   /** Currently-applied config on the subpart, if any. */
   initialConfig?: Record<string, unknown>;
-  /** Called when the teacher clicks "Use this widget". */
-  onApply: (selection: { kind: string; config: Record<string, unknown> }) => void;
+  /**
+   * Called when the teacher clicks "Use this widget". `variableConstraints` is
+   * present only for an AI proposal authored with randomisation on (DTB-5b);
+   * the parent merges it onto the subpart so croupier samples per-student values
+   * into the config's `{{var}}` tokens.
+   */
+  onApply: (selection: {
+    kind: string;
+    config: Record<string, unknown>;
+    variableConstraints?: Record<string, WidgetVariableConstraint>;
+  }) => void;
   /** Called when the teacher clicks "Cancel" (closes the panel without applying). */
   onCancel: () => void;
 }
@@ -264,10 +273,24 @@ export function WidgetGalleryPanel({
   >(null);
   const authoring = useWidgetAuthoring();
 
+  // ── DTB-5b: per-student randomisation ───────────────────────────────
+  // The "each student gets different numbers" toggle sets `allow_variables`
+  // on the authoring call. A successful proposal may then bind numeric fields
+  // to croupier `{{var}}` tokens and return validated `variable_constraints`,
+  // which we carry through to `onApply` so the parent persists them on attach.
+  const [allowVariables, setAllowVariables] = useState(false);
+  const [variableConstraints, setVariableConstraints] = useState<
+    Record<string, WidgetVariableConstraint>
+  >({});
+  const randomized = Object.keys(variableConstraints).length > 0;
+
   const handleSelect = (kind: string) => {
     setSelectedKind(kind);
-    // A manual gallery pick is never an AI proposal — clear any badge.
+    // A manual gallery pick is never an AI proposal — clear any badge and any
+    // AI-authored randomisation constraints so they don't leak onto a hand-
+    // picked widget.
     setAiProvenance(null);
+    setVariableConstraints({});
     // Fresh kind → reset config to its defaults so a previous kind's
     // fields don't leak into the preview.
     if (kind !== initialKind) {
@@ -282,7 +305,7 @@ export function WidgetGalleryPanel({
     const prompt = description.trim();
     if (!prompt || authoring.isPending) return;
     authoring.mutate(
-      { description: prompt },
+      { description: prompt, allow_variables: allowVariables },
       {
         onSuccess: (res) => {
           // The backend guarantees a schema-valid config (DTB-1 validation →
@@ -292,6 +315,10 @@ export function WidgetGalleryPanel({
           setSelectedKind(res.widget_kind);
           setConfig(res.widget_config);
           setAiProvenance({ modelUsed: res.model_used, aiAvailable: res.ai_available });
+          // DTB-5b: the constraints are server-reconciled (only tokens actually
+          // backed + bound survive), so persist them verbatim. Empty `{}` when
+          // the AI chose concrete numbers even with the toggle on.
+          setVariableConstraints(res.variable_constraints ?? {});
         },
       },
     );
@@ -332,6 +359,23 @@ export function WidgetGalleryPanel({
             placeholder={t('widgetGallery.describePlaceholder')}
             className="rounded border border-ink-200 bg-paper px-2 py-1.5 text-sm focus:border-brand-600 focus:outline-hidden"
           />
+          {/* DTB-5b: opt in to per-student randomisation. The AI binds numeric
+              fields to {{var}} tokens so every learner gets fresh numbers; the
+              grader stays deterministic (it scores whatever the student does). */}
+          <label className="flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={allowVariables}
+              onChange={(e) => setAllowVariables(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-brand-600"
+            />
+            <span>
+              <span className="font-semibold text-ink-900">
+                {t('widgetGallery.randomizeLabel')}
+              </span>
+              <span className="block text-ink-500">{t('widgetGallery.randomizeHint')}</span>
+            </span>
+          </label>
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -404,12 +448,29 @@ export function WidgetGalleryPanel({
                 stubLabel={t('widgetGallery.aiStubLabel')}
               />
             )}
+            {/* DTB-5b: on-screen proof the attached widget randomises. Only
+                shown when the proposal actually bound ≥1 {{var}} token. */}
+            {randomized && (
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
+                {t('widgetGallery.randomizeBadge')}
+              </span>
+            )}
           </div>
           {selected.meta.description && (
             <p className="text-sm text-ink-500">{selected.meta.description}</p>
           )}
           {aiProvenance && !aiProvenance.aiAvailable && (
             <p className="mt-1 text-xs text-amber-700">{t('widgetGallery.describeFallback')}</p>
+          )}
+          {randomized && (
+            <p className="mt-1 text-xs text-violet-700">
+              {t('widgetGallery.randomizeNote')}{' '}
+              <span className="font-mono">
+                {Object.keys(variableConstraints)
+                  .map((name) => `{{${name}}}`)
+                  .join(', ')}
+              </span>
+            </p>
           )}
         </div>
         <button
@@ -453,7 +514,15 @@ export function WidgetGalleryPanel({
         </button>
         <button
           type="button"
-          onClick={() => onApply({ kind: selected.kind, config })}
+          onClick={() =>
+            onApply({
+              kind: selected.kind,
+              config,
+              // Only forward constraints when randomisation actually bound a
+              // token — a hand-picked / concrete-number widget carries none.
+              variableConstraints: randomized ? variableConstraints : undefined,
+            })
+          }
           className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
         >
           {t('widgetGallery.useThis')}

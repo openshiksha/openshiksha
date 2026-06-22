@@ -1,3 +1,7 @@
+# The retired monolith under legacy/ is archived as-is — never lint, format, or
+# auto-fix it.
+exclude: ^legacy/
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

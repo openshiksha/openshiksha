@@ -17,7 +17,7 @@ Both layers stack: an AI request is bounded by *both* the ``user`` rate and the
 
 from __future__ import annotations
 
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 
 # (path prefix, throttle scope). First match wins. Prefixes are the full request
 # path under the API mount (`/api/v1/...`).
@@ -46,7 +46,7 @@ class PathScopedThrottle(ScopedRateThrottle):
         self.num_requests, self.duration = self.parse_rate(self.rate)
         # Skip ScopedRateThrottle.allow_request (it re-reads the view attr); run the
         # plain SimpleRateThrottle check with the scope/rate we just set.
-        return super(ScopedRateThrottle, self).allow_request(request, view)
+        return SimpleRateThrottle.allow_request(self, request, view)
 
     def get_cache_key(self, request, view):
         # Key AI limits per user (so one heavy user can't starve others sharing an

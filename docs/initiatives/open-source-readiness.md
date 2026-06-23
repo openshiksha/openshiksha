@@ -99,8 +99,17 @@ missing badge, or improve one `.env.example` comment.
 | OSS-3 CONTRIBUTING.md | ✅ shipped | (this PR) | 2026-06-21 | Pulled forward to keep README links clean. |
 | OSS-4 SECURITY.md | ✅ shipped | (this PR) | 2026-06-21 | Private disclosure via GitHub advisories + security@openshiksha.org. |
 | OSS-5 CODE_OF_CONDUCT.md | ✅ shipped | (this PR) | 2026-06-21 | Contributor Covenant 2.1. |
+| OSS-6 `.github/` issue + PR templates | ✅ shipped | [#432](https://github.com/openshiksha/openshiksha/pull/432) | 2026-06-22 | Bug/feature issue templates + PR template; `config.yml` routes vulns to the security policy, not public issues. |
+| OSS-9 README product screenshots | ✅ shipped | [#433](https://github.com/openshiksha/openshiksha/pull/433) | 2026-06-22 | 3 V2 shots copied into a stable `docs/screenshots/` (not the churning initiative folder) + a demo-login note (`demo1234`). |
+| OSS-8 Mermaid architecture diagram | ✅ shipped | [#434](https://github.com/openshiksha/openshiksha/pull/434) | 2026-06-22 | ASCII → GitHub-rendered Mermaid `flowchart`; ASCII kept as a `<details>` fallback; stack table retained. |
+| OSS-7 consolidate root dev docs | ✅ shipped | [#435](https://github.com/openshiksha/openshiksha/pull/435) | 2026-06-22 | `git mv` four guides into `docs/dev/` (kebab-cased, history preserved) + index; repointed all hyperlinks. Remaining grep hits are historical ASCII trees, not links. |
+| OSS-10 repo metadata + license badge | ✅ shipped | (this PR) | 2026-06-22 | `gh repo edit` set description/homepage/topics (admin scope present); license already auto-detected as MPL-2.0; README license badge + `## License` updated. |
 
-**Remaining:** OSS-6 (`.github/` issue + PR templates), OSS-7 (consolidate root
-dev docs under `docs/`), OSS-8 (architecture diagram), OSS-9 (README screenshots),
-OSS-10 (repo metadata). The `security@`/`conduct@openshiksha.org` addresses assume
-an ImprovMX catch-all is configured — verify or adjust.
+**Definition of Done met (2026-06-22).** All of OSS-1..10 shipped. A
+clean-checkout newcomer can understand, run, and contribute from the README +
+linked docs alone: decluttered root, rewritten README with screenshots + a
+rendered architecture diagram, consolidated `docs/dev/` index, contributor
+templates, and discoverable repo metadata with a detected MPL-2.0 license.
+
+**Open follow-up (not blocking DoD):** the `security@`/`conduct@openshiksha.org`
+addresses assume an ImprovMX catch-all is configured — verify or adjust.

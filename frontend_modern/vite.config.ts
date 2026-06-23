@@ -93,9 +93,10 @@ export default defineConfig(async ({ mode }) => ({
         importScripts: ['push-handler.js'],
         // Deep links boot offline from the precached shell. /api must never be
         // served the shell (principle 2) — the persisted React Query cache
-        // (MSO-4), not Workbox, owns API read-tolerance.
+        // (MSO-4), not Workbox, owns API read-tolerance. /django-admin is the
+        // backend-served Django admin — it must hit the network, not the SPA.
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /^\/django-admin/],
         runtimeCaching: [
           {
             // Google Fonts binaries (Inter / Fraunces / Noto Devanagari) so

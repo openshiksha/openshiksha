@@ -80,8 +80,10 @@ export const Navbar = () => {
               className="flex items-center rounded focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
               aria-label="OpenShiksha home"
             >
-              <Logo size="sm" className="hidden sm:inline-flex" />
-              <Logo size="sm" variant="mark" className="sm:hidden" />
+              {/* One Logo: icon-only on phones, full wordmark at sm+. The old
+                  two-Logo approach rendered BOTH on mobile because the Logo's
+                  own `inline-flex` overrode the `hidden` utility. */}
+              <Logo size="sm" hideWordmarkOnMobile />
             </Link>
 
             {/* Desktop nav — hidden on mobile */}

@@ -26,6 +26,17 @@ and an AI layer (Gemini / Claude) generates explanations, diagnoses
 misconceptions, and drafts content. It is fully internationalised (English /
 Hindi / Marathi) and accessible (WCAG 2.1 AA in progress).
 
+## Screenshots
+
+| Landing | Student dashboard | Teacher question bank |
+| :-----: | :---------------: | :-------------------: |
+| [![Landing page](docs/screenshots/landing.jpg)](docs/screenshots/landing.jpg) | [![Student dashboard](docs/screenshots/student-dashboard.png)](docs/screenshots/student-dashboard.png) | [![Teacher question bank](docs/screenshots/teacher-question-bank.png)](docs/screenshots/teacher-question-bank.png) |
+
+> **See it yourself.** After `docker compose up`, seed demo content with
+> `docker compose exec backend python manage.py seed_demo_data` and log in as
+> `student_demo` / `teacher_demo` / `parent_demo` / `admin_demo` (password
+> `demo1234`) to reach these screens.
+
 ## Architecture
 
 ```

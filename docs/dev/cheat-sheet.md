@@ -493,7 +493,7 @@ npm install
 
 ## 📖 More Help
 
-- **Full guide**: [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)
+- **Full guide**: [local-development.md](./local-development.md)
 - **Implementation plan**: [C:\Users\shara\.claude\plans\proud-knitting-sonnet.md](C:\Users\shara\.claude\plans\proud-knitting-sonnet.md)
 - **Task tracker**: [C:\Users\shara\.claude\plans\IMPLEMENTATION_TRACKER.md](C:\Users\shara\.claude\plans\IMPLEMENTATION_TRACKER.md)
 

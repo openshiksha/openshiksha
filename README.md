@@ -113,7 +113,7 @@ docker compose exec backend python manage.py seed_demo_data
 ```
 
 Full details — including the Cabinet question import — are in
-[`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md).
+[`docs/dev/local-development.md`](docs/dev/local-development.md).
 
 ## CI/CD pipeline
 
@@ -155,9 +155,10 @@ Deployment specifics (k3s, kustomize overlays, secrets, TLS, rollback) are in
 
 ## Documentation
 
-- [Local development](LOCAL_DEVELOPMENT.md) — full setup, seeding, cabinet import
+- [Developer guides](docs/dev/README.md) — index of the local dev docs below
+- [Local development](docs/dev/local-development.md) — full setup, seeding, cabinet import
 - [Deployment](docs/deploy/README.md) — k3s deploy, overlays, TLS, rollback
-- [Git strategy](GIT_STRATEGY.md) — branch model and conventions
+- [Git strategy](docs/dev/git-strategy.md) — branch model and conventions
 - [Initiatives](docs/initiatives/README.md) — long-horizon roadmap
 - [Transactional emails](docs/emails.md) — branded email system
 

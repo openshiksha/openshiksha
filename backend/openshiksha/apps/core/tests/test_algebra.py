@@ -160,7 +160,9 @@ class TestCheckStepDispatch:
         assert result.error is not None
 
     def test_non_string_input(self):
-        result = check_step(None, "x")  # type: ignore[arg-type]
+        # Deliberately passes a non-string to exercise the guard; the test
+        # method is untyped so mypy does not check this call's argument types.
+        result = check_step(None, "x")
         assert result.equivalent is False
         assert result.error is not None
 

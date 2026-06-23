@@ -11,7 +11,19 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-21 (latest) — **Open-Source Readiness promoted to
+**Last updated:** 2026-06-22 (latest) — **Open-Source Readiness closing batch
+planned (OSS-6..10).** The [2026-06-22 plan](../daily-plans/2026-06-22-plan.md)
+scopes the five remaining backlog items as a low-risk, mostly-docs batch:
+OSS-6 (`.github/` issue + PR templates) → OSS-9 (README product screenshots,
+reusing existing shots) → OSS-8 (ASCII → rendered Mermaid architecture diagram) →
+OSS-7 (consolidate the loose root dev guides under `docs/dev/` + index, repoint
+links) → OSS-10 (repo metadata via `gh repo edit` + license detection/badge).
+Shipping it **reaches the initiative's Definition of Done**, after which
+Accessibility (Priority 2, Batch 2 already planned 2026-06-20) becomes the top
+active initiative. The `ai-features` routine fence is respected. *(Prior update
+below.)*
+
+**2026-06-21** — **Open-Source Readiness promoted to
 Priority 1 (Active).** With the modern stack live in production, the focus is
 making the repo public-ready: Batch 1 (OSS-1..5, [#425](https://github.com/openshiksha/openshiksha/pull/425))
 archived the retired Django 1.11 monolith under `legacy/`, cleaned root cruft,

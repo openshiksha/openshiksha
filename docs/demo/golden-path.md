@@ -341,3 +341,63 @@ numbers differ, deterministically.
 
 *Next beat:* Phase 2 — the guided step-validator (a deterministic engine checks
 each algebra step; AI only explains a wrong one).
+
+---
+
+## Beat 6 — The step-validator's correctness engine (GSV-1) · *foundation, off-screen*
+
+Phase 2 opens the **guided step-validator**: a student solves an equation one
+line at a time, and each line is checked — *is this a legal algebraic step from
+the line above?* The iron-clad rule is the same as Phase 1's: **a deterministic
+engine decides correctness; AI may only explain a line the engine has already
+judged wrong.** This beat builds that engine — the Phase 2 keystone, the
+counterpart to Beat 0's validation keystone — with **no AI yet**.
+
+`apps/core/algebra.py` is a pure-Python equivalence checker. It has its own tiny
+recursive-descent parser (numbers, variables, `+ - * / ^`, unary minus, and the
+curriculum's whitelisted functions — `sin`, `cos`, `ln`, `sqrt`, …), re-using the
+exact safe-evaluator shape of the sandbox `function-plotter` but on the **host**.
+Nothing the student types is ever `eval`'d; it is compiled into a closure built
+only from arithmetic. There is **no CAS dependency** (no `sympy`): equivalence is
+decided by **deterministic, fixed-seed numeric probing** — both lines are
+evaluated at many random sample points over their free variables and are
+equivalent iff they agree (within tolerance) at every valid sample.
+
+```python
+from openshiksha.apps.core.algebra import check_step
+
+check_step("2*x = 6", "x = 3").equivalent        # True  — divide both sides
+check_step("2*x = 6", "x = 4").equivalent        # False — wrong solution
+check_step("2*(x + 3)", "2*x + 6").equivalent    # True  — distribution
+check_step("(x+1)^2", "x^2 + 1").equivalent      # False — dropped cross-term
+```
+
+`check_step` auto-detects the form: two lines with one `=` each are compared as
+**equations** (same solution set — an equation is normalised to `L - R` and two
+are equivalent iff one is a non-zero constant multiple of the other, so `2x = 6`
+≡ `x = 3` ≡ `4x - 12 = 0`); two bare lines are compared as **expressions** (equal
+everywhere). Implicit multiplication (`2x`, `3(x+1)`) parses the way students
+write it.
+
+**Why it's iron-clad:** the engine is the *correctness path* and it is fully
+deterministic and AI-free (principles 1, 2) — the later AI increment only
+explains a step this engine already scored. Every malformed line is the
+**deterministic fallback**: a parse error, an illegal character, an empty line, a
+mixed equation/expression pair, or an all-singular sample set returns a structured
+`EquivalenceResult(equivalent=False, error=…)` — a verdict, never a 500 (4). It is
+seeded, so a given pair of lines always yields the same verdict (reproducible).
+
+**Verify it:**
+
+```bash
+cd backend
+# 41 tests: equivalent/inequivalent expressions and equations across the
+# curriculum forms (distribution, factoring, solving steps, identities), plus
+# the deterministic fallback (every malformed input returns an error result,
+# never raises) and a determinism check.
+python -m pytest openshiksha/apps/core/tests/test_algebra.py
+```
+
+*Next beat:* GSV-2 — a `function-plotter`-style **step-solver widget** that calls
+this engine per line, and GSV-3 — the AI **wrong-step explainer**, grounded in the
+engine's verdict (it explains, it never grades).

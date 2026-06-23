@@ -674,6 +674,12 @@ export const hi: LocaleDict = {
     'AI अभी उपलब्ध नहीं है — यहाँ एक सुरक्षित शुरुआती विजेट है जिसे आप संपादित कर सकते हैं।',
   'widgetGallery.describeOrPick': 'या स्वयं एक चुनें',
   'widgetGallery.aiStubLabel': 'स्वतः-निर्मित',
+  // ── DTB-5b: प्रति-छात्र यादृच्छिकीकरण ───────────────────────────────
+  'widgetGallery.randomizeLabel': 'हर छात्र को अलग संख्याएँ मिलें',
+  'widgetGallery.randomizeHint':
+    'AI मानों को प्रति-छात्र चर से जोड़ता है ताकि हर छात्र को एक नया प्रश्न दिखे। मूल्यांकन नियतात्मक रहता है।',
+  'widgetGallery.randomizeBadge': '🎲 प्रति छात्र यादृच्छिक',
+  'widgetGallery.randomizeNote': 'हर छात्र को इनके लिए नए मान मिलते हैं:',
 
   // ── LA-6e-2: record-response / rubric panel ──────────────────────────
   'recordResp.maxMarks': 'अधिकतम अंक',

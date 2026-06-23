@@ -678,6 +678,12 @@ export const en = {
     "AI is unavailable right now — here's a safe starter you can edit and attach.",
   'widgetGallery.describeOrPick': 'or pick one yourself',
   'widgetGallery.aiStubLabel': 'Auto-built',
+  // ── DTB-5b: per-student randomisation toggle ─────────────────────────
+  'widgetGallery.randomizeLabel': 'Each student gets different numbers',
+  'widgetGallery.randomizeHint':
+    'AI binds values to per-student variables so every learner sees a fresh problem. The grader stays deterministic.',
+  'widgetGallery.randomizeBadge': '🎲 Randomized per student',
+  'widgetGallery.randomizeNote': 'Each student gets fresh values for:',
 
   // ── LA-6e-2: record-response / rubric panel ──────────────────────────
   'recordResp.maxMarks': 'Maximum marks',

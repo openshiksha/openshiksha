@@ -54,6 +54,10 @@ backend/logs/
 backend/staticfiles/
 backend/media/
 backend/db.sqlite3
+backend/celerybeat-schedule
+
+# Tooling / MCP artifacts
+.playwright-mcp/
 
 # OS files
 .DS_Store

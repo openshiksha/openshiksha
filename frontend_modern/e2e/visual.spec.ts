@@ -43,17 +43,21 @@ const SURFACES: Surface[] = [
   { slug: 'enquire', path: '/enquire', ready: 'h1' },
 ];
 
-// Skipped by default: the spec is in place but no baselines have been
-// committed yet (PNGs must be generated on the same OS the CI runner uses,
-// or pixel diffs are unavoidable). To activate:
-//   1. On a Linux runner (or via the CI job below) run
-//        `npm run test:e2e:update-snapshots`
-//   2. Commit the generated `e2e/visual.spec.ts-snapshots/*-chromium-linux.png`
-//      files alongside removing the `.skip` here.
-// Tracked as a follow-up in docs/changes/2026-06-04-visual-regression.md.
-test.describe.skip('visual regression — V2 public surfaces', () => {
+// ACTIVE as of 2026-06-22. Baselines were generated inside the pinned
+// Playwright Docker image (`mcr.microsoft.com/playwright:v1.61.0-noble`) and
+// committed under `e2e/visual.spec.ts-snapshots/`. The CI `visual-regression`
+// job runs *inside that same image*, so the snapshot environment is identical
+// — this is what makes pixel comparisons reproducible (a bare ubuntu runner
+// renders system fonts differently and would flake). These tests are tagged
+// `@visual` so the bare-runner `frontend-e2e` job skips them (it runs
+// `--grep-invert @visual`); only the container job runs `--grep @visual`.
+//
+// To refresh baselines after an intentional design change, regenerate them in
+// the same image (see docs/changes/2026-06-22-visual-regression-activated.md)
+// and commit the updated PNGs alongside the design change.
+test.describe('visual regression — V2 public surfaces @visual', () => {
   for (const surface of SURFACES) {
-    test(`${surface.slug} — desktop`, async ({ page }) => {
+    test(`${surface.slug} — desktop @visual`, async ({ page }) => {
       await page.setViewportSize(DESKTOP);
       await page.goto(surface.path);
       await expect(page.locator(surface.ready).first()).toBeVisible();
@@ -62,7 +66,7 @@ test.describe.skip('visual regression — V2 public surfaces', () => {
       await expect(page).toHaveScreenshot(`${surface.slug}-desktop.png`, DIFF_TOLERANCE);
     });
 
-    test(`${surface.slug} — mobile (375)`, async ({ page }) => {
+    test(`${surface.slug} — mobile (375) @visual`, async ({ page }) => {
       await page.setViewportSize(MOBILE);
       await page.goto(surface.path);
       await expect(page.locator(surface.ready).first()).toBeVisible();

@@ -69,6 +69,13 @@ jobs:
                 # Python and JS/TS are interpreted — no compilation step, so
                 # CodeQL builds its database directly from source.
                 build-mode: none
+                # Scan only the live modern stack. `legacy/` is the archived
+                # Python 2.7 / Django 1.11 monolith — never built or deployed —
+                # so its findings (cyclic imports, attr-overwrites, etc.) are
+                # pure noise that buries real alerts on the code we ship.
+                config: |
+                  paths-ignore:
+                    - legacy
                 # `security-and-quality` adds maintainability/quality queries
                 # on top of the default security suite for broader coverage.
                 queries: security-and-quality

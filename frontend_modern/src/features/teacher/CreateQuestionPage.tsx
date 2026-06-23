@@ -13,6 +13,11 @@ import { useQuestion } from './useQuestion';
 import { EditSafetyBanner } from './EditSafetyBanner';
 import { useGenerateQuestions } from './useGenerateQuestions';
 import { useUploadQuestionImage } from './useUploadQuestionImage';
+import {
+  extractTokensFromConfig,
+  syncVariableConstraints,
+  type VariableSpec,
+} from './createQuestionConstraints';
 import type {
   MCQOption,
   QuestionSubpartWrite,
@@ -24,7 +29,14 @@ import type {
 interface WidgetPickerSectionProps {
   kind: string;
   config: Record<string, unknown>;
-  onChange: (next: { kind: string; config: Record<string, unknown> }) => void;
+  onChange: (next: {
+    kind: string;
+    config: Record<string, unknown>;
+    // DTB-5b: per-student sampling ranges for any `{{var}}` the AI bound into
+    // the config. Present only for a randomised AI proposal; merged onto the
+    // subpart so croupier samples them server-side.
+    variableConstraints?: Record<string, VariableSpec>;
+  }) => void;
 }
 
 /**
@@ -108,7 +120,6 @@ function WidgetPickerSection({ kind, config, onChange }: WidgetPickerSectionProp
 
 type QuestionType = 'mcq' | 'fill_blank' | 'numeric' | 'multi_select';
 
-type VariableSpec = { min: number; max: number; integer: boolean };
 
 interface SubpartDraft {
   question_text: string;
@@ -142,30 +153,6 @@ const defaultSubpart = (): SubpartDraft => ({
   widget_kind: '',
   widget_config: {},
 });
-
-// ---------------------------------------------------------------------------
-// Variable token helpers
-// ---------------------------------------------------------------------------
-
-const extractTokens = (text: string): string[] => {
-  const re = /\{\{(\w+)\}\}/g;
-  const names = new Set<string>();
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) names.add(match[1]);
-  return Array.from(names).sort();
-};
-
-const syncVariableConstraints = (
-  text: string,
-  existing: Record<string, VariableSpec>
-): Record<string, VariableSpec> => {
-  const tokens = extractTokens(text);
-  const next: Record<string, VariableSpec> = {};
-  for (const token of tokens) {
-    next[token] = existing[token] ?? { min: 1, max: 10, integer: true };
-  }
-  return next;
-};
 
 // ---------------------------------------------------------------------------
 // Live preview widget
@@ -539,13 +526,27 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
   };
 
   const handleTextChange = useCallback(
-    (idx: number, value: string, currentConstraints: Record<string, VariableSpec>) => {
-      updateSubpart(idx, {
-        question_text: value,
-        variable_constraints: syncVariableConstraints(value, currentConstraints),
-      });
+    (idx: number, value: string) => {
+      // Keep constraints whose token lives in the text *or* the attached widget
+      // config, so editing the prose never silently drops a widget's `{{var}}`
+      // randomisation (DTB-5b).
+      setSubparts((prev) =>
+        prev.map((s, i) =>
+          i === idx
+            ? {
+                ...s,
+                question_text: value,
+                variable_constraints: syncVariableConstraints(
+                  value,
+                  s.variable_constraints,
+                  extractTokensFromConfig(s.widget_config)
+                ),
+              }
+            : s
+        )
+      );
     },
-    [updateSubpart]
+    []
   );
 
   const addSubpart = () => {
@@ -885,9 +886,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
                     : t('cqp.questionTextPlaceholder')
                 }
                 value={current.question_text}
-                onChange={(e) =>
-                  handleTextChange(activeSubpart, e.target.value, current.variable_constraints)
-                }
+                onChange={(e) => handleTextChange(activeSubpart, e.target.value)}
               />
             </div>
 
@@ -901,12 +900,23 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <WidgetPickerSection
               kind={current.widget_kind}
               config={current.widget_config}
-              onChange={(next) =>
+              onChange={(next) => {
+                // DTB-5b: fold in any AI-authored randomisation constraints,
+                // then prune to tokens that actually live in the question text
+                // or the new widget config — so removing the widget (or its
+                // tokens) drops orphan constraints, and a hand-picked widget
+                // keeps only the text's variables.
+                const merged = { ...current.variable_constraints, ...(next.variableConstraints ?? {}) };
                 updateSubpart(activeSubpart, {
                   widget_kind: next.kind,
                   widget_config: next.config,
-                })
-              }
+                  variable_constraints: syncVariableConstraints(
+                    current.question_text,
+                    merged,
+                    extractTokensFromConfig(next.config)
+                  ),
+                });
+              }}
             />
 
             {/* Optional image URL */}

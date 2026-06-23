@@ -158,7 +158,7 @@ describe('WidgetGalleryPanel', () => {
       expect(generate).not.toBeDisabled();
       fireEvent.click(generate);
       expect(authoringMock.mutate).toHaveBeenCalledWith(
-        { description: 'a number line where students mark 3/4' },
+        { description: 'a number line where students mark 3/4', allow_variables: false },
         expect.objectContaining({ onSuccess: expect.any(Function) }),
       );
     });
@@ -172,6 +172,7 @@ describe('WidgetGalleryPanel', () => {
           model_used: 'claude-sonnet-4-6',
           ai_available: true,
           repaired: false,
+          variable_constraints: {},
         });
       });
       render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
@@ -199,6 +200,7 @@ describe('WidgetGalleryPanel', () => {
           model_used: 'stub',
           ai_available: false,
           repaired: false,
+          variable_constraints: {},
         });
       });
       render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
@@ -230,6 +232,101 @@ describe('WidgetGalleryPanel', () => {
       });
       const generate = screen.getByRole('button', { name: /Building your widget/i });
       expect(generate).toBeDisabled();
+    });
+
+    // ── DTB-5b: per-student randomisation toggle ─────────────────────
+    describe('per-student randomisation (DTB-5b)', () => {
+      it('toggle is off by default → generate posts allow_variables: false', () => {
+        render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+        expect(
+          screen.getByLabelText(/Each student gets different numbers/i),
+        ).not.toBeChecked();
+        fireEvent.change(screen.getByLabelText(/Describe it/i), {
+          target: { value: 'a number line' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+        expect(authoringMock.mutate).toHaveBeenCalledWith(
+          { description: 'a number line', allow_variables: false },
+          expect.anything(),
+        );
+      });
+
+      it('checking the toggle sends allow_variables: true', () => {
+        render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
+        fireEvent.click(screen.getByLabelText(/Each student gets different numbers/i));
+        fireEvent.change(screen.getByLabelText(/Describe it/i), {
+          target: { value: 'a number line where students mark a random fraction' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+        expect(authoringMock.mutate).toHaveBeenCalledWith(
+          {
+            description: 'a number line where students mark a random fraction',
+            allow_variables: true,
+          },
+          expect.anything(),
+        );
+      });
+
+      it('a randomised proposal shows the badge + bound tokens and forwards constraints on attach', () => {
+        const constraints = { target: { min: 0, max: 1, integer: false, decimals: 2 } };
+        authoringMock.mutate = vi.fn((_vars, opts) => {
+          opts.onSuccess({
+            widget_kind: 'number-line',
+            widget_config: { min: 0, max: 1, step: 0.1, initial: '{{target}}', label: 'Mark it' },
+            model_used: 'claude-sonnet-4-6',
+            ai_available: true,
+            repaired: false,
+            variable_constraints: constraints,
+          });
+        });
+        const onApply = vi.fn();
+        render(<WidgetGalleryPanel onApply={onApply} onCancel={vi.fn()} />);
+        fireEvent.click(screen.getByLabelText(/Each student gets different numbers/i));
+        fireEvent.change(screen.getByLabelText(/Describe it/i), {
+          target: { value: 'random fraction on a number line' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+
+        // On-screen wow: the randomised badge + the bound token name.
+        expect(screen.getByText(/Randomized per student/i)).toBeInTheDocument();
+        expect(screen.getByText(/\{\{target\}\}/)).toBeInTheDocument();
+
+        // Attach forwards the validated constraints verbatim.
+        fireEvent.click(screen.getByText(/Use this widget/i));
+        expect(onApply).toHaveBeenCalledWith(
+          expect.objectContaining({
+            kind: 'number-line',
+            variableConstraints: constraints,
+          }),
+        );
+      });
+
+      it('a non-randomised proposal shows no badge and attaches without constraints', () => {
+        // Toggle on, but the AI chose concrete numbers → empty constraints.
+        authoringMock.mutate = vi.fn((_vars, opts) => {
+          opts.onSuccess({
+            widget_kind: 'number-line',
+            widget_config: { min: 0, max: 1, step: 0.25, initial: 0.75, label: 'Mark 3/4' },
+            model_used: 'claude-sonnet-4-6',
+            ai_available: true,
+            repaired: false,
+            variable_constraints: {},
+          });
+        });
+        const onApply = vi.fn();
+        render(<WidgetGalleryPanel onApply={onApply} onCancel={vi.fn()} />);
+        fireEvent.click(screen.getByLabelText(/Each student gets different numbers/i));
+        fireEvent.change(screen.getByLabelText(/Describe it/i), {
+          target: { value: 'a number line where students mark 3/4' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Generate widget/i }));
+
+        expect(screen.queryByText(/Randomized per student/i)).not.toBeInTheDocument();
+        fireEvent.click(screen.getByText(/Use this widget/i));
+        expect(onApply).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: 'number-line', variableConstraints: undefined }),
+        );
+      });
     });
   });
 

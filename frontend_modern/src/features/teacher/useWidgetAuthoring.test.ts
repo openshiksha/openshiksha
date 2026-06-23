@@ -86,6 +86,30 @@ describe('useWidgetAuthoring', () => {
     });
   });
 
+  it('DTB-5b: forwards allow_variables and returns variable_constraints', async () => {
+    const constraints = { target: { min: 0, max: 1, integer: false, decimals: 2 } };
+    mockPost.mockResolvedValueOnce({
+      data: {
+        widget_kind: 'number-line',
+        widget_config: { min: 0, max: 1, step: 0.1, initial: '{{target}}', label: 'Mark it' },
+        model_used: 'claude-sonnet-4-6',
+        ai_available: true,
+        repaired: false,
+        variable_constraints: constraints,
+      },
+    });
+
+    const { result } = renderHook(() => useWidgetAuthoring(), { wrapper });
+    result.current.mutate({ description: 'a random fraction on a number line', allow_variables: true });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockPost).toHaveBeenCalledWith('/ai/widget-authoring/', {
+      description: 'a random fraction on a number line',
+      allow_variables: true,
+    });
+    expect(result.current.data?.variable_constraints).toEqual(constraints);
+  });
+
   it('surfaces a transport error so the UI can show the fallback line', async () => {
     mockPost.mockRejectedValueOnce(new Error('503'));
 

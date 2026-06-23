@@ -305,6 +305,45 @@ jobs:
                 path: frontend_modern/axe-report
                 retention-days: 14
 
+    visual-regression:
+        name: Visual Regression (Playwright snapshots)
+        timeout-minutes: 20
+        runs-on: ubuntu-latest
+        # Runs INSIDE the pinned Playwright image so the snapshot-rendering
+        # environment is byte-for-byte identical to the one the committed
+        # baselines were generated in. A bare ubuntu runner renders system
+        # fonts differently, which would make pixel diffs flake even with no
+        # real design change. Browsers are preinstalled in the image, so no
+        # `playwright install` step is needed (and the version is pinned to
+        # match @playwright/test in package-lock.json — keep them in lockstep
+        # when bumping Playwright). Refresh protocol for intentional design
+        # changes: docs/changes/2026-06-22-visual-regression-activated.md.
+        container:
+            image: mcr.microsoft.com/playwright:v1.61.0-noble
+        defaults:
+            run:
+                working-directory: frontend_modern
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v4
+            - name: Install dependencies
+              run: npm ci
+            - name: Run visual-regression snapshots
+              # Builds + previews the production bundle (Playwright webServer)
+              # and diffs the four public V2 surfaces × 2 viewports against the
+              # baselines in e2e/visual.spec.ts-snapshots/. Only @visual-tagged
+              # tests run here; the bare-runner frontend-e2e job excludes them.
+              run: npm run test:e2e:visual
+            - name: Upload visual diff report on failure
+              # The HTML report embeds expected/actual/diff PNGs for any surface
+              # that regressed — the fastest way to triage a red run.
+              uses: actions/upload-artifact@v7
+              if: failure()
+              with:
+                name: visual-regression-report
+                path: frontend_modern/playwright-report
+                retention-days: 14
+
     lighthouse:
         name: Lighthouse (runtime perf budget)
         timeout-minutes: 20
@@ -345,7 +384,7 @@ jobs:
     build-publish:
         name: Build & Publish (${{ matrix.service }})
         timeout-minutes: 30
-        needs: [lint, typecheck, security, test, frontend, frontend-e2e]
+        needs: [lint, typecheck, security, test, frontend, frontend-e2e, visual-regression]
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
         permissions:

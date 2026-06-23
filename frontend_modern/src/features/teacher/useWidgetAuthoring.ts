@@ -19,10 +19,30 @@ import { apiClient } from '@/api/client';
  *   shows a neutral `Auto-…` badge plus a friendly "AI unavailable" line.
  */
 
+/**
+ * One per-student sampling range for a `{{var}}` token the AI bound into the
+ * config (DTB-5). Mirrors the backend's reconciled constraint shape
+ * (`{min, max, integer[, decimals]}`); `decimals` is present only for
+ * non-integer ranges. These are schema-validated and reconciled server-side, so
+ * the UI can persist them verbatim onto the subpart.
+ */
+export interface WidgetVariableConstraint {
+  min: number;
+  max: number;
+  integer: boolean;
+  decimals?: number;
+}
+
 export interface WidgetAuthoringRequest {
   description: string;
   /** Optional preferred widget kind the teacher already has in mind. */
   kind_hint?: string;
+  /**
+   * DTB-5b — opt in to per-student randomisation. When `true`, the AI may bind
+   * numeric fields to croupier `{{var}}` tokens and the response carries the
+   * validated `variable_constraints` to attach alongside the config.
+   */
+  allow_variables?: boolean;
 }
 
 export interface WidgetAuthoringResponse {
@@ -34,6 +54,12 @@ export interface WidgetAuthoringResponse {
   ai_available: boolean;
   /** True when a real LLM proposal was clamp-repaired to become schema-valid. */
   repaired: boolean;
+  /**
+   * DTB-5: validated per-student sampling ranges for any `{{var}}` bindings in
+   * the config. `{}` when the proposal isn't randomised (e.g. `allow_variables`
+   * was off, or the AI chose concrete numbers).
+   */
+  variable_constraints: Record<string, WidgetVariableConstraint>;
 }
 
 const authorWidget = async (

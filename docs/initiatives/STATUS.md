@@ -11,7 +11,30 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-19 (latest) — **Accessibility — WCAG 2.1 AA promoted
+**Last updated:** 2026-06-22 (latest) — **Open-Source Readiness CLOSED — DoD met.**
+The closing batch shipped: OSS-6 (`.github/` issue + PR templates,
+[#432](https://github.com/openshiksha/openshiksha/pull/432)) → OSS-9 (README
+product screenshots, [#433](https://github.com/openshiksha/openshiksha/pull/433))
+→ OSS-8 (ASCII → GitHub-rendered Mermaid architecture diagram,
+[#434](https://github.com/openshiksha/openshiksha/pull/434)) → OSS-7 (root dev
+guides consolidated under `docs/dev/` + index, links repointed,
+[#435](https://github.com/openshiksha/openshiksha/pull/435)) → OSS-10 (repo
+metadata via `gh repo edit` + auto-detected MPL-2.0 license badged, this PR).
+A clean-checkout newcomer can now understand, run, and contribute from the README
++ linked docs alone. **Accessibility (Priority 2, Batch 2 already planned
+2026-06-20) is now the top active initiative.** The `ai-features` routine fence
+is respected. *(Prior update below.)*
+
+**2026-06-21** — **Open-Source Readiness promoted to
+Priority 1 (Active).** With the modern stack live in production, the focus is
+making the repo public-ready: Batch 1 (OSS-1..5, [#425](https://github.com/openshiksha/openshiksha/pull/425))
+archived the retired Django 1.11 monolith under `legacy/`, cleaned root cruft,
+rewrote the README around the real CI/CD pipeline + branch→env model, and added
+the standard OSS files (CONTRIBUTING / SECURITY / CODE_OF_CONDUCT). Remaining:
+issue/PR templates, docs consolidation, architecture diagram, screenshots.
+Accessibility (WCAG 2.1 AA) remains Active at Priority 2. *(Prior update below.)*
+
+**2026-06-19** — **Accessibility — WCAG 2.1 AA promoted
 AND Batch 1 shipped.** A11Y-1 ([#389](https://github.com/openshiksha/openshiksha/pull/389),
 per-route axe baseline + initiative doc), A11Y-2
 ([#390](https://github.com/openshiksha/openshiksha/pull/390),
@@ -236,6 +259,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
+| - | [Open-Source Readiness](open-source-readiness.md) | **Done** | **DoD met 2026-06-22.** Batch 1 (OSS-1..5, [#425](https://github.com/openshiksha/openshiksha/pull/425)) archived the Django 1.11 monolith under `legacy/`, rewrote the README around the real CI/CD + branch→env model, added `CONTRIBUTING`/`SECURITY`/`CODE_OF_CONDUCT`. **Batch 2/3 (OSS-6..10) shipped 2026-06-22** ([#432](https://github.com/openshiksha/openshiksha/pull/432)–[#435](https://github.com/openshiksha/openshiksha/pull/435) + metadata PR): `.github/` issue+PR templates, README product screenshots, a GitHub-rendered Mermaid architecture diagram, the loose root dev guides consolidated under `docs/dev/` (kebab-cased, history preserved) + index, and repo metadata (description/topics/homepage via `gh repo edit`) with the auto-detected MPL-2.0 license badged. A clean-checkout newcomer can now understand, run, and contribute from the README + linked docs alone. | **Initiative complete.** Accessibility (Priority 1) becomes the top active initiative — Batch 2 already planned in [`2026-06-20-plan.md`](../daily-plans/2026-06-20-plan.md). |
 | 1 | [Accessibility — WCAG 2.1 AA](2026-accessibility-wcag-aa.md) | **Active** | **Promoted 2026-06-19; Batch 1 (A11Y-1..5) shipped** ([#389](https://github.com/openshiksha/openshiksha/pull/389), [#390](https://github.com/openshiksha/openshiksha/pull/390), + A11Y-5 gate/close-out). Per-route axe baseline over every public surface (`e2e/a11y.spec.ts` route table + `incomplete` capture); static `eslint-plugin-jsx-a11y` gate at `--max-warnings 0`; **gated** `/login`, `/register`, `/register/school`, `/register/open`, `/enquire` (`gate: true`, zero serious/critical). **Finding:** the public surfaces were already *structurally* clean (A11Y-3 no-op); the one contrast issue is systemic — `.btn-brand` white-on-`#FF6F00` ≈ 2.8:1 fails AA enabled (A11Y-4 **deferred**, needs a brand-shade design call). | **A11Y-4 — brand-button contrast** (design-shade decision, then token-usage sweep + gate `/`). Then **Batch 2:** student core-loop surfaces (assignment detail, dashboard, SRS drill, proficiency) — remediate + gate. |
 | - | [Mobile Shell & PWA-Offline](2026-mobile-shell-pwa-offline.md) | **Done** | **Batch 1 (MSO-1..5) shipped 2026-06-14** ([#358](https://github.com/openshiksha/openshiksha/pull/358)–[#362](https://github.com/openshiksha/openshiksha/pull/362)): installable PWA + offline *read*-tolerance. **Batch 2 (MSO-6..10) shipped 2026-06-15** ([#367](https://github.com/openshiksha/openshiksha/pull/367)–[#370](https://github.com/openshiksha/openshiksha/pull/370)): offline *write*-tolerance — queue + replay. **Batch 3 (MPN-1..5) shipped 2026-06-17** ([#375](https://github.com/openshiksha/openshiksha/pull/375)–[#379](https://github.com/openshiksha/openshiksha/pull/379)): web push due-date reminders. **Batch 4 (RML-1..5) shipped 2026-06-18** ([#382](https://github.com/openshiksha/openshiksha/pull/382)–[#385](https://github.com/openshiksha/openshiksha/pull/385)): route-level mobile layouts — `ResponsiveTable` primitive + dense teacher tables/forms → responsive on phones. **First-phase DoD + both later phases done → initiative complete.** | **No unblocked next bet.** The next planning run promotes a fresh top initiative — candidates: **AI-tutor rebase** (`ai/2026-06-04-ai-tutor-chat`, ~5k-line diverged branch), an **`/ai/predictions/` teacher surface**, or an **accessibility audit (WCAG 2.1 AA)**. LA-10 (authored-content translation) stays blocked on product design. |
 | 2 | [Language Access — i18n en/हिंदी/मराठी](2026-language-access.md) | **Done-but-for-LA-10 (blocked)** | **LA-1..9 shipped.** Foundation + EN\|हिं switcher, `preferred_language` end-to-end, student/parent/public/teacher surfaces, AI content + emails in the reader's language, `Intl` date/number helper ([#308](https://github.com/openshiksha/openshiksha/pull/308)–[#326](https://github.com/openshiksha/openshiksha/pull/326)). **LA-9 closed 2026-06-13** — N-locale registry + pilot-coverage parity ([#349](https://github.com/openshiksha/openshiksha/pull/349)) then **Marathi (मरा)** as pure content across the anonymous journey, student loop, and parent dashboard + a backend mr→en AI fallback guard ([#350](https://github.com/openshiksha/openshiksha/pull/350)–[#353](https://github.com/openshiksha/openshiksha/pull/353)). The framework now makes a new language config + content, no code change. | **LA-10** (authored-content/question translation) — blocked on product design, do not start without promotion. Then **Mobile shell / PWA-offline** |

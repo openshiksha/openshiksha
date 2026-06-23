@@ -277,6 +277,127 @@ Or against the live API as a teacher: `POST /api/v1/ai/widget-authoring/` with
 `allow_variables: true` and a "random …" description, then attach the proposal and
 open the question as two different students — the numbers differ, deterministically.
 
-*Next beat:* **DTB-5b** — surface the randomization in the Describe-it UI (an
-"each student gets different numbers" toggle that persists `variable_constraints`
-on attach), then Phase 2 (guided step-validator).
+---
+
+## Beat 5 — Turn on "different per student" with one checkbox (DTB-5b) · *the multiplier, on screen*
+
+Beat 4 proved the multiplier exists in the engine; this beat puts it **under the
+teacher's thumb** in the same Describe-it box. Below the description field, the
+prompt box now carries a checkbox:
+
+> ☐ **Each student gets different numbers** — *AI binds values to per-student
+> variables so every learner sees a fresh problem. The grader stays
+> deterministic.*
+
+With it **off** (the default), Describe-it behaves exactly as Beats 2–3: the
+request sends `allow_variables: false` and the AI returns concrete numbers. With
+it **on**, the request sends `allow_variables: true`; if the AI binds any
+`{{var}}` token, the validated `variable_constraints` come back and the configure
+view shows the randomization *on screen*:
+
+- a **`🎲 Randomized per student`** pill next to the widget title, and
+- a line naming the bound tokens — *"Each student gets fresh values for:
+  `{{lo}}, {{hi}}`"*.
+
+When the teacher clicks **Use this widget**, those constraints are carried to the
+subpart and merged into its `variable_constraints` — the exact field Beat 4's
+croupier samples per `(student, subpart)`. So the on-screen toggle is wired all
+the way to per-student randomization with **no JSON and no separate variables
+panel**.
+
+**Honest by construction:** the pill appears *only* when the proposal actually
+bound ≥1 token. Toggle on but the AI chose concrete numbers (empty
+`variable_constraints`) → no pill, and nothing is forwarded on attach — the badge
+never over-claims. A manual gallery pick clears any AI constraints, and the merge
+prunes constraints to tokens that still live in the text **or** the widget config,
+so removing the widget (or its tokens) never leaves an orphan range behind.
+
+**Why it's iron-clad:** the AI call stays host-mediated and its output is the
+backend-reconciled, schema-valid `variable_constraints` the UI persists verbatim
+(principles 1, 3); the deterministic per-subpart grader is still the only thing
+that scores a student (2); `allow_variables` off is a complete deterministic path
+(no token, no randomization) and is tested (4); the model is grounded in the real
+constraint shape (5); the `🎲` pill is shown only for a genuine binding (6).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Toggle off → allow_variables:false; toggle on → allow_variables:true; a
+# randomised proposal shows the 🎲 pill + bound tokens and forwards the
+# constraints on attach; a non-randomised proposal shows no pill and forwards
+# nothing. Plus the persist/prune chokepoint (a widget-config token survives a
+# text edit; an orphan is dropped):
+npx vitest run src/features/teacher/WidgetGalleryPanel.test.tsx \
+               src/features/teacher/useWidgetAuthoring.test.ts \
+               src/features/teacher/createQuestionConstraints.test.ts
+```
+
+Or in the running app: **Create Question → Add interactive widget**, tick *Each
+student gets different numbers*, describe *"a number line where each student marks
+a random point between 0 and 10"*, **Generate**, and watch the `🎲 Randomized per
+student` pill appear; attach it and open the question as two students — the
+numbers differ, deterministically.
+
+*Next beat:* Phase 2 — the guided step-validator (a deterministic engine checks
+each algebra step; AI only explains a wrong one).
+
+---
+
+## Beat 6 — The step-validator's correctness engine (GSV-1) · *foundation, off-screen*
+
+Phase 2 opens the **guided step-validator**: a student solves an equation one
+line at a time, and each line is checked — *is this a legal algebraic step from
+the line above?* The iron-clad rule is the same as Phase 1's: **a deterministic
+engine decides correctness; AI may only explain a line the engine has already
+judged wrong.** This beat builds that engine — the Phase 2 keystone, the
+counterpart to Beat 0's validation keystone — with **no AI yet**.
+
+`apps/core/algebra.py` is a pure-Python equivalence checker. It has its own tiny
+recursive-descent parser (numbers, variables, `+ - * / ^`, unary minus, and the
+curriculum's whitelisted functions — `sin`, `cos`, `ln`, `sqrt`, …), re-using the
+exact safe-evaluator shape of the sandbox `function-plotter` but on the **host**.
+Nothing the student types is ever `eval`'d; it is compiled into a closure built
+only from arithmetic. There is **no CAS dependency** (no `sympy`): equivalence is
+decided by **deterministic, fixed-seed numeric probing** — both lines are
+evaluated at many random sample points over their free variables and are
+equivalent iff they agree (within tolerance) at every valid sample.
+
+```python
+from openshiksha.apps.core.algebra import check_step
+
+check_step("2*x = 6", "x = 3").equivalent        # True  — divide both sides
+check_step("2*x = 6", "x = 4").equivalent        # False — wrong solution
+check_step("2*(x + 3)", "2*x + 6").equivalent    # True  — distribution
+check_step("(x+1)^2", "x^2 + 1").equivalent      # False — dropped cross-term
+```
+
+`check_step` auto-detects the form: two lines with one `=` each are compared as
+**equations** (same solution set — an equation is normalised to `L - R` and two
+are equivalent iff one is a non-zero constant multiple of the other, so `2x = 6`
+≡ `x = 3` ≡ `4x - 12 = 0`); two bare lines are compared as **expressions** (equal
+everywhere). Implicit multiplication (`2x`, `3(x+1)`) parses the way students
+write it.
+
+**Why it's iron-clad:** the engine is the *correctness path* and it is fully
+deterministic and AI-free (principles 1, 2) — the later AI increment only
+explains a step this engine already scored. Every malformed line is the
+**deterministic fallback**: a parse error, an illegal character, an empty line, a
+mixed equation/expression pair, or an all-singular sample set returns a structured
+`EquivalenceResult(equivalent=False, error=…)` — a verdict, never a 500 (4). It is
+seeded, so a given pair of lines always yields the same verdict (reproducible).
+
+**Verify it:**
+
+```bash
+cd backend
+# 41 tests: equivalent/inequivalent expressions and equations across the
+# curriculum forms (distribution, factoring, solving steps, identities), plus
+# the deterministic fallback (every malformed input returns an error result,
+# never raises) and a determinism check.
+python -m pytest openshiksha/apps/core/tests/test_algebra.py
+```
+
+*Next beat:* GSV-2 — a `function-plotter`-style **step-solver widget** that calls
+this engine per line, and GSV-3 — the AI **wrong-step explainer**, grounded in the
+engine's verdict (it explains, it never grades).

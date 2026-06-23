@@ -16,8 +16,9 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "test:e2e": "playwright test",
-    "test:e2e:update-snapshots": "playwright test --update-snapshots",
+    "test:e2e": "playwright test --grep-invert @visual",
+    "test:e2e:visual": "playwright test --grep @visual",
+    "test:e2e:update-snapshots": "playwright test --grep @visual --update-snapshots",
     "lighthouse": "npx --yes @lhci/cli@0.14.0 autorun",
     "widget:new": "node scripts/create-widget.mjs",
     "widget:dev": "node scripts/widget-dev.mjs"

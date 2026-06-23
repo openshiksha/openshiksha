@@ -39,6 +39,22 @@ Hindi / Marathi) and accessible (WCAG 2.1 AA in progress).
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    Browser([Browser]) -->|HTTPS| Traefik{{"Traefik (k3s ingress)"}}
+    Traefik -->|"/api/* /admin/* /static/*"| Backend["Backend<br/>Django + Daphne (ASGI)"]
+    Traefik -->|everything else| Frontend["Frontend<br/>React SPA (nginx)"]
+    Backend --> Postgres[("PostgreSQL<br/>data")]
+    Backend --> Redis[("Redis<br/>cache / broker")]
+    Backend -->|async grading, AI tasks| Celery["Celery worker + beat"]
+    Celery --> Redis
+    Celery --> Postgres
+    Backend -->|explanations, drafts| AI["AI providers<br/>Gemini / Claude · Ollama fallback"]
+```
+
+<details>
+<summary>ASCII fallback (non-Mermaid renderers)</summary>
+
 ```
                       ┌────────────────── Traefik (k3s ingress) ──────────────────┐
    browser ── HTTPS ──┤  /api/* /admin/* /static/*  →  backend (Django + Daphne)  │
@@ -50,6 +66,8 @@ Hindi / Marathi) and accessible (WCAG 2.1 AA in progress).
                           │  Redis (cache/broker) │     (async grading, AI tasks)
                           └───────────────────────┘
 ```
+
+</details>
 
 | Layer        | Tech                                                                 |
 | ------------ | -------------------------------------------------------------------- |

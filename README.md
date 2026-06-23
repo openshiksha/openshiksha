@@ -9,7 +9,7 @@ CBSE · Classes 7–10 · English & हिन्दी.
 
 [![CI/CD](https://github.com/openshiksha/openshiksha/workflows/CI/CD%20Pipeline/badge.svg?branch=qa)](https://github.com/openshiksha/openshiksha/actions)
 [![CodeQL](https://github.com/openshiksha/openshiksha/workflows/CodeQL/badge.svg)](https://github.com/openshiksha/openshiksha/actions)
-[![License](https://img.shields.io/badge/license-see%20LICENSE-blue)](LICENSE.md)
+[![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-brightgreen)](LICENSE.md)
 
 🌐 **[openshiksha.org](https://openshiksha.org)**
 
@@ -171,4 +171,5 @@ them with `pre-commit install`.
 
 ## License
 
-See [`LICENSE.md`](LICENSE.md).
+OpenShiksha is licensed under the **Mozilla Public License 2.0** (MPL-2.0) — see
+[`LICENSE.md`](LICENSE.md) for the full text.

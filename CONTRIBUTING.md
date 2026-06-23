@@ -6,7 +6,7 @@ set up, the branch model, and the conventions CI enforces.
 ## Getting set up
 
 See the [Quickstart in the README](README.md#quickstart-local) and
-[`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md) for the full local environment
+[`docs/dev/local-development.md`](docs/dev/local-development.md) for the full local environment
 (Docker Compose for backend + Postgres + Redis + Celery, Vite for the frontend).
 
 Install the pre-commit hooks once — they run `black`, `isort`, `flake8`, and
@@ -28,7 +28,7 @@ feature/*  ──PR──▶  modernization  ──PR──▶  qa  ──▶  p
   a PR target for feature work.
 - Use descriptive branch names: `feat/...`, `fix/...`, `docs/...`, `chore/...`.
 
-See [`GIT_STRATEGY.md`](GIT_STRATEGY.md) for the full rationale.
+See [`docs/dev/git-strategy.md`](docs/dev/git-strategy.md) for the full rationale.
 
 ## Commit & PR conventions
 

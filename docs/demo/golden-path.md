@@ -401,3 +401,60 @@ python -m pytest openshiksha/apps/core/tests/test_algebra.py
 *Next beat:* GSV-2 — a `function-plotter`-style **step-solver widget** that calls
 this engine per line, and GSV-3 — the AI **wrong-step explainer**, grounded in the
 engine's verdict (it explains, it never grades).
+
+---
+
+## Beat 6b — The step-validator's correctness engine, *inside the sandbox* (GSV-2a) · *foundation, off-screen*
+
+The step-solver widget will live in the same `sandbox="allow-scripts"` iframe as
+every other widget: **deterministic and network-less by design** (principle 1).
+That is a hard constraint with a sharp consequence — when the student types a
+line and expects an instant ✓/✗, the widget *cannot* round-trip to the backend
+`check_step` endpoint, because the sandbox is forbidden to make a network call.
+So the live correctness check has to run **in the sandbox**, as deterministic JS.
+
+This beat ports Beat 6's engine to TypeScript:
+`frontend_modern/src/widgets/step-solver/algebra.ts` is a faithful, one-to-one
+mirror of `apps/core/algebra.py` — the same tiny recursive-descent parser (no
+`eval`, no `Function`), the same whitelisted function set, the same
+implicit-multiplication grammar, and the same **deterministic numeric-probing**
+equivalence (seeded, so reproducible). It exposes the identical API:
+
+```ts
+import { checkStep } from './algebra';
+
+checkStep('2*x = 6', 'x = 3').equivalent;        // true  — divide both sides
+checkStep('2*x = 6', 'x = 4').equivalent;        // false — wrong solution
+checkStep('2*(x + 3)', '2*x + 6').equivalent;    // true  — distribution
+checkStep('(x+1)^2', 'x^2 + 1').equivalent;      // false — dropped cross-term
+```
+
+**Why two engines, not one?** A second implementation is normally a smell, but
+here the language boundary is real: correctness must be decided *both* on the
+host (the backend `check_step`, for any server-side use — e.g. grounding the
+GSV-3 explainer) *and* in the network-less sandbox (for the live student check).
+The pair is kept honest by mirroring `test_algebra.py`'s suite verbatim — same
+curriculum cases, same malformed-input fallbacks, same determinism check — so the
+two engines cannot silently drift.
+
+**Why it's iron-clad:** the engine is the *correctness path* and it is fully
+deterministic and AI-free (principles 1, 2) — running it in the sandbox is fine
+precisely *because* it is not AI; the sandbox-ban on AI does not touch it. Every
+malformed line is the **deterministic fallback** — a parse error, an illegal
+character, an empty line, a mixed equation/expression pair, or an all-singular
+sample set returns `{ equivalent: false, error: … }` — a verdict, never a thrown
+exception (4).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# 41 tests mirroring the backend suite one-to-one: equivalent/inequivalent
+# expressions and equations across the curriculum forms, every malformed-input
+# fallback (returns an error verdict, never throws), and a determinism check.
+npx vitest run src/widgets/step-solver/algebra.test.ts
+```
+
+*Next beat:* GSV-2b — the `step-solver` **widget** itself: the student types
+successive lines, this engine lights each one ✓/✗ live, and the final line is
+reported through the existing per-subpart grader (AI nowhere near the grade).

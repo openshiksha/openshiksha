@@ -19,12 +19,10 @@ name: CodeQL
 on:
     push:
         branches:
-            - modernization
             - qa
             - prod
     pull_request:
         branches:
-            - modernization
             - qa
             - prod
     schedule:
@@ -33,11 +31,11 @@ on:
         - cron: '17 6 * * 1'
 
 # Cancel superseded runs on feature branches; let the gated long-lived
-# branches (modernization/qa/prod) each run to completion, mirroring
+# branches (qa/prod) each run to completion, mirroring
 # ci-cd.yaml's concurrency policy.
 concurrency:
     group: codeql-${{ github.ref }}
-    cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
 
 jobs:
     analyze:

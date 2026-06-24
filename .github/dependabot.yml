@@ -5,7 +5,7 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
-    target-branch: "modernization"
+    target-branch: "qa"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
@@ -28,7 +28,7 @@ updates:
     directory: "/frontend_modern"
     schedule:
       interval: "weekly"
-    target-branch: "modernization"
+    target-branch: "qa"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
@@ -47,7 +47,7 @@ updates:
     directory: "/backend"
     schedule:
       interval: "monthly"
-    target-branch: "modernization"
+    target-branch: "qa"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -69,7 +69,7 @@ updates:
     directory: "/frontend_modern"
     schedule:
       interval: "monthly"
-    target-branch: "modernization"
+    target-branch: "qa"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -88,7 +88,7 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-    target-branch: "modernization"
+    target-branch: "qa"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"

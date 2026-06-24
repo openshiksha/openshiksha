@@ -57,8 +57,12 @@ platform capability**.
    proficiency) remediated + gated. ✅ *(Batch 2 — A11Y-6/7/8, 2026-06-20..23)*
 5. *(future)* **Keyboard-only walkthrough + screen-reader spot-check** (NVDA /
    VoiceOver) sign-off.
-6. *(future)* **Teacher / parent surfaces** remediated + gated; consider an axe CI
-   job that scans authenticated routes against the Docker stack.
+6. **Teacher / parent surfaces** remediated + gated. 🟡 *(Batch 3 — A11Y-9/11/12,
+   2026-06-23: the teacher dashboard/question-bank/grading + parent dashboard are
+   gated. Remaining: the dense authoring forms — `CreateQuestionPage`,
+   `CreateAssignmentPage`, `CreateProblemSetPage` — and parent insights pages, a
+   future increment.)* Consider an axe CI job over authenticated routes against the
+   Docker stack.
 
 ## Phase / batch plan
 
@@ -99,4 +103,7 @@ it in = flip that row's `gate` once it's clean.
 | [#418](https://github.com/openshiksha/openshiksha/pull/418) | A11Y-FV — keyboard focus-visible indicator pass | Improve | Shared `:focus-visible` outline/ring token across the interactive primitives + bottom-tab/drawer/skip-link chrome (WCAG 2.4.7). |
 | [#419](https://github.com/openshiksha/openshiksha/pull/419) | A11Y-6 — authenticated axe harness + student core-loop baseline | New | `e2e/support/auth.ts` (stubbed student JWT + `page.route` core-loop fixtures) + four `auth: true` student routes added to the table (reporting-mode). Baseline came back structurally clean. |
 | [#420](https://github.com/openshiksha/openshiksha/pull/420) | A11Y-7 — student core-loop contrast remediation | Improve | Removed `opacity-70`/`opacity-60` from `StreakBadge` secondary labels (the one blocking finding the A11Y-6 inventory surfaced); hierarchy now carried by weight, contrast clears AA. |
-| A11Y-8 (this batch) | Gate the student core-loop routes + Batch 2 close-out | New + Docs | Flipped `/student`, `/student/assignments/:id`, `/student/proficiency`, `/student/srs-drill/:entryId` to `gate: true` (all `blocking === []`); change doc + student-loop manual checklist; **DoD item 4 done**. |
+| [#441](https://github.com/openshiksha/openshiksha/pull/441) | A11Y-8 — gate the student core-loop routes + Batch 2 close-out | New + Docs | Flipped `/student`, `/student/assignments/:id`, `/student/proficiency`, `/student/srs-drill/:entryId` to `gate: true` (all `blocking === []`); change doc + student-loop manual checklist; **DoD item 4 done**. |
+| [#442](https://github.com/openshiksha/openshiksha/pull/442) | A11Y-9 — authenticated axe harness for teacher + parent surfaces (Batch 3 baseline) | New | Role-parametrized the harness (`TEACHER_USER`/`PARENT_USER`/`CHILD_USER` + `makeRouteHandler`); added `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` (reporting). Teacher surfaces clean; `/parent` flagged one contrast node. |
+| [#450](https://github.com/openshiksha/openshiksha/pull/450) | A11Y-11 — brand-text-on-tint contrast remediation | Improve | Small `brand-700` text on the `brand-50` tint is 4.45 : 1 (under AA); moved the `/parent` "View insights" link + the `AssignmentList` brand badge to `brand-800`; documented the rule. `/parent` → `blocking: []`. |
+| A11Y-12 (this batch) | Gate the teacher + parent routes + Batch 3 close-out | New + Docs | Flipped `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` to `gate: true` (all `blocking === []`); change doc + teacher/parent manual checklist; **DoD item 6 (partial) — teacher/parent core surfaces gated**. |

@@ -63,13 +63,16 @@ const ROUTES: AuditRoute[] = [
   { name: 'assignment-detail', path: '/student/assignments/1', gate: true, auth: 'student' },
   { name: 'proficiency', path: '/student/proficiency', gate: true, auth: 'student' },
   { name: 'srs-drill', path: '/student/srs-drill/1', gate: true, auth: 'student' },
-  // A11Y-9 (Batch 3): authenticated teacher + parent core surfaces. Reporting-
-  // mode for now — this PR establishes the baseline inventory
-  // (axe-report/{teacher,parent}-*.json); a follow-up remediates and gates.
-  { name: 'teacher-dashboard', path: '/teacher', gate: false, auth: 'teacher' },
-  { name: 'teacher-question-bank', path: '/teacher/questions', gate: false, auth: 'teacher' },
-  { name: 'teacher-grading', path: '/teacher/grading', gate: false, auth: 'teacher' },
-  { name: 'parent-dashboard', path: '/parent', gate: false, auth: 'parent' },
+  // A11Y-12 (Batch 3): authenticated teacher + parent core surfaces — now GATED.
+  // The A11Y-9 baseline found the teacher surfaces structurally clean and the one
+  // blocking finding on /parent (small brand-700 text on the brand-50 tint) was
+  // fixed in A11Y-11. All four compute `blocking === []`, so they gate against
+  // future regressions. Residual colour-contrast stays in axe's `incomplete`
+  // bucket (non-gating), the same contract as the public + student routes.
+  { name: 'teacher-dashboard', path: '/teacher', gate: true, auth: 'teacher' },
+  { name: 'teacher-question-bank', path: '/teacher/questions', gate: true, auth: 'teacher' },
+  { name: 'teacher-grading', path: '/teacher/grading', gate: true, auth: 'teacher' },
+  { name: 'parent-dashboard', path: '/parent', gate: true, auth: 'parent' },
 ];
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];

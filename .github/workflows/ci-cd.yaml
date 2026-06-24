@@ -5,13 +5,13 @@ on: push
 # Cancel in-progress CI runs when a newer commit lands on the same feature
 # branch — the older run's results are stale anyway, and waiting on them
 # burns minutes and delays feedback. Long-lived branches that gate deploys
-# (modernization / qa / prod) are excluded: their runs build and publish
+# (qa / prod) are excluded: their runs build and publish
 # images and roll out to k3s, so cancelling mid-flight could leave the
 # cluster pointing at a half-pushed image. For those, each push runs to
 # completion and the most recent one wins by ordering.
 concurrency:
     group: ci-${{ github.ref }}
-    cancel-in-progress: ${{ github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod' }}
 
 # Least-privilege default for the GITHUB_TOKEN. Without an explicit block the
 # token inherits the repository/org default, which can be the legacy
@@ -181,7 +181,7 @@ jobs:
               # Push-triggered workflow: look up the PR for this branch (if any) and
               # post / update a sticky coverage summary so it shows in code review
               # without opening the artifact zip.
-              if: github.ref != 'refs/heads/modernization' && github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod'
+              if: github.ref != 'refs/heads/qa' && github.ref != 'refs/heads/prod'
               working-directory: backend
               env:
                 GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -429,11 +429,13 @@ jobs:
     # ─── Deploy to QA env ────────────────────────────────────────────────────
     # DISABLED for now: there is no dedicated qa cluster yet. The single droplet
     # currently serves the PROD env, deployed from the `qa` branch (see deploy-prod
-    # below). The wiring here is the intended future state — `modernization`
-    # branch -> qa env — but gated off by the `QA_ENV_ENABLED` repo variable
-    # (currently unset, so this job never runs). To activate: provision a qa
-    # cluster + its `openshiksha-qa` secret, then set the repo Actions variable
-    # QA_ENV_ENABLED=true.
+    # below). The wiring here is a stale future-state sketch — it still triggers on
+    # the retired `modernization` branch, so the `if` below can never match. Before
+    # activating, decide which branch should feed a dedicated qa env (the old
+    # modernization -> qa flow no longer exists) and update the trigger. Gated off
+    # by the `QA_ENV_ENABLED` repo variable (currently unset, so this job never
+    # runs). To activate: provision a qa cluster + its `openshiksha-qa` secret,
+    # fix the branch trigger, then set the repo Actions variable QA_ENV_ENABLED=true.
     deploy-qa:
         name: Deploy to QA Cluster
         timeout-minutes: 15

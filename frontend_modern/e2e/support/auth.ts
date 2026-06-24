@@ -28,6 +28,38 @@ export const STUDENT_USER = {
   preferred_language: 'en',
 };
 
+/** A minimal teacher `User` (A11Y-9 — teacher core surfaces). */
+export const TEACHER_USER = {
+  id: 2,
+  username: 'a11y_teacher',
+  email: 'teacher@example.com',
+  first_name: 'Meera',
+  last_name: 'Teacher',
+  role: 'teacher',
+  grade: null,
+  preferred_language: 'en',
+};
+
+/** A minimal parent `User` with one child (A11Y-9 — parent core surfaces). */
+export const PARENT_USER = {
+  id: 3,
+  username: 'a11y_parent',
+  email: 'parent@example.com',
+  first_name: 'Sunil',
+  last_name: 'Parent',
+  role: 'parent',
+  grade: null,
+  preferred_language: 'en',
+};
+
+/** The child the parent surfaces resolve via `/users/me/children/`. */
+const CHILD_USER = {
+  ...STUDENT_USER,
+  id: 10,
+  username: 'a11y_child',
+  first_name: 'Ravi',
+};
+
 const paginated = (results: unknown[]) => ({
   count: results.length,
   next: null,
@@ -147,40 +179,47 @@ const STREAK = {
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
-function routeHandler(route: Route): Promise<void> {
-  const url = new URL(route.request().url());
-  const p = url.pathname;
+/** The signed-in user shape the dispatch resolves `/users/me/` to. */
+type SessionUser = typeof STUDENT_USER | typeof TEACHER_USER | typeof PARENT_USER;
 
-  // Auth gate.
-  if (p.endsWith('/auth/verify/')) return json(route, {});
-  if (p.endsWith('/auth/refresh/')) return json(route, { access: 'fake-access' });
-  if (p.endsWith('/users/me/')) return json(route, STUDENT_USER);
-  if (p.endsWith('/users/me/streak/')) return json(route, STREAK);
+// The dispatch is parametrized by the session user so the same fixtures serve
+// the student, teacher, and parent core surfaces (A11Y-6 → A11Y-9). Only the
+// identity reads (`/users/me/`, `/users/me/children/`) vary by role; the list
+// reads are role-agnostic (the backend scopes them by the JWT, which we stub).
+function makeRouteHandler(user: SessionUser) {
+  return function routeHandler(route: Route): Promise<void> {
+    const url = new URL(route.request().url());
+    const p = url.pathname;
 
-  // Object (non-list) endpoints that signal "nothing yet" with a 404 — their
-  // hooks map 404 → null/disabled and render an empty state, whereas a
-  // paginated-empty body would be the wrong shape and throw in a consumer.
-  if (p.endsWith('/ai/practice-plans/today/')) return json(route, { detail: 'No plan' }, 404);
-  if (p.endsWith('/push/vapid-public-key/')) return json(route, { detail: 'Disabled' }, 404);
+    // Auth gate + identity.
+    if (p.endsWith('/auth/verify/')) return json(route, {});
+    if (p.endsWith('/auth/refresh/')) return json(route, { access: 'fake-access' });
+    if (p.endsWith('/users/me/children/')) return json(route, [CHILD_USER]);
+    if (p.endsWith('/users/me/')) return json(route, user);
+    if (p.endsWith('/users/me/streak/')) return json(route, STREAK);
 
-  // Core-loop reads.
-  if (/\/assignments\/\d+\/$/.test(p)) return json(route, ASSIGNMENT_DETAIL);
-  if (p.endsWith('/assignments/')) return json(route, paginated([ASSIGNMENT_SUMMARY]));
-  if (p.endsWith('/submissions/')) return json(route, paginated([SUBMISSION]));
-  if (p.endsWith('/proficiency/')) return json(route, paginated([]));
-  if (/\/spaced-repetition\/\d+\/review\/$/.test(p)) return json(route, SRS_DRILL);
+    // Object (non-list) endpoints that signal "nothing yet" with a 404 — their
+    // hooks map 404 → null/disabled and render an empty state, whereas a
+    // paginated-empty body would be the wrong shape and throw in a consumer.
+    if (p.endsWith('/ai/practice-plans/today/')) return json(route, { detail: 'No plan' }, 404);
+    if (p.endsWith('/push/vapid-public-key/')) return json(route, { detail: 'Disabled' }, 404);
 
-  // Everything else: an empty paginated page is a safe default for the list
-  // reads (videos, announcements, recommendations, learning-paths, srs/due…) —
-  // each renders its branded empty state, which still carries the page heading
-  // and landmarks axe needs.
-  return json(route, paginated([]));
+    // Core-loop reads (shared across roles).
+    if (/\/assignments\/\d+\/$/.test(p)) return json(route, ASSIGNMENT_DETAIL);
+    if (p.endsWith('/assignments/')) return json(route, paginated([ASSIGNMENT_SUMMARY]));
+    if (p.endsWith('/submissions/')) return json(route, paginated([SUBMISSION]));
+    if (p.endsWith('/proficiency/')) return json(route, paginated([]));
+    if (/\/spaced-repetition\/\d+\/review\/$/.test(p)) return json(route, SRS_DRILL);
+
+    // Everything else: an empty paginated page is a safe default for the list
+    // reads (videos, announcements, recommendations, learning-paths, srs/due,
+    // subject-rooms, problem-sets, questions…) — each renders its branded empty
+    // state, which still carries the page heading and landmarks axe needs.
+    return json(route, paginated([]));
+  };
 }
 
-/**
- * Seed a student session and stub the core-loop API. Call before `page.goto`.
- */
-export async function setupStudentAuth(page: Page): Promise<void> {
+async function setupAuth(page: Page, user: SessionUser): Promise<void> {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('access_token', 'fake-access-token');
@@ -189,5 +228,21 @@ export async function setupStudentAuth(page: Page): Promise<void> {
       /* localStorage unavailable — nothing to seed */
     }
   });
-  await page.route('**/api/v1/**', routeHandler);
+  await page.route('**/api/v1/**', makeRouteHandler(user));
 }
+
+/** Seed a student session + stub the core-loop API. Call before `page.goto`. */
+export const setupStudentAuth = (page: Page): Promise<void> => setupAuth(page, STUDENT_USER);
+
+/** Seed a teacher session + stub the teacher reads. Call before `page.goto`. */
+export const setupTeacherAuth = (page: Page): Promise<void> => setupAuth(page, TEACHER_USER);
+
+/** Seed a parent session (one child) + stub the parent reads. */
+export const setupParentAuth = (page: Page): Promise<void> => setupAuth(page, PARENT_USER);
+
+/** Role → setup helper, for the parameterized a11y route table. */
+export const AUTH_SETUP: Record<'student' | 'teacher' | 'parent', (page: Page) => Promise<void>> = {
+  student: setupStudentAuth,
+  teacher: setupTeacherAuth,
+  parent: setupParentAuth,
+};

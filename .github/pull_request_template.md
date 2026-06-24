@@ -27,7 +27,7 @@ See CONTRIBUTING.md for the branch model and commit conventions.
 
 ## Checklist
 
-- [ ] Targets the **`modernization`** branch
+- [ ] Targets the **`qa`** branch
 - [ ] CI is green (lint, type-check, tests, build)
 - [ ] Migrations created if models changed (`makemigrations --check` clean)
 - [ ] Docs / change log / initiative ledger updated if relevant

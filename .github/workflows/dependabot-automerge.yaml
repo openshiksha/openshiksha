@@ -11,8 +11,8 @@ name: Dependabot auto-merge
 #
 # Why we wait-then-merge instead of `gh pr merge --auto`: GitHub's native
 # auto-merge can only be *enabled* while a PR is blocked by **required status
-# checks** — i.e. the base branch has branch protection. Our integration branch
-# `modernization` is intentionally unprotected (the build routines push to it
+# checks** — i.e. the base branch has branch protection. Our trunk branch
+# `qa` is intentionally unprotected (the build routines push to it
 # directly, which required checks would reject), so `--auto` fails with
 # "Pull request is in unstable status (enablePullRequestAutoMerge)" and nothing
 # ever merges. Instead we watch this commit's "CI/CD Pipeline" run and, when it

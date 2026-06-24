@@ -10,7 +10,7 @@
 # that exceeds the ceiling fails the CI image build, not just the unit-test
 # job that already ran in `frontend`.
 
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN npm run check:budget
 
 # -----------------------------------------------------------------------------
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 # OpenShiksha SPA-friendly nginx config: history fallback for client-side
 # routes, long cache + immutable on /assets/* (Vite content-hashes

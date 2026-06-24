@@ -10,7 +10,7 @@
 # that exceeds the ceiling fails the CI image build, not just the unit-test
 # job that already ran in `frontend`.
 
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 

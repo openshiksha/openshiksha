@@ -53,8 +53,8 @@ platform capability**.
    time, CI-enforced at `--max-warnings 0`. *(A11Y-2)*
 3. **Public surfaces remediated** to zero serious/critical blocking violations and
    **gated** (`gate: true`) so the gain can't regress. *(A11Y-3, A11Y-4, A11Y-5)*
-4. *(future batch)* **Student core-loop surfaces** (assignment detail, dashboard,
-   SRS drill, proficiency) remediated + gated.
+4. **Student core-loop surfaces** (assignment detail, dashboard, SRS drill,
+   proficiency) remediated + gated. ✅ *(Batch 2 — A11Y-6/7/8, 2026-06-20..23)*
 5. *(future)* **Keyboard-only walkthrough + screen-reader spot-check** (NVDA /
    VoiceOver) sign-off.
 6. *(future)* **Teacher / parent surfaces** remediated + gated; consider an axe CI
@@ -94,4 +94,9 @@ it in = flip that row's `gate` once it's clean.
 | [#390](https://github.com/openshiksha/openshiksha/pull/390) | A11Y-2 — `eslint-plugin-jsx-a11y` static gate | New | `flatConfigs.recommended` wired into flat ESLint config; npm `overrides` for the stale eslint peer; 11 hits fixed; `--max-warnings 0` green. |
 | — | A11Y-3 — form-label / landmark / heading fixes | — | **No remediation needed.** Baseline found the public/auth surfaces structurally clean (0 label/landmark/heading violations). Only `/design`'s widget-iframe range inputs lack labels (known-noise). |
 | — | A11Y-4 — colour-contrast remediation | **Deferred** | One systemic finding: `.btn-brand` (white on `#FF6F00`, ≈ 2.8 : 1) fails AA enabled. Needs a **brand-shade design decision** before the mechanical fix — see [change doc](../changes/2026-06-19-a11y-batch1.md). |
-| A11Y-5 (this batch) | Gate clean public routes + close-out | New + Docs | Recorded axe `incomplete`; gated `/login`, `/register`, `/register/school`, `/register/open`, `/enquire` (`gate: true`); `/` + `/design` stay reporting-mode; change doc + manual checklist. |
+| [#391](https://github.com/openshiksha/openshiksha/pull/391) | A11Y-5 — gate clean public routes + Batch 1 close-out | New + Docs | Recorded axe `incomplete`; gated `/login`, `/register`, `/register/school`, `/register/open`, `/enquire` (`gate: true`); `/` + `/design` stayed reporting-mode; change doc + manual checklist. |
+| [#417](https://github.com/openshiksha/openshiksha/pull/417) | A11Y-4 — brand-shade decision + contrast token sweep (resolves the deferred row above) | Improve | Retuned `brand-700 → #C05300` (≥ 4.5 : 1 white); `.btn-brand` + small brand-text repainted; contrast rules documented; `/` (home) flipped to `gate: true`. |
+| [#418](https://github.com/openshiksha/openshiksha/pull/418) | A11Y-FV — keyboard focus-visible indicator pass | Improve | Shared `:focus-visible` outline/ring token across the interactive primitives + bottom-tab/drawer/skip-link chrome (WCAG 2.4.7). |
+| [#419](https://github.com/openshiksha/openshiksha/pull/419) | A11Y-6 — authenticated axe harness + student core-loop baseline | New | `e2e/support/auth.ts` (stubbed student JWT + `page.route` core-loop fixtures) + four `auth: true` student routes added to the table (reporting-mode). Baseline came back structurally clean. |
+| [#420](https://github.com/openshiksha/openshiksha/pull/420) | A11Y-7 — student core-loop contrast remediation | Improve | Removed `opacity-70`/`opacity-60` from `StreakBadge` secondary labels (the one blocking finding the A11Y-6 inventory surfaced); hierarchy now carried by weight, contrast clears AA. |
+| A11Y-8 (this batch) | Gate the student core-loop routes + Batch 2 close-out | New + Docs | Flipped `/student`, `/student/assignments/:id`, `/student/proficiency`, `/student/srs-drill/:entryId` to `gate: true` (all `blocking === []`); change doc + student-loop manual checklist; **DoD item 4 done**. |

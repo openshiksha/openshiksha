@@ -90,8 +90,8 @@ Established in the kickoff session (2026-05-30):
 | Token | Hex | Use |
 |---|---|---|
 | `brand-600` | `#FF6F00` | **Decorative / large-element anchor only** (logo, chalk-underline, large hero numerals, borders, focus rings, big badges, progress fill). White text on it is ≈ 2.8 : 1 — **never `text-white` on `brand-600` for text.** |
-| `brand-700` | `#C05300` | **The on-text / CTA brand shade** — ≥ 4.5 : 1 with white *and* on paper. `.btn-brand` fill and all small brand text/links (`text-brand-700`). |
-| `brand-500/800` | `#FB7705` / `#9E4500` | Decorative accent / hover-pressed (`.btn-brand` hovers to `brand-800`). |
+| `brand-700` | `#C05300` | **The on-text / CTA brand shade** — ≥ 4.5 : 1 with white *and* on the white/page background. `.btn-brand` fill and small brand text/links on white (`text-brand-700`). **Not enough on the `brand-50/100` tint** (4.45 : 1) — use `brand-800` there (A11Y-11). |
+| `brand-500/800` | `#FB7705` / `#9E4500` | Decorative accent / hover-pressed (`.btn-brand` hovers to `brand-800`); **`brand-800` is also the small-text shade on `brand-50/100` tints** (≥ 4.5 : 1). |
 | `brand-50/100` | `#FFF8F1` / `#FFEEDC` | Tinted backgrounds, soft highlights, app paper. |
 | `ink-900/800` | `#0F0E0D` / `#1A1816` | Headings, chalkboard surfaces. |
 | `ink-600/500` | `#34302B` / `#4A463F` | Body text. |
@@ -109,8 +109,11 @@ Established in the kickoff session (2026-05-30):
 >   suffices), borders, focus rings, icon glyphs, big badges. It is **not** an
 >   on-text colour.
 > - For **white text on a brand fill** (`.btn-brand`) and **small brand text/links
->   on paper**, use **`brand-700` (`#C05300`, ≥ 4.5 : 1)** — `text-brand-700`.
->   Hover/pressed deepens to `brand-800`.
+>   on white/the page background**, use **`brand-700` (`#C05300`, ≥ 4.5 : 1)** —
+>   `text-brand-700`. Hover/pressed deepens to `brand-800`.
+> - For **small brand text on a `brand-50`/`brand-100` tint** (soft brand buttons,
+>   count badges, tinted chips), use **`brand-800` (`#9E4500`)** — `brand-700` on
+>   the warm `#FFF8F1` tint is only 4.45 : 1, a hair under AA (A11Y-11).
 > - Never put `text-white` on `brand-600` for text.
 
 ### Typography

@@ -116,7 +116,9 @@ interface SectionProps {
 const ACCENT_COLORS: Record<Accent, string> = {
   urgent: 'text-rose-700 bg-rose-50',
   attention: 'text-amber-800 bg-amber-50',
-  brand: 'text-brand-700 bg-brand-50',
+  // brand-800 (not -700): brand-700 #C05300 on the warm brand-50 #FFF8F1 tint is
+  // 4.45:1 — a hair under AA for this small badge text (A11Y-11). brand-800 clears it.
+  brand: 'text-brand-800 bg-brand-50',
   success: 'text-emerald-700 bg-emerald-50',
 };
 

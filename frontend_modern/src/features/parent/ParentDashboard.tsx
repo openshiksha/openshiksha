@@ -245,7 +245,7 @@ export const ParentDashboard = () => {
             </div>
             <Link
               to={`/parent/insights/${selectedChild.id}`}
-              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+              className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-brand-50 text-brand-800 hover:bg-brand-100 transition-colors motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
             >
               {t('parent.viewInsights')}
             </Link>

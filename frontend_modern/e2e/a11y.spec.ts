@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
-import { setupStudentAuth } from './support/auth';
+import { AUTH_SETUP } from './support/auth';
 
 // Per-route accessibility baseline (axe-core, WCAG 2.1 AA).
 //
@@ -32,9 +32,9 @@ interface AuditRoute {
   name: string;
   path: string;
   gate: boolean;
-  // A11Y-6: when set, seed a student JWT + stub the core-loop API before
-  // navigating so `ProtectedRoute` admits the page and it renders content.
-  auth?: boolean;
+  // A11Y-6/9: when set, seed a JWT for the given role + stub the core-loop API
+  // before navigating so `ProtectedRoute` admits the page and it renders content.
+  auth?: 'student' | 'teacher' | 'parent';
 }
 
 const ROUTES: AuditRoute[] = [
@@ -59,10 +59,17 @@ const ROUTES: AuditRoute[] = [
   // regression on the student core loop fails CI. Residual colour-contrast lands
   // in axe's `incomplete` bucket (background axe can't compute) — recorded but
   // non-gating, the same contract as the public routes.
-  { name: 'student-dashboard', path: '/student', gate: true, auth: true },
-  { name: 'assignment-detail', path: '/student/assignments/1', gate: true, auth: true },
-  { name: 'proficiency', path: '/student/proficiency', gate: true, auth: true },
-  { name: 'srs-drill', path: '/student/srs-drill/1', gate: true, auth: true },
+  { name: 'student-dashboard', path: '/student', gate: true, auth: 'student' },
+  { name: 'assignment-detail', path: '/student/assignments/1', gate: true, auth: 'student' },
+  { name: 'proficiency', path: '/student/proficiency', gate: true, auth: 'student' },
+  { name: 'srs-drill', path: '/student/srs-drill/1', gate: true, auth: 'student' },
+  // A11Y-9 (Batch 3): authenticated teacher + parent core surfaces. Reporting-
+  // mode for now — this PR establishes the baseline inventory
+  // (axe-report/{teacher,parent}-*.json); a follow-up remediates and gates.
+  { name: 'teacher-dashboard', path: '/teacher', gate: false, auth: 'teacher' },
+  { name: 'teacher-question-bank', path: '/teacher/questions', gate: false, auth: 'teacher' },
+  { name: 'teacher-grading', path: '/teacher/grading', gate: false, auth: 'teacher' },
+  { name: 'parent-dashboard', path: '/parent', gate: false, auth: 'parent' },
 ];
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -70,7 +77,7 @@ const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 test.describe('public surfaces — accessibility (axe-core)', () => {
   for (const route of ROUTES) {
     test(`${route.name} (${route.path})`, async ({ page }, testInfo) => {
-      if (route.auth) await setupStudentAuth(page);
+      if (route.auth) await AUTH_SETUP[route.auth](page);
       await page.goto(route.path);
       // Settle async chrome (fonts, lazy chunks) before the scan so contrast
       // and structure are measured against the final rendered UI, and keep a

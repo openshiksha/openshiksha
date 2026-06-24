@@ -51,13 +51,18 @@ const ROUTES: AuditRoute[] = [
   { name: 'home', path: '/', gate: true },
   // Deliberate showcase edge cases + widget iframes → reporting-mode.
   { name: 'design', path: '/design', gate: false },
-  // A11Y-6: authenticated student core-loop. Reporting-mode for now — this PR
-  // establishes the baseline inventory (axe-report/student-*.json); A11Y-7
-  // remediates and A11Y-8 flips these to `gate: true`.
-  { name: 'student-dashboard', path: '/student', gate: false, auth: true },
-  { name: 'assignment-detail', path: '/student/assignments/1', gate: false, auth: true },
-  { name: 'proficiency', path: '/student/proficiency', gate: false, auth: true },
-  { name: 'srs-drill', path: '/student/srs-drill/1', gate: false, auth: true },
+  // A11Y-8: authenticated student core-loop — now GATED. The A11Y-6 baseline
+  // came back structurally clean (zero label/landmark/heading violations) and
+  // the one blocking colour-contrast finding (StreakBadge labels) was fixed in
+  // A11Y-7 (#420), on top of A11Y-4's brand-shade token sweep (#417). With
+  // `blocking === []` on all four routes, they flip to `gate: true` so a future
+  // regression on the student core loop fails CI. Residual colour-contrast lands
+  // in axe's `incomplete` bucket (background axe can't compute) — recorded but
+  // non-gating, the same contract as the public routes.
+  { name: 'student-dashboard', path: '/student', gate: true, auth: true },
+  { name: 'assignment-detail', path: '/student/assignments/1', gate: true, auth: true },
+  { name: 'proficiency', path: '/student/proficiency', gate: true, auth: true },
+  { name: 'srs-drill', path: '/student/srs-drill/1', gate: true, auth: true },
 ];
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];

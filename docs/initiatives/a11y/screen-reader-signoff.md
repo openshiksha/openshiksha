@@ -9,6 +9,27 @@ structure, contrast, and keyboard operability; a real screen-reader pass is the
 remaining human check. Run this script per release-significant a11y change, record
 the result in the per-journey tables below, and link the filled copy from the PR.
 
+## Sign-off status
+
+> **Live screen-reader pass: WAIVED — 2026-06-25, project owner.** No NVDA /
+> VoiceOver tester is available, so the per-journey tables below are **left
+> unticked on purpose** — they are **not** claimed as passed. The WCAG 2.1 AA
+> initiative closes on the *automatable* coverage standing in for the human
+> listen-through:
+>
+> - **Names / roles / labels** — gated on every surface by axe
+>   (`e2e/a11y.spec.ts`): `select-name`, `button-name`, `label`, `aria-*`,
+>   landmark + heading-order rules. Zero serious/critical across all 21 routes.
+> - **Keyboard operability** — gated by `e2e/keyboard.spec.ts`: skip-link bypass,
+>   focus order, focus-visible (real Tab/Enter).
+> - **Dynamic announcements** — the announce-region inventory below verifies
+>   `role=status` / `aria-live` semantics on every live region.
+>
+> What stays un-exercised is the *subjective* quality of the spoken output —
+> phrasing, verbosity, and focus surprises a real listen-through would catch.
+> Re-run this script and tick the boxes if/when a screen-reader tester is
+> available; treat any finding as a fast-follow, not a reopen of the initiative.
+
 ## How to run
 
 | Platform | Screen reader | Browser | Launch |

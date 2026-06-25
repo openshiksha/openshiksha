@@ -73,6 +73,21 @@ const ROUTES: AuditRoute[] = [
   { name: 'teacher-question-bank', path: '/teacher/questions', gate: true, auth: 'teacher' },
   { name: 'teacher-grading', path: '/teacher/grading', gate: true, auth: 'teacher' },
   { name: 'parent-dashboard', path: '/parent', gate: true, auth: 'parent' },
+  // A11Y-13/15 (Batch 3 close-out): the dense teacher authoring forms + parent
+  // insights — the last authenticated surfaces that were still UNMEASURED — now
+  // GATED. The A11Y-13 baseline came back structurally clean (`blocking === []`
+  // on all five): the forms are composed from the shared labelled `Input` /
+  // `Select` / `Textarea` primitives, so the labelling/heading findings A11Y-14
+  // anticipated never materialised (the planned remediation surface was empty,
+  // mirroring how A11Y-9 found the teacher *core* surfaces clean). Residual
+  // colour-contrast lands in axe's `incomplete` bucket (background axe can't
+  // compute) — recorded but non-gating, the same contract as every other route.
+  // This fully satisfies the initiative's DoD item 6.
+  { name: 'teacher-create-question', path: '/teacher/questions/new', gate: true, auth: 'teacher' },
+  { name: 'teacher-create-assignment', path: '/teacher/assignments/new', gate: true, auth: 'teacher' },
+  { name: 'teacher-create-problemset', path: '/teacher/problem-sets/new', gate: true, auth: 'teacher' },
+  { name: 'parent-insights', path: '/parent/insights', gate: true, auth: 'parent' },
+  { name: 'parent-insights-child', path: '/parent/insights/10', gate: true, auth: 'parent' },
 ];
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];

@@ -11,7 +11,22 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-23 (latest) — **Accessibility Batch 3 CLOSED — teacher +
+**Last updated:** 2026-06-24 (latest) — **Accessibility Batch 3 FULLY CLOSED —
+authoring forms + parent insights measured & gated (DoD item 6 ✅).** A11Y-13/15
+added the last unmeasured authenticated surfaces to the harness —
+`/teacher/questions/new`, `/teacher/assignments/new`, `/teacher/problem-sets/new`,
+`/parent/insights`, `/parent/insights/:childId`. The baseline came back
+`blocking === []` on all five: the dense authoring forms compose from the shared
+labelled `Input`/`Select`/`Textarea` primitives, so the anticipated A11Y-14
+labelling/heading remediation was a no-op and the rows gate directly. The same PR
+fixes a previously-uncovered crash — the dashboard's `ClassroomCodeWidget` reads
+the bare-array `/users/me/classroom-code/` endpoint, which the harness catch-all
+mishandled; now stubbed (and the widget is exercised by the gated teacher-dashboard
+route). **DoD item 6 fully met.** **Next: Batch 4 — automated keyboard-traversal
+spec + screen-reader (NVDA/VoiceOver) sign-off** (DoD item 5). The
+`ai-features` routine fence is respected. *(Prior update below.)*
+
+**2026-06-23** — **Accessibility Batch 3 (core) CLOSED — teacher +
 parent core surfaces measured, remediated & gated.** Building on the same-day
 Batch 2 close-out, Batch 3 generalized the authenticated axe harness to the
 teacher and parent roles and extended the gated AA contract to those surfaces:
@@ -20,14 +35,10 @@ A11Y-9 ([#442](https://github.com/openshiksha/openshiksha/pull/442) — role-par
 `/parent` baselined; teacher surfaces clean) → A11Y-11
 ([#450](https://github.com/openshiksha/openshiksha/pull/450) — the one finding:
 small `brand-700` text on the `brand-50` tint = 4.45 : 1 → `brand-800`, the
-`/parent` link + `AssignmentList` badge, rule documented) → **A11Y-12 (this PR)**
-flips all four teacher/parent routes to `gate: true` (all `blocking === []`) +
-Batch 3 close-out (change doc, teacher/parent manual checklist, ledger). **DoD
-item 6 is now partially met** — the teacher/parent *core* surfaces are gated; the
-dense authoring forms (`CreateQuestionPage`/`CreateAssignmentPage`/`CreateProblemSetPage`)
-and parent insights pages are deferred to a future increment (never gate a dirty
-route). **Next: Batch 4 — full keyboard-only + screen-reader (NVDA/VoiceOver)
-sign-off** (DoD item 5), plus the deferred authoring-form baseline. The
+`/parent` link + `AssignmentList` badge, rule documented) → **A11Y-12**
+([#451](https://github.com/openshiksha/openshiksha/pull/451)) flips all four
+teacher/parent routes to `gate: true` (all `blocking === []`) +
+Batch 3 close-out (change doc, teacher/parent manual checklist, ledger). The
 `ai-features` routine fence is respected. *(Prior update below.)*
 
 **2026-06-23** — **Accessibility Batch 2 CLOSED — student

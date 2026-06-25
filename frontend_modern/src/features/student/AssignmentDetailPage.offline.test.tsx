@@ -113,6 +113,12 @@ describe('AssignmentDetailPage — offline final-submit (MSO-9)', () => {
     expect(
       screen.queryByText(/will be graded when you're back online/i),
     ).not.toBeInTheDocument();
+
+    // A11Y-17: the revealed score sits in a polite live region so screen-reader
+    // users hear the outcome announced rather than it appearing silently.
+    const statusRegion = screen.getByRole('status');
+    expect(statusRegion).toHaveAttribute('aria-live', 'polite');
+    expect(statusRegion).toHaveTextContent('80%');
   });
 
   it('re-opens the form if the queued submit ultimately fails', async () => {

@@ -215,7 +215,16 @@ export const AssignmentDetailPage = () => {
       )}
 
       {isSubmitted && (
-        <div className={`mb-6 rounded-xl p-4 text-center border ${scoreBg}`}>
+        // A11Y-17: announce the post-submit outcome (score / "grading…" /
+        // "submitted offline") to screen-reader users — the card appears
+        // dynamically after submit, so without a polite live region the result
+        // is silent. `aria-live="polite"` waits for the SR to finish the user's
+        // current utterance before reading the score (WCAG 4.1.3 Status Messages).
+        <div
+          role="status"
+          aria-live="polite"
+          className={`mb-6 rounded-xl p-4 text-center border ${scoreBg}`}
+        >
           {submittedOffline ? (
             <>
               <p className="font-display font-semibold text-brand-800">

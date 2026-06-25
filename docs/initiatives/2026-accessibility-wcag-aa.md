@@ -57,12 +57,14 @@ platform capability**.
    proficiency) remediated + gated. ✅ *(Batch 2 — A11Y-6/7/8, 2026-06-20..23)*
 5. *(future)* **Keyboard-only walkthrough + screen-reader spot-check** (NVDA /
    VoiceOver) sign-off.
-6. **Teacher / parent surfaces** remediated + gated. 🟡 *(Batch 3 — A11Y-9/11/12,
-   2026-06-23: the teacher dashboard/question-bank/grading + parent dashboard are
-   gated. Remaining: the dense authoring forms — `CreateQuestionPage`,
-   `CreateAssignmentPage`, `CreateProblemSetPage` — and parent insights pages, a
-   future increment.)* Consider an axe CI job over authenticated routes against the
-   Docker stack.
+6. **Teacher / parent surfaces** remediated + gated. ✅ *(Batch 3 — A11Y-9/11/12
+   + A11Y-13/15, 2026-06-23..24: the teacher dashboard/question-bank/grading +
+   parent dashboard, **plus** the dense authoring forms — `CreateQuestionPage`,
+   `CreateAssignmentPage`, `CreateProblemSetPage` — and the parent insights pages
+   are all gated (`blocking === []`). The authoring-form baseline came back clean:
+   the forms compose from the shared labelled `Input`/`Select`/`Textarea`
+   primitives, so the anticipated labelling/heading remediation surface was empty.)*
+   Consider an axe CI job over authenticated routes against the Docker stack.
 
 ## Phase / batch plan
 
@@ -106,4 +108,5 @@ it in = flip that row's `gate` once it's clean.
 | [#441](https://github.com/openshiksha/openshiksha/pull/441) | A11Y-8 — gate the student core-loop routes + Batch 2 close-out | New + Docs | Flipped `/student`, `/student/assignments/:id`, `/student/proficiency`, `/student/srs-drill/:entryId` to `gate: true` (all `blocking === []`); change doc + student-loop manual checklist; **DoD item 4 done**. |
 | [#442](https://github.com/openshiksha/openshiksha/pull/442) | A11Y-9 — authenticated axe harness for teacher + parent surfaces (Batch 3 baseline) | New | Role-parametrized the harness (`TEACHER_USER`/`PARENT_USER`/`CHILD_USER` + `makeRouteHandler`); added `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` (reporting). Teacher surfaces clean; `/parent` flagged one contrast node. |
 | [#450](https://github.com/openshiksha/openshiksha/pull/450) | A11Y-11 — brand-text-on-tint contrast remediation | Improve | Small `brand-700` text on the `brand-50` tint is 4.45 : 1 (under AA); moved the `/parent` "View insights" link + the `AssignmentList` brand badge to `brand-800`; documented the rule. `/parent` → `blocking: []`. |
-| A11Y-12 (this batch) | Gate the teacher + parent routes + Batch 3 close-out | New + Docs | Flipped `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` to `gate: true` (all `blocking === []`); change doc + teacher/parent manual checklist; **DoD item 6 (partial) — teacher/parent core surfaces gated**. |
+| [#451](https://github.com/openshiksha/openshiksha/pull/451) | A11Y-12 — gate the teacher + parent routes + Batch 3 close-out | New + Docs | Flipped `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` to `gate: true` (all `blocking === []`); change doc + teacher/parent manual checklist; **DoD item 6 (partial) — teacher/parent core surfaces gated**. |
+| A11Y-13/15 (this batch) | Baseline + gate the authoring forms + parent insights + ClassroomCodeWidget crash fix | New + Improve + Docs | Added `/teacher/questions/new`, `/teacher/assignments/new`, `/teacher/problem-sets/new`, `/parent/insights`, `/parent/insights/:childId` to the harness; baseline came back `blocking === []` (forms use the shared labelled primitives), so the planned A11Y-14 remediation was a no-op and the rows gate directly. Also stubbed the bare-array `/users/me/classroom-code/` read so the dashboard's `ClassroomCodeWidget` renders (a previously-uncovered crash under the catch-all). **DoD item 6 fully met.** |

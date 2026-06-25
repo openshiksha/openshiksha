@@ -177,6 +177,32 @@ const STREAK = {
   milestone_tier: 'week',
 };
 
+// ── Authoring-form fixtures (A11Y-13) ────────────────────────────────────────
+// The teacher authoring forms render their inner controls whenever the teacher
+// has at least one subject room (`CreateAssignmentPage` swaps its class <Select>
+// for a "no rooms" message when the list is empty, hiding the very controls axe
+// must scan). One row is enough to render the labelled selects without requiring
+// any in-test interaction.
+const TEACHER_SUBJECT_ROOM = {
+  id: 1,
+  classroom: 1,
+  classroom_display: 'Class 8A',
+  subject: 1,
+  subject_name: 'Mathematics',
+  teacher: TEACHER_USER.id,
+  teacher_name: 'Meera Teacher',
+  is_active: true,
+  student_count: 20,
+};
+
+const CHAPTER = {
+  id: 1,
+  name: 'Whole Numbers',
+  standard: 8,
+  standard_number: 8,
+  subject: 1,
+};
+
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
 /** The signed-in user shape the dispatch resolves `/users/me/` to. */
@@ -197,12 +223,28 @@ function makeRouteHandler(user: SessionUser) {
     if (p.endsWith('/users/me/children/')) return json(route, [CHILD_USER]);
     if (p.endsWith('/users/me/')) return json(route, user);
     if (p.endsWith('/users/me/streak/')) return json(route, STREAK);
+    // Bare-array (non-paginated) reads: the catch-all returns a paginated
+    // *object*, which breaks consumers that call array methods on the body
+    // directly (`codes?.find`). The teacher dashboard's ClassroomCodeWidget now
+    // renders once a subject room exists (A11Y-13 fixtures), so stub its read.
+    if (p.endsWith('/users/me/classroom-code/')) return json(route, []);
 
     // Object (non-list) endpoints that signal "nothing yet" with a 404 — their
     // hooks map 404 → null/disabled and render an empty state, whereas a
     // paginated-empty body would be the wrong shape and throw in a consumer.
     if (p.endsWith('/ai/practice-plans/today/')) return json(route, { detail: 'No plan' }, 404);
     if (p.endsWith('/push/vapid-public-key/')) return json(route, { detail: 'Disabled' }, 404);
+    // Parent insights: no summary generated yet → the page renders its
+    // "No summary yet" empty state (which carries the `h1`), the same 404→null
+    // contract the page's hook already handles. A paginated-empty body would be
+    // the wrong shape and render a malformed summary card.
+    if (p.endsWith('/ai/parent-summaries/latest/')) return json(route, { detail: 'No summary' }, 404);
+
+    // Teacher authoring-form reads (A11Y-13). One row each so the forms render
+    // their labelled selects; the inner question/chapter selects stay at their
+    // empty default, which still renders a labelled control for axe to scan.
+    if (p.endsWith('/subject-rooms/')) return json(route, paginated([TEACHER_SUBJECT_ROOM]));
+    if (p.endsWith('/chapters/')) return json(route, paginated([CHAPTER]));
 
     // Core-loop reads (shared across roles).
     if (/\/assignments\/\d+\/$/.test(p)) return json(route, ASSIGNMENT_DETAIL);

@@ -417,6 +417,7 @@ export const QuestionBankPage = () => {
             />
             <div className="grid grid-cols-2 gap-2">
               <Select
+                aria-label={t('qbank.allSubjects')}
                 value={selectedSubject}
                 onChange={(e) => {
                   const next = e.target.value ? Number(e.target.value) : '';
@@ -434,6 +435,7 @@ export const QuestionBankPage = () => {
                 ))}
               </Select>
               <Select
+                aria-label={t('qbank.anyDifficulty')}
                 value={selectedDifficulty}
                 onChange={(e) =>
                   setSelectedDifficulty(e.target.value ? Number(e.target.value) : '')
@@ -448,6 +450,7 @@ export const QuestionBankPage = () => {
               </Select>
             </div>
             <Select
+              aria-label={t('qbank.allChapters')}
               value={selectedChapter}
               onChange={(e) =>
                 setSelectedChapter(e.target.value ? Number(e.target.value) : '')

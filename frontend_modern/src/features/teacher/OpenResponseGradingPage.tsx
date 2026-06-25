@@ -352,7 +352,7 @@ export const OpenResponseGradingPage = () => {
               onClick={() => setStatusFilter(chip.value)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 statusFilter === chip.value
-                  ? 'bg-brand-600 text-white shadow-soft'
+                  ? 'bg-brand-700 text-white shadow-soft'
                   : 'bg-ink-50 text-ink-700 hover:bg-ink-100'
               }`}
             >

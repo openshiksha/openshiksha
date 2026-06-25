@@ -102,6 +102,17 @@ test.describe('public surfaces — accessibility (axe-core)', () => {
       // reporting spec from flaking on a slow paint.
       await page.waitForLoadState('networkidle');
       await page.evaluate(() => document.fonts.ready);
+
+      // Guard against the auth-bootstrap deep-link bounce: a hard nav to a
+      // ProtectedRoute must *stay* on that route, not get redirected through
+      // /login → role home during cache-restore (see useAuth / the deep-link
+      // spec). Without this, a gated route could silently axe-scan the role
+      // dashboard instead of its own surface — e.g. `teacher-question-bank`
+      // scanning the Teacher dashboard at /teacher. Parameterised paths
+      // (`:id`) still resolve to the literal requested pathname here.
+      expect(new URL(page.url()).pathname, `deep-link to ${route.path} was redirected`).toBe(
+        route.path,
+      );
       await expect(page.locator('h1').first()).toBeVisible();
 
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();

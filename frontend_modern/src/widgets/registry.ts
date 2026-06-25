@@ -21,6 +21,7 @@ import customHtml from './custom-html';
 import numberLine from './number-line';
 import functionPlotter from './function-plotter';
 import fractionBar from './fraction-bar';
+import stepSolver from './step-solver';
 // widget:new import anchor — `npm run widget:new <kind>` appends new imports above this line.
 import type { WidgetModule } from './_sdk/defineWidget';
 
@@ -31,6 +32,7 @@ export const widgetRegistry = {
   'number-line': numberLine,
   'function-plotter': functionPlotter,
   'fraction-bar': fractionBar,
+  'step-solver': stepSolver,
   // widget:new entry anchor — `npm run widget:new <kind>` appends new entries above this line.
 } as const satisfies Record<string, WidgetModule>;
 

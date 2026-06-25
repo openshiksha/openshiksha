@@ -89,6 +89,7 @@ VALID_CONFIGS: dict[str, dict] = {
     "number-line": {"min": 0, "max": 10, "step": 0.5, "label": "Mark 3/4"},
     "function-plotter": {"expr": "x**2", "xMin": -5, "xMax": 5},
     "fraction-bar": {"numerator": 3, "denominator": 4, "mode": "shaded"},
+    "step-solver": {"prompt": "2x + 1 = 7", "label": "Solve for x", "maxLines": 6},
     "custom-html": {"html": "<b>hello</b>"},
 }
 
@@ -101,6 +102,8 @@ INVALID_CONFIGS: dict[str, dict] = {
     "function-plotter": {"expr": "x**2", "bogus": 1},
     # mode is an enum — "rainbow" is not a member.
     "fraction-bar": {"numerator": 1, "denominator": 4, "mode": "rainbow"},
+    # additionalProperties:false — an unknown key must fail.
+    "step-solver": {"prompt": "x = 1", "bogus": True},
     # html is required.
     "custom-html": {},
 }

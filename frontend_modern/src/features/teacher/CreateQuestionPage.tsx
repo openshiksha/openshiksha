@@ -325,7 +325,7 @@ const AIGenerationPanel = ({
         <div className="flex items-center gap-2">
           <span className="text-lg">✨</span>
           <span className="font-semibold text-brand-900 text-sm">{t('cqp.generateWithAI')}</span>
-          <span className="text-xs text-brand-700 font-normal">
+          <span className="text-xs text-brand-800 font-normal">
             {t('cqp.generateSubtitle')}
           </span>
         </div>
@@ -763,6 +763,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.subject')}</label>
               <select
+                aria-label={t('cqp.subject')}
                 className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 value={selectedSubjectId}
                 onChange={(e) => {
@@ -780,6 +781,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.chapter')}</label>
               <select
+                aria-label={t('cqp.chapter')}
                 className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
                 value={selectedChapterId}
                 onChange={(e) => setSelectedChapterId(e.target.value ? Number(e.target.value) : '')}
@@ -854,6 +856,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
             <div>
               <label className="block text-xs font-medium text-ink-600 mb-1">{t('cqp.questionType')}</label>
               <select
+                aria-label={t('cqp.questionType')}
                 className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                 value={current.question_type}
                 onChange={(e) =>
@@ -1091,6 +1094,7 @@ export const CreateQuestionPage = ({ editMode = false }: { editMode?: boolean })
               </label>
               {current.question_type === 'mcq' ? (
                 <select
+                  aria-label={t('cqp.selectCorrectOption')}
                   className="border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500"
                   value={current.correct_answer}
                   onChange={(e) =>

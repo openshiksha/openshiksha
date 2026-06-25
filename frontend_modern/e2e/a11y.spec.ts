@@ -34,7 +34,9 @@ interface AuditRoute {
   gate: boolean;
   // A11Y-6/9: when set, seed a JWT for the given role + stub the core-loop API
   // before navigating so `ProtectedRoute` admits the page and it renders content.
-  auth?: 'student' | 'teacher' | 'parent';
+  // `parentMultiChild` seeds two children so the insights landing renders its
+  // picker list instead of forwarding to the sole child.
+  auth?: 'student' | 'teacher' | 'parent' | 'parentMultiChild';
 }
 
 const ROUTES: AuditRoute[] = [
@@ -73,20 +75,24 @@ const ROUTES: AuditRoute[] = [
   { name: 'teacher-question-bank', path: '/teacher/questions', gate: true, auth: 'teacher' },
   { name: 'teacher-grading', path: '/teacher/grading', gate: true, auth: 'teacher' },
   { name: 'parent-dashboard', path: '/parent', gate: true, auth: 'parent' },
-  // A11Y-13/15 (Batch 3 close-out): the dense teacher authoring forms + parent
-  // insights — the last authenticated surfaces that were still UNMEASURED — now
-  // GATED. The A11Y-13 baseline came back structurally clean (`blocking === []`
-  // on all five): the forms are composed from the shared labelled `Input` /
-  // `Select` / `Textarea` primitives, so the labelling/heading findings A11Y-14
-  // anticipated never materialised (the planned remediation surface was empty,
-  // mirroring how A11Y-9 found the teacher *core* surfaces clean). Residual
-  // colour-contrast lands in axe's `incomplete` bucket (background axe can't
-  // compute) — recorded but non-gating, the same contract as every other route.
-  // This fully satisfies the initiative's DoD item 6.
+  // A11Y-13/15 (Batch 3 close-out) + A11Y-16 (Batch 4 repair): the dense teacher
+  // authoring forms + parent insights — the last authenticated surfaces — now
+  // GATED. A11Y-13/15 added the rows but mis-baselined two of them: unlike
+  // `/teacher/questions` (which uses the shared labelled `Select`),
+  // `CreateQuestionPage` renders **raw `<select>`** controls, so the
+  // `/teacher/questions/new` baseline actually carried four `select-name`
+  // criticals + one small `brand-700`-on-tint contrast node; and the
+  // `/parent/insights` landing forwards a single-child parent to the detail
+  // page, tripping the deep-link URL guard. A11Y-16 fixes both: aria-labels on
+  // the raw selects + `brand-700 → brand-800` on the subtitle (the A11Y-11 rule),
+  // and the landing is audited with two children (`parentMultiChild`) so it
+  // renders its own picker. All five now compute `blocking === []`; residual
+  // colour-contrast stays in axe's `incomplete` bucket (non-gating). This fully
+  // satisfies the initiative's DoD item 6.
   { name: 'teacher-create-question', path: '/teacher/questions/new', gate: true, auth: 'teacher' },
   { name: 'teacher-create-assignment', path: '/teacher/assignments/new', gate: true, auth: 'teacher' },
   { name: 'teacher-create-problemset', path: '/teacher/problem-sets/new', gate: true, auth: 'teacher' },
-  { name: 'parent-insights', path: '/parent/insights', gate: true, auth: 'parent' },
+  { name: 'parent-insights', path: '/parent/insights', gate: true, auth: 'parentMultiChild' },
   { name: 'parent-insights-child', path: '/parent/insights/10', gate: true, auth: 'parent' },
 ];
 

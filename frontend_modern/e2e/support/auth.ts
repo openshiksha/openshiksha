@@ -60,6 +60,15 @@ const CHILD_USER = {
   first_name: 'Ravi',
 };
 
+/** A second child — lets the insights *landing* render its picker list instead
+ * of auto-forwarding to the sole child (the single-child redirect path). */
+const SECOND_CHILD_USER = {
+  ...STUDENT_USER,
+  id: 11,
+  username: 'a11y_child_2',
+  first_name: 'Priya',
+};
+
 const paginated = (results: unknown[]) => ({
   count: results.length,
   next: null,
@@ -212,7 +221,7 @@ type SessionUser = typeof STUDENT_USER | typeof TEACHER_USER | typeof PARENT_USE
 // the student, teacher, and parent core surfaces (A11Y-6 → A11Y-9). Only the
 // identity reads (`/users/me/`, `/users/me/children/`) vary by role; the list
 // reads are role-agnostic (the backend scopes them by the JWT, which we stub).
-function makeRouteHandler(user: SessionUser) {
+function makeRouteHandler(user: SessionUser, children: unknown[] = [CHILD_USER]) {
   return function routeHandler(route: Route): Promise<void> {
     const url = new URL(route.request().url());
     const p = url.pathname;
@@ -220,7 +229,7 @@ function makeRouteHandler(user: SessionUser) {
     // Auth gate + identity.
     if (p.endsWith('/auth/verify/')) return json(route, {});
     if (p.endsWith('/auth/refresh/')) return json(route, { access: 'fake-access' });
-    if (p.endsWith('/users/me/children/')) return json(route, [CHILD_USER]);
+    if (p.endsWith('/users/me/children/')) return json(route, children);
     if (p.endsWith('/users/me/')) return json(route, user);
     if (p.endsWith('/users/me/streak/')) return json(route, STREAK);
     // Bare-array (non-paginated) reads: the catch-all returns a paginated
@@ -261,7 +270,11 @@ function makeRouteHandler(user: SessionUser) {
   };
 }
 
-async function setupAuth(page: Page, user: SessionUser): Promise<void> {
+async function setupAuth(
+  page: Page,
+  user: SessionUser,
+  children: unknown[] = [CHILD_USER],
+): Promise<void> {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('access_token', 'fake-access-token');
@@ -270,7 +283,7 @@ async function setupAuth(page: Page, user: SessionUser): Promise<void> {
       /* localStorage unavailable — nothing to seed */
     }
   });
-  await page.route('**/api/v1/**', makeRouteHandler(user));
+  await page.route('**/api/v1/**', makeRouteHandler(user, children));
 }
 
 /** Seed a student session + stub the core-loop API. Call before `page.goto`. */
@@ -282,9 +295,18 @@ export const setupTeacherAuth = (page: Page): Promise<void> => setupAuth(page, T
 /** Seed a parent session (one child) + stub the parent reads. */
 export const setupParentAuth = (page: Page): Promise<void> => setupAuth(page, PARENT_USER);
 
+/** Seed a parent session with *two* children so the insights landing renders
+ * its picker list instead of auto-forwarding to the sole child. */
+export const setupParentMultiChildAuth = (page: Page): Promise<void> =>
+  setupAuth(page, PARENT_USER, [CHILD_USER, SECOND_CHILD_USER]);
+
 /** Role → setup helper, for the parameterized a11y route table. */
-export const AUTH_SETUP: Record<'student' | 'teacher' | 'parent', (page: Page) => Promise<void>> = {
+export const AUTH_SETUP: Record<
+  'student' | 'teacher' | 'parent' | 'parentMultiChild',
+  (page: Page) => Promise<void>
+> = {
   student: setupStudentAuth,
   teacher: setupTeacherAuth,
   parent: setupParentAuth,
+  parentMultiChild: setupParentMultiChildAuth,
 };

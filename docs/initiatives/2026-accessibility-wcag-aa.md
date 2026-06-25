@@ -1,8 +1,11 @@
 # Accessibility — WCAG 2.1 AA
 
-> **Status:** Active (promoted 2026-06-19) · **Owner routine:** `openshiksha-execute`
-> · **Tracking board:** [STATUS.md](STATUS.md) · **Batch 1 plan:**
-> [2026-06-19-plan.md](../daily-plans/2026-06-19-plan.md)
+> **Status:** ✅ **Closed (2026-06-25)** — all six DoD items met. Item 5's
+> keyboard sign-off is automated + gated; its human NVDA/VoiceOver listen-through
+> is **formally waived by the project owner** (no screen-reader tester available),
+> with the automatable slice standing in (see DoD item 5). Promoted 2026-06-19 ·
+> **Owner routine:** `openshiksha-execute` · **Tracking board:** [STATUS.md](STATUS.md)
+> · **Batch 1 plan:** [2026-06-19-plan.md](../daily-plans/2026-06-19-plan.md)
 
 ## North Star
 
@@ -55,8 +58,18 @@ platform capability**.
    **gated** (`gate: true`) so the gain can't regress. *(A11Y-3, A11Y-4, A11Y-5)*
 4. **Student core-loop surfaces** (assignment detail, dashboard, SRS drill,
    proficiency) remediated + gated. ✅ *(Batch 2 — A11Y-6/7/8, 2026-06-20..23)*
-5. *(future)* **Keyboard-only walkthrough + screen-reader spot-check** (NVDA /
-   VoiceOver) sign-off.
+5. **Keyboard-only walkthrough + screen-reader spot-check** sign-off. ✅
+   *(Batch 4 — A11Y-17 + A11Y-16/18, 2026-06-24..25.)* The **keyboard** half is
+   automated and gated: `e2e/keyboard.spec.ts` drives the skip-link bypass
+   (2.4.1), focus order (2.4.3), and focus-visible (2.4.7) with real Tab/Enter —
+   the operability axe cannot test. The **screen-reader** half: the manual NVDA /
+   VoiceOver listen-through (`a11y/screen-reader-signoff.md`) is **formally
+   waived** by the project owner — no screen-reader tester is available — and the
+   automatable slice stands in: axe's name/role/label rules gate every surface,
+   and the sign-off doc's announce-region inventory verifies `role=status` /
+   `aria-live` semantics on each live region. The live human pass is the one
+   un-exercised check and is recorded as such (the journey tables are left
+   unticked, **not** claimed as passed).
 6. **Teacher / parent surfaces** remediated + gated. ✅ *(Batch 3 — A11Y-9/11/12
    + A11Y-13/15, 2026-06-23..24: the teacher dashboard/question-bank/grading +
    parent dashboard, **plus** the dense authoring forms — `CreateQuestionPage`,
@@ -110,3 +123,6 @@ it in = flip that row's `gate` once it's clean.
 | [#450](https://github.com/openshiksha/openshiksha/pull/450) | A11Y-11 — brand-text-on-tint contrast remediation | Improve | Small `brand-700` text on the `brand-50` tint is 4.45 : 1 (under AA); moved the `/parent` "View insights" link + the `AssignmentList` brand badge to `brand-800`; documented the rule. `/parent` → `blocking: []`. |
 | [#451](https://github.com/openshiksha/openshiksha/pull/451) | A11Y-12 — gate the teacher + parent routes + Batch 3 close-out | New + Docs | Flipped `/teacher`, `/teacher/questions`, `/teacher/grading`, `/parent` to `gate: true` (all `blocking === []`); change doc + teacher/parent manual checklist; **DoD item 6 (partial) — teacher/parent core surfaces gated**. |
 | A11Y-13/15 (this batch) | Baseline + gate the authoring forms + parent insights + ClassroomCodeWidget crash fix | New + Improve + Docs | Added `/teacher/questions/new`, `/teacher/assignments/new`, `/teacher/problem-sets/new`, `/parent/insights`, `/parent/insights/:childId` to the harness; baseline came back `blocking === []` (forms use the shared labelled primitives), so the planned A11Y-14 remediation was a no-op and the rows gate directly. Also stubbed the bare-array `/users/me/classroom-code/` read so the dashboard's `ClassroomCodeWidget` renders (a previously-uncovered crash under the catch-all). **DoD item 6 fully met.** |
+| [#455](https://github.com/openshiksha/openshiksha/pull/455) | A11Y-17 — keyboard gate spec + screen-reader sign-off scaffold | New + Docs | `e2e/keyboard.spec.ts` (skip-link bypass, focus order, focus-visible); `a11y/screen-reader-signoff.md` manual script + announce-region inventory; post-submit score announced via `role=status` on `AssignmentDetailPage` (asserted in its offline test). |
+| A11Y-16 (this batch) | Repair the mis-baselined Batch-3 rows | Fix | A11Y-13/15 gated `/teacher/questions/new` + `/parent/insights` but neither was actually clean: `CreateQuestionPage` renders **raw `<select>`** (not the shared `Select`), so the route carried 4 `select-name` criticals + 1 `brand-700`-on-tint contrast node; and the single-child insights landing redirected to the child detail, tripping the deep-link URL guard. Fixed with aria-labels on the raw selects + `brand-700 → brand-800` (the A11Y-11 rule), and audited the landing with two children (`parentMultiChild`). All 23 a11y/keyboard/deep-link e2e green. |
+| A11Y-18 (this batch) | Batch 4 close-out — close the initiative | Docs | Flipped initiative **Status → Closed**; DoD item 5 marked met (keyboard automated + gated; the human screen-reader listen-through **waived** by the project owner, automatable coverage standing in); recorded the waiver in the sign-off doc + a change doc. |

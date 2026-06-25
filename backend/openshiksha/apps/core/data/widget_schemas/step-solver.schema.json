@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshiksha:widget:step-solver/v1",
+  "title": "step-solver widget params",
+  "description": "Per-question configuration for the step-solver answer-producing widget (GSV-2). The student solves the `prompt` equation/expression one line at a time; each line is checked for algebraic equivalence to the line above by the in-sandbox deterministic engine (a port of `apps/core/algebra.py` — never AI), showing live ✓/✗. The student's final line becomes their answer via reportValue, scored by the existing per-subpart grader.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "The starting equation or expression shown as the first (fixed) line, e.g. \"2x + 1 = 7\" or \"3(x + 2)\". The student rewrites it step by step below. Defaults to \"x + 1 = 2\" if omitted."
+    },
+    "label": {
+      "type": "string",
+      "description": "Optional instruction rendered above the steps (e.g. \"Solve for x, one step per line\")."
+    },
+    "maxLines": {
+      "type": "integer",
+      "description": "Maximum number of student step lines (excluding the fixed prompt line). Default 8.",
+      "minimum": 2,
+      "maximum": 20,
+      "default": 8
+    }
+  }
+}

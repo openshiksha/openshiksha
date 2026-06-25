@@ -458,3 +458,77 @@ npx vitest run src/widgets/step-solver/algebra.test.ts
 *Next beat:* GSV-2b — the `step-solver` **widget** itself: the student types
 successive lines, this engine lights each one ✓/✗ live, and the final line is
 reported through the existing per-subpart grader (AI nowhere near the grade).
+
+## Beat 7 — The step-solver widget, on screen (GSV-2b) · *the trustworthy-math wow, in the UI*
+
+Beat 6b built the in-sandbox engine; this beat is the widget a student actually
+touches. The teacher attaches a **`step-solver`** widget to a subpart with a
+`prompt` — say `2x + 1 = 7` — and an instruction. The student sees the prompt as
+a fixed first line and an empty box beneath it, and **solves it one line at a
+time**:
+
+```
+   2x + 1 = 7
+ ✓ 2x = 6            ← subtract 1 from both sides
+ ✓ x = 3             ← divide by 2
+```
+
+As they type each line, the inlined Beat 6b engine checks it against the line
+directly above — **live, per keystroke** — and lights a green ✓ or a red ✗ with a
+short neutral reason (*"Same solution as the line above."* / *"This changes the
+solution."*). Type `2x = 8` instead and the row goes ✗ on the spot: the student
+sees the slip *the moment they make it*, with no submit, no network, no AI. The
+final line they write is reported through `ctx.reportValue` into the **same
+per-subpart grader** every other answer-producing widget uses (number-line,
+fraction-bar) — so the *grade* is the existing deterministic check, never the
+live ✗ marker and never AI.
+
+![Step-solver: 2x + 1 = 7 solved line by line (2x = 6 ✓, x = 3 ✓) in the sandbox, final answer "x = 3" reported to the host](assets/gsv2b-step-solver.png)
+
+**Why it's iron-clad:**
+- **AI is nowhere near it** (1, 2). The live check is the deterministic
+  numeric-probing engine running *in* the network-less sandbox; the grade is the
+  existing per-subpart grader. This widget makes no AI call at all — it is the
+  Phase-2 foundation the GSV-3 *explainer* will later sit on top of (the
+  explainer only ever explains a line this engine has **already** judged wrong).
+- **No new code path.** The widget reuses the `defineWidget` SDK, the sandbox
+  runtime, the `reportValue` protocol, and the existing grader — exactly the
+  `number-line` answer-reporting wiring. The engine is inlined (the sandbox can't
+  `import`), and `index.test.ts` drives the widget over a curriculum battery and
+  asserts its on-screen ✓/✗ matches `checkStep` from `algebra.ts` **verdict for
+  verdict**, so the inlined copy can never silently drift from the canonical,
+  test-mirrored engine.
+- **Deterministic fallback** (4). A malformed line (`2x = )(`, a stray `=`, a
+  mix of an equation and a bare expression) never throws and never flips a false
+  ✗ — the row goes **neutral** (*"can't check this line yet"*) and the student
+  keeps typing. Tested on both the real path and the fallback path.
+- **No report at mount** — like `number-line`, the answer field stays empty until
+  the student actually writes a step, so a question can be left blank.
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Module surface + executed-render behaviour (✓ on a valid step, ✗ on a wrong
+# one that is still reported, neutral on malformed, row growth + maxLines cap),
+# AND the anti-drift battery asserting the inlined engine == algebra.ts.
+npx vitest run src/widgets/step-solver/index.test.ts
+
+# Renders the widget in the REAL sandbox, types the steps, asserts the live ✓/✗
+# and the final line the host receives — the render → live-check → grade-signal
+# tail jsdom can't reach. Also (re)captures the screenshot above, so it can never
+# go stale relative to the code:
+npx playwright test step-solver-grade
+
+# Or drive it by hand through the same sandboxed host a student sees:
+npm run widget:dev -- step-solver
+```
+
+The captured screenshot is regenerated on every run into
+`docs/demo/assets/gsv2b-step-solver.png` (the e2e writes it as part of the
+assertion run) — a reproducible, not-hand-captured artifact.
+
+*Next beat:* GSV-3 — the AI **wrong-step explainer**: given a line this engine
+has already judged ✗ plus the line above, the LLM emits a short, grounded
+explanation of the slip (with a deterministic static-hint fallback). AI explains;
+it never decides correctness.

@@ -50,6 +50,7 @@ KNOWN_WIDGET_KINDS: frozenset[str] = frozenset(
         "number-line",
         "function-plotter",
         "fraction-bar",
+        "step-solver",
         "studio-scene",
         "custom-html",
     }

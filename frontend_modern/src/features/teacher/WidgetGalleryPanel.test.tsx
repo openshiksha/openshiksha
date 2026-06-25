@@ -63,8 +63,9 @@ describe('WidgetGalleryPanel', () => {
 
   it('flags answer-producing widgets with an "answer" badge', () => {
     render(<WidgetGalleryPanel onApply={vi.fn()} onCancel={vi.fn()} />);
-    // number-line is answer-producing; the badge sits inside its card.
-    expect(screen.getByText('answer')).toBeInTheDocument();
+    // Answer-producing kinds (number-line, step-solver, …) each carry the badge
+    // inside their card; there is at least one in the gallery.
+    expect(screen.getAllByText('answer').length).toBeGreaterThan(0);
   });
 
   it('Cancel on the gallery grid fires onCancel', () => {

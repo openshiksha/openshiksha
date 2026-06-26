@@ -22,11 +22,8 @@ from openshiksha.apps.api.views.core import (
     SubmissionViewSet,
     UserViewSet,
 )
-from openshiksha.apps.api.views.push import (
-    PushSubscribeView,
-    PushUnsubscribeView,
-    VapidPublicKeyView,
-)
+from openshiksha.apps.api.views.push import PushSubscribeView, PushUnsubscribeView, VapidPublicKeyView
+from openshiksha.apps.api.views.version import version_info
 
 # Create router for ViewSets
 router = DefaultRouter()
@@ -56,6 +53,8 @@ urlpatterns = [
     path("push/unsubscribe/", PushUnsubscribeView.as_view(), name="push_unsubscribe"),
     # Health check endpoint
     path("health/", include("openshiksha.apps.api.views.health")),
+    # Build / version info endpoint (OBS-2)
+    path("version/", version_info, name="version_info"),
     # Router URLs (all ViewSets)
     path("", include(router.urls)),
     # AI Analytics endpoints

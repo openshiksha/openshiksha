@@ -403,8 +403,10 @@ jobs:
         steps:
             - name: Check out the repo
               uses: actions/checkout@v7
-            - name: Extract Branch name for Tagging
-              run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+            - name: Extract Branch name + build time for Tagging
+              run: |
+                echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+                echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
               id: extract_branch
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
@@ -423,6 +425,12 @@ jobs:
                 tags: |
                     ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
                     ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ github.sha }}
+                # Bake build identity into the image for /api/v1/version/ (OBS-2).
+                # The backend Dockerfile consumes these; the frontend ignores the
+                # extra ARGs harmlessly.
+                build-args: |
+                    GIT_SHA=${{ github.sha }}
+                    BUILD_TIME=${{ steps.extract_branch.outputs.build_time }}
                 cache-from: type=gha,scope=${{ matrix.service }}
                 cache-to: type=gha,scope=${{ matrix.service }},mode=max
 

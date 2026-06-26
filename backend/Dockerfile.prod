@@ -41,6 +41,13 @@ RUN apt-get purge -y --auto-remove build-essential libpq-dev \
 
 COPY . /app/
 
+# Build identity — baked at image build time and surfaced by /api/v1/version/
+# (OBS-2). Passed via --build-arg from CI; default to "unknown" for local builds.
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+ENV GIT_SHA=${GIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
+
 # Build-time static collection — uses ManifestStaticFilesStorage so the
 # resulting filenames are content-hashed and long-cacheable. SECRET_KEY isn't
 # needed at collectstatic time but Django will complain if it's unset, so a

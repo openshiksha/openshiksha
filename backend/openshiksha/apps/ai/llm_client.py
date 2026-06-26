@@ -836,6 +836,106 @@ def generate_draft_rationale(
 
 
 # ─────────────────────────────────────────────────────────────
+# Guided step-validator — AI wrong-step explainer (GSV-3)
+# ─────────────────────────────────────────────────────────────
+#
+# The student's correctness verdict is *never* AI-decided: the deterministic
+# ``apps.core.algebra.check_step`` engine (GSV-1) judges whether a line follows
+# from the previous one. This layer is invoked **only after** that engine has
+# already ruled a step wrong, and it does one thing: explain the slip in plain
+# language. The LLM sees the real previous line, the real wrong line, and the
+# engine's deterministic reason — it is grounded, and it cannot move the grade.
+# No key / timeout / empty output → a deterministic static hint (tested).
+
+STEP_HINT_MAX_TOKENS = 200
+
+
+def _build_step_hint_prompt(previous: str, current: str, reason: str) -> str:
+    return (
+        "You are a patient maths tutor helping a student who is solving a problem "
+        "one line at a time. A deterministic checker has already determined that "
+        "the student's new line does NOT follow algebraically from the line above "
+        "it — your job is ONLY to explain the likely mistake, never to re-judge "
+        "correctness.\n\n"
+        f"Previous line (correct so far): {previous}\n"
+        f"Student's new line (already known to be wrong): {current}\n"
+        f"Checker's note: {reason}\n\n"
+        "Write 1–2 short sentences, addressed to the student, that gently point at "
+        "what likely went wrong between these two lines (e.g. a sign slip, a term "
+        "not carried, an incorrect distribution). Do NOT give the full corrected "
+        "line or the final answer — nudge, don't solve. Plain text, no markdown, "
+        "no LaTeX."
+    )
+
+
+def _stub_step_hint() -> str:
+    """Deterministic fallback when no LLM provider is available.
+
+    Honest by construction: carries no AI provenance and never claims the step is
+    wrong for a specific reason (that came from the deterministic engine, not here).
+    """
+    return (
+        "Check this line carefully against the one above it — re-do the operation "
+        "term by term and watch the signs. Something changed that shouldn't have."
+    )
+
+
+def generate_step_hint(previous: str, current: str, reason: str) -> dict:
+    """Explain why a step is wrong — coaching only, never grading (GSV-3).
+
+    The caller has already run the deterministic engine and confirmed the step is
+    wrong; ``reason`` is that engine's note. Uses the same provider cascade as the
+    other text generators. Always returns usable text — the stub gives a generic
+    "recheck term by term" nudge when no provider is available.
+
+    Returns:
+        {"text": str, "model": str, "input_tokens": int, "output_tokens": int}
+    """
+    prompt = _build_step_hint_prompt(previous, current, reason)
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            logger.debug("generate_step_hint: using Anthropic Claude")
+            result = _call_anthropic_text(prompt, anthropic_key, STEP_HINT_MAX_TOKENS)
+            if result["text"].strip():
+                return result
+            logger.warning("generate_step_hint: Anthropic returned empty text, trying next provider")
+        except Exception:
+            logger.exception("generate_step_hint: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            logger.debug("generate_step_hint: using Google AI Studio")
+            result = _call_google_ai_studio(prompt, google_key)
+            if result["text"].strip():
+                return result
+            logger.warning("generate_step_hint: Google AI returned empty text, trying next provider")
+        except Exception:
+            logger.exception("generate_step_hint: Google AI Studio call failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            logger.debug("generate_step_hint: using Ollama at %s", ollama_url)
+            result = _call_ollama(prompt, ollama_url)
+            if result["text"].strip():
+                return result
+            logger.warning("generate_step_hint: Ollama returned empty text, falling back to stub")
+        except Exception:
+            logger.exception("generate_step_hint: Ollama failed, falling back to stub")
+
+    logger.warning("generate_step_hint: no LLM provider available — returning stub")
+    return {
+        "text": _stub_step_hint(),
+        "model": "stub",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
 # Intelligent Hint System
 # ─────────────────────────────────────────────────────────────
 

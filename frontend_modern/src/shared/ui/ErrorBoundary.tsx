@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { reportError } from '../observability/reporter';
 
 interface Props {
   children: ReactNode;
@@ -29,6 +30,8 @@ export class ErrorBoundary extends Component<Props, State> {
     if (typeof console !== 'undefined') {
       console.error('[ErrorBoundary]', error, info.componentStack);
     }
+    // OBS-5 — report to Sentry when VITE_SENTRY_DSN is set; no-op otherwise.
+    reportError(error, info);
   }
 
   reset = (): void => {

@@ -24,6 +24,7 @@
     "widget:dev": "node scripts/widget-dev.mjs"
   },
   "dependencies": {
+    "@sentry/react": "^9.47.1",
     "@tanstack/react-query": "^5.101.1",
     "@tanstack/react-query-devtools": "^5.101.1",
     "@tanstack/react-query-persist-client": "^5.101.1",

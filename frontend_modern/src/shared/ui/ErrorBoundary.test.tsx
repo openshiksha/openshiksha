@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ErrorBoundary } from './ErrorBoundary';
+import * as reporter from '../observability/reporter';
 
 const Boom = ({ shouldThrow }: { shouldThrow: boolean }) => {
   if (shouldThrow) throw new Error('kaboom');
@@ -42,5 +43,17 @@ describe('<ErrorBoundary />', () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText('custom: kaboom')).toBeInTheDocument();
+  });
+
+  it('forwards caught errors to the error reporter (OBS-5)', () => {
+    const spy = vi.spyOn(reporter, 'reportError').mockImplementation(() => {});
+    render(
+      <ErrorBoundary>
+        <Boom shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toBeInstanceOf(Error);
+    spy.mockRestore();
   });
 });

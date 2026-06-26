@@ -14,6 +14,11 @@ import {
   registerSubmissionMutationDefaults,
   shouldDehydrateSubmissionMutation,
 } from './shared/query/offlineMutations';
+import { initErrorReporting } from './shared/observability/reporter';
+
+// OBS-5 — wire frontend error reporting. No-op (and no SDK load) unless
+// VITE_SENTRY_DSN is set, so the entry chunk is unchanged when disabled.
+initErrorReporting();
 
 // Create a client. `gcTime` is bumped to 24h so entries survive long enough to
 // be persisted to / restored from IndexedDB (MSO-4); `staleTime` stays at 5 min

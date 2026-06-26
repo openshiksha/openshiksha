@@ -12,6 +12,8 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
 
+from openshiksha.apps.api.views.health import readyz
+
 
 def healthz(_request):
     """Liveness/readiness probe target for k8s + Docker HEALTHCHECK.
@@ -28,6 +30,8 @@ def healthz(_request):
 urlpatterns = [
     # Cheap liveness probe — no DB / Redis / auth. See healthz() above.
     path("healthz/", healthz, name="healthz"),
+    # Deep readiness probe — DB + cache check; LB drain signal. See readyz().
+    path("readyz/", readyz, name="readyz"),
     # Django admin — mounted at /django-admin/ so it doesn't collide with the
     # React app's /admin route (the in-app school-admin dashboard). Superuser-only
     # gate is applied below.

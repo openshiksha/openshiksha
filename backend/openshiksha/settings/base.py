@@ -20,6 +20,12 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+# Build / deploy identity — surfaced by the /api/v1/version/ build-info endpoint
+# (OBS-2). APP_VERSION is the human-facing release; GIT_SHA / BUILD_TIME are baked
+# into the prod image at build time; ENVIRONMENT names the running env (dev/qa/prod).
+APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 # Custom User Model
 AUTH_USER_MODEL = "core.User"
 

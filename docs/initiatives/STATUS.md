@@ -11,7 +11,29 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-25 (latest) — **Accessibility — WCAG 2.1 AA INITIATIVE
+**Last updated:** 2026-06-25 (latest) — **NEW TOP INITIATIVE PROMOTED:
+[Production Observability & Operational Readiness](2026-production-observability.md).**
+With Accessibility closed (below) the priority board carried **no unblocked next
+bet** — OSS Readiness, Mobile Shell, and Language Access are Done; Interactive
+Widgets is Paused; LA-10 is blocked on product design; AI-Native is fenced to the
+`ai-features` routine. Meanwhile OpenShiksha is **live in production** (DO
+droplet, k3s, `openshiksha.org`) and effectively **un-observable**: no error
+tracking, the k8s **readinessProbe probes the cheap `/healthz/`** (never checks
+DB/cache, so a pod with a dead DB still gets traffic) even though `/api/v1/health/`
+*does* the deep check and the `healthz` docstring itself asks for the missing
+`/readyz`; logs are unstructured + uncorrelated; the shared `ErrorBoundary`
+reports nowhere. The 2026-06-25 planning run promotes **Production Observability**
+— general foundation-hardening in the plan/execute lane, decomposing into atomic,
+low-risk, **env-gated** PRs. **Batch 1 (OBS-1..5)** planned in
+[2026-06-25-plan.md](../daily-plans/2026-06-25-plan.md): `/readyz/` deep probe +
+readinessProbe repoint (OBS-1) → `/api/v1/version/` build-info (OBS-2) →
+env-gated backend Sentry + secret scrubber (OBS-3) → request-correlation id +
+JSON log option (OBS-4) → env-gated frontend error reporting via the existing
+`ErrorBoundary` (OBS-5). Everything is additive: no DSN / no `LOG_FORMAT=json` ⇒
+behaviour is byte-for-byte today's. The `ai-features` routine fence is respected.
+*(Prior update below.)*
+
+**Last updated:** 2026-06-25 — **Accessibility — WCAG 2.1 AA INITIATIVE
 CLOSED ✅ (all six DoD items met).** Batch 4 landed the keyboard sign-off and
 closed the initiative. **A11Y-16** repaired two rows the Batch-3 close-out
 mis-baselined: `/teacher/questions/new` and `/parent/insights` were gated but not
@@ -327,6 +349,7 @@ at 160 kB defends the cut.
 
 | Priority | Initiative | Status | Headline progress | Next increment |
 |:--:|---|---|---|---|
+| 1 | [Production Observability & Operational Readiness](2026-production-observability.md) | **Active** | **Promoted 2026-06-25** as the new top initiative — the board had no unblocked next bet and the live prod deployment is un-observable. **Verified gaps:** no error tracking (`sentry` absent from backend + frontend deps); the k8s readinessProbe probes the cheap `/healthz/` so a dead-DB pod still gets traffic, even though `/api/v1/health/` does the deep check and the `healthz` docstring asks for the missing `/readyz`; `LOGGING` has only text formatters + no request-id; the shared `ErrorBoundary` reports nowhere. Batch 1 (OBS-1..5) scoped in [`2026-06-25-plan.md`](../daily-plans/2026-06-25-plan.md). | **Batch 1 (OBS-1..5):** `/readyz/` deep probe + readinessProbe repoint → `/api/v1/version/` build-info → env-gated backend Sentry + scrubber → request-id + JSON log option → env-gated frontend error reporting. All additive/env-gated. |
 | - | [Open-Source Readiness](open-source-readiness.md) | **Done** | **DoD met 2026-06-22.** Batch 1 (OSS-1..5, [#425](https://github.com/openshiksha/openshiksha/pull/425)) archived the Django 1.11 monolith under `legacy/`, rewrote the README around the real CI/CD + branch→env model, added `CONTRIBUTING`/`SECURITY`/`CODE_OF_CONDUCT`. **Batch 2/3 (OSS-6..10) shipped 2026-06-22** ([#432](https://github.com/openshiksha/openshiksha/pull/432)–[#435](https://github.com/openshiksha/openshiksha/pull/435) + metadata PR): `.github/` issue+PR templates, README product screenshots, a GitHub-rendered Mermaid architecture diagram, the loose root dev guides consolidated under `docs/dev/` (kebab-cased, history preserved) + index, and repo metadata (description/topics/homepage via `gh repo edit`) with the auto-detected MPL-2.0 license badged. A clean-checkout newcomer can now understand, run, and contribute from the README + linked docs alone. | **Initiative complete.** Accessibility (Priority 1) becomes the top active initiative — Batch 2 already planned in [`2026-06-20-plan.md`](../daily-plans/2026-06-20-plan.md). |
 | - | [Accessibility — WCAG 2.1 AA](2026-accessibility-wcag-aa.md) | **Done** | **CLOSED 2026-06-25 — all six DoD items met.** Batch 1 ([#389](https://github.com/openshiksha/openshiksha/pull/389)–[#391](https://github.com/openshiksha/openshiksha/pull/391)): per-route axe baseline + jsx-a11y gate; public/auth surfaces gated. Batch 2 ([#417](https://github.com/openshiksha/openshiksha/pull/417)–[#420](https://github.com/openshiksha/openshiksha/pull/420), [#441](https://github.com/openshiksha/openshiksha/pull/441)): brand-shade decision (`brand-700 → #C05300`), focus-visible pass, authenticated axe harness, student core loop gated. Batch 3 ([#442](https://github.com/openshiksha/openshiksha/pull/442), [#450](https://github.com/openshiksha/openshiksha/pull/450)–[#451](https://github.com/openshiksha/openshiksha/pull/451), A11Y-13/15): teacher/parent core + authoring forms + parent insights gated. **Batch 4** ([#455](https://github.com/openshiksha/openshiksha/pull/455), A11Y-16/18): keyboard gate spec; repaired the two mis-baselined rows (`CreateQuestionPage` raw-`<select>` labels + tint contrast; insights-landing redirect); initiative closed — human NVDA/VoiceOver pass **waived by project owner**, automated coverage standing in. | **Initiative complete.** Backlog fast-follow (non-blocking): focus trap+restore on the QuestionBank "Add to set" side-sheet. |
 | - | [Mobile Shell & PWA-Offline](2026-mobile-shell-pwa-offline.md) | **Done** | **Batch 1 (MSO-1..5) shipped 2026-06-14** ([#358](https://github.com/openshiksha/openshiksha/pull/358)–[#362](https://github.com/openshiksha/openshiksha/pull/362)): installable PWA + offline *read*-tolerance. **Batch 2 (MSO-6..10) shipped 2026-06-15** ([#367](https://github.com/openshiksha/openshiksha/pull/367)–[#370](https://github.com/openshiksha/openshiksha/pull/370)): offline *write*-tolerance — queue + replay. **Batch 3 (MPN-1..5) shipped 2026-06-17** ([#375](https://github.com/openshiksha/openshiksha/pull/375)–[#379](https://github.com/openshiksha/openshiksha/pull/379)): web push due-date reminders. **Batch 4 (RML-1..5) shipped 2026-06-18** ([#382](https://github.com/openshiksha/openshiksha/pull/382)–[#385](https://github.com/openshiksha/openshiksha/pull/385)): route-level mobile layouts — `ResponsiveTable` primitive + dense teacher tables/forms → responsive on phones. **First-phase DoD + both later phases done → initiative complete.** | **No unblocked next bet.** The next planning run promotes a fresh top initiative — candidates: **AI-tutor rebase** (`ai/2026-06-04-ai-tutor-chat`, ~5k-line diverged branch), an **`/ai/predictions/` teacher surface**, or an **accessibility audit (WCAG 2.1 AA)**. LA-10 (authored-content translation) stays blocked on product design. |

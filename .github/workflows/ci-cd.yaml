@@ -50,6 +50,45 @@ jobs:
               # trips style warnings that aren't worth gating CI on.
               run: ${{ steps.install-actionlint.outputs.actionlint }} -color -shellcheck=
 
+    k8s-manifests:
+        name: K8s Manifests (kustomize + kubeconform)
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v7
+            - name: Set up kubectl (provides `kubectl kustomize`)
+              # Same action + version the deploy jobs use, so the renderer here
+              # matches what actually applies the manifests to the cluster.
+              uses: azure/setup-kubectl@v5
+              with:
+                version: 'v1.31.0'
+            - name: Install kubeconform
+              run: |
+                curl --silent --show-error --fail --location \
+                  -o kubeconform.tar.gz \
+                  https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+                tar -xzf kubeconform.tar.gz kubeconform
+                sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+            - name: Render & schema-validate every overlay
+              # Renders each kustomize overlay (base is pulled in transitively)
+              # and validates the output against the upstream Kubernetes JSON
+              # schemas with kubeconform. `-strict` rejects unknown fields, so a
+              # typo'd manifest key (e.g. a mis-spelled probe field) fails here
+              # at PR time instead of silently passing CI and only blowing up at
+              # `kubectl apply` / rollout on the live cluster. The two deploy
+              # jobs render the same overlays, but only on qa/prod *after* the
+              # image build — far too late and never on a PR. `-kubernetes-version`
+              # is pinned to the version the deploy jobs install.
+              run: |
+                for overlay in qa prod; do
+                  echo "::group::overlay: $overlay"
+                  kubectl kustomize "k8s/overlays/$overlay" \
+                    | kubeconform -strict -summary -ignore-missing-schemas \
+                        -kubernetes-version 1.31.0 -
+                  echo "::endgroup::"
+                done
+
     lint:
         name: Lint
         timeout-minutes: 10
@@ -384,7 +423,7 @@ jobs:
     build-publish:
         name: Build & Publish (${{ matrix.service }})
         timeout-minutes: 30
-        needs: [lint, typecheck, security, test, frontend, frontend-e2e, visual-regression]
+        needs: [lint, typecheck, security, test, frontend, frontend-e2e, visual-regression, k8s-manifests]
         if: github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'
         runs-on: ubuntu-latest
         permissions:

@@ -465,11 +465,16 @@ jobs:
                     ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ steps.extract_branch.outputs.branch }}
                     ghcr.io/${{ github.repository_owner }}/openshiksha-${{ matrix.service }}:${{ github.sha }}
                 # Bake build identity into the image for /api/v1/version/ (OBS-2).
-                # The backend Dockerfile consumes these; the frontend ignores the
-                # extra ARGs harmlessly.
+                # The backend Dockerfile consumes GIT_SHA/BUILD_TIME; the frontend
+                # consumes VITE_SENTRY_DSN (OBS-5). Each image ignores the ARGs it
+                # doesn't declare, harmlessly. VITE_SENTRY_DSN comes from the repo
+                # Actions secret (masked in logs); empty ⇒ frontend reporting stays
+                # disabled. A frontend DSN is inlined into the public bundle by
+                # design — it is not a confidential value.
                 build-args: |
                     GIT_SHA=${{ github.sha }}
                     BUILD_TIME=${{ steps.extract_branch.outputs.build_time }}
+                    VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
                 cache-from: type=gha,scope=${{ matrix.service }}
                 cache-to: type=gha,scope=${{ matrix.service }},mode=max
 

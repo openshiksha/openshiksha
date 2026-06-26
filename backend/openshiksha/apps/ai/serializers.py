@@ -315,6 +315,19 @@ class WidgetAuthoringRequestSerializer(serializers.Serializer):
     allow_variables = serializers.BooleanField(required=False, default=False)
 
 
+class StepHintRequestSerializer(serializers.Serializer):
+    """Request body for the Guided step-validator AI wrong-step explainer (GSV-3).
+
+    The two lines a student wrote one after another. Correctness is decided
+    server-side by the deterministic ``apps.core.algebra`` engine — never by the
+    client and never by AI; the AI hint is produced only when that engine has
+    already ruled ``current`` a wrong step from ``previous``.
+    """
+
+    previous = serializers.CharField(max_length=300, trim_whitespace=True)
+    current = serializers.CharField(max_length=300, trim_whitespace=True)
+
+
 class WeeklyClassReportSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source="subject_room.subject.name", read_only=True)
     classroom_label = serializers.CharField(source="subject_room.classroom.__str__", read_only=True)

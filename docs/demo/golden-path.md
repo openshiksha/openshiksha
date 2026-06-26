@@ -532,3 +532,71 @@ assertion run) — a reproducible, not-hand-captured artifact.
 has already judged ✗ plus the line above, the LLM emits a short, grounded
 explanation of the slip (with a deterministic static-hint fallback). AI explains;
 it never decides correctness.
+
+## Beat 8 — *Why* the step is wrong, in plain language (GSV-3) · *the coach, off-screen*
+
+Beat 7 shows a red ✗ the instant a student writes a bad line. This beat adds the
+sentence a struggling student actually needs — *what went wrong* — without ever
+letting AI touch the verdict. A new teacher/student endpoint:
+
+```
+POST /api/v1/ai/step-hint/   { "previous": "2x + 3 = 7", "current": "2x = 10" }
+
+→ { "verdict": "wrong",
+    "reason": "These equations have different solutions (at x=…).",
+    "hint":   "You took the 3 off the left side but not the 7 — subtract it from both.",
+    "model_used": "claude-sonnet-4-6",
+    "ai_available": true }
+```
+
+The crucial move is the **gate**: before any LLM call, the endpoint re-runs the
+deterministic Beat-6 engine (`check_step`) **server-side** and branches on *its*
+verdict:
+
+- **`correct`** → returns the engine's own note, `hint: null`. **The AI is never
+  invoked** (the test patches `generate_step_hint` to raise if it is).
+- **`unparseable`** (a malformed line, a stray `=`) → the engine's deterministic
+  fallback reason, `hint: null`. Again, **no AI** — there is no real wrong step to
+  explain.
+- **`wrong`** (parseable *and* genuinely non-equivalent) → only now does the LLM
+  run, and it is **grounded**: it sees the real previous line, the real wrong
+  line, and the engine's reason, and is told it is explaining a slip the checker
+  *already* found — never to re-judge.
+
+So correctness is, end to end, the deterministic engine's; the AI only ever
+authors the *explanation* of a verdict that already exists.
+
+**Why it's iron-clad:**
+- **AI out of the grading path** (1, 2). The verdict in the response is always
+  `check_step`'s; the LLM cannot turn a `wrong` into a `correct` — on the
+  correct/unparseable branches it is not even called.
+- **Grounded** (5). The prompt carries the two actual lines and the engine's
+  deterministic reason; the model is explicitly instructed to nudge, not to solve
+  or restate the verdict.
+- **Deterministic fallback, tested both ways** (4). No key / timeout / empty LLM
+  output → a generic *"re-check this line term by term, watch the signs"* static
+  hint, returned with `ai_available: false` and `model_used: "stub"`. An
+  unexpected exception in generation degrades to the same static hint, never a
+  500. The suite asserts the real path (mocked LLM) **and** the fallback path.
+- **Honest provenance** (6). `ai_available` / `model_used` distinguish a real
+  generation from the static fallback, so the client shows the `✨ AI-generated`
+  vs neutral `Auto-…` `AIBadge` truthfully — a stub hint is never dressed as a
+  real one.
+- **Reuse, no parallel path.** `generate_step_hint` uses the same
+  Claude → Google AI → Ollama → stub cascade and the same `_call_anthropic_text`
+  helper as the weekly-report and draft-rationale generators; the gate reuses the
+  Beat-6 `check_step` engine verbatim.
+
+**Verify it:**
+
+```bash
+cd backend
+# generate_step_hint cascade (real → empty-falls-to-stub → no-provider stub) AND
+# the endpoint: wrong→AI hint, wrong→static fallback, correct→no-AI,
+# unparseable→no-AI, unexpected-error→graceful static hint, auth + 400 shape.
+venv/Scripts/python -m pytest openshiksha/apps/ai/tests/test_step_hint.py -q --no-cov
+```
+
+This beat is **off-screen** (the endpoint + its guardrails); GSV-4 wires it into
+the `step-solver` widget — type a wrong step, watch the ✗, read the AI
+explanation — and captures the on-screen artifact + e2e.

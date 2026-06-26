@@ -20,7 +20,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
-from openshiksha.apps.ai.llm_client import generate_hint_sequence, generate_questions, generate_widget_config
+from openshiksha.apps.ai.llm_client import (
+    generate_hint_sequence,
+    generate_questions,
+    generate_step_hint,
+    generate_widget_config,
+)
+from openshiksha.apps.core.algebra import check_step
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
@@ -87,6 +93,7 @@ from .serializers import (
     QuestionDifficultyCalibrationSerializer,
     ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
+    StepHintRequestSerializer,
     StudentMasterySerializer,
     StudentMisconceptionSerializer,
     SubmitOpenResponseSerializer,
@@ -1023,6 +1030,96 @@ class WidgetAuthoringViewSet(ViewSet):
                 # DTB-5: validated per-student sampling ranges for any {{var}}
                 # bindings (empty {} when the proposal isn't randomised).
                 "variable_constraints": result.get("variable_constraints", {}),
+            }
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Guided step-validator — AI wrong-step explainer (GSV-3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class StepHintViewSet(ViewSet):
+    """
+    POST /api/v1/ai/step-hint/   — any authenticated user
+
+    Guided step-validator: given two successive lines of a student's working,
+    explain *why* the second does not follow from the first. The flagship safety
+    property — **AI never decides correctness** — is enforced here by re-running
+    the deterministic ``apps.core.algebra.check_step`` engine (GSV-1) server-side
+    and only invoking the LLM when that engine has *already* ruled the step wrong.
+
+    Request body:
+        previous   string   the line the student had correct so far
+        current    string   the new line the student wrote
+
+    Response: 200 with
+        {"verdict", "reason", "hint", "model_used", "ai_available"}
+
+    - ``verdict`` ∈ {"correct", "wrong", "unparseable"} — always the deterministic
+      engine's call, never the LLM's.
+    - For a **correct** step or an **unparseable** line, no AI is called: the
+      engine's own deterministic ``reason`` is returned and ``hint`` is null.
+    - For a genuinely **wrong** step, the LLM explains the slip (grounded in the
+      real lines + the engine's reason). No key / timeout / empty output → a
+      deterministic static hint; ``ai_available`` tells the two apart for an
+      honest ``AIBadge`` on the client.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        serializer = StepHintRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        # Correctness is ALWAYS the deterministic engine's call — never the LLM's.
+        result = check_step(d["previous"], d["current"])
+
+        if not result.ok:
+            # A line could not be parsed/evaluated — the engine's fallback path.
+            # No AI: there is no grounded "wrong step" to explain.
+            return Response(
+                {
+                    "verdict": "unparseable",
+                    "reason": result.reason,
+                    "hint": None,
+                    "model_used": None,
+                    "ai_available": False,
+                }
+            )
+
+        if result.equivalent:
+            # The step is correct — nothing to explain, and AI is never asked to.
+            return Response(
+                {
+                    "verdict": "correct",
+                    "reason": result.reason,
+                    "hint": None,
+                    "model_used": None,
+                    "ai_available": False,
+                }
+            )
+
+        # Genuinely wrong (and parseable): coach with a grounded explanation.
+        try:
+            hint = generate_step_hint(d["previous"], d["current"], result.reason)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_step_hint: unexpected error")
+            # Even an unexpected failure stays graceful — fall to the static hint.
+            from openshiksha.apps.ai.llm_client import _stub_step_hint
+
+            hint = {"text": _stub_step_hint(), "model": "stub", "input_tokens": 0, "output_tokens": 0}
+
+        return Response(
+            {
+                "verdict": "wrong",
+                "reason": result.reason,
+                "hint": hint["text"],
+                "model_used": hint["model"],
+                "ai_available": hint["model"] != "stub",
             }
         )
 

@@ -19,6 +19,7 @@ from .views import (
     PracticePlanViewSet,
     QuestionDifficultyCalibrationViewSet,
     SpacedRepetitionViewSet,
+    StepHintViewSet,
     StudentMasteryViewSet,
     StudentMisconceptionViewSet,
     SubpartExplanationViewSet,
@@ -49,6 +50,8 @@ router.register("generate-questions", GenerateQuestionsViewSet, basename="genera
 router.register("widget-authoring", WidgetAuthoringViewSet, basename="widget-authoring")
 # Teacher AI Assistant — Weekly Class Reports (teacher-only)
 router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
+# Guided step-validator — AI wrong-step explainer (GSV-3)
+router.register("step-hint", StepHintViewSet, basename="step-hint")
 # Intelligent Hint System
 router.register("hints", HintSequenceViewSet, basename="hint-sequence")
 router.register("misconceptions", StudentMisconceptionViewSet, basename="misconception")

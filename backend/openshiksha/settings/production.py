@@ -2,6 +2,8 @@
 Production-specific Django settings for OpenShiksha
 """
 
+from openshiksha.apps.core.observability import init_sentry
+
 from .base import *  # noqa: F403
 
 # DEBUG mode OFF for production
@@ -58,5 +60,8 @@ CELERY_TASK_ALWAYS_EAGER = False
 
 # Cache - Use Redis with longer timeouts
 CACHES["default"]["TIMEOUT"] = 600  # 10 minutes  # noqa: F405
+
+# Error tracking (OBS-3) — no-ops unless SENTRY_DSN is set.
+init_sentry()
 
 print("⚠️  Production settings loaded - ensure all environment variables are set!")

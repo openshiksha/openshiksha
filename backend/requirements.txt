@@ -29,6 +29,11 @@ daphne==4.2.2
 # see settings/production.py — required for the prod Docker image build)
 whitenoise==6.12.0
 
+# Error tracking (OBS-3) — only active in production when SENTRY_DSN is set
+# (apps/core/observability.init_sentry). The [django] extra pulls in the Django
+# integration; Celery/Redis integrations ship in the base SDK.
+sentry-sdk[django]==2.63.0
+
 # Validation & Serialization
 pydantic==2.13.4
 pydantic-settings==2.14.2

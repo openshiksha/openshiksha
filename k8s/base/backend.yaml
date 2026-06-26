@@ -58,9 +58,13 @@ spec:
                 name: openshiksha-config
             - secretRef:
                 name: openshiksha-secrets
+          # Readiness uses the DEEP probe (/readyz/ checks DB + cache) so a pod
+          # with a dead DB is drained from the LB instead of serving 5xx. The
+          # livenessProbe below stays on the cheap /healthz/ so a transient DB
+          # blip drains the pod rather than killing it into a restart loop.
           readinessProbe:
             httpGet:
-              path: /healthz/
+              path: /readyz/
               port: 8000
               httpHeaders:
                 # kubelet probes use the pod IP as Host, which isn't in

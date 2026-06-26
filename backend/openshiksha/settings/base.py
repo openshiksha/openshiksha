@@ -60,6 +60,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Request-correlation id (OBS-4) — early so the id is available to every
+    # downstream middleware/view/log record for the whole request lifecycle.
+    "openshiksha.apps.core.middleware.RequestIDMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # CORS - must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -295,9 +298,19 @@ MANAGERS = ADMINS
 # Ensure the logs directory exists (CI environments and fresh checkouts won't have it)
 (BASE_DIR / "logs").mkdir(exist_ok=True)
 
+# Log format: "text" (default — today's human-readable formatters, byte-for-byte
+# unchanged) or "json" (one JSON object per line, for log aggregators). OBS-4.
+LOG_FORMAT = os.getenv("LOG_FORMAT", "text")
+_CONSOLE_FORMATTER = "json" if LOG_FORMAT == "json" else "simple"
+_FILE_FORMATTER = "json" if LOG_FORMAT == "json" else "verbose"
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        # Injects the per-request correlation id onto every record (OBS-4).
+        "request_id": {"()": "openshiksha.apps.core.logging_utils.RequestIDFilter"},
+    },
     "formatters": {
         "verbose": {
             "format": "[{levelname}] {asctime} {module} {process:d} {thread:d} {message}",
@@ -307,18 +320,23 @@ LOGGING = {
             "format": "[{levelname}] {message}",
             "style": "{",
         },
+        "json": {
+            "()": "openshiksha.apps.core.logging_utils.JSONFormatter",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "simple",
+            "formatter": _CONSOLE_FORMATTER,
+            "filters": ["request_id"],
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": BASE_DIR / "logs" / "openshiksha.log",
             "maxBytes": 1024 * 1024 * 10,  # 10 MB
             "backupCount": 5,
-            "formatter": "verbose",
+            "formatter": _FILE_FORMATTER,
+            "filters": ["request_id"],
         },
     },
     "root": {

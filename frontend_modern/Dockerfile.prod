@@ -27,6 +27,12 @@ COPY . .
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
+# Frontend Sentry DSN (OBS-5). Vite inlines VITE_* at build time, and the runtime
+# reporter is gated on this value: empty ⇒ reporting disabled and Rollup drops the
+# SDK entirely (entry chunk unchanged). Passed from the VITE_SENTRY_DSN CI secret.
+ARG VITE_SENTRY_DSN=
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+
 RUN npm run build
 # Defend the entry-chunk ceiling — fails the image build if it's blown.
 RUN npm run check:budget

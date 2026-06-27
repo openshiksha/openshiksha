@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Badge, Card, Select, Textarea } from '@/shared/ui';
+import { Badge, Card, Input, Select, Textarea } from '@/shared/ui';
 import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { widgetRegistry, type WidgetKind } from '@/widgets/registry';
 import type { WidgetModule, WidgetParamsSchema } from '@/widgets/_sdk/defineWidget';
+import { StepHintPanel } from './StepHintPanel';
 
 const WIDGET_KINDS = Object.keys(widgetRegistry).sort() as WidgetKind[];
 
@@ -210,6 +211,10 @@ export function WidgetDevPage() {
   const [configText, setConfigText] = useState(() => prettyJson(defaultConfigForKind(kind)));
   const [variablesText, setVariablesText] = useState('{}');
   const [lastValue, setLastValue] = useState<unknown>(undefined);
+  // GSV-4 step-coach explorer (only shown for the `step-solver` widget): a
+  // previous/current line pair fed to the host-side AI wrong-step explainer.
+  const [coachPrev, setCoachPrev] = useState('2x + 3 = 7');
+  const [coachCur, setCoachCur] = useState('2x = 10');
 
   const widget: WidgetModule = widgetRegistry[kind];
   const configState = useMemo(() => parseJsonObject(configText), [configText]);
@@ -309,6 +314,35 @@ export function WidgetDevPage() {
               {lastValue === undefined ? 'No value reported yet.' : prettyJson(lastValue)}
             </pre>
           </Card>
+
+          {kind === 'step-solver' && (
+            <Card className="space-y-4">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-ink-900">Wrong-step explainer</h2>
+                <p className="mt-1 text-sm text-ink-600">
+                  The deterministic engine decides ✓/✗ in the sandbox; this host-side coach asks the AI
+                  to explain a step it has <em>already</em> judged wrong. AI never grades.
+                </p>
+              </div>
+              <div className="grid gap-3">
+                <Input
+                  label="Previous line"
+                  value={coachPrev}
+                  spellCheck={false}
+                  className="font-mono text-sm"
+                  onChange={(event) => setCoachPrev(event.target.value)}
+                />
+                <Input
+                  label="New line"
+                  value={coachCur}
+                  spellCheck={false}
+                  className="font-mono text-sm"
+                  onChange={(event) => setCoachCur(event.target.value)}
+                />
+              </div>
+              <StepHintPanel previous={coachPrev} current={coachCur} />
+            </Card>
+          )}
         </section>
       </main>
     </div>

@@ -70,6 +70,9 @@ MIDDLEWARE = [
     # Request-correlation id (OBS-4) — early so the id is available to every
     # downstream middleware/view/log record for the whole request lifecycle.
     "openshiksha.apps.core.middleware.RequestIDMiddleware",
+    # HTTP request count + latency metrics (MET-4) — pure pass-through unless
+    # METRICS_ENABLED; after RequestIDMiddleware so the request id is already set.
+    "openshiksha.apps.core.middleware.MetricsMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # CORS - must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

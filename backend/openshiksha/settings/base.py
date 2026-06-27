@@ -26,6 +26,13 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
+# Prometheus metrics exposition (MET-1). Strictly env-gated: the /metrics endpoint
+# 404s unless METRICS_ENABLED is true, so default dev/test/CI behaviour is
+# unchanged. When enabled behind an internal network, an optional METRICS_TOKEN
+# adds a bearer-token gate (Prometheus passes it via the Authorization header).
+METRICS_ENABLED = os.getenv("METRICS_ENABLED", "false").lower() == "true"
+METRICS_TOKEN = os.getenv("METRICS_TOKEN", "")
+
 # Custom User Model
 AUTH_USER_MODEL = "core.User"
 

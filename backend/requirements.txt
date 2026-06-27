@@ -34,6 +34,11 @@ whitenoise==6.12.0
 # integration; Celery/Redis integrations ship in the base SDK.
 sentry-sdk[django]==2.63.0
 
+# Metrics exposition (OBS-6) — Prometheus client. The /metrics endpoint is
+# strictly env-gated (METRICS_ENABLED); the SDK is only imported when scraped, so
+# nothing runs by default in dev / test / CI.
+prometheus-client==0.21.1
+
 # Validation & Serialization
 pydantic==2.13.4
 pydantic-settings==2.14.2

@@ -13,6 +13,7 @@ from django.http import HttpResponse
 from django.urls import include, path
 
 from openshiksha.apps.api.views.health import readyz
+from openshiksha.apps.api.views.metrics import metrics_view
 
 
 def healthz(_request):
@@ -32,6 +33,8 @@ urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     # Deep readiness probe — DB + cache check; LB drain signal. See readyz().
     path("readyz/", readyz, name="readyz"),
+    # Prometheus metrics — env-gated (404 unless METRICS_ENABLED). See metrics_view().
+    path("metrics/", metrics_view, name="metrics"),
     # Django admin — mounted at /django-admin/ so it doesn't collide with the
     # React app's /admin route (the in-app school-admin dashboard). Superuser-only
     # gate is applied below.

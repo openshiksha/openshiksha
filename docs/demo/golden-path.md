@@ -600,3 +600,66 @@ venv/Scripts/python -m pytest openshiksha/apps/ai/tests/test_step_hint.py -q --n
 This beat is **off-screen** (the endpoint + its guardrails); GSV-4 wires it into
 the `step-solver` widget — type a wrong step, watch the ✗, read the AI
 explanation — and captures the on-screen artifact + e2e.
+
+## Beat 9 — *Why* the step is wrong, on screen (GSV-4a) · *the coach, in the UI*
+
+Beat 8 built the explainer endpoint; this beat is the **host-side coach a person
+can watch**. A `step-solver` lives in the network-less sandbox, so — by principle
+1 — the AI explanation cannot live *inside* the widget; it lives in a **host
+panel beside it**. In the widgets playground (`/widgets/dev?kind=step-solver`),
+selecting the step-solver reveals a **Wrong-step explainer**: the previous line
+and the new line the student wrote, and a single **"Why is this wrong?"** button.
+
+Click it on a genuinely wrong step — `2x + 3 = 7` → `2x = 10` — and the panel
+shows, in order:
+
+- a red **`✗ This changes the answer`** badge — the verdict, always the
+  **deterministic engine's**, computed server-side before any model is consulted;
+- the engine's own reason (*"These equations have different solutions."*); and
+- the **AI explanation** of the slip — *"You took 3 off the left but not the
+  right — subtract it from both sides."* — wearing a brand **`✨ AI-generated`**
+  badge.
+
+The honesty is structural, on screen:
+
+- A **correct** step (`2x + 3 = 7` → `2x = 4`) shows a green *"This step looks
+  right"* note — **and the LLM was never called** (the backend gate returns the
+  engine's verdict with `hint: null`). The coach can't manufacture a wrong step
+  to explain.
+- An **unparseable** line shows a neutral *"Couldn't check this line"* — again no
+  AI.
+- **No key / timeout / empty output** → the panel shows the deterministic static
+  hint under a neutral **`Auto-explanation`** badge plus a friendly *"the AI coach
+  is unavailable right now"* line. The stub is never dressed as a real generation.
+
+**Why it's iron-clad:** the AI call is host-mediated, outside the sandbox
+(principle 1); it is **structurally out of the grading path** — the panel only
+ever renders explanatory text and never reports a value to the grader (principle
+2); the displayed verdict is always `check_step`'s, never the model's; the prompt
+is grounded in the two real lines + the engine's reason (principle 5); and
+provenance is honest — `✨ AI-generated` for a real explanation, `Auto-explanation`
+for the static fallback (principle 6).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# The hook (real AI / static-stub / correct-no-AI / transport error) and the
+# panel (✨ badge + explanation on a real wrong step, neutral Auto-explanation +
+# "AI unavailable" line on the stub, green note + no-AI on a correct step,
+# neutral note on unparseable, pending/error/disabled states), plus the dev-page
+# wiring that shows the coach only for step-solver with a seeded line pair:
+npx vitest run src/features/widgets/useStepHint.test.ts \
+               src/features/widgets/StepHintPanel.test.tsx \
+               src/features/widgets/WidgetDevPage.test.tsx
+```
+
+Or in the running app: open **`/widgets/dev?kind=step-solver`**, edit the two
+lines, and click **Why is this wrong?** — the verdict + explanation appear with
+an honest badge.
+
+*Next slice (GSV-4b):* feed `previous`/`current` **automatically** from the
+`step-solver` widget's wrong-step events (a new sandbox→host protocol message),
+so the student sees the explanation inline the moment they make the slip — plus
+the real-browser e2e + the captured screenshot/gif of the full type→✗→explain
+moment (the reproducible artifact, the DTB-4 / GSV-2b capture mechanic).

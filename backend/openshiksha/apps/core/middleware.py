@@ -8,6 +8,7 @@ When Sentry is active it also tags the current scope so an error and its log lin
 share the same id.
 """
 
+import time
 import uuid
 
 from openshiksha.apps.core.request_context import reset_request_id, set_request_id
@@ -49,3 +50,31 @@ class RequestIDMiddleware:
                 sentry_sdk.set_tag("request_id", request_id)
         except Exception:  # pragma: no cover - defensive; never break a request
             pass
+
+
+class MetricsMiddleware:
+    """Record HTTP request count + latency into Prometheus (MET-4), env-gated.
+
+    When ``METRICS_ENABLED`` is falsy this is a **pure pass-through** — no metric
+    object is touched, no measurable overhead — so default behaviour is unchanged.
+    Placed after ``RequestIDMiddleware`` so request-id context is already set.
+    Labels are method + status class only (no raw path) to bound cardinality.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from openshiksha.apps.core import metrics
+
+        if not metrics.metrics_enabled():
+            return self.get_response(request)
+
+        start = time.perf_counter()
+        response = self.get_response(request)
+        elapsed = time.perf_counter() - start
+
+        status_class = f"{response.status_code // 100}xx"
+        metrics.http_requests_total.labels(request.method, status_class).inc()
+        metrics.http_request_duration_seconds.labels(request.method).observe(elapsed)
+        return response

@@ -22,12 +22,29 @@ import logging
 import os
 from datetime import timedelta
 
-from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Gauge, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Counter, Gauge, Histogram, generate_latest
 from prometheus_client.core import GaugeMetricFamily
 
 from django.conf import settings
 
 logger = logging.getLogger("apps")
+
+# HTTP request metrics (MET-4), recorded by ``MetricsMiddleware``. Module-level
+# singletons (defined once at import) so they're never recreated per request,
+# which would raise a "Duplicated timeseries" registry error. Labelled by method
+# and status class (2xx/3xx/4xx/5xx) only — never raw path — to avoid unbounded
+# cardinality from per-id URLs. The middleware only records when metrics are
+# enabled, so these stay sample-less (zero overhead) by default.
+http_requests_total = Counter(
+    "openshiksha_http_requests",
+    "HTTP requests handled, by method and status class.",
+    ["method", "status_class"],
+)
+http_request_duration_seconds = Histogram(
+    "openshiksha_http_request_duration_seconds",
+    "HTTP request latency in seconds, by method.",
+    ["method"],
+)
 
 # build_info: a value-1 gauge whose labels carry the live build identity — the
 # conventional Prometheus pattern for static metadata. Registered on the default

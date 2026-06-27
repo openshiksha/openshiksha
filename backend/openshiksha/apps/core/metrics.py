@@ -20,6 +20,7 @@ sets ``METRICS_ENABLED=true`` and the endpoint is scraped.
 
 import logging
 import os
+from datetime import timedelta
 
 from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, Gauge, generate_latest
 from prometheus_client.core import GaugeMetricFamily
@@ -125,6 +126,81 @@ class BusinessMetricsCollector:
         )
 
 
+# Non-terminal Celery states — a task in any of these is still in the queue or
+# mid-flight, i.e. it contributes to "oldest pending" staleness.
+_PENDING_TASK_STATES = ("PENDING", "RECEIVED", "STARTED", "RETRY")
+
+# How far back the task-health window looks, so the COUNT stays bounded.
+_TASK_WINDOW = timedelta(hours=24)
+
+
+def _celery_results_in_db() -> bool:
+    """True only when Celery persists results to the DB (``django_celery_results``).
+
+    The default result backend is Redis, where the ``TaskResult`` table stays
+    empty — emitting task gauges then would be a *misleading constant zero*. So
+    MET-3 stays a documented no-op unless ``CELERY_RESULT_BACKEND`` is the
+    database backend; flipping it lights the gauges up automatically.
+    """
+    backend = str(getattr(settings, "CELERY_RESULT_BACKEND", "") or "")
+    return "django-db" in backend or "django_celery_results" in backend
+
+
+class TaskMetricsCollector:
+    """Scrape-time Celery health derived from ``django_celery_results.TaskResult`` (MET-3).
+
+    Celery runs as a **separate worker process**, so in-worker counters can't be
+    scraped from the web process without a pushgateway/second exporter (out of
+    scope per the operability bar). Instead we read task health on-scrape from the
+    already-installed ``TaskResult`` table — but only when results are actually
+    persisted there (see ``_celery_results_in_db``).
+
+    Gauges (windowed to the last 24h by ``date_created``):
+      * ``openshiksha_celery_tasks{status=...}`` — task counts by status,
+      * ``openshiksha_celery_oldest_pending_seconds`` — age of the oldest
+        non-terminal task (``0`` when none) — the async grade-queue-staleness analogue.
+    """
+
+    def collect(self):
+        if not _celery_results_in_db():
+            return
+        try:
+            yield from self._collect()
+        except Exception:  # pragma: no cover - defensive; never break a scrape
+            logger.warning("metrics: TaskMetricsCollector failed; skipping celery gauges", exc_info=True)
+
+    def _collect(self):
+        from django_celery_results.models import TaskResult
+
+        from django.db.models import Count
+        from django.utils import timezone
+
+        now = timezone.now()
+        since = now - _TASK_WINDOW
+
+        by_status = GaugeMetricFamily(
+            "openshiksha_celery_tasks",
+            "Celery task counts by status over the last 24h (requires the django-db result backend).",
+            labels=["status"],
+        )
+        for row in TaskResult.objects.filter(date_created__gte=since).values("status").annotate(n=Count("id")):
+            by_status.add_metric([row["status"] or "UNKNOWN"], row["n"])
+        yield by_status
+
+        oldest = (
+            TaskResult.objects.filter(date_created__gte=since, status__in=_PENDING_TASK_STATES)
+            .order_by("date_created")
+            .values_list("date_created", flat=True)
+            .first()
+        )
+        age = (now - oldest).total_seconds() if oldest else 0.0
+        yield GaugeMetricFamily(
+            "openshiksha_celery_oldest_pending_seconds",
+            "Age in seconds of the oldest non-terminal Celery task in the window (0 when none).",
+            value=age,
+        )
+
+
 # Lazy, idempotent registration of the on-scrape collectors. Guarded so we only
 # touch the registry on a real (enabled) scrape and never double-register.
 _collectors_registered = False
@@ -135,6 +211,7 @@ def _ensure_collectors():
     if _collectors_registered:
         return
     REGISTRY.register(BusinessMetricsCollector())
+    REGISTRY.register(TaskMetricsCollector())
     _collectors_registered = True
 
 

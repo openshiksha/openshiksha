@@ -86,10 +86,35 @@ with a correlatable request id, an operator can read `/api/v1/version/` to know
 the live build, logs can be shipped as JSON, and a frontend crash reports
 instead of vanishing — all **without** changing local-dev or CI defaults.
 
-## Later batches (not started — scoped when Batch 1 lands)
-- **Batch 2 — Metrics & dashboards.** A `/metrics` (Prometheus) endpoint behind
-  an internal gate; key business + runtime gauges (active assignments, grade
-  queue depth, Celery task latency); a starter Grafana board doc.
+## Backlog — Batch 2 (Metrics & dashboards · PR-sized, lowest-risk-first)
+
+Scoped 2026-06-27 ([2026-06-27-plan.md](../daily-plans/2026-06-27-plan.md)).
+Verified greenfield: `prometheus`/`/metrics` appear nowhere in `backend/`;
+`django-celery-results` **is** installed (MET-3 reads `TaskResult`, no new dep);
+prod runs a **single daphne** ASGI process (default registry is correct — no
+`PROMETHEUS_MULTIPROC_DIR`); Celery is a **separate worker** (so MET-2/3 compute
+on-scrape from the DB, not from in-worker counters); the ingress routes only
+`/api`,`/django-admin`,`/static`,`/` so a top-level `/metrics` is **not publicly
+routable** (internal-only via `backend:8000`).
+
+| ID | Increment | Classify | Status |
+|----|-----------|----------|--------|
+| MET-1 | **`prometheus-client` dep + gated `/metrics` exposition endpoint.** Top-level `/metrics` view (`apps/core/metrics.py`, mounted from `urls.py` like `readyz`) exposing the default registry (process + GC); gated behind `METRICS_ENABLED` (default off ⇒ **404**, byte-for-byte today's) + optional `METRICS_TOKEN` bearer (mismatch ⇒ 403). Use `prometheus-client`, **not** always-on `django-prometheus`. Tests: 404 disabled / 200 enabled / 403 bad token. | New | ⬜ |
+| MET-2 | **Business & queue-depth gauges (on-scrape collector).** A custom `Collector` running read-only ORM COUNTs at scrape time — `openshiksha_assignments_active_total`, `_submissions_pending_grading_total` (**grade-queue depth**), `users_total{role}`, classroom/subjectroom counts. Registered only when enabled. Tests: gauges reflect seeded data; absent + no DB hit when disabled. | New | ⬜ |
+| MET-3 | **Async-task health gauges from `TaskResult` (on-scrape).** Celery health derived from `django_celery_results.TaskResult` (windowed): `openshiksha_celery_tasks_total{status}` + `_celery_oldest_pending_seconds` — avoids cross-process counter aggregation. Tests: seeded SUCCESS/FAILURE rows reflected; absent when disabled. Guard on the result-backend being `django-db`. | New | ⬜ |
+| MET-4 | **HTTP request metrics middleware (gated).** `MetricsMiddleware` (after `RequestIDMiddleware`) recording `openshiksha_http_requests_total{method,status_class}` + `_http_request_duration_seconds` histogram; pure pass-through when disabled; label by method/status-class (no raw-path cardinality). Tests: counters move when enabled; no families when disabled. | New | ⬜ |
+| MET-5 | **Grafana starter dashboard + scrape runbook + ledger.** `docs/ops/grafana/openshiksha-overview.json` (request rate/p95, grade-queue depth, Celery failures/oldest-pending, process up) + `docs/ops/metrics.md` (enable steps, in-cluster scrape config, not-publicly-routed note, single-process + `TaskResult` dependencies, metric catalogue) + `STATUS.md`/ledger update. Docs-only — safe last. | New / Docs | ⬜ |
+
+**Batch 2 build order:** MET-1 → (MET-2, MET-3, MET-4 independent) → MET-5.
+MET-2/3/4 depend only on MET-1's registry + endpoint; MET-5 is pure docs.
+
+**Batch 2 DoD:** an operator can scrape a gated `/metrics`, point Prometheus at
+it in-cluster, and watch the signals that predict an OpenShiksha incident
+(grade-queue depth, Celery failure rate, request latency) on an importable
+Grafana board — all **off by default** (404 + no DB work when `METRICS_ENABLED`
+is unset), no new always-on agent, no perf/offline regression.
+
+## Later batches (not started)
 - **Batch 3 — Backups & DR drill.** Automated Postgres dump to object storage +
   a documented, *tested* restore runbook (the data-loss insurance the live DB
   currently lacks).

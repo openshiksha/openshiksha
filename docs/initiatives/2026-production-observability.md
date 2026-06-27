@@ -99,11 +99,11 @@ routable** (internal-only via `backend:8000`).
 
 | ID | Increment | Classify | Status |
 |----|-----------|----------|--------|
-| MET-1 | **`prometheus-client` dep + gated `/metrics` exposition endpoint.** Top-level `/metrics` view (`apps/core/metrics.py`, mounted from `urls.py` like `readyz`) exposing the default registry (process + GC); gated behind `METRICS_ENABLED` (default off ⇒ **404**, byte-for-byte today's) + optional `METRICS_TOKEN` bearer (mismatch ⇒ 403). Use `prometheus-client`, **not** always-on `django-prometheus`. Tests: 404 disabled / 200 enabled / 403 bad token. | New | ⬜ |
-| MET-2 | **Business & queue-depth gauges (on-scrape collector).** A custom `Collector` running read-only ORM COUNTs at scrape time — `openshiksha_assignments_active_total`, `_submissions_pending_grading_total` (**grade-queue depth**), `users_total{role}`, classroom/subjectroom counts. Registered only when enabled. Tests: gauges reflect seeded data; absent + no DB hit when disabled. | New | ⬜ |
-| MET-3 | **Async-task health gauges from `TaskResult` (on-scrape).** Celery health derived from `django_celery_results.TaskResult` (windowed): `openshiksha_celery_tasks_total{status}` + `_celery_oldest_pending_seconds` — avoids cross-process counter aggregation. Tests: seeded SUCCESS/FAILURE rows reflected; absent when disabled. Guard on the result-backend being `django-db`. | New | ⬜ |
-| MET-4 | **HTTP request metrics middleware (gated).** `MetricsMiddleware` (after `RequestIDMiddleware`) recording `openshiksha_http_requests_total{method,status_class}` + `_http_request_duration_seconds` histogram; pure pass-through when disabled; label by method/status-class (no raw-path cardinality). Tests: counters move when enabled; no families when disabled. | New | ⬜ |
-| MET-5 | **Grafana starter dashboard + scrape runbook + ledger.** `docs/ops/grafana/openshiksha-overview.json` (request rate/p95, grade-queue depth, Celery failures/oldest-pending, process up) + `docs/ops/metrics.md` (enable steps, in-cluster scrape config, not-publicly-routed note, single-process + `TaskResult` dependencies, metric catalogue) + `STATUS.md`/ledger update. Docs-only — safe last. | New / Docs | ⬜ |
+| MET-1 | **`prometheus-client` dep + gated `/metrics` exposition endpoint.** Top-level `/metrics` view (`apps/core/metrics.py`, mounted from `urls.py` like `readyz`) exposing the default registry (process + GC); gated behind `METRICS_ENABLED` (default off ⇒ **404**, byte-for-byte today's) + optional `METRICS_TOKEN` bearer (mismatch ⇒ 403). Use `prometheus-client`, **not** always-on `django-prometheus`. Tests: 404 disabled / 200 enabled / 403 bad token. | New | ✅ [#467](https://github.com/openshiksha/openshiksha/pull/467) |
+| MET-2 | **Business & queue-depth gauges (on-scrape collector).** A custom `Collector` running read-only ORM COUNTs at scrape time — `openshiksha_assignments_active`, `_submissions_pending_grading` (**grade-queue depth**), `users{role}`, classroom/subjectroom counts. Registered lazily on first enabled scrape. Tests: gauges reflect seeded data; absent + no DB hit when disabled. | New | ✅ [#468](https://github.com/openshiksha/openshiksha/pull/468) |
+| MET-3 | **Async-task health gauges from `TaskResult` (on-scrape).** Celery health derived from `django_celery_results.TaskResult` (24h window): `openshiksha_celery_tasks{status}` + `_celery_oldest_pending_seconds` — avoids cross-process counter aggregation. Gated on the result-backend being `django-db` (honest no-op under the default Redis backend). Tests: seeded SUCCESS/FAILURE rows reflected; absent under Redis backend. | New | ✅ [#470](https://github.com/openshiksha/openshiksha/pull/470) |
+| MET-4 | **HTTP request metrics middleware (gated).** `MetricsMiddleware` (after `RequestIDMiddleware`) recording `openshiksha_http_requests_total{method,status_class}` + `_http_request_duration_seconds` histogram; pure pass-through when disabled; label by method/status-class (no raw-path cardinality). Tests: counters move when enabled; no movement when disabled. | New | ✅ [#471](https://github.com/openshiksha/openshiksha/pull/471) |
+| MET-5 | **Grafana starter dashboard + scrape runbook + ledger.** `docs/ops/grafana/openshiksha-overview.json` (request rate/p95, grade-queue depth, Celery failures/oldest-pending, process RSS, build info) + `docs/ops/metrics.md` (enable steps, in-cluster scrape config, not-publicly-routed note, single-process + `TaskResult` dependencies, metric catalogue) + `STATUS.md`/ledger update. Docs-only — safe last. | New / Docs | ✅ (this PR) |
 
 **Batch 2 build order:** MET-1 → (MET-2, MET-3, MET-4 independent) → MET-5.
 MET-2/3/4 depend only on MET-1's registry + endpoint; MET-5 is pure docs.
@@ -114,8 +114,16 @@ it in-cluster, and watch the signals that predict an OpenShiksha incident
 Grafana board — all **off by default** (404 + no DB work when `METRICS_ENABLED`
 is unset), no new always-on agent, no perf/offline regression.
 
-## Later batches (not started)
-- **Batch 3 — Backups & DR drill.** Automated Postgres dump to object storage +
+## Later batches
+- **Batch 2 — Metrics & dashboards. ✅ SHIPPED 2026-06-27** (MET-1..5,
+  [#467](https://github.com/openshiksha/openshiksha/pull/467)–[#471](https://github.com/openshiksha/openshiksha/pull/471)):
+  gated Prometheus `/metrics`, on-scrape business/queue-depth + `TaskResult`-derived
+  Celery gauges, gated HTTP request metrics, Grafana starter + scrape runbook.
+- **Batch 3 — Backups & DR drill** (next). Automated Postgres dump to object storage +
+  a documented, *tested* restore runbook (the data-loss insurance the live DB
+  currently lacks).
+- **Batch 4 — Uptime & alerting.** External uptime check on `/healthz/` +
+  `/readyz/`; alert routing (email/ntfy) on Sentry error-rate + probe-fail.
   a documented, *tested* restore runbook (the data-loss insurance the live DB
   currently lacks).
 - **Batch 4 — Uptime & alerting.** External uptime check on `/healthz/` +
@@ -139,3 +147,4 @@ is unset), no new always-on agent, no perf/offline regression.
 | Date | Increment | PR | Learning |
 |------|-----------|----|----------|
 | 2026-06-25 | Initiative promoted; Batch 1 (OBS-1..5) scoped. The board had **no unblocked next bet** (Accessibility closed today; OSS/Mobile/Language-Access Done; IW Paused; LA-10 blocked) and the platform is live in prod but un-observable. Grounded: `/healthz/` is cheap-by-design and its own docstring asks for the missing `/readyz`; `/api/v1/health/` does the deep check but nothing probes it; no Sentry; logs unstructured + uncorrelated; the shared `ErrorBoundary` reports nowhere. | _(this doc)_ | The readiness gap is not a redesign — the intended split (cheap liveness `/healthz/` + deep drain-signal `/readyz/`) is already written in the `healthz` docstring; OBS-1 just builds the half that was specified but never shipped. |
+| 2026-06-27 | **Batch 2 (Metrics & dashboards) SHIPPED — MET-1..5.** Gated Prometheus `/metrics` (`METRICS_ENABLED`/`METRICS_TOKEN`, 404 by default; `prometheus-client`, not always-on `django-prometheus`) → on-scrape business/queue-depth gauges (lazy-registered, fault-tolerant `collect()`) → `TaskResult`-derived Celery health gated on the `django-db` result backend → gated HTTP request count + latency middleware → Grafana starter (`docs/ops/grafana/openshiksha-overview.json`) + scrape runbook (`docs/ops/metrics.md`). | [#467](https://github.com/openshiksha/openshiksha/pull/467)–[#471](https://github.com/openshiksha/openshiksha/pull/471) | On-scrape gauges (lazy DB COUNTs) beat in-process event counters for a separate-worker topology: stateless, no cross-process aggregation, and trivially zero-cost when disabled (endpoint 404s before any collector runs). The default Redis result backend means MET-3 ships as an *honest no-op* (gated on `django-db`) rather than a misleading constant zero. Stacked-PR lesson: after a squash-merge the stacked branch carries a duplicate of the merged commit — `git rebase --onto <new-base> <old-base> <branch>` drops it cleanly. |

@@ -142,6 +142,33 @@ class BusinessMetricsCollector:
             value=SubjectRoom.objects.count(),
         )
 
+        # Backup freshness (BAK-4). Age of the newest *successful* BackupRun and
+        # its unix timestamp — the signal Batch 4 alerting fires on. When no
+        # successful backup has ever been recorded we *omit* the age family (and
+        # emit a 0 timestamp) rather than emit a misleading "0 seconds old": an
+        # absent series is honest, a fake-fresh 0 is dangerous.
+        from openshiksha.apps.core.models import BackupRun
+
+        last_success = (
+            BackupRun.objects.filter(status=BackupRun.Status.SUCCESS)
+            .order_by("-created_at")
+            .values_list("created_at", flat=True)
+            .first()
+        )
+        ts = last_success.timestamp() if last_success else 0.0
+        yield GaugeMetricFamily(
+            "openshiksha_backup_last_success_timestamp",
+            "Unix timestamp of the most recent successful Postgres backup (0 when none).",
+            value=ts,
+        )
+        if last_success is not None:
+            yield GaugeMetricFamily(
+                "openshiksha_backup_age_seconds",
+                "Seconds since the most recent successful Postgres backup. "
+                "Absent when no successful backup has been recorded.",
+                value=max(0.0, (now - last_success).total_seconds()),
+            )
+
 
 # Non-terminal Celery states — a task in any of these is still in the queue or
 # mid-flight, i.e. it contributes to "oldest pending" staleness.

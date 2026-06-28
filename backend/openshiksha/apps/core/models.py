@@ -1264,3 +1264,30 @@ class PushSubscription(models.Model):
 
     def __str__(self):
         return f"PushSubscription(user={self.user_id}, endpoint={self.endpoint[:40]}…)"
+
+
+class BackupRun(models.Model):
+    """Audit row recording one Postgres backup attempt (Production Observability BAK-4).
+
+    Written best-effort by the prod backup CronJob (via ``manage.py
+    record_backup_run``) after each `pg_dump` upload. Its sole consumer is the
+    on-scrape ``openshiksha_backup_age_seconds`` freshness gauge — the signal
+    Batch 4 alerting fires on ("no successful backup in 36 h"). Append-only; no
+    PII, just operational metadata.
+    """
+
+    class Status(models.TextChoices):
+        SUCCESS = "success", "Success"
+        FAILURE = "failure", "Failure"
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.SUCCESS)
+    size_bytes = models.BigIntegerField(null=True, blank=True, help_text="Compressed dump size in bytes.")
+    object_key = models.CharField(max_length=512, blank=True, help_text="S3 object key of the uploaded dump.")
+
+    class Meta:
+        db_table = "backup_runs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"BackupRun({self.status} @ {self.created_at:%Y-%m-%dT%H:%M:%SZ})"

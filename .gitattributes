@@ -1,0 +1,4 @@
+# Shell scripts and Dockerfiles must keep LF endings — a CRLF in a `#!/usr/bin/env
+# bash` shebang breaks execution inside Linux containers (BAK-1 backup image).
+*.sh           text eol=lf
+Dockerfile*    text eol=lf

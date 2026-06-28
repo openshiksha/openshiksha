@@ -7,6 +7,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import (
     Assignment,
+    BackupRun,
     Board,
     Chapter,
     ClassRoom,
@@ -259,3 +260,11 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
     search_fields = ["user__username", "user__first_name", "user__last_name", "endpoint"]
     raw_id_fields = ["user"]
     readonly_fields = ["endpoint", "p256dh", "auth", "user_agent", "created_at"]
+
+
+@admin.register(BackupRun)
+class BackupRunAdmin(admin.ModelAdmin):
+    list_display = ["created_at", "status", "size_bytes", "object_key"]
+    list_filter = ["status"]
+    search_fields = ["object_key"]
+    readonly_fields = ["created_at", "status", "size_bytes", "object_key"]

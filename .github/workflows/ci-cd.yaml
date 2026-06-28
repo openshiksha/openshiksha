@@ -439,6 +439,12 @@ jobs:
                     - service: frontend
                       context: ./frontend_modern
                       dockerfile: ./frontend_modern/Dockerfile.prod
+                    # BAK-3: version-matched Postgres backup image. Build context
+                    # is the repo root so scripts/backup/* is in scope. Ignores
+                    # the GIT_SHA/VITE_* build-args harmlessly (it declares none).
+                    - service: backup
+                      context: .
+                      dockerfile: ./backend/Dockerfile.backup
         steps:
             - name: Check out the repo
               uses: actions/checkout@v7

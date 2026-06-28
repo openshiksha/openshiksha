@@ -37,7 +37,7 @@ sentry-sdk[django]==2.63.0
 # Metrics exposition (OBS-6) — Prometheus client. The /metrics endpoint is
 # strictly env-gated (METRICS_ENABLED); the SDK is only imported when scraped, so
 # nothing runs by default in dev / test / CI.
-prometheus-client==0.21.1
+prometheus-client==0.25.0
 
 # Validation & Serialization
 pydantic==2.13.4
@@ -49,7 +49,7 @@ httpx==0.28.1
 requests==2.34.2
 
 # AI / LLM
-anthropic==0.111.0
+anthropic==0.112.0
 google-genai==2.10.0
 
 # Utilities
@@ -59,7 +59,7 @@ Pillow==12.2.0
 # Development
 django-debug-toolbar==7.0.0
 django-extensions==4.1
-ipython==9.14.1
+ipython==9.15.0
 
 # Testing
 pytest==9.1.1

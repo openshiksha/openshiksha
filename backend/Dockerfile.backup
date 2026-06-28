@@ -1,0 +1,35 @@
+# OpenShiksha Postgres backup image (Production Observability Batch 3, BAK-1).
+#
+# Based on postgres:15-alpine so `pg_dump`/`pg_restore`/`psql` match the EXACT
+# major version of the prod server (a pg_dump OLDER than the server refuses to
+# run — a generic awscli image would not give us a version-matched dump tool).
+#
+# Adds the static `mc` (MinIO client) binary for S3-compatible upload — one
+# static binary, far lighter than installing aws-cli into alpine.
+#
+# Build context is the REPO ROOT (so scripts/backup/* is in scope):
+#   docker build -f backend/Dockerfile.backup -t openshiksha-backup .
+#
+# Default entrypoint runs a backup; the restore script is also present and is
+# invoked explicitly (e.g. by a one-off restore Job — see docs/ops/backups.md).
+FROM postgres:15-alpine
+
+# bash for the scripts (alpine ships ash by default); ca-certificates for TLS to
+# the S3 endpoint; curl to fetch mc at build time.
+RUN apk add --no-cache bash ca-certificates curl
+
+# Pinned mc release for reproducible builds (a moving "latest" would make the
+# image non-deterministic). Verify the binary runs before baking it in.
+ARG MC_VERSION=RELEASE.2025-04-08T15-39-49Z
+RUN curl -fsSL "https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MC_VERSION}" \
+        -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc \
+    && mc --version
+
+COPY scripts/backup/pg_backup.sh scripts/backup/pg_restore.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/pg_backup.sh /usr/local/bin/pg_restore.sh
+
+# Run as the unprivileged postgres user the base image already provides.
+USER postgres
+
+ENTRYPOINT ["/usr/local/bin/pg_backup.sh"]

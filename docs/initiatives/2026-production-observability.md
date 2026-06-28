@@ -114,20 +114,43 @@ it in-cluster, and watch the signals that predict an OpenShiksha incident
 Grafana board — all **off by default** (404 + no DB work when `METRICS_ENABLED`
 is unset), no new always-on agent, no perf/offline regression.
 
+## Backlog — Batch 3 (Backups & DR drill · PR-sized, lowest-risk-first)
+
+Scoped 2026-06-27 ([2026-06-27-plan-2.md](../daily-plans/2026-06-27-plan-2.md)).
+Verified greenfield: `k8s/base/postgres.yaml` is a single `postgres:15-alpine`
+StatefulSet (`replicas: 1`, one 10 Gi PVC) with **no backup mechanism** —
+no `CronJob`, no `pg_dump`, no object-storage wiring anywhere in `k8s/` or
+`scripts/`. `DATABASE_URL` lives in `openshiksha-secrets`; the
+`kustomize build | kubeconform -strict` manifest gate (#459) runs in `ci-cd.yaml`.
+Prod overlay namespace is `openshiksha-prod`.
+
+| ID | Increment | Classify | Status |
+|----|-----------|----------|--------|
+| BAK-1 | **Backup/restore scripts + version-matched dump image.** `scripts/backup/pg_backup.sh` (custom-format `pg_dump` → gzip → S3-compatible upload via static `mc` → prune by `RETENTION_DAYS`) + `pg_restore.sh` (guarded by `CONFIRM=1`) + `backend/Dockerfile.backup` (`FROM postgres:15-alpine` so `pg_dump` major matches the server). Touches nothing live. | New | ⬜ |
+| BAK-2 | **Local, tested backup→restore round-trip drill.** `scripts/backup/drill.sh` runs entirely against the docker-compose Postgres: seed → dump (local mode, no cloud creds) → drop/recreate scratch DB → restore → **assert row-count parity**. The "*tested* restore runbook" half of the DoD. Depends on BAK-1. | New | ⬜ |
+| BAK-3 | **Prod backup `CronJob` (prod-overlay-only, additive).** `k8s/base/backup-cronjob.yaml` (nightly, `concurrencyPolicy: Forbid`) running the BAK-1 image, referenced only from the prod overlay so qa/dev kustomize builds are byte-for-byte unchanged; new `S3_*` keys documented (empty) in `secret.example.yaml`; passes the `kubeconform -strict` gate. Image published via CI (or documented manual build). Depends on BAK-1. | New | ⬜ |
+| BAK-4 | **Backup-freshness gauge (reuses the MET-2 collector).** A `BackupRun` model + migration + `record_backup_run` management command the CronJob calls on success, surfaced as `openshiksha_backup_age_seconds` / `_last_success_timestamp` on the existing `BusinessMetricsCollector` — same gated, on-scrape, read-only pattern; honest empty-history case. Gives Batch 4 a concrete signal to alert on. | New | ⬜ |
+| BAK-5 | **`docs/ops/backups.md` runbook + ledger.** Architecture, schedule, retention/RPO/RTO, the restore drill (local via BAK-2 + prod via a one-off restore Job), the new secret keys, the freshness metric + suggested alert threshold; `STATUS.md` + ledger update (Batch 3 → shipped, Next → Batch 4). Docs-only — safe last. | New / Docs | ⬜ |
+
+**Batch 3 build order:** BAK-1 → (BAK-2, BAK-3, BAK-4 independent) → BAK-5.
+All four feature PRs hang off BAK-1; BAK-5 is docs.
+
+**Batch 3 DoD:** the live Postgres has off-site, retained, version-matched
+nightly dumps; the restore path is **actually exercised** (BAK-2 round-trip,
+asserted), not merely documented; a backup-freshness gauge feeds Batch 4 — all
+additive (qa/dev untouched, no secret committed, the manifest gate green).
+
 ## Later batches
 - **Batch 2 — Metrics & dashboards. ✅ SHIPPED 2026-06-27** (MET-1..5,
   [#467](https://github.com/openshiksha/openshiksha/pull/467)–[#471](https://github.com/openshiksha/openshiksha/pull/471)):
   gated Prometheus `/metrics`, on-scrape business/queue-depth + `TaskResult`-derived
   Celery gauges, gated HTTP request metrics, Grafana starter + scrape runbook.
-- **Batch 3 — Backups & DR drill** (next). Automated Postgres dump to object storage +
-  a documented, *tested* restore runbook (the data-loss insurance the live DB
-  currently lacks).
+- **Batch 3 — Backups & DR drill. ⬜ SCOPED 2026-06-27** (BAK-1..5, table above):
+  automated off-site Postgres dump + a *tested* restore drill + a backup-freshness
+  gauge — the data-loss insurance the live DB currently lacks.
 - **Batch 4 — Uptime & alerting.** External uptime check on `/healthz/` +
-  `/readyz/`; alert routing (email/ntfy) on Sentry error-rate + probe-fail.
-  a documented, *tested* restore runbook (the data-loss insurance the live DB
-  currently lacks).
-- **Batch 4 — Uptime & alerting.** External uptime check on `/healthz/` +
-  `/readyz/`; alert routing (email/ntfy) on Sentry error-rate + probe-fail.
+  `/readyz/`; alert routing (email/ntfy) on Sentry error-rate + probe-fail + the
+  Batch-2 metrics + the Batch-3 `openshiksha_backup_age_seconds` freshness gauge.
 
 ## Out of scope
 - **APM vendor lock-in / always-on heavy agents.** Everything stays env-gated and

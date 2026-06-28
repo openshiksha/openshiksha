@@ -5,11 +5,16 @@ namespace: openshiksha-prod
 
 resources:
   - ../../base
+  # Prod-only: nightly Postgres backup (BAK-3). Lives in the overlay (not base) so
+  # qa/dev never run it and never need S3 creds.
+  - backup-cronjob.yaml
 
 images:
   - name: ghcr.io/openshiksha/openshiksha-backend
     newTag: prod
   - name: ghcr.io/openshiksha/openshiksha-frontend
+    newTag: prod
+  - name: ghcr.io/openshiksha/openshiksha-backup
     newTag: prod
 
 patches:

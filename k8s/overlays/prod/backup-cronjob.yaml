@@ -1,0 +1,68 @@
+# Nightly Postgres backup (Production Observability Batch 3, BAK-3).
+#
+# Runs the BAK-1 backup image (pg_dump | gzip -> S3-compatible upload via mc +
+# retention prune). This file lives in the PROD overlay (not base), so qa/dev
+# kustomize builds are byte-for-byte unchanged and no backup runs (or needs S3
+# creds) there.
+#
+# The four S3_* keys are documented in k8s/base/secret.example.yaml and populated
+# out-of-band into the openshiksha-secrets Secret (DigitalOcean Spaces is the
+# intended S3-compatible target). DATABASE_URL is the existing key.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  labels:
+    app: postgres-backup
+spec:
+  schedule: "0 2 * * *" # 02:00 UTC nightly
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: ghcr.io/openshiksha/openshiksha-backup:prod
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: DATABASE_URL
+                - name: S3_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: S3_ENDPOINT
+                - name: S3_BUCKET
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: S3_BUCKET
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: S3_ACCESS_KEY
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: S3_SECRET_KEY
+                - name: RETENTION_DAYS
+                  value: "14"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi

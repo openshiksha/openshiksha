@@ -1,0 +1,52 @@
+# OpenShiksha Alertmanager configuration (Production Observability Batch 4, ALT-2).
+#
+# Routes the ALT-1 Prometheus alerts (docs/ops/prometheus/openshiksha-alerts.yml)
+# to a channel the team already uses — ntfy — via the small stdlib bridge
+# scripts/ops/alert_to_ntfy.py (ntfy is not a native Alertmanager receiver, so the
+# bridge translates Alertmanager's webhook JSON into a one-line ntfy push).
+#
+# Like the alert rules and the Grafana starter, this is a DROP-IN ARTIFACT: an
+# operator who stands up Alertmanager points it at this file. No Prometheus or
+# Alertmanager is deployed in k8s/ yet (see docs/ops/alerting.md). Validated in CI
+# by the ALT-4 `alerting-lint` job with `amtool check-config`.
+#
+# No secrets live here: the ntfy topic URL is injected into the bridge via its
+# ALERT_NTFY_URL env var, never written into this committed config.
+
+global:
+  # How long to wait before re-sending a still-firing alert that Alertmanager has
+  # already notified about. Conservative default; tune per the runbook.
+  resolve_timeout: 5m
+
+route:
+  # Group related alerts so a burst (e.g. several 5xx alerts) collapses into one
+  # notification stream rather than one push per series.
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: ntfy-bridge
+
+receivers:
+  - name: ntfy-bridge
+    webhook_configs:
+      # The bridge listens on this in-cluster address (scripts/ops/alert_to_ntfy.py
+      # run as a sidecar / one-off Deployment). It reads the real ntfy topic from
+      # its ALERT_NTFY_URL env — keep the URL out of this file.
+      - url: http://alert-to-ntfy:9098/alert
+        send_resolved: true
+
+  # --- Alternative: e-mail instead of (or in addition to) ntfy --------------
+  # To route to e-mail, configure `global.smtp_*` and swap the receiver above
+  # (or add a second receiver + a `routes:` child match on severity). Example:
+  #
+  # global:
+  #   smtp_smarthost: "smtp.example.com:587"
+  #   smtp_from: "alerts@openshiksha.org"
+  #   smtp_auth_username: "alerts@openshiksha.org"
+  #   smtp_auth_password: "REPLACE-ME"   # inject via env / secret, never commit
+  # receivers:
+  #   - name: ops-email
+  #     email_configs:
+  #       - to: "ops@openshiksha.org"
+  #         send_resolved: true

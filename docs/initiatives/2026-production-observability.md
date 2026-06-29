@@ -1,6 +1,11 @@
 # Production Observability & Operational Readiness
 
-**Status:** 🟢 Active (promoted 2026-06-25) · **Owner:** `openshiksha-plan` / `openshiksha-execute` routines
+**Status:** ✅ **North Star reached** (Batch 4 shipped 2026-06-28) · **Owner:** `openshiksha-plan` / `openshiksha-execute` routines
+
+> The operability spine is complete: **observable** (Batch 1) → **measurable**
+> (Batch 2) → **recoverable** (Batch 3) → **alerting** (Batch 4). No unblocked next
+> bet remains here — the next planning run **promotes a fresh top initiative** (see
+> the close-out note at the end of the Batch-4 backlog).
 
 > Not owned by the `openshiksha-ai-features` routine. This is general
 > foundation-hardening and is the top active initiative on
@@ -140,6 +145,44 @@ nightly dumps; the restore path is **actually exercised** (BAK-2 round-trip,
 asserted), not merely documented; a backup-freshness gauge feeds Batch 4 — all
 additive (qa/dev untouched, no secret committed, the manifest gate green).
 
+## Backlog — Batch 4 (Uptime & alerting · PR-sized, lowest-risk-first) ✅ SHIPPED 2026-06-28
+
+Scoped 2026-06-28 ([2026-06-28-plan.md](../daily-plans/2026-06-28-plan.md)).
+Verified greenfield: no `alertmanager`, `PrometheusRule`, alert-rule file, or
+uptime check existed anywhere in `k8s/`, `scripts/`, or `docs/ops/`; **no
+Prometheus is deployed in `k8s/`** (the Batch-2 `/metrics` + Grafana JSON are
+operator drop-in artifacts). Batch 4's rule/Alertmanager files follow the same
+"artifact, not deployment" model, and ALT-3 deliberately needs **no** monitoring
+stack. Every alert fires on a metric `apps/core/metrics.py` already emits.
+
+| ID | Increment | Classify | Status |
+|----|-----------|----------|--------|
+| ALT-1 | **Prometheus alerting-rules artifact.** `docs/ops/prometheus/openshiksha-alerts.yml` — 8 alerts against the existing metrics (backup stale/never-run, grade-queue backlog, Celery failure-rate/oldest-pending, HTTP 5xx ratio, p95 latency, target-down), every metric cross-checked against `apps/core/metrics.py`; `promtool`-clean. Pure artifact — touches nothing live. | New / Docs | ✅ [#481](https://github.com/openshiksha/openshiksha/pull/481) |
+| ALT-2 | **Alertmanager config + ntfy bridge.** `docs/ops/alertmanager/alertmanager.yml` (route → single webhook receiver; commented email alternative) + `scripts/ops/alert_to_ntfy.py` (stdlib bridge, **no new pip dep**, pure `format_alert`/`format_payload`, ntfy URL from env never logged) + 7 formatter unit tests; `amtool`-clean. | New | ✅ [#482](https://github.com/openshiksha/openshiksha/pull/482) |
+| ALT-3 | **Standalone in-cluster uptime probe CronJob (prod-overlay-only).** `scripts/ops/uptime_probe.sh` (curls `/healthz/`+`/readyz/`, pushes one DOWN alert to ntfy on any non-200, exits non-zero; success silent) baked into the BAK-1 backup image via a `command:` override + `k8s/overlays/prod/uptime-probe-cronjob.yaml` (every 5 min, `Forbid`); `ALERT_NTFY_URL`/`PROBE_BASE_URL` documented; kubeconform gate green, qa byte-for-byte unchanged. Works with **zero Prometheus**. | New | ✅ [#483](https://github.com/openshiksha/openshiksha/pull/483) |
+| ALT-4 | **CI validation of the alerting artifacts.** Additive `alerting-lint` job running `promtool check rules` + `promtool test rules` (fixture: BackupStale fires at 37h not 1h) + `amtool check-config` + the ALT-2 bridge pytest. Pinned Prometheus 2.53.1 / Alertmanager 0.27.0. Makes the config "tested," not just committed. | Improve / Infra | ✅ [#484](https://github.com/openshiksha/openshiksha/pull/484) |
+| ALT-5 | **`docs/ops/alerting.md` runbook + Sentry routing + close-out.** Alert catalogue (metric/expr/threshold/severity/**first response**), the Alertmanager→ntfy routing path, the uptime probe's role, how to wire Sentry's own issue-alert rules; `STATUS.md` + ledger update (Batch 4 → shipped, **North Star reached**). Docs-only — safe last. | New / Docs | ✅ (this PR) |
+
+**Batch 4 build order:** ALT-1 → ALT-2 → ALT-3 → ALT-4 → ALT-5. ALT-1/2/3 are
+mutually independent (lowest-risk-first); ALT-4 lints ALT-1/2's artifacts (stacked
+on them); ALT-5 is docs.
+
+**Batch 4 DoD:** an operator is *pushed* a notification when something is wrong.
+Two layers: the **standalone ALT-3 probe alerts with zero monitoring stack** (the
+active alarm today), and the **rule-based ALT-1/2/4 path** is committed +
+CI-linted, ready to go live the moment Prometheus + Alertmanager are deployed.
+
+**Close-out (2026-06-28):** the operability spine is complete (observable →
+measurable → recoverable → **alerting**). **No unblocked next bet remains on this
+board** — the next planning run promotes a fresh top initiative. Candidates: the
+**AI-tutor rebase** (`ai/2026-06-04-ai-tutor-chat`; confirm it is *not* inside the
+`ai-features` fence before promoting in this lane), an **`/ai/predictions/`
+teacher surface** (a product call), or **un-pausing Interactive Widgets** (needs
+product discovery). **Honest operational follow-up** (not blocking close):
+Prometheus + Alertmanager are **not deployed** in `k8s/` yet — ALT-1/2/4 are
+validated drop-in artifacts an operator activates; the standalone ALT-3 probe is
+the only piece that alerts with zero stack.
+
 ## Later batches
 - **Batch 2 — Metrics & dashboards. ✅ SHIPPED 2026-06-27** (MET-1..5,
   [#467](https://github.com/openshiksha/openshiksha/pull/467)–[#471](https://github.com/openshiksha/openshiksha/pull/471)):
@@ -150,9 +193,12 @@ additive (qa/dev untouched, no secret committed, the manifest gate green).
   version-matched dump tooling + a *tested* local restore drill (row-count parity)
   + a prod-only nightly `CronJob` + a backup-freshness gauge feeding Batch 4 — the
   data-loss insurance the live DB previously lacked.
-- **Batch 4 — Uptime & alerting.** External uptime check on `/healthz/` +
-  `/readyz/`; alert routing (email/ntfy) on Sentry error-rate + probe-fail + the
-  Batch-2 metrics + the Batch-3 `openshiksha_backup_age_seconds` freshness gauge.
+- **Batch 4 — Uptime & alerting. ✅ SHIPPED 2026-06-28** (ALT-1..5,
+  [#481](https://github.com/openshiksha/openshiksha/pull/481)–[#484](https://github.com/openshiksha/openshiksha/pull/484) + this docs PR):
+  Prometheus alert-rules artifact (8 alerts on the existing metrics) → Alertmanager
+  config + stdlib ntfy bridge → standalone in-cluster uptime probe CronJob (alerts
+  with zero Prometheus) → `alerting-lint` CI gate (promtool/amtool + bridge tests) →
+  `docs/ops/alerting.md` runbook + Sentry routing. **North Star reached.**
 
 ## Out of scope
 - **APM vendor lock-in / always-on heavy agents.** Everything stays env-gated and
@@ -173,4 +219,5 @@ additive (qa/dev untouched, no secret committed, the manifest gate green).
 |------|-----------|----|----------|
 | 2026-06-25 | Initiative promoted; Batch 1 (OBS-1..5) scoped. The board had **no unblocked next bet** (Accessibility closed today; OSS/Mobile/Language-Access Done; IW Paused; LA-10 blocked) and the platform is live in prod but un-observable. Grounded: `/healthz/` is cheap-by-design and its own docstring asks for the missing `/readyz`; `/api/v1/health/` does the deep check but nothing probes it; no Sentry; logs unstructured + uncorrelated; the shared `ErrorBoundary` reports nowhere. | _(this doc)_ | The readiness gap is not a redesign — the intended split (cheap liveness `/healthz/` + deep drain-signal `/readyz/`) is already written in the `healthz` docstring; OBS-1 just builds the half that was specified but never shipped. |
 | 2026-06-27 | **Batch 2 (Metrics & dashboards) SHIPPED — MET-1..5.** Gated Prometheus `/metrics` (`METRICS_ENABLED`/`METRICS_TOKEN`, 404 by default; `prometheus-client`, not always-on `django-prometheus`) → on-scrape business/queue-depth gauges (lazy-registered, fault-tolerant `collect()`) → `TaskResult`-derived Celery health gated on the `django-db` result backend → gated HTTP request count + latency middleware → Grafana starter (`docs/ops/grafana/openshiksha-overview.json`) + scrape runbook (`docs/ops/metrics.md`). | [#467](https://github.com/openshiksha/openshiksha/pull/467)–[#471](https://github.com/openshiksha/openshiksha/pull/471) | On-scrape gauges (lazy DB COUNTs) beat in-process event counters for a separate-worker topology: stateless, no cross-process aggregation, and trivially zero-cost when disabled (endpoint 404s before any collector runs). The default Redis result backend means MET-3 ships as an *honest no-op* (gated on `django-db`) rather than a misleading constant zero. Stacked-PR lesson: after a squash-merge the stacked branch carries a duplicate of the merged commit — `git rebase --onto <new-base> <old-base> <branch>` drops it cleanly. |
+| 2026-06-28 | **Batch 4 (Uptime & alerting) SHIPPED — ALT-1..5. North Star reached.** Prometheus alert-rules artifact (8 alerts, every metric cross-checked against `apps/core/metrics.py`; `clamp_min` denominators avoid divide-by-zero) → Alertmanager config + a dependency-light stdlib ntfy bridge (`scripts/ops/alert_to_ntfy.py`, pure formatter, ntfy URL from env never logged, resolved→never-pages) → a standalone prod-overlay-only uptime probe CronJob reusing the BAK-1 backup image via a `command:` override (alerts with **zero** Prometheus; qa byte-for-byte unchanged) → an `alerting-lint` CI gate (`promtool check/test rules` + `amtool check-config` + the bridge pytest, pinned binaries) → `docs/ops/alerting.md` runbook + Sentry issue-alert routing. | [#481](https://github.com/openshiksha/openshiksha/pull/481)–[#484](https://github.com/openshiksha/openshiksha/pull/484) + this PR | The operability spine closes as a **loop**: Batch 4 alerts on the *exact signals* the earlier batches emit (the BAK-4 freshness gauge → `OpenShikshaBackupStale`; the MET-2/3/4 gauges → queue/Celery/HTTP alerts). Two lessons. (1) **Config-as-code that references live metric names rots silently** — gate it like manifests: `promtool`/`amtool` in CI is the alerting analogue of the kubeconform gate; `promtool test rules` pins threshold semantics (fires at 37h, not 1h). (2) **A floor alarm beats a perfect one that isn't deployed** — no Prometheus runs in prod yet, so the dependency-free ALT-3 probe (curl + ntfy, no stack) is what actually pages today; the rule-based path is validated drop-in, dormant until the stack lands. Honest close: "done" ≠ "fully deployed" — the runbook states plainly that ALT-1/2/4 are activated-by-an-operator artifacts. |
 | 2026-06-27 | **Batch 3 (Backups & DR drill) SHIPPED — BAK-1..5.** Version-matched dump tooling (`scripts/backup/pg_backup.sh`+`pg_restore.sh`, `backend/Dockerfile.backup` `FROM postgres:15-alpine` + pinned static `mc`; local mode skips S3) → a *tested* local restore drill asserting row-count parity (`scripts/backup/drill.sh`, non-destructive scratch DB) → a prod-overlay-only nightly `CronJob` (`k8s/overlays/prod/backup-cronjob.yaml`, CI publishes `openshiksha-backup`) → a `BackupRun` freshness gauge (`openshiksha_backup_age_seconds`) on the MET-2 collector → `docs/ops/backups.md` runbook. | [#474](https://github.com/openshiksha/openshiksha/pull/474)–[#477](https://github.com/openshiksha/openshiksha/pull/477) + this PR | Two ops lessons. (1) **kustomize's security boundary** forbids an overlay referencing a file *outside* its own dir, so the prod-only CronJob lives in `overlays/prod/`, not `base/` — prod-only placement is both the workaround and the intent (qa/dev never run it). (2) A freshness gauge must treat **empty history honestly**: no successful `BackupRun` ⇒ *omit* `openshiksha_backup_age_seconds` (don't emit `0`), so a total backup outage can't masquerade as "0 seconds old". Version-matched `pg_dump` (image pinned to the server's major) is non-negotiable — an older client refuses a newer server. |

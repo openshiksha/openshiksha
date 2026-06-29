@@ -494,6 +494,36 @@ export const render = (ctx: WidgetContext): void => {
     row.reason.setAttribute('data-state', verdict.equivalent ? 'ok' : 'bad');
   }
 
+  // GSV-4b: when a line is *committed* (Enter / blur), forward its deterministic
+  // verdict to the host via the typed `step` message. This is **never AI** — it
+  // is the same in-sandbox engine that lights the live ✓/✗ above; the host
+  // routes a wrong step to the host-side AI coach. Emitting on commit (not per
+  // keystroke) keeps the host signal intentional, mirroring how a student
+  // finishes a line before asking why it's wrong. Empty lines are not reported.
+  let lastStepKey = '';
+  function commitStep(i: number): void {
+    const text = lines[i];
+    if (!text.trim()) return;
+    // Dedup consecutive identical commits — Enter commits and then focuses the
+    // next row, which blurs this one (a second commit of the same pair). The
+    // host coach only needs each distinct (previous, current) pair once.
+    const key = lines[i - 1] + ' ' + text;
+    if (key === lastStepKey) return;
+    lastStepKey = key;
+    const verdict = checkStep(lines[i - 1], text);
+    const state: 'ok' | 'bad' | 'neutral' = verdict.error
+      ? 'neutral'
+      : verdict.equivalent
+        ? 'ok'
+        : 'bad';
+    ctx.reportStep({
+      previous: lines[i - 1],
+      current: text,
+      verdict: state,
+      reason: verdict.reason,
+    });
+  }
+
   function reportLatest(): void {
     let answer = '';
     for (let i = lines.length - 1; i >= 1; i -= 1) {
@@ -550,12 +580,18 @@ export const render = (ctx: WidgetContext): void => {
     input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         ev.preventDefault();
+        // Commit this line to the host coach before advancing.
+        commitStep(idx);
         if (input.value.trim() && idx === lines.length - 1) {
           addRow();
           const next = rows[rows.length - 1];
           if (next && next.input !== input) next.input.focus();
         }
       }
+    });
+    // Blur is the other commit point — the student moved on without Enter.
+    input.addEventListener('blur', () => {
+      commitStep(idx);
     });
 
     input.focus();

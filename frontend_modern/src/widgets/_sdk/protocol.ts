@@ -18,10 +18,18 @@
  *     v1 will refuse to talk to a v2 host (and vice-versa) rather than
  *     silently misbehaving.
  *
- * The wire is intentionally tiny — five message kinds — because adding a kind
+ * The wire is intentionally tiny — six message kinds — because adding a kind
  * is a versioned API change. Convenience hooks (`useVariables`,
- * `reportValue`, `requestResize`) live in the runtime and *compose* these
- * messages; they are not part of the protocol surface.
+ * `reportValue`, `requestResize`, `reportStep`) live in the runtime and
+ * *compose* these messages; they are not part of the protocol surface.
+ *
+ * Adding `step` (GSV-4b) is **additive, not breaking**: it is a new
+ * widget→host kind that hosts written against the prior surface simply ignore
+ * (the bridge silently drops unrecognised messages), so the protocol version
+ * stays `1`. It carries only the **deterministic** in-sandbox verdict for a
+ * line pair — never anything AI-derived — so the host can route a wrong step
+ * to the (host-side, principle-1) AI coach without the sandbox ever touching
+ * the network or the AI itself.
  */
 
 /**
@@ -103,11 +111,40 @@ export interface ErrorMessage {
   message: string;
 }
 
+/**
+ * Widget → host. Emitted by a step-validating widget (`step-solver`) when a
+ * student **commits** a line (on Enter / blur), carrying the *deterministic,
+ * in-sandbox* equivalence verdict for that line against the line above it.
+ *
+ * This message is **never AI** — the verdict comes from the same numeric-probing
+ * engine that drives the live ✓/✗ in the sandbox. The host uses it only to feed
+ * a *wrong* step (`verdict === 'bad'`) to the host-side AI coach (GSV-3/GSV-4a),
+ * which re-checks correctness server-side before ever consulting the LLM. So the
+ * sandbox stays network-less and AI-free (principle 1) and AI stays out of the
+ * grade path (principle 2) — `step` is a coaching signal, not a grade.
+ *
+ * `verdict` mirrors the widget's on-screen marker state: `'ok'` (✓ equivalent),
+ * `'bad'` (✗ changes the answer), `'neutral'` (couldn't parse this line yet —
+ * the deterministic fallback). The host treats only `'bad'` as coachable.
+ */
+export interface StepMessage {
+  type: 'step';
+  protocol: WidgetProtocolVersion;
+  /** The committed line directly above (the student's prior line, or the prompt). */
+  previous: string;
+  /** The line the student just committed. */
+  current: string;
+  /** Deterministic in-sandbox verdict for `current` vs `previous`. */
+  verdict: 'ok' | 'bad' | 'neutral';
+  /** The engine's short deterministic reason for the verdict. */
+  reason: string;
+}
+
 /** Union of every message the host ever sends. */
 export type HostMessage = InitMessage;
 
 /** Union of every message the widget runtime ever sends. */
-export type WidgetMessage = ReadyMessage | ResizeMessage | ValueMessage | ErrorMessage;
+export type WidgetMessage = ReadyMessage | ResizeMessage | ValueMessage | ErrorMessage | StepMessage;
 
 // ── Type guards ───────────────────────────────────────────────────────────
 //
@@ -149,11 +186,23 @@ export function isErrorMessage(data: unknown): data is ErrorMessage {
   );
 }
 
+export function isStepMessage(data: unknown): data is StepMessage {
+  if (!isWidgetEnvelope(data) || data.type !== 'step') return false;
+  const d = data as Partial<StepMessage>;
+  return (
+    typeof d.previous === 'string' &&
+    typeof d.current === 'string' &&
+    typeof d.reason === 'string' &&
+    (d.verdict === 'ok' || d.verdict === 'bad' || d.verdict === 'neutral')
+  );
+}
+
 export function isWidgetMessage(data: unknown): data is WidgetMessage {
   return (
     isReadyMessage(data) ||
     isResizeMessage(data) ||
     isValueMessage(data) ||
-    isErrorMessage(data)
+    isErrorMessage(data) ||
+    isStepMessage(data)
   );
 }

@@ -83,8 +83,10 @@ def format_payload(payload: dict) -> list[tuple[str, str, dict[str, str]]]:
 
 
 def _sanitize_for_log(value: object) -> str:
-    """Return a single-line, log-safe string representation of untrusted input."""
-    return str(value).replace("\r", " ").replace("\n", " ")
+    """Return a single-line, control-char-safe representation for logging."""
+    text = str(value)
+    text = text.replace("\r", " ").replace("\n", " ")
+    return "".join(ch if ch.isprintable() else "?" for ch in text)
 
 
 def _post_to_ntfy(ntfy_url: str, body: str, headers: dict[str, str]) -> None:
@@ -104,7 +106,7 @@ def _handle_payload(payload: dict, ntfy_url: str) -> int:
             # Never include the URL in the log line.
             logger.warning(
                 "alert_to_ntfy: failed to push alert %r",
-                _sanitize_for_log(headers.get("Title")),
+                _sanitize_for_log(headers.get("Title", "")),
                 exc_info=True,
             )
     return len(messages)

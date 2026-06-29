@@ -36,12 +36,14 @@ import {
   isErrorMessage,
   isReadyMessage,
   isResizeMessage,
+  isStepMessage,
   isValueMessage,
   WIDGET_PROTOCOL_VERSION,
   type ErrorMessage,
   type InitMessage,
   type ReadyMessage,
   type ResizeMessage,
+  type StepMessage,
   type ValueMessage,
   type WidgetMessage,
 } from './protocol';
@@ -211,6 +213,8 @@ export interface HostBridgeHandlers {
   onResize?: (msg: ResizeMessage) => void;
   onValue?: (msg: ValueMessage) => void;
   onError?: (msg: ErrorMessage) => void;
+  /** A step-validating widget committed a line (GSV-4b); carries the deterministic verdict. */
+  onStep?: (msg: StepMessage) => void;
   /** Catch-all for any well-typed widget message; runs after the per-type handler. */
   onWidgetMessage?: (msg: WidgetMessage) => void;
 }
@@ -268,6 +272,11 @@ export function createHostBridge(
     }
     if (isErrorMessage(data)) {
       handlers.onError?.(data);
+      handlers.onWidgetMessage?.(data);
+      return;
+    }
+    if (isStepMessage(data)) {
+      handlers.onStep?.(data);
       handlers.onWidgetMessage?.(data);
       return;
     }

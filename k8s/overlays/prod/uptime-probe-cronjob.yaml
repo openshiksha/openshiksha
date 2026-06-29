@@ -1,0 +1,59 @@
+# Standalone in-cluster uptime probe (Production Observability Batch 4, ALT-3).
+#
+# Every 5 minutes, runs scripts/ops/uptime_probe.sh (baked into the BAK-1 backup
+# image, which already has curl + bash) to curl the backend /healthz/ + /readyz/.
+# On any non-200 it pushes a single-line DOWN alert to ntfy and exits non-zero so
+# the Job is marked failed. This is the floor-level "is it up?" alarm — it works
+# with ZERO Prometheus / Alertmanager deployed, complementing the rule-based
+# ALT-1/ALT-2 path.
+#
+# Prod-overlay-only (referenced from k8s/overlays/prod/kustomization.yaml, same
+# pattern as backup-cronjob.yaml) so qa/dev kustomize output is byte-for-byte
+# unchanged and never needs ALERT_NTFY_URL.
+#
+# PROBE_BASE_URL is a non-secret ConfigMap value (in-cluster Service DNS);
+# ALERT_NTFY_URL is the ntfy topic URL from openshiksha-secrets (server-side only).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: uptime-probe
+  labels:
+    app: uptime-probe
+spec:
+  schedule: "*/5 * * * *" # every 5 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: uptime-probe
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: uptime-probe
+              # Reuse the already-published BAK-1 backup image (has curl + bash);
+              # override the backup ENTRYPOINT to run the probe instead.
+              image: ghcr.io/openshiksha/openshiksha-backup:prod
+              command: ["/usr/local/bin/uptime_probe.sh"]
+              env:
+                - name: PROBE_BASE_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: openshiksha-config
+                      key: PROBE_BASE_URL
+                - name: ALERT_NTFY_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: openshiksha-secrets
+                      key: ALERT_NTFY_URL
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi

@@ -215,6 +215,11 @@ export function WidgetDevPage() {
   // previous/current line pair fed to the host-side AI wrong-step explainer.
   const [coachPrev, setCoachPrev] = useState('2x + 3 = 7');
   const [coachCur, setCoachCur] = useState('2x = 10');
+  // GSV-4b: where the current coach pair came from. A wrong step *committed in
+  // the widget* auto-feeds the pair (`'widget'`); typing in the inputs below
+  // switches back to `'manual'`. Purely a UI affordance — the deterministic
+  // verdict still decides everything.
+  const [coachSource, setCoachSource] = useState<'manual' | 'widget'>('manual');
 
   const widget: WidgetModule = widgetRegistry[kind];
   const configState = useMemo(() => parseJsonObject(configText), [configText]);
@@ -300,6 +305,17 @@ export function WidgetDevPage() {
                 variables={previewVariables}
                 minHeight={260}
                 onValue={setLastValue}
+                onStep={(step) => {
+                  // GSV-4b auto-feed: a wrong step committed in the widget feeds
+                  // its exact line pair to the coach below — no copy-paste. Only
+                  // 'bad' steps are coachable (the AI never explains a correct or
+                  // unparseable line).
+                  if (step.verdict === 'bad') {
+                    setCoachPrev(step.previous);
+                    setCoachCur(step.current);
+                    setCoachSource('widget');
+                  }
+                }}
               />
             ) : (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -324,20 +340,34 @@ export function WidgetDevPage() {
                   to explain a step it has <em>already</em> judged wrong. AI never grades.
                 </p>
               </div>
+              {coachSource === 'widget' && (
+                <p
+                  className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800"
+                  role="status"
+                >
+                  ⚡ Auto-filled from your last wrong step in the widget above.
+                </p>
+              )}
               <div className="grid gap-3">
                 <Input
                   label="Previous line"
                   value={coachPrev}
                   spellCheck={false}
                   className="font-mono text-sm"
-                  onChange={(event) => setCoachPrev(event.target.value)}
+                  onChange={(event) => {
+                    setCoachPrev(event.target.value);
+                    setCoachSource('manual');
+                  }}
                 />
                 <Input
                   label="New line"
                   value={coachCur}
                   spellCheck={false}
                   className="font-mono text-sm"
-                  onChange={(event) => setCoachCur(event.target.value)}
+                  onChange={(event) => {
+                    setCoachCur(event.target.value);
+                    setCoachSource('manual');
+                  }}
                 />
               </div>
               <StepHintPanel previous={coachPrev} current={coachCur} />

@@ -1,0 +1,174 @@
+# OpenShiksha Prometheus alerting rules (Production Observability Batch 4, ALT-1).
+#
+# A drop-in Prometheus rule file expressing the alerts that predict — or announce —
+# an OpenShiksha incident, written ENTIRELY against metrics the platform already
+# emits (see backend/openshiksha/apps/core/metrics.py and docs/ops/metrics.md).
+# It is the alerting sibling of the Batch-3 Grafana starter
+# (docs/ops/grafana/openshiksha-overview.json): an artifact an operator activates,
+# not a live deployment. Point a running Prometheus at it with:
+#
+#   rule_files:
+#     - /etc/prometheus/rules/openshiksha-alerts.yml
+#
+# and route the firing alerts via Alertmanager (docs/ops/alertmanager/, ALT-2).
+# Validated in CI by the `alerting-lint` job (ALT-4) with `promtool check rules`.
+#
+# IMPORTANT — thresholds are deliberately CONSERVATIVE STARTING POINTS, the same
+# "operator tunes to their traffic" framing as the Grafana starter and the BAK
+# backup-age threshold. See docs/ops/alerting.md (ALT-5) for the alert catalogue,
+# the first-response action for each, and tuning guidance.
+#
+# Scrape-job assumption: the backend `/metrics` target is scraped under the job
+# name `openshiksha-backend`. The `up{job="openshiksha-backend"}` alert depends on
+# that label — adjust the job matcher to match the operator's scrape_config.
+groups:
+  - name: openshiksha-backups
+    rules:
+      # Backup freshness: the BAK-4 gauge (openshiksha_backup_age_seconds) crossing
+      # 36h means the nightly 02:00 UTC CronJob has missed more than one window.
+      # The gauge is intentionally ABSENT until a first successful backup exists
+      # (honest-empty-case from BAK-4) — so this rule only fires once there is
+      # backup history; the NeverRun rule below covers the cold/total-outage case.
+      - alert: OpenShikshaBackupStale
+        expr: openshiksha_backup_age_seconds > 129600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres backup is stale (>36h old)"
+          description: >-
+            The newest successful Postgres backup is
+            {{ $value | humanizeDuration }} old (threshold 36h). The nightly
+            backup CronJob has likely failed or stopped. Check the CronJob and run
+            the BAK-2 restore drill to confirm recoverability.
+
+      # Total-outage / cold-start guard: openshiksha_backup_age_seconds is omitted
+      # when NO successful backup has ever been recorded, so a system that emits no
+      # backup gauge at all would otherwise be silently un-alerted. The
+      # last_success_timestamp gauge IS always emitted (0 when none); a 0 value, or
+      # the series being absent entirely, both mean "no successful backup".
+      - alert: OpenShikshaBackupNeverRun
+        expr: (openshiksha_backup_last_success_timestamp == 0) or absent(openshiksha_backup_last_success_timestamp)
+        for: 6h
+        labels:
+          severity: critical
+        annotations:
+          summary: "No successful Postgres backup on record"
+          description: >-
+            No successful Postgres backup has ever been recorded (the
+            last-success timestamp is 0 or the gauge is absent for 6h). If this is
+            a fresh deployment, run a first backup; otherwise the backup path is
+            broken — check the CronJob, S3 creds, and BackupRun records.
+
+  - name: openshiksha-grading
+    rules:
+      # Grade-queue depth: submissions that are submitted but ungraded. A sustained
+      # backlog means the Celery grading pipeline has fallen behind or stalled.
+      - alert: OpenShikshaGradeQueueBacklog
+        expr: openshiksha_submissions_pending_grading > 50
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Grading queue backlog (>50 pending for 30m)"
+          description: >-
+            {{ $value }} submissions have been awaiting a grade for over 30m
+            (threshold 50). Check the Celery worker and the grade_submission task —
+            the grading pipeline may be stalled or under-provisioned.
+
+      # Oldest non-terminal Celery task age — the async grade-queue-staleness
+      # analogue. NOTE: this gauge only carries data when the django-db result
+      # backend is active (MET-3); under the default Redis backend it is a
+      # documented constant 0 and this alert is an honest no-op. See
+      # docs/ops/metrics.md.
+      - alert: OpenShikshaCeleryOldestPending
+        expr: openshiksha_celery_oldest_pending_seconds > 900
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Oldest pending Celery task >15m old"
+          description: >-
+            The oldest non-terminal Celery task is
+            {{ $value | humanizeDuration }} old (threshold 15m). Tasks are queuing
+            faster than the worker drains them — check worker health and concurrency.
+
+      # Celery failure rate over the 24h window the TaskMetricsCollector reports on.
+      # Like the gauge above, this has data ONLY under the django-db result backend
+      # (MET-3); under Redis the openshiksha_celery_tasks series is empty and this
+      # rule never fires. Guarded with `> 0` on the denominator so an empty backend
+      # yields no result rather than a divide-by-zero.
+      - alert: OpenShikshaCeleryFailureRate
+        expr: >-
+          sum(openshiksha_celery_tasks{status="FAILURE"})
+          /
+          clamp_min(sum(openshiksha_celery_tasks), 1)
+          > 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery task failure rate >10% (24h window)"
+          description: >-
+            {{ $value | humanizePercentage }} of Celery tasks in the last 24h are
+            in FAILURE (threshold 10%). Check the worker logs and the failing task
+            type. (Only has data under the django-db result backend — MET-3.)
+
+  - name: openshiksha-http
+    rules:
+      # HTTP 5xx ratio from the MET-4 request counter. The counter is named
+      # `openshiksha_http_requests` in code, so prometheus_client exposes the
+      # series `openshiksha_http_requests_total` (the _total suffix is automatic).
+      # Labelled by status_class (2xx/3xx/4xx/5xx), never raw path.
+      - alert: OpenShikshaHighHTTPErrorRate
+        expr: >-
+          sum(rate(openshiksha_http_requests_total{status_class="5xx"}[5m]))
+          /
+          clamp_min(sum(rate(openshiksha_http_requests_total[5m])), 0.001)
+          > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error ratio >5%"
+          description: >-
+            {{ $value | humanizePercentage }} of HTTP responses in the last 5m are
+            5xx (threshold 5%). The backend is serving errors — check pod logs,
+            Sentry, and recent deploys.
+
+      # p95 request latency from the MET-4 histogram
+      # (openshiksha_http_request_duration_seconds → _bucket series). Aggregated
+      # across method labels by summing the per-le buckets before the quantile.
+      - alert: OpenShikshaHighLatencyP95
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum(rate(openshiksha_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p95 latency >1.5s"
+          description: >-
+            p95 request latency is {{ $value | humanizeDuration }} over the last 5m
+            (threshold 1.5s). The backend is slow — check DB load, the grade queue,
+            and resource limits.
+
+  - name: openshiksha-availability
+    rules:
+      # Scrape target down: Prometheus could not scrape the backend `/metrics`
+      # endpoint, so the process is unreachable or crash-looping. This is the
+      # rule-based complement to the dependency-free ALT-3 uptime probe (which
+      # works even with no Prometheus deployed).
+      - alert: OpenShikshaTargetDown
+        expr: up{job="openshiksha-backend"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend scrape target is down"
+          description: >-
+            Prometheus has been unable to scrape the openshiksha-backend target for
+            5m (up == 0). The /metrics endpoint — and likely the app — is
+            unreachable. Check the pod, readiness probe, and ingress.

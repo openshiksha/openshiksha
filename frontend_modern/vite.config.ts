@@ -55,21 +55,28 @@ export default defineConfig(async ({ mode }) => ({
         'src/main.tsx',
         'src/vite-env.d.ts',
       ],
-      // Thresholds match the current measured floor. Ratchet these up as new
-      // tests land — never lower without a recorded reason.
+      // Thresholds sit a point or two below the current measured coverage so a
+      // real regression (deleting tests, shipping large untested code) fails CI
+      // while ordinary PR churn doesn't flake. Ratchet these up as new tests
+      // land — never lower without a recorded reason.
+      //
+      // 2026-06-28: re-baselined to the real measured coverage. The suite has
+      // grown from 38 → 566 tests across 83 files since the last baseline, so
+      // the old 10/10/6/8 floor no longer protected against regression at all
+      // (coverage could halve and still pass). Measured: 56.27% lines / 55.40%
+      // statements / 51.26% funcs / 55.47% branches; thresholds set ~1 pt under.
       //
       // 2026-06-01: re-baselined funcs 18→6 and branches 40→8 after upgrading
       // Vitest 1→4 (security audit fix). Vitest 4's v8 provider uses AST-aware
       // remapping, which counts branches/functions more accurately than v1 did;
-      // the same 38 tests now measure 6.98% funcs / 8.52% branches (was 18.64% /
-      // 45.77%). No tests were lost — only the measurement changed. Lines and
-      // statements are unaffected (10.43%).
+      // the same 38 tests then measured 6.98% funcs / 8.52% branches (was 18.64%
+      // / 45.77%). No tests were lost — only the measurement changed.
       // (2026-05-30 baseline under Vitest 1: 10.24% lines, 18.64% funcs, 45.77% branches.)
       thresholds: {
-        lines: 10,
-        statements: 10,
-        functions: 6,
-        branches: 8,
+        lines: 55,
+        statements: 54,
+        functions: 50,
+        branches: 54,
       },
     },
   },

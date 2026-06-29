@@ -62,6 +62,19 @@ export interface InteractiveWidgetProps {
    * `reportValue`, so `onValue` is simply never invoked on those.
    */
   onValue?: (value: unknown) => void;
+  /**
+   * Fired when a **step-validating** widget (`step-solver`) commits a line and
+   * reports its *deterministic* equivalence verdict via the typed `step`
+   * message (GSV-4b). The host uses a `verdict: 'bad'` step to feed the
+   * host-side AI wrong-step coach the exact line pair — the AI stays outside
+   * the sandbox and outside the grade path. Non-step widgets never call it.
+   */
+  onStep?: (step: {
+    previous: string;
+    current: string;
+    verdict: 'ok' | 'bad' | 'neutral';
+    reason: string;
+  }) => void;
 }
 
 const InteractiveWidgetImpl = ({
@@ -74,6 +87,7 @@ const InteractiveWidgetImpl = ({
   minHeight = 640,
   className,
   onValue,
+  onStep,
 }: InteractiveWidgetProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(minHeight);
@@ -117,8 +131,20 @@ const InteractiveWidgetImpl = ({
       // QuestionCard can route it into the submission form. Explanatory
       // widgets never call reportValue, so this handler is a no-op for them.
       onValue: onValue ? (msg) => onValue(msg.value) : undefined,
+      // Step-validating widgets (GSV-4b) post a typed `step` message on each
+      // committed line carrying the deterministic verdict; surface it so a host
+      // surface (e.g. the dev playground's AI coach) can react to a wrong step.
+      onStep: onStep
+        ? (msg) =>
+            onStep({
+              previous: msg.previous,
+              current: msg.current,
+              verdict: msg.verdict,
+              reason: msg.reason,
+            })
+        : undefined,
     });
-  }, [minHeight, srcDoc, onValue]);
+  }, [minHeight, srcDoc, onValue, onStep]);
 
   // Neither mode has content → fall back to the sanitised prose so the
   // question is still shown (the answer input lives outside this component).

@@ -658,8 +658,72 @@ Or in the running app: open **`/widgets/dev?kind=step-solver`**, edit the two
 lines, and click **Why is this wrong?** — the verdict + explanation appear with
 an honest badge.
 
-*Next slice (GSV-4b):* feed `previous`/`current` **automatically** from the
-`step-solver` widget's wrong-step events (a new sandbox→host protocol message),
-so the student sees the explanation inline the moment they make the slip — plus
-the real-browser e2e + the captured screenshot/gif of the full type→✗→explain
-moment (the reproducible artifact, the DTB-4 / GSV-2b capture mechanic).
+---
+
+## Beat 10 — The slip feeds the coach by itself (GSV-4b) · *the coach closes the loop, on screen*
+
+Beat 9 put the coach on screen, but the student had to *re-type* the wrong line
+pair into it. This beat closes the loop: **the slip the student made in the
+widget feeds the coach automatically.**
+
+The `step-solver` widget runs in a network-less sandbox, so it can't call the AI
+itself — but it *can* tell the host what just happened. A new, additive
+sandbox→host protocol message, **`step`**, carries the line pair and the widget's
+**deterministic** verdict (`ok` / `bad` / `neutral`) every time the student
+*commits* a line (Enter or blur). It is emphatically **not** an answer and **not**
+AI: the grade still flows only through the `value` message, and the verdict in a
+`step` is the very same in-sandbox engine that lights the live ✓/✗.
+
+In the playground (`/widgets/dev?kind=step-solver`), type a wrong line into the
+widget — `2x + 3 = 7` → `2x = 10` — and press Enter:
+
+- the widget lights it **✗** live (deterministic, in-sandbox, as in Beat 7); and
+- the **Wrong-step explainer** below it **auto-fills** with that exact pair and
+  shows a brand **⚡ "Auto-filled from your last wrong step in the widget above"**
+  line — no copy-paste. One click on **"Why is this wrong?"** and the grounded
+  Beat-9 explanation appears on the very step that went wrong.
+
+![Step coach auto-feed: a wrong step (2x + 3 = 7 → 2x = 10) lights ✗ in the sandbox and the host coach auto-fills with that exact pair](assets/gsv4b-step-coach-autofeed.png)
+
+The honesty is, again, structural:
+
+- **Only a `bad` step auto-feeds.** A correct move (`2x = 4`) commits ✓ and is
+  *never* routed to the coach — the AI can only ever be pointed at a step the
+  deterministic engine already ruled wrong (principle 2).
+- The `step` message is **AI-free by construction** — it leaves a network-less
+  sandbox carrying only a deterministic verdict, so the AI stays host-side
+  (principle 1).
+- Editing the coach inputs by hand switches the source back to *manual* and drops
+  the ⚡ flag, so provenance of the pair is always clear.
+
+**Why it's iron-clad:** the new wire is *additive* (hosts written against the
+prior five-message surface ignore an unknown `step` kind, so the protocol version
+stays `1`); the host re-validates the message shape with a type guard before
+acting on it; and the whole sandbox→host path is pinned by a **real-browser
+e2e** that drives the actual `allow-scripts` iframe, types the wrong line, and
+asserts the host coach received the exact pair — the jsdom-unreachable tail that
+the unit suites can't cover.
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Unit: the protocol guard, the host bridge dispatch, the widget's committed-step
+# emission (bad/ok/neutral, commit-not-keystroke, blur, empty, dedup), and the
+# dev-page auto-feed wiring (bad feeds + flag, correct doesn't, manual edit clears):
+npx vitest run src/widgets/_sdk/protocol.test.ts \
+               src/widgets/_sdk/host.test.ts \
+               src/widgets/step-solver/index.test.ts \
+               src/features/widgets/WidgetDevPage.test.tsx
+# Real browser: the sandbox→host wire + the reproducible screenshot above.
+npx playwright test step-coach-autofeed --project=chromium
+```
+
+Or in the running app: open **`/widgets/dev?kind=step-solver`**, type `2x = 10`
+under `2x + 3 = 7`, press Enter — the coach below auto-targets that wrong step.
+
+*Next slice (GSV-4):* GSV-4b leaves the AI explanation one click away (the
+backend-free e2e can't reach the live LLM endpoint). A natural follow-up is the
+fully inline auto-*ask* (explain on commit, debounced) once a backend-backed e2e
+job exists — and folding the coach into the real student `QuestionCard`, not just
+the playground.

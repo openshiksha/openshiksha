@@ -66,6 +66,22 @@ export interface WidgetContext {
    */
   reportValue: (value: unknown) => void;
   /**
+   * Step-validating widgets (`step-solver`) call this when a student **commits**
+   * a line, to report the *deterministic, in-sandbox* equivalence verdict for
+   * that line vs the line above. The runtime serialises it to the typed `step`
+   * message (GSV-4b); the host routes a `'bad'` step to the host-side AI coach.
+   *
+   * This is **not** an answer and **not** AI — the grade still flows only
+   * through `reportValue`, and the verdict here is the same deterministic engine
+   * that lights the live ✓/✗. Non-step widgets never call it.
+   */
+  reportStep: (step: {
+    previous: string;
+    current: string;
+    verdict: 'ok' | 'bad' | 'neutral';
+    reason: string;
+  }) => void;
+  /**
    * Manual resize request. The runtime also auto-emits a `resize` via
    * `ResizeObserver` whenever the body's size changes, so calling this
    * explicitly is rarely needed.

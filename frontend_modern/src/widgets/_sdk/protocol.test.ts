@@ -13,6 +13,7 @@ import {
   isInitMessage,
   isReadyMessage,
   isResizeMessage,
+  isStepMessage,
   isValueMessage,
   isWidgetMessage,
   WIDGET_PROTOCOL_VERSION,
@@ -84,6 +85,31 @@ describe('widget → host guards', () => {
     expect(isErrorMessage({ ...base, type: 'error', message: 'boom' })).toBe(true);
     expect(isErrorMessage({ ...base, type: 'error' })).toBe(false);
     expect(isErrorMessage({ ...base, type: 'error', message: 42 })).toBe(false);
+  });
+
+  it('isStepMessage requires the two lines, a string reason, and a known verdict', () => {
+    expect(
+      isStepMessage({ ...base, type: 'step', previous: 'a', current: 'b', verdict: 'bad', reason: 'x' }),
+    ).toBe(true);
+    expect(
+      isStepMessage({ ...base, type: 'step', previous: 'a', current: 'b', verdict: 'ok', reason: '' }),
+    ).toBe(true);
+    // unknown verdict, missing fields, wrong types → rejected
+    expect(
+      isStepMessage({ ...base, type: 'step', previous: 'a', current: 'b', verdict: 'wat', reason: 'x' }),
+    ).toBe(false);
+    expect(isStepMessage({ ...base, type: 'step', previous: 'a', verdict: 'bad', reason: 'x' })).toBe(
+      false,
+    );
+    expect(
+      isStepMessage({ ...base, type: 'step', previous: 1, current: 'b', verdict: 'bad', reason: 'x' }),
+    ).toBe(false);
+  });
+
+  it('isWidgetMessage accepts a well-formed step', () => {
+    expect(
+      isWidgetMessage({ ...base, type: 'step', previous: 'a', current: 'b', verdict: 'bad', reason: 'x' }),
+    ).toBe(true);
   });
 
   it('isWidgetMessage rejects host-bound messages', () => {

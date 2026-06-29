@@ -89,6 +89,22 @@ export function buildRuntimeBoot(params: {
       reportValue: function (v) {
         post({ type: 'value', protocol: PROTOCOL, value: v });
       },
+      reportStep: function (s) {
+        // Defensive: only forward a well-formed step. The verdict must be one of
+        // the three known states; anything else is dropped rather than escaping
+        // the sandbox malformed (the host also type-guards on receipt).
+        if (!s || typeof s !== 'object') return;
+        var verdict = s.verdict;
+        if (verdict !== 'ok' && verdict !== 'bad' && verdict !== 'neutral') return;
+        post({
+          type: 'step',
+          protocol: PROTOCOL,
+          previous: String(s.previous == null ? '' : s.previous),
+          current: String(s.current == null ? '' : s.current),
+          verdict: verdict,
+          reason: String(s.reason == null ? '' : s.reason)
+        });
+      },
       requestResize: function () { emitResize(); },
     };
     try {

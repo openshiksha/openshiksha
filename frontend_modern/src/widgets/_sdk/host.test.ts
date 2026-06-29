@@ -168,12 +168,14 @@ describe('createHostBridge', () => {
     const onResize = vi.fn();
     const onValue = vi.fn();
     const onError = vi.fn();
+    const onStep = vi.fn();
     const onWidgetMessage = vi.fn();
     const cleanup = createHostBridge(() => iframe, {
       onReady,
       onResize,
       onValue,
       onError,
+      onStep,
       onWidgetMessage,
     });
 
@@ -185,12 +187,23 @@ describe('createHostBridge', () => {
       protocol: WIDGET_PROTOCOL_VERSION,
       message: 'boom',
     });
+    postFromSource(sourceWin, {
+      type: 'step',
+      protocol: WIDGET_PROTOCOL_VERSION,
+      previous: '2x + 3 = 7',
+      current: '2x = 10',
+      verdict: 'bad',
+      reason: 'This changes the solution.',
+    });
 
     expect(onReady).toHaveBeenCalledTimes(1);
     expect(onResize).toHaveBeenCalledWith(expect.objectContaining({ height: 120 }));
     expect(onValue).toHaveBeenCalledWith(expect.objectContaining({ value: 42 }));
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom' }));
-    expect(onWidgetMessage).toHaveBeenCalledTimes(4);
+    expect(onStep).toHaveBeenCalledWith(
+      expect.objectContaining({ current: '2x = 10', verdict: 'bad' }),
+    );
+    expect(onWidgetMessage).toHaveBeenCalledTimes(5);
     cleanup();
   });
 

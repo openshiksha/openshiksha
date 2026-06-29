@@ -89,6 +89,53 @@ jobs:
                   echo "::endgroup::"
                 done
 
+    alerting-lint:
+        name: Alerting Artifacts (promtool + amtool)
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        # Validates the Batch-4 alerting config-as-code (ALT-1 Prometheus rules,
+        # ALT-2 Alertmanager config + ntfy bridge) the same way the k8s-manifests
+        # job gates kustomize: config that references live metric names rots the
+        # first time a metric is renamed, so gate it at PR time. Mirrors the
+        # kubeconform gate's "fail here, not at runtime" discipline.
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v7
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+            - name: Install Prometheus + Alertmanager (promtool / amtool)
+              # Pinned release tarballs (a moving "latest" would make the gate
+              # non-reproducible). We only need the static promtool / amtool
+              # binaries, not the servers.
+              env:
+                PROM_VERSION: '2.53.1'
+                AM_VERSION: '0.27.0'
+              run: |
+                curl --silent --show-error --fail --location \
+                  -o prometheus.tar.gz \
+                  "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz"
+                tar -xzf prometheus.tar.gz "prometheus-${PROM_VERSION}.linux-amd64/promtool"
+                sudo install -m 0755 "prometheus-${PROM_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
+                curl --silent --show-error --fail --location \
+                  -o alertmanager.tar.gz \
+                  "https://github.com/prometheus/alertmanager/releases/download/v${AM_VERSION}/alertmanager-${AM_VERSION}.linux-amd64.tar.gz"
+                tar -xzf alertmanager.tar.gz "alertmanager-${AM_VERSION}.linux-amd64/amtool"
+                sudo install -m 0755 "alertmanager-${AM_VERSION}.linux-amd64/amtool" /usr/local/bin/amtool
+            - name: Validate Prometheus alert rules (ALT-1)
+              run: promtool check rules docs/ops/prometheus/openshiksha-alerts.yml
+            - name: Unit-test alert thresholds (ALT-1)
+              run: promtool test rules docs/ops/prometheus/openshiksha-alerts.test.yml
+            - name: Validate Alertmanager config (ALT-2)
+              run: amtool check-config docs/ops/alertmanager/alertmanager.yml
+            - name: Test the ntfy bridge formatter (ALT-2)
+              # The backend Test job only collects backend/ tests; the stdlib
+              # bridge lives in scripts/ops, so its formatter unit tests run here.
+              run: |
+                pip install --quiet pytest
+                python -m pytest scripts/ops/tests/test_alert_to_ntfy.py -q
+
     lint:
         name: Lint
         timeout-minutes: 10

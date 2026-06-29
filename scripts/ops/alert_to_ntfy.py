@@ -82,6 +82,13 @@ def format_payload(payload: dict) -> list[tuple[str, str, dict[str, str]]]:
     return [format_alert(a) for a in (payload.get("alerts") or [])]
 
 
+def _sanitize_for_log(value: object) -> str:
+    """Return a single-line, control-char-safe representation for logging."""
+    text = str(value)
+    text = text.replace("\r", " ").replace("\n", " ")
+    return "".join(ch if ch.isprintable() else "?" for ch in text)
+
+
 def _post_to_ntfy(ntfy_url: str, body: str, headers: dict[str, str]) -> None:
     """POST one formatted message to ntfy. Never logs the URL (write capability)."""
     req = urlrequest.Request(ntfy_url, data=body.encode("utf-8"), headers=headers, method="POST")
@@ -97,7 +104,11 @@ def _handle_payload(payload: dict, ntfy_url: str) -> int:
             _post_to_ntfy(ntfy_url, body, headers)
         except Exception:  # pragma: no cover - network failure path
             # Never include the URL in the log line.
-            logger.warning("alert_to_ntfy: failed to push alert %r", headers.get("Title"), exc_info=True)
+            logger.warning(
+                "alert_to_ntfy: failed to push alert %r",
+                _sanitize_for_log(headers.get("Title", "")),
+                exc_info=True,
+            )
     return len(messages)
 
 

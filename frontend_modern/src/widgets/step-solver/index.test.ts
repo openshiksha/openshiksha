@@ -42,6 +42,10 @@ describe('step-solver widget module', () => {
     expect(stepSolver.renderSource).toMatch(/reportValue/);
   });
 
+  it('renderSource calls reportStep (GSV-4b: feeds committed steps to the host coach)', () => {
+    expect(stepSolver.renderSource).toMatch(/reportStep/);
+  });
+
   it('renderSource contains the deterministic engine, NOT eval/Function/AI', () => {
     // The live check must be the deterministic numeric-probing engine, inlined
     // in the sandbox — never code-eval, never a network/AI call.
@@ -58,6 +62,7 @@ describe('step-solver widget module', () => {
 interface Harness {
   mount: HTMLElement;
   reportValue: ReturnType<typeof vi.fn>;
+  reportStep: ReturnType<typeof vi.fn>;
   /** All student step inputs currently in the DOM, top to bottom. */
   inputs: () => HTMLInputElement[];
   /** The ✓/✗ marks for the student rows, top to bottom. */
@@ -69,22 +74,30 @@ function mountWidget(config: Record<string, unknown>): Harness {
   const mount = document.createElement('div');
   document.body.appendChild(mount);
   const reportValue = vi.fn();
+  const reportStep = vi.fn();
   const ctx: WidgetContext = {
     mount,
     config,
     variables: {},
     imageBase: '',
     reportValue,
+    reportStep,
     requestResize: vi.fn(),
   };
   render(ctx);
   return {
     mount,
     reportValue,
+    reportStep,
     inputs: () => Array.from(mount.querySelectorAll<HTMLInputElement>('input.ss-input')),
     marks: () => Array.from(mount.querySelectorAll<HTMLElement>('.ss-mark[role="img"]')),
     addButton: () => mount.querySelector('button.ss-add') as HTMLButtonElement,
   };
+}
+
+/** Commit a line the way a student does — press Enter on its input. */
+function commitWithEnter(input: HTMLInputElement): void {
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 }
 
 /** Type `text` into a student input and fire the `input` event the widget listens for. */
@@ -158,6 +171,65 @@ describe('step-solver render — live check + answer reporting', () => {
     expect(h.addButton().disabled).toBe(true);
     h.addButton().click();
     expect(h.inputs()).toHaveLength(2);
+  });
+});
+
+// ── GSV-4b: committed-step emission to the host coach ───────────────────────
+
+describe('step-solver reportStep (GSV-4b host coach feed)', () => {
+  it('does NOT emit a step on every keystroke — only on commit', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    typeInto(h.inputs()[0], '2x = 8'); // a wrong line, live ✗, but not committed
+    expect(h.reportStep).not.toHaveBeenCalled();
+  });
+
+  it('emits a "bad" step with the exact line pair when a wrong line is committed', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    const first = h.inputs()[0];
+    typeInto(first, '2x = 8'); // wrong: changes the solution
+    commitWithEnter(first);
+    expect(h.reportStep).toHaveBeenCalledTimes(1);
+    const step = h.reportStep.mock.calls[0][0];
+    expect(step).toMatchObject({ previous: '2x + 1 = 7', current: '2x = 8', verdict: 'bad' });
+    expect(typeof step.reason).toBe('string');
+  });
+
+  it('emits an "ok" step when an equivalent line is committed', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    const first = h.inputs()[0];
+    typeInto(first, '2x = 6'); // valid move
+    commitWithEnter(first);
+    expect(h.reportStep).toHaveBeenLastCalledWith(
+      expect.objectContaining({ previous: '2x + 1 = 7', current: '2x = 6', verdict: 'ok' }),
+    );
+  });
+
+  it('emits a "neutral" step for a malformed committed line (deterministic fallback)', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    const first = h.inputs()[0];
+    typeInto(first, '2x = )('); // unparseable
+    commitWithEnter(first);
+    expect(h.reportStep).toHaveBeenLastCalledWith(
+      expect.objectContaining({ current: '2x = )(', verdict: 'neutral' }),
+    );
+  });
+
+  it('commits on blur too, not just Enter', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    const first = h.inputs()[0];
+    typeInto(first, '2x = 8');
+    first.dispatchEvent(new Event('blur', { bubbles: false }));
+    expect(h.reportStep).toHaveBeenCalledWith(
+      expect.objectContaining({ current: '2x = 8', verdict: 'bad' }),
+    );
+  });
+
+  it('does not emit a step for an empty committed line', () => {
+    const h = mountWidget({ prompt: '2x + 1 = 7' });
+    const first = h.inputs()[0];
+    commitWithEnter(first); // nothing typed
+    first.dispatchEvent(new Event('blur', { bubbles: false }));
+    expect(h.reportStep).not.toHaveBeenCalled();
   });
 });
 

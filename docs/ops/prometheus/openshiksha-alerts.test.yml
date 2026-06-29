@@ -1,0 +1,56 @@
+# promtool unit tests for openshiksha-alerts.yml (Production Observability Batch 4,
+# ALT-4). Run by the `alerting-lint` CI job:
+#
+#   promtool test rules docs/ops/prometheus/openshiksha-alerts.test.yml
+#
+# These assert the *threshold + `for:` semantics* of representative alerts so a
+# future edit that loosens or breaks a threshold fails CI. `promtool test rules`
+# loads the rule_files below, replays the synthetic series, and checks which
+# alerts are firing at each eval time. We assert firing state + severity label
+# only (not the templated annotation text, whose humanize formatting is an
+# implementation detail not worth pinning).
+rule_files:
+  - openshiksha-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Backup-age threshold (36h = 129600s): a 37h-old backup MUST fire
+  # OpenShikshaBackupStale after its 10m `for:`; a 1h-old backup must NOT.
+  - interval: 1m
+    input_series:
+      - series: "openshiksha_backup_age_seconds"
+        values: "133200x20" # 37h, held past the 10m `for:` window
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: OpenShikshaBackupStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Postgres backup is stale (>36h old)"
+              description: "The newest successful Postgres backup is 1d 13h 0m 0s old (threshold 36h). The nightly backup CronJob has likely failed or stopped. Check the CronJob and run the BAK-2 restore drill to confirm recoverability."
+
+  - interval: 1m
+    input_series:
+      - series: "openshiksha_backup_age_seconds"
+        values: "3600x20" # 1h, fresh — must never fire
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: OpenShikshaBackupStale
+        exp_alerts: []
+
+  # Grade-queue backlog: 60 pending (> 50) past the 30m `for:` must fire warning.
+  - interval: 1m
+    input_series:
+      - series: "openshiksha_submissions_pending_grading"
+        values: "60x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: OpenShikshaGradeQueueBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Grading queue backlog (>50 pending for 30m)"
+              description: "60 submissions have been awaiting a grade for over 30m (threshold 50). Check the Celery worker and the grade_submission task — the grading pipeline may be stalled or under-provisioned."

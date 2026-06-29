@@ -8,6 +8,9 @@ resources:
   # Prod-only: nightly Postgres backup (BAK-3). Lives in the overlay (not base) so
   # qa/dev never run it and never need S3 creds.
   - backup-cronjob.yaml
+  # Prod-only: standalone uptime probe every 5 min (ALT-3). Overlay-only so qa/dev
+  # kustomize output is unchanged and never needs ALERT_NTFY_URL.
+  - uptime-probe-cronjob.yaml
 
 images:
   - name: ghcr.io/openshiksha/openshiksha-backend

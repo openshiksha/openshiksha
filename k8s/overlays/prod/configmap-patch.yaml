@@ -6,3 +6,6 @@ data:
   ALLOWED_HOSTS: openshiksha.org,www.openshiksha.org,backend
   CORS_ALLOWED_ORIGINS: https://openshiksha.org,https://www.openshiksha.org
   CSRF_TRUSTED_ORIGINS: https://openshiksha.org,https://www.openshiksha.org
+  # In-cluster base URL the ALT-3 uptime probe curls (/healthz/ + /readyz/).
+  # Non-secret Service DNS; the ntfy URL it pushes to is in openshiksha-secrets.
+  PROBE_BASE_URL: http://backend:8000

@@ -29,6 +29,13 @@ RUN curl -fsSL "https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MC_
 COPY scripts/backup/pg_backup.sh scripts/backup/pg_restore.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/pg_backup.sh /usr/local/bin/pg_restore.sh
 
+# ALT-3 (Batch 4): the standalone uptime probe rides in this image too — it only
+# needs curl + bash, which this image already has. Run via an explicit
+# `command:` override from k8s/overlays/prod/uptime-probe-cronjob.yaml (the
+# default ENTRYPOINT below still runs a backup).
+COPY scripts/ops/uptime_probe.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/uptime_probe.sh
+
 # Run as the unprivileged postgres user the base image already provides.
 USER postgres
 

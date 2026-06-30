@@ -1,0 +1,290 @@
+# Alertmanager + ntfy-bridge sidecar for the monitoring stack (OACT-2).
+#
+# Routes the ALT-1 alerts Prometheus (OACT-1) fires to ntfy via the stdlib bridge
+# scripts/ops/alert_to_ntfy.py. ntfy is not a native Alertmanager receiver, so the
+# bridge translates Alertmanager's webhook JSON into a one-line ntfy push.
+#
+# The backend image build context is ./backend, so the repo-root bridge script is
+# NOT in that image — instead the script is mounted verbatim from a ConfigMap into
+# a dependency-light python:3.13-slim sidecar (the script is stdlib-only:
+# http.server + urllib, no pip install).
+#
+# Operator-applied via `kubectl apply -k k8s/monitoring`. ALERT_NTFY_URL is
+# injected from openshiksha-secrets — never written into committed config.
+---
+# Verbatim copy of docs/ops/alertmanager/alertmanager.yml (ALT-2). Canonical source
+# stays in docs/ (gated by the alerting-lint CI job with `amtool check-config`);
+# this ConfigMap is the deployable copy — keep the two in sync.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  labels:
+    app: alertmanager
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    route:
+      group_by: ["alertname", "severity"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: ntfy-bridge
+
+    receivers:
+      - name: ntfy-bridge
+        webhook_configs:
+          - url: http://alert-to-ntfy:9098/alert
+            send_resolved: true
+---
+# Verbatim copy of scripts/ops/alert_to_ntfy.py (ALT-2). Canonical source stays in
+# scripts/ops/ (unit-tested by the alerting-lint CI job); this ConfigMap is the
+# deployable copy mounted into the sidecar — keep the two in sync.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-to-ntfy-script
+  labels:
+    app: alertmanager
+data:
+  alert_to_ntfy.py: |
+    #!/usr/bin/env python3
+    """Alertmanager → ntfy bridge (Production Observability Batch 4, ALT-2).
+
+    See scripts/ops/alert_to_ntfy.py for the canonical, unit-tested source. This is
+    a verbatim deployable copy mounted into the OACT-2 sidecar.
+    """
+
+    from __future__ import annotations
+
+    import json
+    import logging
+    import os
+    import sys
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib import request as urlrequest
+
+    logger = logging.getLogger("alert_to_ntfy")
+
+    _SEVERITY_PRIORITY = {"critical": "high", "warning": "default", "info": "low"}
+    _SEVERITY_TAGS = {"critical": "rotating_light", "warning": "warning", "info": "information_source"}
+
+    LISTEN_HOST = os.getenv("ALERT_BRIDGE_HOST", "0.0.0.0")
+    LISTEN_PORT = int(os.getenv("ALERT_BRIDGE_PORT", "9098"))
+
+
+    def format_alert(alert: dict) -> tuple[str, str, dict[str, str]]:
+        labels = alert.get("labels") or {}
+        annotations = alert.get("annotations") or {}
+
+        status = (alert.get("status") or "firing").lower()
+        severity = (labels.get("severity") or "info").lower()
+        alertname = labels.get("alertname") or "UnknownAlert"
+
+        resolved = status == "resolved"
+        priority = "min" if resolved else _SEVERITY_PRIORITY.get(severity, "default")
+        tag = "white_check_mark" if resolved else _SEVERITY_TAGS.get(severity, "bell")
+
+        state = "RESOLVED" if resolved else "FIRING"
+        title = f"[{state}] {alertname} ({severity})"
+
+        summary = annotations.get("summary") or annotations.get("description") or alertname
+        body = " ".join(str(summary).split())
+
+        headers = {"Title": title, "Tags": tag, "Priority": priority}
+        return title, body, headers
+
+
+    def format_payload(payload: dict) -> list[tuple[str, str, dict[str, str]]]:
+        return [format_alert(a) for a in (payload.get("alerts") or [])]
+
+
+    def _sanitize_for_log(value: object) -> str:
+        text = str(value)
+        text = text.replace("\r", " ").replace("\n", " ")
+        return "".join(ch if ch.isprintable() else "?" for ch in text)
+
+
+    def _post_to_ntfy(ntfy_url: str, body: str, headers: dict[str, str]) -> None:
+        req = urlrequest.Request(ntfy_url, data=body.encode("utf-8"), headers=headers, method="POST")
+        with urlrequest.urlopen(req, timeout=10) as resp:  # noqa: S310
+            resp.read()
+
+
+    def _handle_payload(payload: dict, ntfy_url: str) -> int:
+        messages = format_payload(payload)
+        for _title, body, headers in messages:
+            try:
+                _post_to_ntfy(ntfy_url, body, headers)
+            except Exception:  # pragma: no cover
+                logger.warning(
+                    "alert_to_ntfy: failed to push alert %r",
+                    _sanitize_for_log(headers.get("Title", "")),
+                    exc_info=True,
+                )
+        return len(messages)
+
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            if self.path.rstrip("/") not in ("/alert", ""):
+                self.send_error(404, "not found")
+                return
+            ntfy_url = os.getenv("ALERT_NTFY_URL")
+            if not ntfy_url:
+                self.send_error(500, "ALERT_NTFY_URL not configured")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                payload = json.loads(self.rfile.read(length) or b"{}")
+            except (ValueError, json.JSONDecodeError):
+                self.send_error(400, "invalid JSON")
+                return
+            count = _handle_payload(payload, ntfy_url)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(f"pushed {count} alert(s)\n".encode())
+
+        def log_message(self, *args):
+            pass
+
+
+    def main() -> int:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+        if not os.getenv("ALERT_NTFY_URL"):
+            logger.error("ALERT_NTFY_URL is not set; the bridge will reject requests with 500.")
+        server = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), _Handler)
+        logger.info("alert_to_ntfy listening on %s:%s", LISTEN_HOST, LISTEN_PORT)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:  # pragma: no cover
+            server.shutdown()
+        return 0
+
+
+    if __name__ == "__main__":
+        sys.exit(main())
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  labels:
+    app: alertmanager
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9093
+      targetPort: 9093
+      name: http
+  selector:
+    app: alertmanager
+---
+# Separate Service for the bridge so the Alertmanager webhook URL
+# (http://alert-to-ntfy:9098/alert, set verbatim in alertmanager.yml) resolves to
+# the sidecar. Selects the same pod as Alertmanager (the sidecar shares it).
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-to-ntfy
+  labels:
+    app: alertmanager
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9098
+      targetPort: 9098
+      name: webhook
+  selector:
+    app: alertmanager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  labels:
+    app: alertmanager
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - containerPort: 9093
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager/alertmanager.yml
+              subPath: alertmanager.yml
+            - name: am-data
+              mountPath: /alertmanager
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9093
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9093
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        # Sidecar: the stdlib Alertmanager→ntfy bridge. No pip deps, so a slim
+        # python image running the ConfigMap-mounted script suffices.
+        - name: alert-to-ntfy
+          image: python:3.13-slim
+          command: ["python", "/opt/bridge/alert_to_ntfy.py"]
+          ports:
+            - containerPort: 9098
+              name: webhook
+          env:
+            - name: ALERT_NTFY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openshiksha-secrets
+                  key: ALERT_NTFY_URL
+          volumeMounts:
+            - name: bridge-script
+              mountPath: /opt/bridge
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: alertmanager-config
+        - name: bridge-script
+          configMap:
+            name: alert-to-ntfy-script
+        - name: am-data
+          emptyDir: {}

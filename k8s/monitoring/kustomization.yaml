@@ -22,4 +22,5 @@ resources:
   - prometheus.yaml
   # OACT-2: Alertmanager + ntfy-bridge sidecar (routes the ALT-1 alerts to ntfy).
   - alertmanager.yaml
-  # OACT-3 appends grafana.yaml.
+  # OACT-3: Grafana provisioned with the Prometheus datasource + MET-5 dashboard.
+  - grafana.yaml

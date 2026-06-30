@@ -20,12 +20,13 @@ pre-commit install
 ## Branch model
 
 ```
-feature/*  ──PR──▶  modernization  ──PR──▶  qa  ──▶  production
+feature/*  ──PR──▶  qa  ──(CI builds + auto-deploys)──▶  production
 ```
 
-- Branch off **`modernization`** and open your PR **against `modernization`**.
-- `qa` is the release branch (a merge there deploys to production), so it is not
-  a PR target for feature work.
+- Branch off **`qa`** and open your PR **against `qa`**. `qa` is the trunk — all
+  feature work integrates here.
+- A merge to `qa` is a release: CI builds the images and deploys to production
+  automatically, so keep `qa` green and review every PR before merging.
 - Use descriptive branch names: `feat/...`, `fix/...`, `docs/...`, `chore/...`.
 
 See [`docs/dev/git-strategy.md`](docs/dev/git-strategy.md) for the full rationale.

@@ -1,0 +1,276 @@
+# Prometheus for the OpenShiksha monitoring stack (Observability Activation, OACT-1).
+#
+# Scrapes the backend `/metrics/` endpoint (MET-1) and loads the ALT-1 alert
+# rules. Operator-applied via `kubectl apply -k k8s/monitoring` — NOT wired into
+# any overlay, so a push to qa never auto-deploys it. See the kustomization header
+# and docs/ops/monitoring-deploy.md (OACT-5).
+#
+# Prerequisites the operator provisions out-of-band (documented in OACT-5):
+#   * openshiksha-config ConfigMap: METRICS_ENABLED=true (the /metrics/ view is
+#     404 until then — backend/openshiksha/apps/api/views/metrics.py).
+#   * openshiksha-secrets Secret: METRICS_TOKEN (may be empty; if set, the scrape
+#     bearer below must carry it — it is mounted as a credentials file).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  labels:
+    app: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+      evaluation_interval: 30s
+
+    rule_files:
+      - /etc/prometheus/rules/openshiksha-alerts.yml
+
+    # OACT-2 fills in alerting.alertmanagers (http://alertmanager:9093). Until
+    # then the rules evaluate but fire nowhere — Prometheus alone makes the
+    # metrics live and queryable.
+    alerting:
+      alertmanagers: []
+
+    scrape_configs:
+      - job_name: openshiksha-backend
+        metrics_path: /metrics/
+        scheme: http
+        # The MET-1 gate accepts an optional bearer token. METRICS_TOKEN is
+        # mounted as a file from openshiksha-secrets (empty file == no token,
+        # which the endpoint also accepts). The job label `openshiksha-backend`
+        # is what the ALT-1 `up{job="openshiksha-backend"}` rule matches.
+        authorization:
+          type: Bearer
+          credentials_file: /etc/prometheus/secrets/metrics_token
+        static_configs:
+          - targets: ["backend:8000"]
+---
+# Verbatim copy of docs/ops/prometheus/openshiksha-alerts.yml (ALT-1). The canonical
+# source of truth stays in docs/ (validated by the `alerting-lint` CI job with
+# `promtool check rules`); this ConfigMap is the deployable copy. Keep the two in
+# sync — if you edit the rules, edit them there and re-copy here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  labels:
+    app: prometheus
+data:
+  openshiksha-alerts.yml: |
+    groups:
+      - name: openshiksha-backups
+        rules:
+          - alert: OpenShikshaBackupStale
+            expr: openshiksha_backup_age_seconds > 129600
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Postgres backup is stale (>36h old)"
+              description: >-
+                The newest successful Postgres backup is
+                {{ $value | humanizeDuration }} old (threshold 36h). The nightly
+                backup CronJob has likely failed or stopped. Check the CronJob and run
+                the BAK-2 restore drill to confirm recoverability.
+
+          - alert: OpenShikshaBackupNeverRun
+            expr: (openshiksha_backup_last_success_timestamp == 0) or absent(openshiksha_backup_last_success_timestamp)
+            for: 6h
+            labels:
+              severity: critical
+            annotations:
+              summary: "No successful Postgres backup on record"
+              description: >-
+                No successful Postgres backup has ever been recorded (the
+                last-success timestamp is 0 or the gauge is absent for 6h). If this is
+                a fresh deployment, run a first backup; otherwise the backup path is
+                broken — check the CronJob, S3 creds, and BackupRun records.
+
+      - name: openshiksha-grading
+        rules:
+          - alert: OpenShikshaGradeQueueBacklog
+            expr: openshiksha_submissions_pending_grading > 50
+            for: 30m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Grading queue backlog (>50 pending for 30m)"
+              description: >-
+                {{ $value }} submissions have been awaiting a grade for over 30m
+                (threshold 50). Check the Celery worker and the grade_submission task —
+                the grading pipeline may be stalled or under-provisioned.
+
+          - alert: OpenShikshaCeleryOldestPending
+            expr: openshiksha_celery_oldest_pending_seconds > 900
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Oldest pending Celery task >15m old"
+              description: >-
+                The oldest non-terminal Celery task is
+                {{ $value | humanizeDuration }} old (threshold 15m). Tasks are queuing
+                faster than the worker drains them — check worker health and concurrency.
+
+          - alert: OpenShikshaCeleryFailureRate
+            expr: >-
+              sum(openshiksha_celery_tasks{status="FAILURE"})
+              /
+              clamp_min(sum(openshiksha_celery_tasks), 1)
+              > 0.10
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Celery task failure rate >10% (24h window)"
+              description: >-
+                {{ $value | humanizePercentage }} of Celery tasks in the last 24h are
+                in FAILURE (threshold 10%). Check the worker logs and the failing task
+                type. (Only has data under the django-db result backend — MET-3.)
+
+      - name: openshiksha-http
+        rules:
+          - alert: OpenShikshaHighHTTPErrorRate
+            expr: >-
+              sum(rate(openshiksha_http_requests_total{status_class="5xx"}[5m]))
+              /
+              clamp_min(sum(rate(openshiksha_http_requests_total[5m])), 0.001)
+              > 0.05
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "HTTP 5xx error ratio >5%"
+              description: >-
+                {{ $value | humanizePercentage }} of HTTP responses in the last 5m are
+                5xx (threshold 5%). The backend is serving errors — check pod logs,
+                Sentry, and recent deploys.
+
+          - alert: OpenShikshaHighLatencyP95
+            expr: >-
+              histogram_quantile(
+                0.95,
+                sum(rate(openshiksha_http_request_duration_seconds_bucket[5m])) by (le)
+              ) > 1.5
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "HTTP p95 latency >1.5s"
+              description: >-
+                p95 request latency is {{ $value | humanizeDuration }} over the last 5m
+                (threshold 1.5s). The backend is slow — check DB load, the grade queue,
+                and resource limits.
+
+      - name: openshiksha-availability
+        rules:
+          - alert: OpenShikshaTargetDown
+            expr: up{job="openshiksha-backend"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Backend scrape target is down"
+              description: >-
+                Prometheus has been unable to scrape the openshiksha-backend target for
+                5m (up == 0). The /metrics endpoint — and likely the app — is
+                unreachable. Check the pod, readiness probe, and ingress.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: http
+  selector:
+    app: prometheus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  # Single-node droplet + an emptyDir TSDB → Recreate, never two pods contending
+  # for the same (ephemeral) volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.54.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            # 7d retention keeps the TSDB small on the droplet's local disk.
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=7d
+            - --web.enable-lifecycle
+          ports:
+            - containerPort: 9090
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: rules
+              mountPath: /etc/prometheus/rules
+            - name: secrets
+              mountPath: /etc/prometheus/secrets
+              readOnly: true
+            - name: tsdb
+              mountPath: /prometheus
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: rules
+          configMap:
+            name: prometheus-rules
+        - name: secrets
+          secret:
+            secretName: openshiksha-secrets
+            # METRICS_TOKEN is optional; if the operator hasn't set it the file is
+            # simply absent and the scrape sends an empty bearer (also accepted).
+            optional: true
+            items:
+              - key: METRICS_TOKEN
+                path: metrics_token
+        - name: tsdb
+          emptyDir: {}

@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Standalone monitoring stack (Observability Activation, OACT-1..3).
+#
+# IMPORTANT — this kustomization is INTENTIONALLY NOT referenced by any overlay
+# (k8s/overlays/{qa,prod}). `deploy-prod` runs `kubectl apply -k
+# k8s/overlays/prod` on every push to qa; if the monitoring stack lived in the
+# prod overlay it would auto-deploy Prometheus/Alertmanager/Grafana onto the live
+# single-node droplet with no operator opt-in. Instead an operator deploys it
+# DELIBERATELY, when the droplet has headroom:
+#
+#   kubectl apply -k k8s/monitoring
+#
+# See docs/ops/monitoring-deploy.md (OACT-5) for prerequisites (METRICS_ENABLED,
+# the METRICS_TOKEN / ALERT_NTFY_URL / GRAFANA_ADMIN_PASSWORD secret keys) and the
+# end-to-end "is it live?" checklist.
+namespace: openshiksha-prod
+
+resources:
+  # OACT-1: Prometheus (scrape backend /metrics + load the ALT-1 alert rules).
+  # OACT-2 appends alertmanager.yaml; OACT-3 appends grafana.yaml.
+  - prometheus.yaml

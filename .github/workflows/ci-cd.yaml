@@ -88,6 +88,18 @@ jobs:
                         -kubernetes-version 1.31.0 -
                   echo "::endgroup::"
                 done
+            - name: Render & schema-validate the standalone monitoring stack
+              # k8s/monitoring (Observability Activation, OACT-1..3) is an
+              # operator-applied stack NOT referenced by any overlay, so the loop
+              # above never renders it. Gate it the same way so a typo in the
+              # Prometheus/Alertmanager/Grafana manifests fails at PR time, not at
+              # `kubectl apply` on the droplet.
+              run: |
+                echo "::group::monitoring"
+                kubectl kustomize k8s/monitoring \
+                  | kubeconform -strict -summary -ignore-missing-schemas \
+                      -kubernetes-version 1.31.0 -
+                echo "::endgroup::"
 
     alerting-lint:
         name: Alerting Artifacts (promtool + amtool)

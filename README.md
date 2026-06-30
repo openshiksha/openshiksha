@@ -139,16 +139,15 @@ k3s cluster (image pinned by commit SHA, `kubectl rollout status` waited on).
 ### Branch → environment model
 
 ```
-feature/*  ──PR──▶  modernization  ──PR──▶  qa  ──(CI builds + deploys)──▶  production (openshiksha.org)
-   dev work          integration            release branch
+feature/*  ──PR──▶  qa  ──(CI builds + deploys)──▶  production (openshiksha.org)
+   dev work       trunk + release branch
 ```
 
-- **`modernization`** — active development / integration branch; feature PRs land here.
-- **`qa`** — the release branch. A merge here builds the images and **deploys to
-  production** (`openshiksha.org`) automatically.
-- A dedicated **qa environment** (taking `modernization`) is wired but disabled
-  until a second cluster exists — see the `deploy-qa` job, gated behind the
-  `QA_ENV_ENABLED` variable.
+- **`qa`** — the trunk and release branch; feature PRs land here. A merge builds
+  the images and **deploys to production** (`openshiksha.org`) automatically, so
+  it stays green and reviewed at all times.
+- A dedicated **qa environment** is wired but disabled until a second cluster
+  exists — see the `deploy-qa` job, gated behind the `QA_ENV_ENABLED` variable.
 
 Deployment specifics (k3s, kustomize overlays, secrets, TLS, rollback) are in
 [`docs/deploy/README.md`](docs/deploy/README.md).

@@ -2,9 +2,12 @@
 
 GitHub branch protection rules cannot live in the repo as configuration; they must be configured by a repo admin in **Settings → Branches → Branch protection rules**. This document is the source of truth for what those settings should be, so they can be re-applied if the repo is migrated, forked, or accidentally reset.
 
-Two protected branches: **`modernization`** (feature integration) and **`qa`** (release candidate). `prod` deploys automatically and follows the same rules as `qa`.
+One protected branch: **`qa`** — the trunk and release branch. A merge to `qa`
+builds the production images and deploys them, so it carries the strictest rules.
+(`prod` exists as a future-state release-train branch and should get the same rules
+if/when it becomes part of the active deploy flow.)
 
-## Settings to apply to `modernization` and `qa`
+## Settings to apply to `qa`
 
 In **Settings → Branches → Add branch protection rule**, set the branch name pattern to the target branch, then enable:
 
@@ -35,12 +38,12 @@ In **Settings → Branches → Add branch protection rule**, set the branch name
 
 | Setting | Reason |
 |---|---|
-| Require PR + 1 approval | Catches obvious mistakes; one set of human eyes on every change reaching `modernization`/`qa`. |
+| Require PR + 1 approval | Catches obvious mistakes; one set of human eyes on every change reaching `qa`. |
 | Dismiss stale approvals on new commits | Prevents "approved, then silently changed" bypass. |
 | Require status checks | CI catches lint/type/test/security regressions before merge. The required-check list mirrors the job names that block release. |
 | Require up-to-date branches | Forces rebases before merge so the CI signal is meaningful against the latest target. |
 | Require conversation resolution | Ensures review comments aren't merged-over. |
-| Block force-push and deletion | `modernization` and `qa` are shared history — losing commits or rewriting history breaks everyone's clones. |
+| Block force-push and deletion | `qa` is shared history — losing commits or rewriting history breaks everyone's clones. |
 | Apply to admins ("Do not allow bypassing") | Self-explanatory; the rules are worthless if the most active committers can skip them. |
 
 ## Repo-level settings for Dependabot auto-merge
@@ -59,8 +62,7 @@ After applying, the easiest sanity check is to open a draft PR with a deliberate
 To inspect the current configuration via the CLI:
 
 ```bash
-gh api repos/openshiksha/openshiksha/branches/modernization/protection
 gh api repos/openshiksha/openshiksha/branches/qa/protection
 ```
 
-If either command returns `404 Not Found`, protection is not configured on that branch and this document should be applied.
+If the command returns `404 Not Found`, protection is not configured on `qa` and this document should be applied.

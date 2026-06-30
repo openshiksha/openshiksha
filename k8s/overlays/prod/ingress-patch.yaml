@@ -34,6 +34,17 @@ spec:
                 name: backend
                 port:
                   number: 8000
+          # Grafana (OACT-3 monitoring stack), served at /grafana. Login-gated;
+          # Grafana serves from this sub-path (GF_SERVER_SERVE_FROM_SUB_PATH=true)
+          # so no strip-prefix middleware is needed. The grafana Service only
+          # exists once an operator applies k8s/monitoring; until then /grafana 503s.
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
           - path: /
             pathType: Prefix
             backend:

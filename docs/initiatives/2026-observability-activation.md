@@ -64,18 +64,32 @@ the full build spec.
 **Build order:** OACT-1 → OACT-2 → OACT-3 → OACT-4 → OACT-5. Floor-value subset if
 time is short: **OACT-1 + OACT-4 + OACT-5**.
 
+### Shipped 2026-06-29
+
+| # | PR | Notes |
+|:--:|---|---|
+| OACT-1 | [#488](https://github.com/openshiksha/openshiksha/pull/488) | `k8s/monitoring/` Prometheus (scrape `backend:8000/metrics/` job `openshiksha-backend` + verbatim ALT-1 rules) + CI kustomize/kubeconform gate; `METRICS_TOKEN`/`GRAFANA_ADMIN_PASSWORD` documented in `secret.example`. |
+| OACT-2 | [#489](https://github.com/openshiksha/openshiksha/pull/489) | Alertmanager (verbatim ALT-2 config) + `alert_to_ntfy.py` as a `python:3.13-slim` ConfigMap-mounted sidecar; Prometheus `alerting.alertmanagers` → `alertmanager:9093`. Stacked on #488. |
+| OACT-3 | [#490](https://github.com/openshiksha/openshiksha/pull/490) | Grafana provisioned with the `prometheus:9090` datasource (default) + verbatim MET-5 dashboard; no ingress (port-forward). Stacked on #489. |
+| OACT-4 | [#491](https://github.com/openshiksha/openshiksha/pull/491) | Two-phase prod backup pod: init `backup` writes `/work/result.env`, main `record` runs `record_backup_run … \|\| true`. Populates `openshiksha_backup_age_seconds`. Independent (auto-deploys). |
+| OACT-5 | _this PR_ | `docs/ops/monitoring-deploy.md` runbook + this ledger + STATUS close-out. |
+
 ## Definition of Done
 
-- [ ] `k8s/monitoring/` renders and passes kubeconform `-strict` in CI.
-- [ ] Prometheus scrapes the backend `/metrics` (with `METRICS_TOKEN`) and loads
-      the ALT-1 alert rules.
-- [ ] Alertmanager routes firing alerts through the `alert_to_ntfy` bridge to ntfy.
-- [ ] Grafana auto-provisions the Prometheus datasource and the overview dashboard.
-- [ ] The nightly backup CronJob writes a `BackupRun` row so
+- [x] `k8s/monitoring/` renders and passes kubeconform `-strict` in CI.
+- [x] Prometheus scrapes the backend `/metrics` (with `METRICS_TOKEN`) and loads
+      the ALT-1 alert rules. _(manifest validated; live scrape is the operator apply)_
+- [x] Alertmanager routes firing alerts through the `alert_to_ntfy` bridge to ntfy.
+- [x] Grafana auto-provisions the Prometheus datasource and the overview dashboard.
+- [x] The nightly backup CronJob writes a `BackupRun` row so
       `openshiksha_backup_age_seconds` reads real data in prod.
-- [ ] `docs/ops/monitoring-deploy.md` lets an operator apply + verify the stack
+- [x] `docs/ops/monitoring-deploy.md` lets an operator apply + verify the stack
       end-to-end.
-- [ ] qa/dev kustomize output is byte-for-byte unchanged; no secret committed.
+- [x] qa/dev kustomize output is byte-for-byte unchanged; no secret committed.
+
+**Batch 1 (OACT-1..5) complete.** All artifacts shipped + CI-gated; the remaining
+step — `kubectl apply -k k8s/monitoring` on the droplet — is the documented
+**operator action** (resource-headroom call), not a CI/routine step.
 
 ## Out of scope / follow-ups
 

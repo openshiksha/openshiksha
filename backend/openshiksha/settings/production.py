@@ -20,6 +20,14 @@ SECURE_SSL_REDIRECT = True
 # SECURE_SSL_REDIRECT triggers an infinite redirect loop. Only safe when the
 # ingress strips this header from client input (Traefik does by default).
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Prometheus (OACT-1) scrapes /metrics/ in-cluster over plain HTTP — TLS
+# terminates at the ingress, not at the backend pod, and the ingress does not
+# route /metrics/ at all. Without an exemption SECURE_SSL_REDIRECT 301s that
+# scrape to https://backend:8000, which serves no TLS, so the scrape fails with
+# a timeout. Exempt the token-gated metrics path (the value is matched against
+# the path with its leading slash stripped). Only reachable in-cluster, so this
+# does not widen any public surface.
+SECURE_REDIRECT_EXEMPT = [r"^metrics/$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True

@@ -47,6 +47,18 @@ S3_PREFIX="${S3_PREFIX:-postgres/}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 S3_ENDPOINT="${S3_ENDPOINT:-}"
 
+# Optional BAK-4 hand-off: when RESULT_FILE is set (the prod CronJob's two-phase
+# pod, OACT-4), write the outcome to a shared file so the sibling `record`
+# container can persist a BackupRun row that populates the
+# openshiksha_backup_age_seconds freshness gauge. Best-effort and only on the
+# success path — a failed backup exits non-zero before this runs (set -e), so the
+# init phase fails the pod and the staleness alert covers it. Never fails the backup.
+RESULT_FILE="${RESULT_FILE:-}"
+write_result() {
+    [[ -n "$RESULT_FILE" ]] || return 0
+    printf 'STATUS=%s\nSIZE=%s\nKEY=%s\n' "$1" "${2:-}" "${3:-}" > "$RESULT_FILE" || true
+}
+
 # --- Resolve DB connection -------------------------------------------------
 # pg_dump reads PG* env vars natively; if DATABASE_URL is given, pg_dump accepts
 # a connection URI as a positional argument, so we never have to parse it
@@ -78,6 +90,7 @@ log "Dump complete: ${SIZE_BYTES} bytes"
 # --- Local mode: stop here -------------------------------------------------
 if [[ -z "$S3_ENDPOINT" ]]; then
     log "S3_ENDPOINT unset → LOCAL MODE: dump kept at ${DUMP_FILE} (no upload)."
+    write_result success "$SIZE_BYTES" "$DUMP_FILE"
     echo "$DUMP_FILE"
     exit 0
 fi
@@ -104,4 +117,5 @@ mc rm --recursive --force --older-than "${RETENTION_DAYS}d" \
     log "WARN: prune step reported a non-fatal error (continuing)."
 
 log "Backup OK: ${OBJECT_KEY} (${SIZE_BYTES} bytes)"
+write_result success "$SIZE_BYTES" "$OBJECT_KEY"
 echo "$OBJECT_KEY"

@@ -8,6 +8,20 @@
 # The four S3_* keys are documented in k8s/base/secret.example.yaml and populated
 # out-of-band into the openshiksha-secrets Secret (DigitalOcean Spaces is the
 # intended S3-compatible target). DATABASE_URL is the existing key.
+#
+# OACT-4 (Observability Activation): the pod is now two-phase so the
+# openshiksha_backup_age_seconds freshness gauge (BAK-4 / MET-2) actually
+# populates in prod. The backup image has no Django, so it can't write a
+# BackupRun row itself:
+#   * initContainer `backup` runs the real pg_dump→S3 (unchanged image/env) and,
+#     on success, writes /work/result.env (STATUS/SIZE/KEY) to a shared emptyDir.
+#   * main container `record` (the backend image, which HAS Django) reads that
+#     file and runs `manage.py record_backup_run ... || true`.
+# initContainers run to completion before the main container, so the sequencing is
+# free. The `|| true` guarantees the record step can NEVER fail the backup — a
+# missing gauge update is strictly better than a broken backup. A FAILED backup
+# fails the init phase (no record written); the OpenShikshaBackupStale/NeverRun
+# alerts cover that case via the gauge going stale.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -28,7 +42,13 @@ spec:
             app: postgres-backup
         spec:
           restartPolicy: OnFailure
-          containers:
+          volumes:
+            # Shared between the backup init phase (writes result.env) and the
+            # record main container (reads it). Ephemeral — only needs to live for
+            # the pod's lifetime.
+            - name: backup-result
+              emptyDir: {}
+          initContainers:
             - name: backup
               image: ghcr.io/openshiksha/openshiksha-backup:prod
               env:
@@ -59,10 +79,48 @@ spec:
                       key: S3_SECRET_KEY
                 - name: RETENTION_DAYS
                   value: "14"
+                # OACT-4: pg_backup.sh writes STATUS/SIZE/KEY here on success.
+                - name: RESULT_FILE
+                  value: /work/result.env
+              volumeMounts:
+                - name: backup-result
+                  mountPath: /work
               resources:
                 requests:
                   cpu: 50m
                   memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+          containers:
+            # Records the BackupRun row that drives openshiksha_backup_age_seconds.
+            # Uses the backend image (it has Django + the management command); the
+            # backup image does not. Best-effort: `|| true` so it can never fail the
+            # already-completed backup.
+            - name: record
+              image: ghcr.io/openshiksha/openshiksha-backend:prod
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -a
+                  [ -f /work/result.env ] && . /work/result.env
+                  set +a
+                  python manage.py record_backup_run \
+                    --status "${STATUS:-success}" \
+                    --size "${SIZE:-0}" \
+                    --key "${KEY:-}" || true
+              envFrom:
+                - configMapRef:
+                    name: openshiksha-config
+                - secretRef:
+                    name: openshiksha-secrets
+              volumeMounts:
+                - name: backup-result
+                  mountPath: /work
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
                 limits:
                   cpu: 500m
                   memory: 256Mi

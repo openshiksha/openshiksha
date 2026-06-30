@@ -727,3 +727,70 @@ backend-free e2e can't reach the live LLM endpoint). A natural follow-up is the
 fully inline auto-*ask* (explain on commit, debounced) once a backend-backed e2e
 job exists — and folding the coach into the real student `QuestionCard`, not just
 the playground.
+
+---
+
+## Beat 11 — The problem the AI proposes is *provably answerable* (PV-1) · *foundation, off-screen*
+
+Phase 1 (Beats 0–5) let the AI **build** a widget. Phase 2 (Beats 6–10) let a
+**deterministic** engine judge a student's *steps*. Phase 3 — **propose-and-verify
+practice bank** — closes the loop the other way: before a single AI-proposed
+*problem* can ship, a **deterministic engine confirms the problem is well-posed
+and the expected answer is actually reachable**. **AI proposes, the engine
+disposes** — and, as always, the engine is the only thing that ever touches
+correctness.
+
+This beat ships that engine: `verify_widget_problem(kind, config, correct_answer,
+variable_constraints=…)` in
+[`apps/core/problem_verifier.py`](../../backend/openshiksha/apps/core/problem_verifier.py)
+— the Phase-3 correctness keystone, the exact counterpart to **Beat 0**'s
+`validate_widget_config` and **Beat 6**'s `check_step`. It is **pure and
+AI-free**, and for a proposed problem it checks, in order:
+
+1. the **config is schema-valid** (it reuses the Beat-0 DTB-1 guardrail);
+2. the problem **has a correct answer** to verify;
+3. the **answer is reachable on the widget** — the load-bearing check.
+
+That third check encodes a bug the demo *already hit*. The `number-line` widget
+snaps the dragged point to its `step` grid and rounds to
+`decimals = max(0, -floor(log10(step)))` — so on a `step 0.25` axis the value
+**¾ = 0.75 rounds to 0.8 and can never be marked** (the exact quirk Beat 3 had to
+dodge by using halves). A problem whose "correct" answer is `0.75` there is
+**ill-posed**: the student is graded wrong no matter what they do. PV-1 reproduces
+that snap **faithfully** (a host-side port of the widget, mirror-disciplined the
+way Beat 6 ↔ Beat 6b are) and ties "reachable" to the **same numeric tolerance
+the real grader uses** — so a problem this engine passes is one the grader can
+actually mark correct.
+
+It is **grounded across every student**, too: for a randomized problem (an answer
+like `{{a}}/4` with `variable_constraints`), it samples the variables exactly as
+the croupier will at grade time, over a deterministic batch of synthetic
+students, and **rejects the problem if even one student's answer falls off the
+widget's grid** — catching "well-posed on paper, impossible for some kid."
+
+Like Beats 0 and 6, this is **foundation, off-screen**: no AI yet (PV-2 will add
+the `/ai/practice-problem/` endpoint that may only ever return a problem this
+engine has passed), and the proof is the test suite, not a screenshot.
+
+**Why it's iron-clad:** correctness is decided here by **construction, before any
+model is consulted** (principle 2); the verifier reuses the real schema, the real
+croupier sampler, and the real grader tolerance, so it reasons about the *actual*
+answer space (principle 5); and every malformed input — bad config, missing
+answer, non-numeric answer, unparseable expression — degrades to a structured
+`ProblemVerdict(ok=False, …)`, never a 500 (principle 4).
+
+**Verify it:**
+
+```bash
+cd backend
+# 26 tests: reachable integer/half-step/endpoint answers pass; the ¾-on-step-0.25
+# and off-grid/out-of-range answers are rejected as `unreachable`; every malformed
+# input degrades gracefully; and a randomized {{a}}/4 problem is rejected
+# `unreachable_for_some` (well-posed for {{a}} on the integer grid).
+python -m pytest openshiksha/apps/core/tests/test_problem_verifier.py
+```
+
+*Next slice (Phase 3):* PV-2 — `POST /ai/practice-problem/`: an NL topic + kind
+→ the AI proposes `{widget_config, correct_answer}`, **this verifier confirms it
+before it returns**, and an unverifiable proposal is repaired or falls back to a
+deterministic safe problem (the DTB-2 pattern, now gated on PV-1).

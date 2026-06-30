@@ -9,3 +9,8 @@ data:
   # In-cluster base URL the ALT-3 uptime probe curls (/healthz/ + /readyz/).
   # Non-secret Service DNS; the ntfy URL it pushes to is in openshiksha-secrets.
   PROBE_BASE_URL: http://backend:8000
+  # Expose the Prometheus /metrics/ endpoint (MET-1) so the OACT-1 monitoring
+  # stack can scrape it. The endpoint is token-gated by METRICS_TOKEN (in
+  # openshiksha-secrets). Declared here so deploy-prod (kubectl apply -k
+  # overlays/prod on every qa push) keeps it enabled rather than dropping it.
+  METRICS_ENABLED: "true"

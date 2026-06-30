@@ -19,5 +19,8 @@ namespace: openshiksha-prod
 
 resources:
   # OACT-1: Prometheus (scrape backend /metrics + load the ALT-1 alert rules).
-  # OACT-2 appends alertmanager.yaml; OACT-3 appends grafana.yaml.
   - prometheus.yaml
+  # OACT-2: Alertmanager + ntfy-bridge sidecar (routes the ALT-1 alerts to ntfy).
+  - alertmanager.yaml
+  # OACT-3: Grafana provisioned with the Prometheus datasource + MET-5 dashboard.
+  - grafana.yaml

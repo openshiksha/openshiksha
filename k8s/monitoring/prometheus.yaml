@@ -26,11 +26,12 @@ data:
     rule_files:
       - /etc/prometheus/rules/openshiksha-alerts.yml
 
-    # OACT-2 fills in alerting.alertmanagers (http://alertmanager:9093). Until
-    # then the rules evaluate but fire nowhere — Prometheus alone makes the
-    # metrics live and queryable.
+    # Fires the ALT-1 rules at the OACT-2 Alertmanager, which routes them via the
+    # ntfy bridge sidecar (scripts/ops/alert_to_ntfy.py).
     alerting:
-      alertmanagers: []
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:9093"]
 
     scrape_configs:
       - job_name: openshiksha-backend

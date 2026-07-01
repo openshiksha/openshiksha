@@ -110,11 +110,21 @@ backend /metrics/  →  Prometheus (scrape + ALT-1 rules)  →  Alertmanager
    ```
    A `TestPing` push should land in the ntfy topic.
 
-4. **Grafana shows data** (no public ingress — port-forward):
+4. **Grafana shows data** (primary access — login-gated public sub-path):
+   ```
+   # → https://openshiksha.org/grafana  (admin / GRAFANA_ADMIN_PASSWORD)
+   # → "OpenShiksha — Overview" dashboard auto-provisioned, panels render
+   ```
+   The prod overlay's ingress (`k8s/overlays/prod/ingress-patch.yaml`, #494)
+   routes `/grafana` → the `grafana` Service, and Grafana serves from that
+   sub-path (`GF_SERVER_ROOT_URL` + `GF_SERVER_SERVE_FROM_SUB_PATH=true`).
+   **Ordering caveat:** the `/grafana` ingress route auto-deploys with the prod
+   overlay, but the `grafana` Service only exists once you have applied
+   `k8s/monitoring` (this step's prerequisite) — until then `/grafana` returns
+   **503**. If the sub-path misbehaves, fall back to a port-forward:
    ```bash
    kubectl -n openshiksha-prod port-forward svc/grafana 3000:3000
    # → http://localhost:3000 (admin / GRAFANA_ADMIN_PASSWORD)
-   # → "OpenShiksha — Overview" dashboard auto-provisioned, panels render
    ```
 
 5. **Backup freshness gauge reads real data** (after the next nightly backup, or a

@@ -2,12 +2,22 @@
 #
 # Provisioned with a Prometheus datasource (the OACT-1 prometheus:9090 Service)
 # and the MET-5 starter dashboard (docs/ops/grafana/openshiksha-overview.json),
-# both auto-loaded at startup. NO Ingress - reach it via:
+# both auto-loaded at startup.
+#
+# Access (primary): login-gated at https://openshiksha.org/grafana. The prod
+# overlay's ingress (k8s/overlays/prod/ingress-patch.yaml, added in #494) routes
+# /grafana → this Service, and the Deployment below serves from that sub-path
+# (GF_SERVER_ROOT_URL + GF_SERVER_SERVE_FROM_SUB_PATH=true) so no strip-prefix
+# middleware is needed. NOTE: the ingress /grafana route auto-deploys with the
+# prod overlay, but the `grafana` Service only exists once an operator applies
+# k8s/monitoring — until then /grafana returns 503 (mirrors the caveat in the
+# ingress patch). Admin password comes from openshiksha-secrets
+# (GRAFANA_ADMIN_PASSWORD).
+#
+# Access (fallback): in-cluster port-forward, for debugging before the ingress is
+# live or when the sub-path is misbehaving:
 #
 #   kubectl -n openshiksha-prod port-forward svc/grafana 3000:3000
-#
-# Keeping Grafana off the public internet avoids a new attack surface on the live
-# droplet. Admin password comes from openshiksha-secrets (GRAFANA_ADMIN_PASSWORD).
 #
 # The dashboard JSON declares a `${DS_PROMETHEUS}` datasource input; file-based
 # provisioning doesn't resolve `__inputs`, so the provisioned datasource is marked

@@ -22,6 +22,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
 
 from openshiksha.apps.ai.llm_client import (
     generate_hint_sequence,
+    generate_practice_problem,
     generate_questions,
     generate_step_hint,
     generate_widget_config,
@@ -90,6 +91,7 @@ from .serializers import (
     ParentProgressSummarySerializer,
     PerformancePredictionSerializer,
     PracticePlanSerializer,
+    PracticeProblemRequestSerializer,
     QuestionDifficultyCalibrationSerializer,
     ReviewOpenResponseSerializer,
     SpacedRepetitionEntrySerializer,
@@ -1030,6 +1032,77 @@ class WidgetAuthoringViewSet(ViewSet):
                 # DTB-5: validated per-student sampling ranges for any {{var}}
                 # bindings (empty {} when the proposal isn't randomised).
                 "variable_constraints": result.get("variable_constraints", {}),
+            }
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Propose-and-verify practice bank — AI problem proposer (PV-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class PracticeProblemViewSet(ViewSet):
+    """
+    POST /api/v1/ai/practice-problem/   — teacher-only
+
+    Propose-and-verify: a plain-English topic → the AI proposes a ``number-line``
+    ``{widget_config, correct_answer}`` practice problem, and PV-1's deterministic
+    ``verify_widget_problem`` engine **confirms the answer is actually reachable on
+    the widget before the problem is ever returned** (the exact DTB-4 "¾ on a 0.25
+    grid snaps to 0.8" bug class is caught here). **AI proposes, the engine
+    disposes** — correctness is never AI-decided.
+
+    The returned problem is *always* PV-1-verified by construction: the LLM
+    proposal is verified, then (if the answer is off-grid) the answer is
+    deterministically snapped onto the widget's grid and re-verified, then replaced
+    by a known-good safe problem if it still cannot be verified. The grader is
+    untouched — AI only proposes.
+
+    Request body:
+        topic   string   what the problem should be about ("mark 3/4 on a number line")
+
+    Response: 200 with
+        {"widget_kind", "widget_config", "correct_answer", "model_used",
+         "ai_available", "repaired", "verdict_code"}
+        — ``correct_answer`` is ``{"answer": <value>}`` in the grader's own shape,
+        guaranteed reachable on ``widget_config``.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+        if request.user.role != UserRole.TEACHER:
+            return Response(
+                {"detail": "Only teachers can generate practice problems."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = PracticeProblemRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        try:
+            result = generate_practice_problem(topic=d["topic"])
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("generate_practice_problem: unexpected error")
+            return Response(
+                {"detail": "Practice-problem generation failed. Please try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "widget_kind": result["widget_kind"],
+                "widget_config": result["widget_config"],
+                "correct_answer": result["correct_answer"],
+                "model_used": result["model"],
+                "ai_available": result["ai_available"],
+                "repaired": result["repaired"],
+                # PV-1's verdict code for the returned problem (e.g. "ok",
+                # "safe_default") — provenance for the UI/tests.
+                "verdict_code": result["verdict_code"],
             }
         )
 

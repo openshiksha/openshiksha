@@ -18,7 +18,9 @@ import pytest
 
 from openshiksha.apps.core.problem_verifier import (
     ANSWER_PRODUCING_WIDGET_KINDS,
+    SAFE_DEFAULT_PROBLEM,
     ProblemVerdict,
+    snap_literal_answer,
     verify_widget_problem,
 )
 
@@ -227,3 +229,65 @@ def test_variable_token_without_constraints_falls_back_to_literal_path():
     )
     assert v.ok is False
     assert v.code == "answer_not_numeric"
+
+
+# --------------------------------------------------------------------------- #
+# PV-2 guardrail helpers — snap-repair + the safe-default problem
+# --------------------------------------------------------------------------- #
+
+
+def test_safe_default_problem_is_verified_reachable():
+    """The deterministic fallback must itself pass PV-1 — never ship an unverified default."""
+    v = verify_widget_problem(
+        SAFE_DEFAULT_PROBLEM["widget_kind"],
+        SAFE_DEFAULT_PROBLEM["widget_config"],
+        SAFE_DEFAULT_PROBLEM["correct_answer"],
+    )
+    assert v.ok is True
+
+
+def test_snap_repairs_the_dtb4_off_grid_answer():
+    # ¾ on a step-0.25 axis snaps to 0.8 — snapping makes the answer reachable.
+    config = {"min": 0, "max": 1, "step": 0.25}
+    repaired = snap_literal_answer("number-line", config, {"answer": 0.75})
+    assert repaired == {"answer": 0.8}
+    # And the repaired answer now verifies (snap is idempotent → reachable).
+    assert verify_widget_problem("number-line", config, repaired).ok is True
+
+
+def test_snap_repairs_an_out_of_range_answer():
+    config = {"min": 0, "max": 10, "step": 1}
+    repaired = snap_literal_answer("number-line", config, {"answer": 42})
+    assert repaired == {"answer": 10}  # clamped into range, on the grid
+    assert verify_widget_problem("number-line", config, repaired).ok is True
+
+
+def test_snap_preserves_an_already_reachable_answer():
+    config = {"min": 0, "max": 10, "step": 1}
+    repaired = snap_literal_answer("number-line", config, {"answer": 7})
+    assert repaired == {"answer": 7}
+
+
+def test_snap_preserves_extra_answer_keys():
+    config = {"min": 0, "max": 10, "step": 1}
+    repaired = snap_literal_answer("number-line", config, {"answer": 6.4, "tolerance": 0.1})
+    assert repaired == {"answer": 6, "tolerance": 0.1}
+
+
+def test_snap_returns_none_for_non_numeric_answer():
+    assert snap_literal_answer("number-line", {"min": 0, "max": 10, "step": 1}, {"answer": "abc"}) is None
+
+
+def test_snap_returns_none_for_variable_expression():
+    # A {{var}} answer can't be fixed by snapping a single value.
+    assert snap_literal_answer("number-line", {"min": 0, "max": 10, "step": 1}, {"answer": "{{a}}+1"}) is None
+
+
+def test_snap_returns_none_for_missing_answer():
+    assert snap_literal_answer("number-line", {"min": 0, "max": 10, "step": 1}, {}) is None
+    assert snap_literal_answer("number-line", {"min": 0, "max": 10, "step": 1}, "not-a-dict") is None
+
+
+def test_snap_returns_none_for_non_answer_producing_kind():
+    # Explanatory kinds don't bound the answer — nothing on a grid to snap.
+    assert snap_literal_answer("fraction-bar", {"numerator": 1, "denominator": 2}, {"answer": 3}) is None

@@ -315,6 +315,18 @@ class WidgetAuthoringRequestSerializer(serializers.Serializer):
     allow_variables = serializers.BooleanField(required=False, default=False)
 
 
+class PracticeProblemRequestSerializer(serializers.Serializer):
+    """Request body for the propose-and-verify practice-problem proposer (PV-2).
+
+    A plain-English topic → the AI proposes a number-line ``widget_config`` +
+    ``correct_answer``, which PV-1's ``verify_widget_problem`` gates (and, if the
+    answer is off-grid, deterministically snaps onto the widget's grid) before it
+    is ever returned. Correctness is never AI-decided — the engine disposes.
+    """
+
+    topic = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
 class StepHintRequestSerializer(serializers.Serializer):
     """Request body for the Guided step-validator AI wrong-step explainer (GSV-3).
 

@@ -1991,3 +1991,211 @@ def generate_widget_config(description: str, kind_hint: str | None = None, allow
 
     logger.warning("generate_widget_config: no LLM provider available — returning safe default")
     return _stub_widget_proposal(description)
+
+
+# ─────────────────────────────────────────────────────────────
+# Propose-and-verify practice bank — AI problem proposer (PV-2)
+#
+# The Phase-3 flagship: the AI *proposes* a widget problem (config + the
+# question's correct_answer) and a **deterministic engine confirms it is
+# well-posed and the answer is actually reachable** before anything is returned.
+# **AI proposes, the engine disposes** — correctness is never AI-decided.
+#
+# This mirrors DTB-2 (validate → repair → safe default), but the guardrail is
+# PV-1's ``verify_widget_problem`` instead of just schema-validity: a proposal
+# whose answer the widget can't emit is repaired by snapping the answer onto the
+# widget's own grid (deterministic, reachability-guaranteed), and an
+# un-repairable proposal falls to a known-good deterministic problem. Scoped to
+# ``number-line`` — the answer-producing kind where reachability actually binds
+# (explanatory kinds don't constrain the answer, so there is nothing to verify).
+# ─────────────────────────────────────────────────────────────
+
+PRACTICE_PROBLEM_MAX_TOKENS = 600
+
+# The only kind PV-2 proposes for: the answer-producing number-line, where the
+# widget bounds the answer space and PV-1's reachability check does real work.
+_PRACTICE_PROBLEM_KIND = "number-line"
+
+
+def _build_practice_problem_prompt(topic: str) -> str:
+    import json
+
+    from openshiksha.apps.core.widgets import get_widget_schema
+
+    schema = get_widget_schema(_PRACTICE_PROBLEM_KIND) or {}
+    props = json.dumps({"properties": schema.get("properties", {})}, ensure_ascii=False)
+
+    return (
+        "You design short practice problems for school students using a single "
+        "interactive widget: a NUMBER LINE the student drags to mark one value. "
+        "You emit only DATA — never code or HTML.\n\n"
+        f'Topic the teacher wants a problem about:\n"{topic}"\n\n'
+        f"The number-line widget_config schema (use ONLY these fields):\n{props}\n\n"
+        "Produce a practice problem as:\n"
+        "- widget_config: the axis — min, max, step, and a label prompting what to "
+        "mark. Choose the range and step so the intended answer lands EXACTLY on "
+        "the step grid. For example, to mark 3/4 use step 0.25 on a 0..1 axis "
+        "(NOT step 0.1, on which 0.75 is not a grid point).\n"
+        "- correct_answer: the single numeric value the student should mark. It "
+        "MUST be reachable on the grid you chose — i.e. min + k·step for some whole "
+        "number k, and within [min, max].\n\n"
+        "Return the widget_config and the numeric correct_answer."
+    )
+
+
+_PRACTICE_PROBLEM_TOOL = {
+    "name": "save_practice_problem",
+    "description": "Save the proposed number-line practice problem (config + the value to mark).",
+    "input_schema": {
+        "type": "object",
+        "required": ["widget_config", "correct_answer"],
+        "properties": {
+            "widget_config": {
+                "type": "object",
+                "description": "number-line config: min, max, step, label.",
+            },
+            "correct_answer": {
+                "type": "number",
+                "description": "The value the student should mark; must land on the step grid.",
+            },
+        },
+    },
+}
+
+
+def _finalize_problem_proposal(
+    raw_config: object,
+    raw_answer: object,
+    topic: str,
+    model: str,
+) -> dict:
+    """Run an LLM problem proposal through the deterministic PV-1 guardrail.
+
+    validate-config → PV-1 verify → snap-repair the answer → deterministic safe
+    problem, returning a problem that is **always** PV-1-verified. ``ai_available``
+    is True only when the returned problem genuinely came from the model (possibly
+    with the config clamp-repaired or the answer snapped onto the grid); when the
+    proposal had to be discarded for the canned default it is False, so the UI
+    badges provenance honestly. The grader is untouched — AI only proposes.
+    """
+    from openshiksha.apps.core.problem_verifier import snap_literal_answer, verify_widget_problem
+    from openshiksha.apps.core.widgets import is_valid_widget_config, repair_widget_config
+
+    kind = _PRACTICE_PROBLEM_KIND
+
+    # 1. Get a schema-valid config (accept as-is / one clamp-repair pass / give up).
+    config: object = None
+    repaired_flag = False
+    if isinstance(raw_config, dict) and raw_config and is_valid_widget_config(kind, raw_config):
+        config = raw_config
+    else:
+        repaired = repair_widget_config(kind, raw_config)
+        if repaired and is_valid_widget_config(kind, repaired):
+            config, repaired_flag = repaired, True
+    if config is None:
+        return _stub_practice_problem(topic)
+
+    # 2. Wrap the proposed answer into the grader's own shape.
+    correct_answer: dict = {"answer": raw_answer}
+
+    # 3. PV-1 gate: is the problem well-posed and the answer reachable on the widget?
+    verdict = verify_widget_problem(kind, config, correct_answer)
+    if not verdict.ok:
+        # 4. Bounded deterministic repair: snap the answer onto the widget's grid
+        #    (reachability-guaranteed, since the snap is idempotent) and re-verify.
+        snapped = snap_literal_answer(kind, config, correct_answer)
+        if snapped is not None:
+            reverdict = verify_widget_problem(kind, config, snapped)
+            if reverdict.ok:
+                correct_answer, verdict, repaired_flag = snapped, reverdict, True
+
+    # 5. Still unverifiable (non-numeric answer, un-snappable) → safe default.
+    if not verdict.ok:
+        return _stub_practice_problem(topic)
+
+    return {
+        "widget_kind": kind,
+        "widget_config": config,
+        "correct_answer": correct_answer,
+        "model": model,
+        "ai_available": True,
+        "repaired": repaired_flag,
+        "verdict_code": verdict.code,
+    }
+
+
+def _stub_practice_problem(topic: str) -> dict:
+    """Deterministic, PV-1-verified default problem — the no-LLM / unsalvageable path."""
+    from openshiksha.apps.core.problem_verifier import SAFE_DEFAULT_PROBLEM
+
+    return {
+        "widget_kind": SAFE_DEFAULT_PROBLEM["widget_kind"],
+        "widget_config": dict(SAFE_DEFAULT_PROBLEM["widget_config"]),
+        "correct_answer": dict(SAFE_DEFAULT_PROBLEM["correct_answer"]),
+        "model": "stub",
+        "ai_available": False,
+        "repaired": False,
+        "verdict_code": "safe_default",
+    }
+
+
+def _parse_problem_json(text: str) -> tuple[object, object]:
+    """Extract (widget_config, correct_answer) from JSON text."""
+    import json as _json
+
+    cleaned = text.lstrip("```json").lstrip("```").rstrip("```").strip()
+    data = _json.loads(cleaned)
+    if not isinstance(data, dict):
+        return None, None
+    return data.get("widget_config"), data.get("correct_answer")
+
+
+def generate_practice_problem(topic: str) -> dict:
+    """Propose a verified number-line practice problem from a plain-English topic.
+
+    Provider cascade (Claude tool-use → Gemini/Ollama JSON → deterministic
+    default). Every path returns a problem PV-1's ``verify_widget_problem`` has
+    passed — the LLM proposal is verified, then (if the answer is off-grid) the
+    answer is snapped onto the widget's grid and re-verified, then replaced by a
+    known-good safe problem if it still cannot be verified. AI proposes; the
+    deterministic engine disposes — correctness never touches the LLM.
+
+    Returns:
+        {"widget_kind": str, "widget_config": dict, "correct_answer": dict,
+         "model": str, "ai_available": bool, "repaired": bool, "verdict_code": str}
+    """
+    prompt = _build_practice_problem_prompt(topic)
+    json_hint = '\n\nRespond ONLY with JSON: {"widget_config": {...}, "correct_answer": <number>}, no markdown fences.'
+
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        try:
+            result = _call_anthropic_tool(prompt, anthropic_key, _PRACTICE_PROBLEM_TOOL, PRACTICE_PROBLEM_MAX_TOKENS)
+            if result:
+                data = result["data"]
+                return _finalize_problem_proposal(
+                    data.get("widget_config"), data.get("correct_answer"), topic, result["model"]
+                )
+        except Exception:
+            logger.exception("generate_practice_problem: Anthropic failed, trying next provider")
+
+    google_key = os.environ.get("GOOGLE_AI_API_KEY", "")
+    if google_key:
+        try:
+            res = _call_google_ai_studio(prompt + json_hint, google_key)
+            raw_config, raw_answer = _parse_problem_json(res["text"])
+            return _finalize_problem_proposal(raw_config, raw_answer, topic, res["model"])
+        except Exception:
+            logger.exception("generate_practice_problem: Google AI Studio call failed, trying next provider")
+
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL)
+    if _ollama_reachable(ollama_url):
+        try:
+            res = _call_ollama(prompt + json_hint, ollama_url)
+            raw_config, raw_answer = _parse_problem_json(res["text"])
+            return _finalize_problem_proposal(raw_config, raw_answer, topic, res["model"])
+        except Exception:
+            logger.exception("generate_practice_problem: Ollama failed, falling back to default")
+
+    logger.warning("generate_practice_problem: no LLM provider available — returning safe default")
+    return _stub_practice_problem(topic)

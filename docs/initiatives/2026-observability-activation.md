@@ -74,6 +74,41 @@ time is short: **OACT-1 + OACT-4 + OACT-5**.
 | OACT-4 | [#491](https://github.com/openshiksha/openshiksha/pull/491) | Two-phase prod backup pod: init `backup` writes `/work/result.env`, main `record` runs `record_backup_run … \|\| true`. Populates `openshiksha_backup_age_seconds`. Independent (auto-deploys). |
 | OACT-5 | _this PR_ | `docs/ops/monitoring-deploy.md` runbook + this ledger + STATUS close-out. |
 
+### Live-wiring follow-ups (post-Batch-1)
+
+After the Batch 1 close-out, the stack stopped being a drawer artifact and started
+being plugged into the live cluster:
+
+| # | PR | Notes |
+|:--:|---|---|
+| — | [#493](https://github.com/openshiksha/openshiksha/pull/493) | Exempt `/metrics/` from the HTTPS redirect so Prometheus can scrape it. |
+| — | [#494](https://github.com/openshiksha/openshiksha/pull/494) | Route `openshiksha.org/grafana` → the Grafana Service (login-gated sub-path). |
+
+### Batch 2 — durability & drift-safety (Shipped 2026-06-30)
+
+Hardening the now-live stack on the three axes a just-deployed monitoring stack
+fails on first — silent config drift, data loss on pod restart, and stale operator
+docs — plus giving the stack visibility into its own liveness.
+
+| # | PR | Notes |
+|:--:|---|---|
+| OACT-6 | [#498](https://github.com/openshiksha/openshiksha/pull/498) | Manifest-vs-docs **parity guard**: pytest asserts the ALT-1 rules and MET-5 dashboard embedded in the manifests match their canonical `docs/ops/` sources by parsed structure; drift fails CI. Closes the "keep the two in sync" comment-only gap. |
+| OACT-7 | [#499](https://github.com/openshiksha/openshiksha/pull/499) | Reconcile the stale Grafana access docs: `grafana.yaml` header + `monitoring-deploy.md` now describe the real `openshiksha.org/grafana` sub-path access (#494) with the 503-until-`k8s/monitoring`-applied ordering; port-forward demoted to fallback. |
+| OACT-8 | [#500](https://github.com/openshiksha/openshiksha/pull/500) | **Self-scrape** the stack: `prometheus` + `alertmanager` scrape jobs + a `MonitoringTargetDown` rule (`up{job=~"prometheus\|alertmanager"}==0`, `for 10m`, warning) in the canonical source, re-copied to the manifest (parity-guarded by OACT-6). Closes the "who watches the watcher" gap. |
+| OACT-9 | [#501](https://github.com/openshiksha/openshiksha/pull/501) | Opt-in **persistent-storage overlay** `k8s/monitoring-persistent/`: swaps the Prometheus TSDB + Grafana `emptyDir` volumes to PVCs (JSON6902 patches) so history survives pod restarts; base stays light. Both variants CI-gated. |
+| OACT-11 | _this PR_ | Batch 2 ledger + STATUS update + change doc. |
+
+**Learnings:**
+- Kustomize forbids an overlay whose base is its **ancestor** directory ("cycle
+  detected") — the persistent overlay had to be a sibling (`k8s/monitoring-persistent`)
+  referencing `../monitoring`, not nested under it.
+- This kustomize build (kubectl v1.34) does **not** honour the `$retainKeys`
+  strategic-merge directive (it leaves the directive key + both volume sources in
+  the output). Replacing a volume's `emptyDir` with a PVC needs an explicit
+  JSON6902 remove-then-add.
+- The parity guard compares **parsed** structure, not bytes — tolerating the
+  block-scalar embed's reflow while still catching real content drift.
+
 ## Definition of Done
 
 - [x] `k8s/monitoring/` renders and passes kubeconform `-strict` in CI.
@@ -97,6 +132,8 @@ step — `kubectl apply -k k8s/monitoring` on the droplet — is the documented
   action** (resource headroom call), not a CI step.
 - Provisioning `VITE_SENTRY_DSN`, `METRICS_TOKEN`, `ALERT_NTFY_URL`,
   `GRAFANA_ADMIN_PASSWORD` into `openshiksha-secrets` is operational.
-- Persistent (PVC-backed) Prometheus TSDB / Grafana state is deferred — the
-  manifests use `emptyDir` to stay light on the single droplet; an operator who
-  wants retention across pod restarts swaps in a PVC.
+- ~~Persistent (PVC-backed) Prometheus TSDB / Grafana state is deferred.~~
+  **Delivered in Batch 2 (OACT-9, [#501](https://github.com/openshiksha/openshiksha/pull/501)):**
+  the base still uses `emptyDir` to stay light; an operator who wants retention
+  across pod restarts applies the opt-in `k8s/monitoring-persistent` overlay
+  instead of the base.

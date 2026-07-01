@@ -1,0 +1,29 @@
+# PVCs backing the monitoring stack's durable state (OACT-9). No storageClassName
+# → the k3s default `local-path` provisioner binds them on the droplet; a non-k3s
+# operator sets an explicit class. Sizes are conservative starting points for a
+# single-node droplet with the base's 7d Prometheus retention.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-tsdb
+  labels:
+    app: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  labels:
+    app: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

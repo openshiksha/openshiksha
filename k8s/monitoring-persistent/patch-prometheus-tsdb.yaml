@@ -1,0 +1,9 @@
+# Swap the Prometheus `tsdb` volume (the last volume, index 3: config, rules,
+# secrets, tsdb) from `emptyDir` to the prometheus-tsdb PVC. Remove the emptyDir
+# source, then add the PVC source on the same volume — a Volume may set only one.
+- op: remove
+  path: /spec/template/spec/volumes/3/emptyDir
+- op: add
+  path: /spec/template/spec/volumes/3/persistentVolumeClaim
+  value:
+    claimName: prometheus-tsdb

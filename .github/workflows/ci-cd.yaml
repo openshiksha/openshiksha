@@ -94,12 +94,18 @@ jobs:
               # above never renders it. Gate it the same way so a typo in the
               # Prometheus/Alertmanager/Grafana manifests fails at PR time, not at
               # `kubectl apply` on the droplet.
+              # The persistent overlay (k8s/monitoring-persistent, OACT-9) is the
+              # opt-in PVC-backed variant of the same stack; render+validate it too
+              # so a typo in the overlay's PVCs or volume patches also fails at PR
+              # time. Both variants are gated on every PR.
               run: |
-                echo "::group::monitoring"
-                kubectl kustomize k8s/monitoring \
-                  | kubeconform -strict -summary -ignore-missing-schemas \
-                      -kubernetes-version 1.31.0 -
-                echo "::endgroup::"
+                for stack in k8s/monitoring k8s/monitoring-persistent; do
+                  echo "::group::$stack"
+                  kubectl kustomize "$stack" \
+                    | kubeconform -strict -summary -ignore-missing-schemas \
+                        -kubernetes-version 1.31.0 -
+                  echo "::endgroup::"
+                done
 
     alerting-lint:
         name: Alerting Artifacts (promtool + amtool)

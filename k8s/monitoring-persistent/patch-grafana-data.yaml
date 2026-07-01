@@ -1,0 +1,9 @@
+# Swap the Grafana `grafana-data` volume (the last volume, index 3: datasources,
+# dashboards-provider, dashboard-overview, grafana-data) from `emptyDir` to the
+# grafana-data PVC. See patch-prometheus-tsdb.yaml for the remove-then-add shape.
+- op: remove
+  path: /spec/template/spec/volumes/3/emptyDir
+- op: add
+  path: /spec/template/spec/volumes/3/persistentVolumeClaim
+  value:
+    claimName: grafana-data

@@ -12,7 +12,7 @@
 #
 # Default entrypoint runs a backup; the restore script is also present and is
 # invoked explicitly (e.g. by a one-off restore Job — see docs/ops/backups.md).
-FROM postgres:15-alpine
+FROM postgres:18-alpine
 
 # bash for the scripts (alpine ships ash by default); ca-certificates for TLS to
 # the S3 endpoint; curl to fetch mc at build time.

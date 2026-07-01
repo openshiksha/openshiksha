@@ -54,3 +54,29 @@ tests:
             exp_annotations:
               summary: "Grading queue backlog (>50 pending for 30m)"
               description: "60 submissions have been awaiting a grade for over 30m (threshold 50). Check the Celery worker and the grade_submission task — the grading pipeline may be stalled or under-provisioned."
+
+  # OACT-8 monitoring self-health: alertmanager down (up==0) held past the 10m
+  # `for:` MUST fire MonitoringTargetDown (warning); a healthy up==1 must NOT.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="alertmanager"}'
+        values: "0x15" # down, held past the 10m `for:` window
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: MonitoringTargetDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: alertmanager
+            exp_annotations:
+              summary: "A monitoring-stack target is down"
+              description: "A monitoring-stack self-scrape target (alertmanager) has been unreachable for 10m (up == 0). Prometheus or Alertmanager is degraded, so alerting about that component is blind — check the monitoring stack pods in openshiksha-prod."
+
+  - interval: 1m
+    input_series:
+      - series: 'up{job="prometheus"}'
+        values: "1x15" # healthy — must never fire
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: MonitoringTargetDown
+        exp_alerts: []

@@ -46,6 +46,18 @@ data:
           credentials_file: /etc/prometheus/secrets/metrics_token
         static_configs:
           - targets: ["backend:8000"]
+
+      # Self-monitoring (OACT-8): scrape Prometheus's own /metrics and
+      # Alertmanager's, so the stack has an `up{}` series for itself. Without
+      # these, a degraded Prometheus or a down Alertmanager produces no signal to
+      # alert on — the "who watches the watcher" gap. The MonitoringTargetDown
+      # rule below fires on `up{job=~"prometheus|alertmanager"} == 0`.
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+      - job_name: alertmanager
+        static_configs:
+          - targets: ["alertmanager:9093"]
 ---
 # Verbatim copy of docs/ops/prometheus/openshiksha-alerts.yml (ALT-1). The canonical
 # source of truth stays in docs/ (validated by the `alerting-lint` CI job with
@@ -177,6 +189,19 @@ data:
                 Prometheus has been unable to scrape the openshiksha-backend target for
                 5m (up == 0). The /metrics endpoint — and likely the app — is
                 unreachable. Check the pod, readiness probe, and ingress.
+
+          - alert: MonitoringTargetDown
+            expr: up{job=~"prometheus|alertmanager"} == 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "A monitoring-stack target is down"
+              description: >-
+                A monitoring-stack self-scrape target ({{ $labels.job }}) has been
+                unreachable for 10m (up == 0). Prometheus or Alertmanager is degraded,
+                so alerting about that component is blind — check the monitoring stack
+                pods in openshiksha-prod.
 ---
 apiVersion: v1
 kind: Service

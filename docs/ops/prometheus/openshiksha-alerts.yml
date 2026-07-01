@@ -172,3 +172,22 @@ groups:
             Prometheus has been unable to scrape the openshiksha-backend target for
             5m (up == 0). The /metrics endpoint — and likely the app — is
             unreachable. Check the pod, readiness probe, and ingress.
+
+      # Monitoring-stack self-health (OACT-8): the stack scrapes its own Prometheus
+      # (job=prometheus) and Alertmanager (job=alertmanager) targets. If either is
+      # down, no other alert about that component can fire — this closes the
+      # "who watches the watcher" gap. Gated `for: 10m` so a rollout/restart of the
+      # monitoring stack itself doesn't flap. `warning`, not critical: the app can
+      # still serve while the monitoring stack cycles.
+      - alert: MonitoringTargetDown
+        expr: up{job=~"prometheus|alertmanager"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A monitoring-stack target is down"
+          description: >-
+            A monitoring-stack self-scrape target ({{ $labels.job }}) has been
+            unreachable for 10m (up == 0). Prometheus or Alertmanager is degraded,
+            so alerting about that component is blind — check the monitoring stack
+            pods in openshiksha-prod.

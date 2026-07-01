@@ -94,8 +94,9 @@ backend /metrics/  →  Prometheus (scrape + ALT-1 rules)  →  Alertmanager
 2. **Prometheus scrape target is UP**:
    ```bash
    kubectl -n openshiksha-prod port-forward svc/prometheus 9090:9090
-   # → http://localhost:9090/targets : openshiksha-backend should be UP
-   # → http://localhost:9090/rules   : the 8 ALT-1 rules should be loaded
+   # → http://localhost:9090/targets : openshiksha-backend, prometheus, and
+   #                                    alertmanager (OACT-8 self-scrape) should be UP
+   # → http://localhost:9090/rules   : the 8 ALT-1 rules + MonitoringTargetDown (OACT-8) loaded
    ```
 
 3. **Alertmanager is reachable** and the bridge is wired:

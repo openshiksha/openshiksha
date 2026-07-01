@@ -24,10 +24,29 @@ apply.*
 | Grafana | `grafana/grafana:11.2.0` | `grafana:3000` | Dashboards (Prometheus datasource + MET-5 overview) |
 
 **Resource footprint** (requests across the four containers): ~**0.21 vCPU** /
-~**0.47 GiB** memory requested (limits ~1.05 vCPU / ~0.94 GiB). All TSDB / Grafana
-state is `emptyDir` (ephemeral) to stay light — swap in a PVC if you want
-retention across pod restarts. **Confirm the droplet has headroom before
-applying.**
+~**0.47 GiB** memory requested (limits ~1.05 vCPU / ~0.94 GiB). **Confirm the
+droplet has headroom before applying.**
+
+### Ephemeral vs persistent storage
+
+The base `k8s/monitoring` uses `emptyDir` for both the Prometheus TSDB and
+Grafana's state — light, but a pod restart (node reboot, image bump,
+`kubectl rollout`) **wipes all metrics history and Grafana state**. Fine for a
+first-light apply; a data-loss trap once you rely on a week of trend data.
+
+For retention across restarts, apply the **opt-in persistent overlay instead of
+the base** — it swaps both volumes to `PersistentVolumeClaim`s (OACT-9):
+
+```bash
+kubectl apply -k k8s/monitoring-persistent   # PVC-backed, retains history
+# — vs —
+kubectl apply -k k8s/monitoring              # emptyDir, light, ephemeral
+```
+
+The overlay's PVCs (`prometheus-tsdb` 8Gi, `grafana-data` 2Gi) declare no
+`storageClassName`, so the k3s droplet's default `local-path` provisioner binds
+them. On a non-k3s cluster, set an explicit `storageClassName` on the two PVCs in
+`k8s/monitoring-persistent/pvcs.yaml`.
 
 ## Prerequisites (operator-provisioned, out-of-band)
 

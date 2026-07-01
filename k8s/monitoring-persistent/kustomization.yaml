@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Opt-in persistent-storage overlay for the monitoring stack (OACT-9).
+#
+# The base k8s/monitoring/ intentionally uses `emptyDir` for both the Prometheus
+# TSDB and Grafana's state so a first-light apply stays light. But `emptyDir` +
+# the base's `strategy: Recreate` means every pod restart (node reboot, image
+# bump, `kubectl rollout`) WIPES all metrics history and Grafana session state.
+# The moment an operator relies on a week of trend data, that's a data-loss trap.
+#
+# This overlay swaps both volumes to PersistentVolumeClaims. Apply it INSTEAD OF
+# the base when you want retention across restarts:
+#
+#   kubectl apply -k k8s/monitoring-persistent
+#
+# It is a SIBLING of k8s/monitoring (not nested under it): kustomize forbids an
+# overlay whose base is its own ancestor directory, and the base must stay
+# applyable as `kubectl apply -k k8s/monitoring`. This overlay layers the two PVCs
+# + volume patches on top of that base via `resources: ../monitoring`, so it never
+# duplicates the base resource list (no drift hazard).
+#
+# The PVCs declare no storageClassName, so on the k3s droplet the default
+# `local-path` provisioner binds them. A non-k3s operator sets their own class on
+# the two PVCs. ReadWriteOnce is correct here: single-node droplet + the base's
+# `Recreate` strategy means the old pod is torn down before the new one binds the
+# volume, so no two pods ever contend.
+namespace: openshiksha-prod
+
+resources:
+  - ../monitoring
+  - pvcs.yaml
+
+# JSON6902 patches: a strategic-merge patch can only ADD persistentVolumeClaim,
+# leaving emptyDir in place (a Volume may set only one source), and the
+# `$retainKeys` directive that would drop emptyDir is not honoured by this
+# kustomize build. So each patch explicitly removes the `emptyDir` source and
+# adds a `persistentVolumeClaim` on the same volume. Both target volumes are the
+# LAST volume (index 3) of their Deployment — a render+grep test guards the swap,
+# so a future volume reorder that breaks the index fails CI, not the droplet.
+patches:
+  - path: patch-prometheus-tsdb.yaml
+    target:
+      kind: Deployment
+      name: prometheus
+  - path: patch-grafana-data.yaml
+    target:
+      kind: Deployment
+      name: grafana

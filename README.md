@@ -147,7 +147,9 @@ feature/*  ──PR──▶  qa  ──(CI builds + deploys)──▶  producti
   the images and **deploys to production** (`openshiksha.org`) automatically, so
   it stays green and reviewed at all times.
 - A dedicated **qa environment** is wired but disabled until a second cluster
-  exists — see the `deploy-qa` job, gated behind the `QA_ENV_ENABLED` variable.
+  exists — see the `deploy-qa` job. Activation is config-driven: set the
+  `QA_ENV_BRANCH` (the branch that feeds qa) and `QA_ENV_ENABLED` repo variables;
+  both are unset today, so the job never runs.
 
 Deployment specifics (k3s, kustomize overlays, secrets, TLS, rollback) are in
 [`docs/deploy/README.md`](docs/deploy/README.md).

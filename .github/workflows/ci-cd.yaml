@@ -546,18 +546,24 @@ jobs:
     # ─── Deploy to QA env ────────────────────────────────────────────────────
     # DISABLED for now: there is no dedicated qa cluster yet. The single droplet
     # currently serves the PROD env, deployed from the `qa` branch (see deploy-prod
-    # below). The wiring here is a stale future-state sketch — it still triggers on
-    # the retired `modernization` branch, so the `if` below can never match. Before
-    # activating, decide which branch should feed a dedicated qa env (the old
-    # modernization -> qa flow no longer exists) and update the trigger. Gated off
-    # by the `QA_ENV_ENABLED` repo variable (currently unset, so this job never
-    # runs). To activate: provision a qa cluster + its `openshiksha-qa` secret,
-    # fix the branch trigger, then set the repo Actions variable QA_ENV_ENABLED=true.
+    # below), so no branch feeds a separate qa env today. This job is a future-state
+    # sketch of the wiring, kept as the reference implementation.
+    #
+    # Activation is fully config-driven so nothing here has to be edited (and no
+    # dead branch name is hard-coded — the trigger used to name the retired
+    # `modernization` branch, which no longer exists):
+    #   1. Provision a qa cluster + its `openshiksha-qa` secret.
+    #   2. Set repo Actions variable `QA_ENV_BRANCH` to the branch that should feed
+    #      qa (must differ from `qa`, which deploys to prod).
+    #   3. Set repo Actions variable `QA_ENV_ENABLED=true`.
+    # Both variables are unset today, so the `if` below can never match and the job
+    # never runs. `QA_ENV_BRANCH` unset ⇒ the ref compares against `refs/heads/`,
+    # which is never a real ref, so `QA_ENV_ENABLED` alone can't fire a deploy.
     deploy-qa:
         name: Deploy to QA Cluster
         timeout-minutes: 15
         needs: build-publish
-        if: github.ref == 'refs/heads/modernization' && vars.QA_ENV_ENABLED == 'true'
+        if: github.ref == format('refs/heads/{0}', vars.QA_ENV_BRANCH) && vars.QA_ENV_ENABLED == 'true'
         runs-on: ubuntu-latest
         environment: qa
         steps:

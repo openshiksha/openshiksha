@@ -17,6 +17,7 @@ from .views import (
     ParentProgressSummaryViewSet,
     PerformancePredictionViewSet,
     PracticePlanViewSet,
+    PracticeProblemViewSet,
     QuestionDifficultyCalibrationViewSet,
     SpacedRepetitionViewSet,
     StepHintViewSet,
@@ -48,6 +49,8 @@ router.register("explanations", SubpartExplanationViewSet, basename="explanation
 router.register("generate-questions", GenerateQuestionsViewSet, basename="generate-questions")
 # Describe-to-Build — AI Widget Authoring (teacher-only)
 router.register("widget-authoring", WidgetAuthoringViewSet, basename="widget-authoring")
+# Propose-and-verify practice bank — AI problem proposer (teacher-only, PV-2)
+router.register("practice-problem", PracticeProblemViewSet, basename="practice-problem")
 # Teacher AI Assistant — Weekly Class Reports (teacher-only)
 router.register("weekly-reports", WeeklyClassReportViewSet, basename="weekly-report")
 # Guided step-validator — AI wrong-step explainer (GSV-3)

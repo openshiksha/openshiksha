@@ -265,6 +265,64 @@ def _verify_variable(
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Propose-and-verify guardrail support (PV-2)
+#
+# PV-2's ``/ai/practice-problem/`` endpoint proposes a widget problem with an LLM
+# and must *never* ship one this engine can't pass. The two deterministic,
+# LLM-free helpers below are what the AI proposer rides on — exactly as DTB-2 rode
+# on ``repair_widget_config`` + ``SAFE_DEFAULT_CONFIGS``:
+#
+#   * :data:`SAFE_DEFAULT_PROBLEM` — a known-reachable ``number-line`` problem, the
+#     fallback when no LLM is available or its proposal can't be salvaged.
+#   * :func:`snap_literal_answer` — a bounded deterministic repair that moves a
+#     proposed literal answer onto the widget's own grid (reusing the same snap
+#     this module ports), so a slightly-off answer becomes reachable instead of
+#     failing the whole problem. Reachability after the snap is guaranteed because
+#     the snap is idempotent — snapping the snapped value reproduces it.
+#
+# None of this calls an LLM; it is the deterministic core PV-2 layers the proposer
+# on top of (principles #3 validate-before-store and #4 deterministic fallback).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# A known-good, reachable ``number-line`` problem. Used as the deterministic
+# fallback when the LLM is unavailable or its proposal can't be verified/repaired
+# — always a well-posed problem, never a 500 and never a stub shown as real (the
+# caller flags provenance honestly). Verified reachable by the test-suite.
+SAFE_DEFAULT_PROBLEM: dict[str, Any] = {
+    "widget_kind": "number-line",
+    "widget_config": {"min": 0, "max": 10, "step": 1, "label": "Mark the value"},
+    "correct_answer": {"answer": 7},
+}
+
+
+def snap_literal_answer(kind: str, config: Any, correct_answer: Any) -> Optional[dict]:
+    """Deterministically move a literal numeric answer onto the widget's grid.
+
+    Returns a repaired ``correct_answer`` dict whose ``answer`` is a value the
+    widget can actually emit (so :func:`verify_widget_problem` will then pass), or
+    ``None`` when there is nothing deterministic to repair: a non-answer-producing
+    kind, a missing/non-numeric answer, or a ``{{var}}`` expression (whose
+    per-student reachability can't be fixed by snapping a single value).
+
+    Reuses the module's own faithful port of the widget snap, so the returned
+    value is exactly what the student would report — and snapping is idempotent,
+    so the repaired answer is guaranteed reachable.
+    """
+
+    if kind not in ANSWER_PRODUCING_WIDGET_KINDS:
+        return None
+    if not isinstance(correct_answer, dict) or "answer" not in correct_answer:
+        return None
+    answer = _as_number(correct_answer["answer"])
+    if answer is None:
+        return None
+    cfg = config if isinstance(config, dict) else {}
+    lo, hi, step = _number_line_params(cfg)
+    snapped = _snap_number_line(answer, lo, hi, step)
+    return {**correct_answer, "answer": snapped}
+
+
 def verify_widget_problem(
     kind: str,
     config: Any,

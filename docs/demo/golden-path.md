@@ -794,3 +794,62 @@ python -m pytest openshiksha/apps/core/tests/test_problem_verifier.py
 → the AI proposes `{widget_config, correct_answer}`, **this verifier confirms it
 before it returns**, and an unverifiable proposal is repaired or falls back to a
 deterministic safe problem (the DTB-2 pattern, now gated on PV-1).
+
+## Beat 12 — The AI proposes a problem; the engine proves it answerable (PV-2) · *the proposer, off-screen*
+
+Beat 11 built the referee. This beat puts the AI on the field in front of it:
+`POST /api/v1/ai/practice-problem/` takes a plain-English **topic** ("mark 3/4 on
+a number line") and the AI proposes a `number-line`
+`{widget_config, correct_answer}` — but **Beat 11's `verify_widget_problem` gates
+every proposal before it can leave the server.** **AI proposes, the engine
+disposes.** This is the exact **Beat 1** (DTB-2) pattern — validate → repair →
+deterministic safe default — except the guardrail is now *reachability*, not just
+schema-validity.
+
+`generate_practice_problem(topic)` in
+[`apps/ai/llm_client.py`](../../backend/openshiksha/apps/ai/llm_client.py) runs the
+usual Claude → Gemini → Ollama → stub cascade, then hands the proposal to
+`_finalize_problem_proposal`, which is where the iron-clad guarantee lives:
+
+1. the config is accepted as-is, or **clamp-repaired** (Beat 1's
+   `repair_widget_config`), or the whole thing falls to a safe default;
+2. **PV-1 verifies** the `{config, answer}` pair;
+3. if the answer is *off the grid*, a **bounded deterministic repair** snaps it
+   onto the widget's own grid — reusing PV-1's faithful snap, so it is
+   reachability-*guaranteed* (snapping is idempotent) — and **re-verifies**;
+4. anything still un-verifiable → a **known-good, PV-1-passed safe problem**.
+
+So the endpoint **cannot return a problem the widget can't answer** — the very
+bug Beat 11 was built to catch. The prompt even teaches the model the Beat-3 ¾
+lesson ("to mark 3/4 use step 0.25 on a 0..1 axis, not step 0.1"), but the
+*guarantee* doesn't depend on the model getting it right: if the model still
+proposes `0.75` on a `step 0.25` axis, the deterministic snap ships `0.8` — the
+value that axis can actually mark — and flags `repaired: true`. Honest provenance
+rides on `ai_available` (a real proposal) vs the `stub`/`safe_default` fallback,
+exactly as Beat 1 does.
+
+**Why it's iron-clad:** the AI only ever *proposes* — reachability, and therefore
+gradeability, is decided by PV-1 **before the response is built** (principles 2 &
+3); there is a tested deterministic fallback for no-key/malformed/unverifiable
+(principle 4); the proposal is grounded in the real `number-line` schema and the
+real grid arithmetic (principle 5); and the returned `correct_answer` is in the
+grader's own `{"answer": …}` shape, guaranteed markable.
+
+**Verify it:**
+
+```bash
+cd backend
+# Guardrail (no DB): a reachable proposal passes through; a ¾-on-step-0.25
+# proposal is SNAP-REPAIRED to 0.8 (not rejected); a non-numeric answer and an
+# unsalvageable config both fall to the PV-1-verified safe default; no-provider
+# returns that safe default — every path asserted PV-1-valid. Plus the endpoint:
+# teacher-only, shape, 503-on-error.
+python -m pytest openshiksha/apps/ai/tests/test_practice_problem.py
+```
+
+Every returned problem is asserted to pass `verify_widget_problem` in the test's
+`_assert_verified` helper — the engine, not the test author, certifies each one.
+
+*Next slice (Phase 3):* PV-3 — the on-screen wow: a "Generate a practice problem"
+prompt box that calls this endpoint and renders the **verified** problem in the
+live sandbox preview with the answer shown, honest `AIBadge`, and fallback line.

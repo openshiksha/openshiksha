@@ -37,8 +37,11 @@
 
 ## Later / parked
 
-7. **PV-3 on-screen practice generator** — the last unshipped wow beat
-   (`ai-features` routine owns it); include in the video if it lands in time.
+7. **PV-3 on-screen practice generator** — the last unshipped wow beat.
+   PV-1 (reachability verifier) and PV-2 (`/ai/practice-problem/` endpoint, gated
+   on PV-1) both shipped off-screen (#496, 2026-06-30); only the on-screen prompt
+   box remains. `ai-features` routine owns it; include in the video if it lands
+   before picture lock (see the resolved scripting note in `video-plan.md`).
 8. **AI-tutor chat branch** (`ai/2026-06-04-ai-tutor-chat`) — stays parked.
    It's the "air" anti-pattern the whole demo positions *against*; reviving it
    would blur the bounded-AI story that makes the video distinctive.

@@ -28,20 +28,27 @@ children, open source, in three languages, working offline.
 | 1:40–2:05 | Trust & reach | Language switcher EN → हिंदी → मराठी on the student loop; airplane-mode toggle → the assignment keeps working, "Saved offline · will sync"; parent dashboard AI summary | "Three languages. Works without internet. Parents get a plain-language summary. Built for classrooms in India." |
 | 2:05–2:30 | CTA | README / architecture diagram / openshiksha.org / GitHub stars button | "OpenShiksha is open source and live. Link below." |
 
-**Open scripting questions:** whether to include the meta-story ("built by
-scheduled AI agents") in this video or save it for a separate devlog cut (see
-[`ideas.md`](ideas.md) #2); whether PV-3 (generate a whole verified practice
-problem) makes the cut once it ships on-screen.
+**Resolved (2026-07-01):** the meta-story ("built by scheduled AI agents")
+stays **out** of this cut — it goes to the separate devlog video ([`ideas.md`](ideas.md)
+#2) so the product video stays about kids and teachers, not tooling.
+
+**Open scripting question:** whether PV-3 (generate a whole verified practice
+problem) makes the cut. PV-1 and PV-2 have shipped off-screen (endpoint gated on
+the reachability verifier, #496, 2026-06-30); only the **on-screen** PV-3 prompt
+box is unshipped, and it's fenced to the `openshiksha-ai-features` routine — so
+this stays a *note*, not a task here. If PV-3 lands before picture lock, slot it
+between the multiplier (1:05) and the student loop as a second "AI proposes, the
+engine disposes" moment.
 
 ## Shot list
 
 | # | Shot | Route / setup | Demo beat | Status |
 |---|---|---|---|---|
-| 1 | Describe-to-Build generate + attach | Create Question → Add interactive widget | Beats 2–3 | ⬜ needs rehearsal (use step 0.25 axis; ¾ snap quirk) |
+| 1 | Describe-to-Build generate + attach | Create Question → Add interactive widget | Beats 2–3 | ✅ code-verified 2026-07-01 (26 tests: real ✨ + Auto- fallback + transport-error + pending); live-walk still pending. Script caveat: use a step-0.25 0..1 axis and mark **½**, not ¾ (¾=0.75 rounds to 0.8 on that grid) |
 | 2 | 🎲 randomized-per-student toggle | Same prompt box, checkbox on | Beat 5 | ⬜ needs two demo student logins |
 | 3 | Two students, different numbers | Open question as 2 students, split screen | Beat 4/5 | ⬜ needs seeded students with real names |
 | 4 | Student drags point → graded | Assignment detail as student | Beat 3 | ⬜ |
-| 5 | Step-solver live ✓/✗ + coach auto-feed | `/widgets/dev?kind=step-solver` (or QuestionCard if landed) | Beats 7, 10 | ⬜ decide playground vs. real student view |
+| 5 | Step-solver live ✓/✗ + coach auto-feed | `/widgets/dev?kind=step-solver` (or QuestionCard if landed) | Beats 7, 10 | ✅ code-verified 2026-07-01 (44 tests: live ✓/✗, commit-not-keystroke, bad-step auto-feed + ⚡ flag, correct never feeds). Playground only — coach is not yet in the real `QuestionCard` (golden-path GSV-4 follow-up), so shoot on `/widgets/dev` |
 | 6 | ✨ AI explanation of wrong step | Same, "Why is this wrong?" | Beat 9 | ⬜ requires live ANTHROPIC key (must show ✨, not Auto-) |
 | 7 | Language switch en→hi→mr | Student dashboard, switcher | LA initiative | ⬜ |
 | 8 | Offline: airplane mode mid-assignment | DevTools offline toggle, banner + queued save | MSO initiative | ⬜ rehearse replay-on-reconnect |
@@ -82,3 +89,11 @@ problem) makes the cut once it ships on-screen.
       mechanics) so the script can be judged against real frames.
 - [ ] **T-3 (2026-07-01):** Rehearse shot 8 (offline) end-to-end on the dev
       stack and document the exact toggle timing that looks clean on camera.
+- [ ] **T-4 (2026-07-01):** The 2:05 CTA sends viewers to `openshiksha.org`, but
+      there's no verified "try it in 60 seconds" path. Audit the landing route
+      (`frontend_modern/src/features/public/` + the login/auth flow) and
+      `seed_demo_data` for a demo/guest credential a stranger can use instantly.
+      Report: does a demo login exist? If yes, document the exact URL + creds for
+      the CTA card; if no, note it as a launch blocker (don't build it here — this
+      is an audit + doc task). Verify by loading the landing route on the dev
+      stack and attempting the demo path end-to-end.

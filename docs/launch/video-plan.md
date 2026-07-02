@@ -79,11 +79,20 @@ engine disposes" moment.
 > The plan routine appends dated, concrete tasks here; the execute routine works
 > them top-down and checks them off in its PR.
 
-- [ ] **T-1 (2026-07-01):** Audit `seed_demo_data` against the shot list —
-      does it produce a school with named students, a parent-child link, and
-      enough submission history for sparklines/streaks/parent-summary? Write
-      findings + gaps as a comment block at the top of the command file or a
-      note here; fix small gaps in the same PR.
+- [x] **T-1 (2026-07-01):** Audit `seed_demo_data` against the shot list.
+      **Done (PR #TBD):** audit written as a comment block atop the command.
+      Findings: every AI dashboard the video films (parent summary, streaks,
+      class insights, predictions) reads `edge.Tick` rows — the seed created
+      zero ticks and a single student, so those surfaces filmed empty. Fixed in
+      the same PR: 5 named Class-10A students (shots 2/3), a 2nd chapter for a
+      strong-vs-weak split, ~2 weeks of back-dated Tick history with per-student
+      ability profiles, per-student streaks (hero on 14 days), and graded
+      submissions. Verified against the analytics fns: class insights now show
+      Quadratic=AT_RISK / Linear=PROFICIENT, parent summary + predictions
+      non-empty, idempotent across re-runs. **Remaining gap:** derived rows
+      (LearningGap/PerformancePrediction/ParentProgressSummary) come from the
+      analytics Celery tasks — the recording env must run those once after
+      seeding (noted in the command output + docstring).
 - [ ] **T-2 (2026-07-01):** Create `docs/launch/assets/` and capture first-pass
       stills of shots 1, 4, 5 via Playwright (reuse the golden-path screenshot
       mechanics) so the script can be judged against real frames.

@@ -11,7 +11,19 @@
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
 
-**Last updated:** 2026-06-29 (latest) — **OBSERVABILITY ACTIVATION — BATCH 1
+**Last updated:** 2026-07-01 (latest) — **🎬 BUILD LANES RETIRED — FOCUS PIVOTS
+TO THE LAUNCH TRACK.** The platform is feature-complete for a launch; the
+bottleneck is now audience/content/users, not code. The `openshiksha-plan` and
+`openshiksha-execute` routines no longer advance this board — they now run the
+**launch video & direction track** in [`docs/launch/`](../launch/video-plan.md)
+(video plan + [ideas backlog](../launch/ideas.md)). `openshiksha-dependabot` is
+keep-the-lights-on maintenance only (CI/security/prod uptime). The
+`openshiksha-ai-features` routine continues its fenced initiative, now
+prioritized by video-beat value (PV-3 first, then demo hardening). **This
+priority table is historical context — do not pull new build work from it.**
+*(Prior update below.)*
+
+**Last updated:** 2026-06-29 — **OBSERVABILITY ACTIVATION — BATCH 1
 (OACT-1..5) SHIPPED.** The validated-but-dead observability artifacts are now a
 deployable, CI-gated standalone `k8s/monitoring/` stack (Prometheus + ALT-1 rules
 → Alertmanager + `alert_to_ntfy.py` sidecar → Grafana + MET-5 dashboard), plus a

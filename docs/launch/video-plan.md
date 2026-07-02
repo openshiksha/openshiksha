@@ -89,11 +89,37 @@ engine disposes" moment.
       mechanics) so the script can be judged against real frames.
 - [ ] **T-3 (2026-07-01):** Rehearse shot 8 (offline) end-to-end on the dev
       stack and document the exact toggle timing that looks clean on camera.
-- [ ] **T-4 (2026-07-01):** The 2:05 CTA sends viewers to `openshiksha.org`, but
-      there's no verified "try it in 60 seconds" path. Audit the landing route
-      (`frontend_modern/src/features/public/` + the login/auth flow) and
-      `seed_demo_data` for a demo/guest credential a stranger can use instantly.
-      Report: does a demo login exist? If yes, document the exact URL + creds for
-      the CTA card; if no, note it as a launch blocker (don't build it here — this
-      is an audit + doc task). Verify by loading the landing route on the dev
-      stack and attempting the demo path end-to-end.
+- [x] **T-4 (2026-07-01):** Audit for a "try it in 60 seconds" CTA path.
+      **Done (docs-only, this commit).**
+
+      **Findings:**
+      - The plan's assumed path `frontend_modern/src/features/public/` does not
+        exist. The landing page is `features/home/HomePage.tsx`, mounted at route
+        `/`. Its CTAs are `/login` and `/register/open` — there is **no
+        pre-provisioned one-click "demo login" button.**
+      - **No shared demo credential is exposed in production.** `seed_demo_data`
+        does mint stable demo logins (`student_demo` / `demo1234`, plus
+        `teacher_demo`, `parent_demo`, `admin_demo`, `openstudent_demo`, all
+        `demo1234`) — and, post-T-1, `student_demo` now lands on a *populated*
+        dashboard (streak, history, parent summary). But those accounts only
+        exist where the seed has been run (dev), **not** on prod `openshiksha.org`.
+      - The only instant self-serve path that works on prod today is
+        **`/register/open` → `POST /api/v1/auth/register/open/`**: creates an
+        `open_student` with just a username + password (≥8 chars; email/name
+        optional), returns a JWT immediately, no email verify / no join code.
+        Downside for a launch CTA: a freshly-registered open student lands in an
+        **empty** experience (no seeded history), a weaker first impression than
+        the `student_demo` dashboard the video itself films.
+
+      **Verdict — this is a launch blocker (do NOT build here):** there is no
+      productionised, populated, one-click demo login for a stranger hitting the
+      CTA. Two options for the plan routine to decide:
+      (a) run `seed_demo_data` in prod and surface read-only `student_demo /
+      demo1234` creds on the CTA card (matches what the video shows); or
+      (b) point the CTA at `/register/open` and accept/soften the empty first-run.
+      Recommendation: (a) for the launch — the seeded hero account is the exact
+      experience the film sells.
+
+      **Not yet done:** runtime verification (loading `/` and walking
+      `/register/open` on a running dev stack) — the audit above is code-level
+      only; the live-walk is left for a shot-list QA pass with the stack up.

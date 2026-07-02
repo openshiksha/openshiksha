@@ -80,7 +80,8 @@ engine disposes" moment.
 > them top-down and checks them off in its PR.
 
 - [x] **T-1 (2026-07-01):** Audit `seed_demo_data` against the shot list.
-      **Done (PR #TBD):** audit written as a comment block atop the command.
+      **Done ([#503](https://github.com/openshiksha/openshiksha/pull/503)):**
+      audit written as a comment block atop the command.
       Findings: every AI dashboard the video films (parent summary, streaks,
       class insights, predictions) reads `edge.Tick` rows — the seed created
       zero ticks and a single student, so those surfaces filmed empty. Fixed in

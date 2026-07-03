@@ -853,3 +853,59 @@ Every returned problem is asserted to pass `verify_widget_problem` in the test's
 *Next slice (Phase 3):* PV-3 — the on-screen wow: a "Generate a practice problem"
 prompt box that calls this endpoint and renders the **verified** problem in the
 live sandbox preview with the answer shown, honest `AIBadge`, and fallback line.
+
+
+## Beat 13 — "Generate a practice problem" → a verified problem renders, answer in hand (PV-3) · *the proposer, on screen*
+
+Beat 12 built the AI proposer and gated it behind Beat 11's verifier — but off
+screen (an endpoint + tests). This beat puts it **on screen**: the
+[`/widgets/dev`](../../frontend_modern/src/features/widgets/WidgetDevPage.tsx)
+playground now carries a **"Generate a practice problem"** card
+([`PracticeProblemPanel`](../../frontend_modern/src/features/widgets/PracticeProblemPanel.tsx)).
+A teacher types a plain-English topic — *"mark 1/2 on a number line from 0 to 1"* —
+and `usePracticeProblem` POSTs it to the PV-2 endpoint. The returned
+`{widget_config, correct_answer}` drops **straight into the same live sandbox
+preview a hand-picked widget uses**, with the **answer shown right below it** and
+a **`✓ Verified answerable`** pill next to an honest `AIBadge`.
+
+The wow is that *the answer is provably reachable before it renders.* The panel
+does **zero** client-side checking — it doesn't need to, because PV-1's
+`verify_widget_problem` gated the proposal server-side (Beat 12), snapping any
+off-grid answer onto the widget's own grid and re-verifying. So even the exact
+Beat-3 ¾ bug surfaces as a *feature*: ask for *"mark 3/4"* and the panel renders
+the problem with the answer shown as **0.8** (the value a `step 0.25` axis can
+actually mark) and a neutral **`Answer adjusted to the grid`** flag — never a
+value the student would be marked wrong on no matter what they do.
+
+**Why it's iron-clad:** the panel is a **host** surface outside the network-less
+sandbox (principle 1) and never reports a value to the grader — it only renders a
+preview + the answer (principle 2); the `{config, answer}` pair it trusts is
+verified-answerable by construction upstream (principles 3 & 5); and there is a
+tested deterministic fallback — no key / unsalvageable proposal shows the
+known-good, PV-1-passed **safe problem** with a neutral **`Auto-problem`** badge
+and a friendly "AI proposer is unavailable" line, never a stub dressed as a real
+generation (principles 4 & 6).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Hook: POSTs the topic, passes real / snap-repaired / safe-default shapes
+# through unchanged; panel: ✨-badge + verified pill + preview + answer on the
+# real path, the "adjusted to the grid" flag on a snap-repair, and the neutral
+# Auto-problem badge + "AI unavailable" line on the safe default; dev-page: the
+# generator is always wired in.
+npx vitest run src/features/widgets/usePracticeProblem.test.ts \
+  src/features/widgets/PracticeProblemPanel.test.tsx \
+  src/features/widgets/WidgetDevPage.test.tsx
+```
+
+Following the DTB-5b / GSV-4a precedent, this UI slice ships its proof as the
+Vitest suite; the reproducible screenshot/gif (type a topic → watch the verified
+problem + answer render) rides with **PV-4**, the demo-capture beat whose
+backend-free e2e drives the real `allow-scripts` iframe (the jsdom-unreachable
+tail).
+
+*Next slice (Phase 3):* PV-4 — the demo golden-path capture: an e2e that
+generates → verifies → renders → (student) grades a proposed problem, plus the
+screenshot/gif.

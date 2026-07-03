@@ -23,7 +23,7 @@ import type { LocaleDict } from './en';
  * array) so `t()` keys and locale params stay statically checked; the
  * `satisfies` below keeps the union and the registry honest about each other.
  */
-export type Locale = 'en' | 'hi';
+export type Locale = 'en' | 'hi' | 'mr';
 
 export interface LocaleMeta {
   /** Registry key — matches a `locales/<code>.ts` module. */
@@ -51,6 +51,7 @@ export const localeLoaders: Partial<
   Record<Locale, () => Promise<{ default?: LocaleDict } & Record<string, unknown>>>
 > = {
   hi: () => import('./hi'),
+  mr: () => import('./mr'),
 };
 
 export const LOCALES = [
@@ -69,6 +70,14 @@ export const LOCALES = [
     htmlLang: 'hi',
     intlLocale: 'hi-IN',
     coverage: 'complete',
+  },
+  {
+    code: 'mr',
+    label: 'मरा',
+    nativeName: 'मराठी',
+    htmlLang: 'mr',
+    intlLocale: 'mr-IN',
+    coverage: 'pilot',
   },
 ] as const satisfies readonly LocaleMeta[];
 

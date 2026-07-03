@@ -19,9 +19,11 @@ import { LOCALES, localeLoaders, type Locale, type LocaleMeta } from './locales/
 const TOTAL_KEYS = Object.keys(en).length;
 
 // Floors per pilot locale: the minimum key count that must stay covered. Raise
-// as a locale graduates surfaces; never let it drop. There are currently no
-// pilot locales (Marathi was removed); add an entry here when one ships.
-const PILOT_FLOORS: Partial<Record<Locale, number>> = {};
+// as a locale graduates surfaces; never let it drop. Marathi (mr) is the launch
+// pilot — the student loop the video films (switcher, auth, dashboard,
+// assignments, streaks, offline/sync). The floor is set a little under the
+// shipped subset so a stray deletion trips it without churning on every add.
+const PILOT_FLOORS: Partial<Record<Locale, number>> = { mr: 60 };
 
 const counts: Partial<Record<Locale, number>> = {};
 

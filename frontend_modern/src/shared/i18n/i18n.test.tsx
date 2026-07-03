@@ -5,6 +5,7 @@ import { useT } from './useT';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { en } from './locales/en';
 import { hi } from './locales/hi';
+import { LOCALES } from './locales/registry';
 
 /** Tiny probe component exposing the i18n surface to assertions. */
 const Probe = ({ vars }: { vars?: Record<string, string | number> }) => {
@@ -129,15 +130,15 @@ describe('i18n', () => {
   });
 
   describe('LanguageSwitcher', () => {
-    it('renders one button per registered locale (EN | हिं)', () => {
+    it('renders one button per registered locale (registry-driven)', () => {
       render(
         <I18nProvider>
           <LanguageSwitcher />
         </I18nProvider>,
       );
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(2);
-      expect(buttons.map((b) => b.textContent)).toEqual(['EN', 'हिं']);
+      expect(buttons).toHaveLength(LOCALES.length);
+      expect(buttons.map((b) => b.textContent)).toEqual(LOCALES.map((l) => l.label));
     });
 
     it('toggles the locale with aria-pressed state', async () => {

@@ -55,11 +55,11 @@ stronger at three and the model already carries `mr`.
 
 | # | Shot | Route / setup | Demo beat | Status |
 |---|---|---|---|---|
-| 1 | Describe-to-Build generate + attach | Create Question → Add interactive widget | Beats 2–3 | ✅ code-verified 2026-07-01 (26 tests: real ✨ + Auto- fallback + transport-error + pending); live-walk still pending. Script caveat: use a step-0.25 0..1 axis and mark **½**, not ¾ (¾=0.75 rounds to 0.8 on that grid) |
+| 1 | Describe-to-Build generate + attach | Create Question → Add interactive widget | Beats 2–3 | ✅ code-verified 2026-07-01 (26 tests: real ✨ + Auto- fallback + transport-error + pending); live-walk still pending. Script caveat: use a step-0.25 0..1 axis and mark **½**, not ¾ (¾=0.75 rounds to 0.8 on that grid). First-pass still committed: `docs/launch/assets/shot-01-describe-to-build.png` (T-2) |
 | 2 | 🎲 randomized-per-student toggle | Same prompt box, checkbox on | Beat 5 | ⬜ needs two demo student logins |
 | 3 | Two students, different numbers | Open question as 2 students, split screen | Beat 4/5 | ⬜ needs seeded students with real names |
 | 4 | Student drags point → graded | Assignment detail as student | Beat 3 | ⬜ |
-| 5 | Step-solver live ✓/✗ + coach auto-feed | `/widgets/dev?kind=step-solver` (or QuestionCard if landed) | Beats 7, 10 | ✅ code-verified 2026-07-01 (44 tests: live ✓/✗, commit-not-keystroke, bad-step auto-feed + ⚡ flag, correct never feeds). Playground only — coach is not yet in the real `QuestionCard` (golden-path GSV-4 follow-up), so shoot on `/widgets/dev` |
+| 5 | Step-solver live ✓/✗ + coach auto-feed | `/widgets/dev?kind=step-solver` (or QuestionCard if landed) | Beats 7, 10 | ✅ code-verified 2026-07-01 (44 tests: live ✓/✗, commit-not-keystroke, bad-step auto-feed + ⚡ flag, correct never feeds). Playground only — coach is not yet in the real `QuestionCard` (golden-path GSV-4 follow-up), so shoot on `/widgets/dev`. First-pass still committed: `docs/launch/assets/shot-05-step-solver.png` (T-2) |
 | 6 | ✨ AI explanation of wrong step | Same, "Why is this wrong?" | Beat 9 | ⬜ requires live ANTHROPIC key (must show ✨, not Auto-) |
 | 7 | Language switch en→hi | Student dashboard, switcher | LA initiative | ⚠️ drifted 2026-07-02: switcher ships **EN + हिंदी only** — Marathi is not selectable. `registry.ts` `LOCALES` = [en, hi], no `mr` dictionary; `coverage.test.ts:23` "Marathi was removed" (registry+coverage tests green, 9/9). Backend model still accepts `mr`. Script updated to two-language. To restore मराठी on screen see T-5 |
 | 8 | Offline: airplane mode mid-assignment | DevTools offline toggle, banner + queued save | MSO initiative | ⬜ rehearse replay-on-reconnect |
@@ -98,9 +98,18 @@ stronger at three and the model already carries `mr`.
       note here; fix small gaps in the same PR.
       **In review as [#503]** (launch/2026-07-01-seed-demo-history — "seed demo
       Tick history so AI dashboards film non-empty"); leave open until merged.
-- [ ] **T-2 (2026-07-01):** Create `docs/launch/assets/` and capture first-pass
+- [x] **T-2 (2026-07-01):** Create `docs/launch/assets/` and capture first-pass
       stills of shots 1, 4, 5 via Playwright (reuse the golden-path screenshot
       mechanics) so the script can be judged against real frames.
+      **Done (shots 1 & 5):** added the backend-free spec
+      `frontend_modern/e2e/launch-stills.spec.ts` (reuses the golden-path
+      `/widgets/dev` mechanics) which regenerates `docs/launch/assets/shot-01-
+      describe-to-build.png` and `shot-05-step-solver.png` on every run; both
+      committed with an assets README. `npx playwright test launch-stills` green
+      (2/2). **Shot 4 deferred** — a *real assignment* frame needs the seeded full
+      stack (auth + `seed_demo_data`, blocked on T-1/#503); the shot-1 frame
+      already shows the identical number-line drag→report backend-free. Left as a
+      note in the assets README for the stack-up QA pass.
 - [ ] **T-3 (2026-07-01):** Rehearse shot 8 (offline) end-to-end on the dev
       stack and document the exact toggle timing that looks clean on camera.
 - [x] **T-4 (2026-07-01):** Audit for a "try it in 60 seconds" CTA path.

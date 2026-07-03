@@ -5,6 +5,7 @@ import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
 import { widgetRegistry, type WidgetKind } from '@/widgets/registry';
 import type { WidgetModule, WidgetParamsSchema } from '@/widgets/_sdk/defineWidget';
 import { StepHintPanel } from './StepHintPanel';
+import { PracticeProblemPanel } from './PracticeProblemPanel';
 
 const WIDGET_KINDS = Object.keys(widgetRegistry).sort() as WidgetKind[];
 
@@ -373,6 +374,14 @@ export function WidgetDevPage() {
               <StepHintPanel previous={coachPrev} current={coachCur} />
             </Card>
           )}
+
+          {/* PV-3: the propose-and-verify practice-problem generator. Always
+              shown (it authors its own `number-line` problem, independent of the
+              currently-selected preview kind); every proposal is verified
+              answerable by PV-1 server-side before it renders here. */}
+          <Card>
+            <PracticeProblemPanel />
+          </Card>
         </section>
       </main>
     </div>

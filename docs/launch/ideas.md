@@ -32,16 +32,21 @@
 6. **Contribution funnel** — the widget SDK is the "good first issue" machine:
    *"write an interactive widget in an afternoon"* (`npm run widget:new`).
    A CONTRIBUTING section + 2–3 scoped widget ideas turns viewers into
-   contributors. Language #4 (Tamil — the non-Devanagari stress test) is the
-   other perfect community task: config + content, zero code.
+   contributors. Localization is the other perfect community task: config +
+   content, zero code. **Note (2026-07-02):** the frontend switcher currently
+   ships only **EN + हिंदी** — Marathi was removed from the registry
+   (`coverage.test.ts:23`), so the "three languages" claim is *not* live today.
+   Restoring `mr` (queued as T-5 in `video-plan.md`) is the cheapest first
+   language task; Tamil (the non-Devanagari stress test) is the second.
 
 ## Later / parked
 
-7. **PV-3 on-screen practice generator** — the last unshipped wow beat.
-   PV-1 (reachability verifier) and PV-2 (`/ai/practice-problem/` endpoint, gated
-   on PV-1) both shipped off-screen (#496, 2026-06-30); only the on-screen prompt
-   box remains. `ai-features` routine owns it; include in the video if it lands
-   before picture lock (see the resolved scripting note in `video-plan.md`).
+7. **PV-3 on-screen practice generator** — *in review as #504 (2026-07-02),* no
+   longer parked. The `PracticeProblemPanel` on `/widgets/dev` is built (33 tests
+   green on the branch, golden-path Beat 13); it just isn't merged to `qa` yet.
+   `ai-features` routine owns it — do not build here. This is the last wow beat;
+   once #504 merges it becomes shot 11 and the video gains a second "AI proposes,
+   the engine disposes" moment (see the resolved scripting note in `video-plan.md`).
 8. **AI-tutor chat branch** (`ai/2026-06-04-ai-tutor-chat`) — stays parked.
    It's the "air" anti-pattern the whole demo positions *against*; reviving it
    would blur the bounded-AI story that makes the video distinctive.

@@ -45,6 +45,12 @@ vi.mock('./StepHintPanel', () => ({
   ),
 }));
 
+// PV-3 — stub the practice-problem generator so the dev-page tests don't need a
+// QueryClientProvider; its own behaviour is covered by PracticeProblemPanel.test.tsx.
+vi.mock('./PracticeProblemPanel', () => ({
+  PracticeProblemPanel: () => <div data-testid="practice-problem-panel" />,
+}));
+
 function renderPage(route = '/widgets/dev') {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -73,6 +79,11 @@ describe('<WidgetDevPage />', () => {
 
     expect(screen.getByText(/fix the json error/i)).toBeInTheDocument();
     expect(screen.queryByTestId('widget-preview')).not.toBeInTheDocument();
+  });
+
+  it('always wires in the PV-3 practice-problem generator (independent of the preview kind)', () => {
+    renderPage('/widgets/dev?kind=number-line');
+    expect(screen.getByTestId('practice-problem-panel')).toBeInTheDocument();
   });
 
   it('shows the wrong-step AI coach (with a seeded line pair) only for step-solver', () => {

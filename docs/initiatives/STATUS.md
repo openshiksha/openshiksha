@@ -15,8 +15,9 @@
 TO THE LAUNCH TRACK.** The platform is feature-complete for a launch; the
 bottleneck is now audience/content/users, not code. The `openshiksha-plan` and
 `openshiksha-execute` routines no longer advance this board — they now run the
-**launch video & direction track** in [`docs/launch/`](../launch/video-plan.md)
-(video plan + [ideas backlog](../launch/ideas.md)). `openshiksha-dependabot` is
+**launch video & direction track** (an internal, non-public planning track —
+video script, shot list, and direction ideas — kept out of this repo).
+`openshiksha-dependabot` is
 keep-the-lights-on maintenance only (CI/security/prod uptime). The
 `openshiksha-ai-features` routine continues its fenced initiative, now
 prioritized by video-beat value (PV-3 first, then demo hardening). **This

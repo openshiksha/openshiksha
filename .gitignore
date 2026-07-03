@@ -68,3 +68,10 @@ Thumbs.db
 docker-compose.override.yml
 
 backend/openshiksha/apps/core/data/inferred_taxonomy_*.json
+
+# Launch/video planning is kept private — internal marketing/launch strategy
+# (script drafts, shot list, direction ideas, capture assets) that does not
+# belong in the public OSS repo. Files live locally under docs/launch/ and are
+# maintained by the openshiksha-plan / openshiksha-execute routines, never
+# committed. See MEMORY openshiksha-routines for the workflow.
+docs/launch/

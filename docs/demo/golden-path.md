@@ -909,3 +909,60 @@ tail).
 *Next slice (Phase 3):* PV-4 — the demo golden-path capture: an e2e that
 generates → verifies → renders → (student) grades a proposed problem, plus the
 screenshot/gif.
+
+---
+
+## Beat 14 — The student reaches the AI-proposed, engine-verified answer (PV-4) · *the payoff, on screen*
+
+Beats 11–13 ended with an AI-proposed problem *rendered* and its answer shown.
+This beat closes the Phase-3 loop the way Beat 3 closed Phase 1: a **student**
+picks up that exact verified widget, manipulates it, and reaches **precisely the
+value the engine proved reachable** — the value the deterministic per-subpart
+grader scores. **AI proposed the problem; the engine proved it answerable; the
+AI never graded it.**
+
+The teacher types *"mark 1/2 on a number line from 0 to 1"*; PV-2 proposes a
+`number-line` `{widget_config, correct_answer}` and Beat-11's
+`verify_widget_problem` gates it server-side, so the `{config, answer}` pair the
+panel renders is verified-answerable by construction. The verified problem lands
+in a **sandboxed iframe** (`sandbox="allow-scripts"`, deliberately *without*
+`allow-same-origin`); the student arrows the point to ½; the widget snaps to
+`step` and its live readout reports **0.5** — the *exact* answer the panel showed
+in hand, and the value the numeric grader marks against `correct_answer`. AI
+proposed; the engine verified; the student reached it.
+
+![Propose-and-verify: a verified AI practice problem (mark ½ on 0–1) renders in the sandbox with a ✓ Verified answerable pill, the student reaches 0.5, and the shown answer is 0.5](assets/pv4-practice-problem.png)
+
+**Why it's iron-clad:** the runtime is network-less and deterministic (principle
+1); the only thing that scores the student is the per-subpart grader reading the
+widget's reported value (principle 2); the AI's role ended at *proposing* the
+problem, which the engine verified before it rendered (principles 3 & 5). The
+grade signal — the student reaching exactly the verified answer — crosses a real
+sandbox boundary no jsdom unit test can exercise, so we pin it with a
+**real-browser e2e** that stays backend-free: it drives the public `/widgets/dev`
+playground and **stubs the PV-2 endpoint** with the exact verified shape the real
+endpoint returns (the real proposer + its PV-1 gate + fallback are pinned by the
+22 backend pytest tests). The e2e also drives the **deterministic fallback**: a
+no-key / unsalvageable proposal shows the known-good, PV-1-passed safe problem
+with a neutral `Auto-problem` badge and an "AI proposer is unavailable" line —
+still verified, still interactive, never a stub dressed as a real generation
+(principles 4 & 6).
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Renders the verified AI-proposed number line in the real sandbox, drives a
+# student interaction, and asserts the student reaches the shown answer 0.5 —
+# the value the deterministic grader scores. The second test drives the safe
+# fallback (Auto-problem badge + "AI unavailable" line, still verified &
+# interactive). Also (re)captures the screenshot above so it can never go stale:
+npx playwright test practice-problem-grade
+```
+
+The captured screenshot is regenerated on every run into
+`docs/demo/assets/pv4-practice-problem.png` (the e2e writes it as part of the
+assertion run) — the reproducible, not-hand-captured demo artifact for the
+propose-and-verify beat. **Phase 3 is now met end to end: an AI-proposed practice
+problem is deterministically verified answerable before it ships, the stub path
+is tested, and the propose-and-verify beat records into the golden path.**

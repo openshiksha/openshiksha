@@ -87,7 +87,7 @@ test.describe('describe-to-build — render → student interaction → grade si
 
     // Capture the demo screenshot reproducibly into the golden-path asset dir.
     await page.screenshot({
-      path: 'e2e/__artifacts__/dtb4-describe-to-build.png',
+      path: '../docs/demo/assets/dtb4-describe-to-build.png',
       fullPage: true,
     });
 

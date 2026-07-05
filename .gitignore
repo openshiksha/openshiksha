@@ -75,3 +75,6 @@ backend/openshiksha/apps/core/data/inferred_taxonomy_*.json
 # maintained by the openshiksha-plan / openshiksha-execute routines, never
 # committed. See MEMORY openshiksha-routines for the workflow.
 docs/launch/
+
+# Local Claude Code permissions — machine-specific, never for the public repo
+.claude/settings.local.json

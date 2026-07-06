@@ -2017,13 +2017,33 @@ PRACTICE_PROBLEM_MAX_TOKENS = 600
 _PRACTICE_PROBLEM_KIND = "number-line"
 
 
-def _build_practice_problem_prompt(topic: str) -> str:
+def _build_practice_problem_prompt(topic: str, allow_variables: bool = False) -> str:
     import json
 
     from openshiksha.apps.core.widgets import get_widget_schema
 
     schema = get_widget_schema(_PRACTICE_PROBLEM_KIND) or {}
     props = json.dumps({"properties": schema.get("properties", {})}, ensure_ascii=False)
+
+    # PV-5: per-student randomisation. Off by default so PV-2/3/4 callers get a
+    # fully-concrete problem; when on, the model may make the ANSWER a variable
+    # expression — the axis itself always stays concrete, because the verifier
+    # reasons about the literal min/max/step grid.
+    variables_block = ""
+    if allow_variables:
+        variables_block = (
+            "\nPER-STUDENT RANDOMISATION (requested): each student should get a "
+            "different value to mark. Keep every widget_config field a CONCRETE "
+            'number, but write correct_answer as a variable expression using "{{name}}" '
+            "tokens (lower-case identifiers), and declare every such name in a "
+            'top-level "variable_constraints" object of the form '
+            '{"name": {"min": <number>, "max": <number>, "integer": <true|false>}}. '
+            "Every sampled value of the expression MUST land on the axis grid: with "
+            'an integer step use {"integer": true} ranges inside [min, max] (e.g. axis '
+            '0..10 step 1 → correct_answer "{{a}}" with a: {"min": 1, "max": 9, '
+            '"integer": true}). Never declare a range that can produce an off-grid '
+            "or out-of-range answer.\n"
+        )
 
     return (
         "You design short practice problems for school students using a single "
@@ -2038,8 +2058,8 @@ def _build_practice_problem_prompt(topic: str) -> str:
         "(NOT step 0.1, on which 0.75 is not a grid point).\n"
         "- correct_answer: the single numeric value the student should mark. It "
         "MUST be reachable on the grid you chose — i.e. min + k·step for some whole "
-        "number k, and within [min, max].\n\n"
-        "Return the widget_config and the numeric correct_answer."
+        f"number k, and within [min, max].\n{variables_block}\n"
+        "Return the widget_config and the correct_answer."
     )
 
 
@@ -2055,8 +2075,18 @@ _PRACTICE_PROBLEM_TOOL = {
                 "description": "number-line config: min, max, step, label.",
             },
             "correct_answer": {
-                "type": "number",
-                "description": "The value the student should mark; must land on the step grid.",
+                "type": ["number", "string"],
+                "description": (
+                    "The value the student should mark; must land on the step grid. "
+                    'A number, or (PV-5, only when randomisation is requested) a "{{var}}" expression.'
+                ),
+            },
+            "variable_constraints": {
+                "type": "object",
+                "description": (
+                    "Optional (PV-5). Sampling range for each {{name}} token in correct_answer: "
+                    '{"name": {"min": number, "max": number, "integer": bool}}. Empty when not randomising.'
+                ),
             },
         },
     },
@@ -2068,6 +2098,8 @@ def _finalize_problem_proposal(
     raw_answer: object,
     topic: str,
     model: str,
+    raw_constraints: object = None,
+    allow_variables: bool = False,
 ) -> dict:
     """Run an LLM problem proposal through the deterministic PV-1 guardrail.
 
@@ -2077,9 +2109,25 @@ def _finalize_problem_proposal(
     with the config clamp-repaired or the answer snapped onto the grid); when the
     proposal had to be discarded for the canned default it is False, so the UI
     badges provenance honestly. The grader is untouched — AI only proposes.
+
+    PV-5: when ``allow_variables`` is set, ``correct_answer`` may be a ``{{var}}``
+    expression backed by ``raw_constraints`` — PV-1 then samples the croupier over
+    synthetic students and requires the answer reachable for **all** of them. The
+    axis stays concrete by construction: any ``{{var}}``-bound *config* field is
+    stripped (falls to the kind default), because the verifier reasons about the
+    literal min/max/step grid — a token axis would silently verify against
+    defaults. A failed variable verdict has no deterministic repair (snapping
+    can't fix a per-student expression), so it falls to the safe default. When
+    ``allow_variables`` is off, tokens anywhere are stripped/rejected as before.
     """
     from openshiksha.apps.core.problem_verifier import snap_literal_answer, verify_widget_problem
-    from openshiksha.apps.core.widgets import is_valid_widget_config, repair_widget_config
+    from openshiksha.apps.core.widgets import (
+        clean_variable_constraints,
+        extract_variable_tokens,
+        is_valid_widget_config,
+        reconcile_widget_variables,
+        repair_widget_config,
+    )
 
     kind = _PRACTICE_PROBLEM_KIND
 
@@ -2095,21 +2143,38 @@ def _finalize_problem_proposal(
     if config is None:
         return _stub_practice_problem(topic)
 
+    # 1b. The axis must be concrete: strip any {{var}}-bound config field (it
+    #     falls back to the kind default). Passing {} as the constraints makes
+    #     reconcile_widget_variables drop every token binding deterministically.
+    stripped, _ = reconcile_widget_variables(kind, config, {})
+    if stripped != config:
+        config, repaired_flag = stripped, True
+
     # 2. Wrap the proposed answer into the grader's own shape.
     correct_answer: dict = {"answer": raw_answer}
 
+    # 2b. PV-5 variable path: a {{var}} answer expression with validated,
+    #     answer-referenced constraints goes through PV-1's reachable-for-all
+    #     sampling. An unbacked token can't evaluate, so PV-1 rejects it there.
+    answer_tokens = extract_variable_tokens(raw_answer)
+    constraints: dict = {}
+    if allow_variables and answer_tokens:
+        constraints = clean_variable_constraints(raw_constraints, answer_tokens)
+
     # 3. PV-1 gate: is the problem well-posed and the answer reachable on the widget?
-    verdict = verify_widget_problem(kind, config, correct_answer)
-    if not verdict.ok:
-        # 4. Bounded deterministic repair: snap the answer onto the widget's grid
-        #    (reachability-guaranteed, since the snap is idempotent) and re-verify.
+    verdict = verify_widget_problem(kind, config, correct_answer, variable_constraints=constraints or None)
+    if not verdict.ok and not answer_tokens:
+        # 4. Bounded deterministic repair (literal answers only): snap the answer
+        #    onto the widget's grid (reachability-guaranteed, since the snap is
+        #    idempotent) and re-verify. A per-student expression can't be snapped.
         snapped = snap_literal_answer(kind, config, correct_answer)
         if snapped is not None:
             reverdict = verify_widget_problem(kind, config, snapped)
             if reverdict.ok:
                 correct_answer, verdict, repaired_flag = snapped, reverdict, True
 
-    # 5. Still unverifiable (non-numeric answer, un-snappable) → safe default.
+    # 5. Still unverifiable (non-numeric answer, un-snappable, or a randomized
+    #    range that misses the grid for some student) → safe default.
     if not verdict.ok:
         return _stub_practice_problem(topic)
 
@@ -2121,6 +2186,7 @@ def _finalize_problem_proposal(
         "ai_available": True,
         "repaired": repaired_flag,
         "verdict_code": verdict.code,
+        "variable_constraints": constraints if verdict.code == "ok_variable" else {},
     }
 
 
@@ -2136,21 +2202,23 @@ def _stub_practice_problem(topic: str) -> dict:
         "ai_available": False,
         "repaired": False,
         "verdict_code": "safe_default",
+        # The deterministic default is never randomised — a static, verified problem.
+        "variable_constraints": {},
     }
 
 
-def _parse_problem_json(text: str) -> tuple[object, object]:
-    """Extract (widget_config, correct_answer) from JSON text."""
+def _parse_problem_json(text: str) -> tuple[object, object, object]:
+    """Extract (widget_config, correct_answer, variable_constraints) from JSON text."""
     import json as _json
 
     cleaned = text.lstrip("```json").lstrip("```").rstrip("```").strip()
     data = _json.loads(cleaned)
     if not isinstance(data, dict):
-        return None, None
-    return data.get("widget_config"), data.get("correct_answer")
+        return None, None, None
+    return data.get("widget_config"), data.get("correct_answer"), data.get("variable_constraints")
 
 
-def generate_practice_problem(topic: str) -> dict:
+def generate_practice_problem(topic: str, allow_variables: bool = False) -> dict:
     """Propose a verified number-line practice problem from a plain-English topic.
 
     Provider cascade (Claude tool-use → Gemini/Ollama JSON → deterministic
@@ -2160,12 +2228,23 @@ def generate_practice_problem(topic: str) -> dict:
     known-good safe problem if it still cannot be verified. AI proposes; the
     deterministic engine disposes — correctness never touches the LLM.
 
+    PV-5: when ``allow_variables`` is set, the model may make ``correct_answer``
+    a croupier ``{{var}}`` expression with declared sampling ranges; PV-1 then
+    requires the answer reachable for **every** sampled student before the
+    problem can return, and the validated ranges ride back on
+    ``variable_constraints``. When unset (the default), any tokens are
+    stripped/rejected and ``variable_constraints`` is empty.
+
     Returns:
         {"widget_kind": str, "widget_config": dict, "correct_answer": dict,
-         "model": str, "ai_available": bool, "repaired": bool, "verdict_code": str}
+         "model": str, "ai_available": bool, "repaired": bool,
+         "verdict_code": str, "variable_constraints": dict}
     """
-    prompt = _build_practice_problem_prompt(topic)
-    json_hint = '\n\nRespond ONLY with JSON: {"widget_config": {...}, "correct_answer": <number>}, no markdown fences.'
+    prompt = _build_practice_problem_prompt(topic, allow_variables)
+    json_hint = (
+        '\n\nRespond ONLY with JSON: {"widget_config": {...}, "correct_answer": <number or "{{var}}" expression>, '
+        '"variable_constraints": {...}}, no markdown fences.'
+    )
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
@@ -2174,7 +2253,12 @@ def generate_practice_problem(topic: str) -> dict:
             if result:
                 data = result["data"]
                 return _finalize_problem_proposal(
-                    data.get("widget_config"), data.get("correct_answer"), topic, result["model"]
+                    data.get("widget_config"),
+                    data.get("correct_answer"),
+                    topic,
+                    result["model"],
+                    data.get("variable_constraints"),
+                    allow_variables,
                 )
         except Exception:
             logger.exception("generate_practice_problem: Anthropic failed, trying next provider")
@@ -2183,8 +2267,10 @@ def generate_practice_problem(topic: str) -> dict:
     if google_key:
         try:
             res = _call_google_ai_studio(prompt + json_hint, google_key)
-            raw_config, raw_answer = _parse_problem_json(res["text"])
-            return _finalize_problem_proposal(raw_config, raw_answer, topic, res["model"])
+            raw_config, raw_answer, raw_constraints = _parse_problem_json(res["text"])
+            return _finalize_problem_proposal(
+                raw_config, raw_answer, topic, res["model"], raw_constraints, allow_variables
+            )
         except Exception:
             logger.exception("generate_practice_problem: Google AI Studio call failed, trying next provider")
 
@@ -2192,8 +2278,10 @@ def generate_practice_problem(topic: str) -> dict:
     if _ollama_reachable(ollama_url):
         try:
             res = _call_ollama(prompt + json_hint, ollama_url)
-            raw_config, raw_answer = _parse_problem_json(res["text"])
-            return _finalize_problem_proposal(raw_config, raw_answer, topic, res["model"])
+            raw_config, raw_answer, raw_constraints = _parse_problem_json(res["text"])
+            return _finalize_problem_proposal(
+                raw_config, raw_answer, topic, res["model"], raw_constraints, allow_variables
+            )
         except Exception:
             logger.exception("generate_practice_problem: Ollama failed, falling back to default")
 

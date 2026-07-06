@@ -988,3 +988,60 @@ assertion run) — the reproducible, not-hand-captured demo artifact for the
 propose-and-verify beat. **Phase 3 is now met end to end: an AI-proposed practice
 problem is deterministically verified answerable before it ships, the stub path
 is tested, and the propose-and-verify beat records into the golden path.**
+
+---
+
+## Beat 15 — One topic, a different verified problem per student (PV-5) · *the multiplier, off-screen*
+
+Beat 4 randomized a *described widget* per student; this beat randomizes a
+**practice problem** — and keeps the Phase-3 guarantee intact for *every single
+student*. With `allow_variables` set on
+`POST /api/v1/ai/practice-problem/`, the AI may propose the `correct_answer` as
+a croupier `{{var}}` expression (e.g. `"{{a}}"` with
+`a: {min: 1, max: 9, integer: true}`), so each student gets a **different value
+to mark** on the same axis. Before the problem can return, Beat-11's
+`verify_widget_problem` runs its **reachable-for-all** sampling: it draws the
+variables exactly as the croupier will at grade time for a deterministic batch
+of synthetic students and requires *every* sampled answer to land on the
+widget's grid — a range that can produce even one off-grid answer
+(`unreachable_for_some`) never ships.
+
+Two deterministic guardrails make the proposal sound by construction
+(`apps/ai/llm_client.py::_finalize_problem_proposal`):
+
+- **The axis stays concrete.** Any `{{var}}`-bound *config* field is stripped
+  (the kind default applies), because the verifier reasons about the literal
+  `min/max/step` grid — a token axis would silently verify against defaults
+  while rendering something else.
+- **Only backed tokens evaluate.** `clean_variable_constraints` keeps only
+  valid ranges the answer expression actually references; an unbacked token
+  cannot be sampled, so PV-1 rejects it and the deterministic safe problem
+  ships instead. There is no snap-repair for an expression (a per-student
+  answer can't be moved onto the grid after the fact), so a failed variable
+  verdict falls straight to the safe default — honestly labelled, never a
+  stub-as-real. With the flag **off**, a token answer is rejected outright:
+  pre-PV-5 callers can never receive a `{{var}}`.
+
+**Why it's iron-clad:** AI on the host only (principle 1); the grader is
+untouched — it samples the same croupier and marks the same expression it
+always has (principle 2); the validated `variable_constraints` ride back for
+attach and everything is verified before return (principle 3); tested
+deterministic fallback on every unverifiable path (principle 4); the verifier
+samples the *real* croupier, not an imagined one (principle 5); provenance is
+`ai_available`/`model_used` as ever (principle 6).
+
+**Verify it:**
+
+```bash
+cd backend
+# PV-5 layer: variable answer verified reachable-for-all; float-range-on-integer-grid
+# rejected (unreachable_for_some → safe default); flag off → token never ships;
+# unbacked/invalid ranges → safe default; token axis field stripped; endpoint
+# passthrough + constraints in the response. Plus the pure helper battery.
+python -m pytest openshiksha/apps/ai/tests/test_practice_problem.py \
+  openshiksha/apps/core/tests/test_widget_variables.py -q
+```
+
+Following the Beat-4 (DTB-5) precedent, this backend slice ships its proof as
+the pytest suite; surfacing the toggle in the practice-problem panel (the
+on-screen randomize wow) is the natural **PV-5b** follow-up, mirroring DTB-5b.

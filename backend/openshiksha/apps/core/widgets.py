@@ -373,3 +373,39 @@ def reconcile_widget_variables(kind: str, config: Any, raw_constraints: Any) -> 
 
     constraints = {name: valid[name] for name in used}
     return out_config, constraints
+
+
+# Any ``{{ name }}`` token appearing inside a longer string (an answer
+# *expression* like ``"{{a}} / 2"``), unlike ``_TEMPLATE_TOKEN_RE`` which only
+# matches a string that is nothing but one token.
+_EMBEDDED_TOKEN_RE = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
+
+
+def extract_variable_tokens(text: Any) -> set[str]:
+    """All ``{{name}}`` identifiers referenced in ``text`` (non-str → empty)."""
+
+    if not isinstance(text, str):
+        return set()
+    return set(_EMBEDDED_TOKEN_RE.findall(text))
+
+
+def clean_variable_constraints(raw_constraints: Any, keep_tokens: set[str]) -> dict:
+    """Validate raw croupier constraints and keep only those in ``keep_tokens``.
+
+    The PV-5 counterpart to :func:`reconcile_widget_variables` for constraints
+    referenced by a *correct-answer expression* rather than by config fields:
+    each kept spec passes :func:`_clean_constraint` (``min <= max`` real numbers,
+    ``integer`` bool, ``decimals`` clamped 0..6). Invalid or unreferenced
+    declarations are dropped. Never raises: non-dict input yields ``{}``.
+    """
+
+    if not isinstance(raw_constraints, dict):
+        return {}
+    out: dict = {}
+    for name, spec in raw_constraints.items():
+        if not isinstance(name, str) or not name.isidentifier() or name not in keep_tokens:
+            continue
+        clean = _clean_constraint(spec)
+        if clean is not None:
+            out[name] = clean
+    return out

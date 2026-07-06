@@ -325,6 +325,11 @@ class PracticeProblemRequestSerializer(serializers.Serializer):
     """
 
     topic = serializers.CharField(max_length=500, trim_whitespace=True)
+    # PV-5: opt in to per-student randomisation. When set, the AI may make the
+    # ``correct_answer`` a croupier ``{{var}}`` expression whose validated ranges
+    # PV-1 samples and proves reachable for *every* student before the problem
+    # can return; the response carries the ``variable_constraints`` to attach.
+    allow_variables = serializers.BooleanField(required=False, default=False)
 
 
 class StepHintRequestSerializer(serializers.Serializer):

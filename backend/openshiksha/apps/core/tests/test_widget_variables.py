@@ -15,7 +15,12 @@ Two pure (no-DB) layers, both deterministic and LLM-free:
 import pytest
 
 from openshiksha.apps.api.croupier import sample_variable_values, substitute_typed
-from openshiksha.apps.core.widgets import is_valid_widget_config, reconcile_widget_variables
+from openshiksha.apps.core.widgets import (
+    clean_variable_constraints,
+    extract_variable_tokens,
+    is_valid_widget_config,
+    reconcile_widget_variables,
+)
 
 # ─────────────────────────────────────────────────────────────
 # reconcile_widget_variables — the deterministic guardrail
@@ -159,3 +164,35 @@ def test_unknown_token_left_intact():
 def test_non_string_passes_through():
     assert substitute_typed(7, {"a": 1}) == 7
     assert substitute_typed(None, {}) is None
+
+
+# ─────────────────────────────────────────────────────────────
+# PV-5 helpers — answer-expression tokens + referenced-constraint cleaning
+# ─────────────────────────────────────────────────────────────
+
+
+def test_extract_tokens_from_expression():
+    assert extract_variable_tokens("{{a}} / {{b}}") == {"a", "b"}
+
+
+def test_extract_tokens_pure_and_none():
+    assert extract_variable_tokens("{{a}}") == {"a"}
+    assert extract_variable_tokens("no tokens here") == set()
+    assert extract_variable_tokens(0.5) == set()
+    assert extract_variable_tokens(None) == set()
+
+
+def test_clean_constraints_keeps_only_valid_referenced():
+    raw = {
+        "a": {"min": 1, "max": 9, "integer": True},  # valid + referenced → kept
+        "b": {"min": 5, "max": 2},  # min > max → dropped
+        "c": {"min": 0, "max": 1, "integer": True},  # valid but unreferenced → dropped
+    }
+    out = clean_variable_constraints(raw, {"a", "b"})
+    assert out == {"a": {"min": 1, "max": 9, "integer": True}}
+
+
+def test_clean_constraints_never_raises_on_garbage():
+    assert clean_variable_constraints(None, {"a"}) == {}
+    assert clean_variable_constraints("nope", {"a"}) == {}
+    assert clean_variable_constraints({"not an identifier!": {"min": 0, "max": 1}}, {"a"}) == {}

@@ -1059,13 +1059,17 @@ class PracticeProblemViewSet(ViewSet):
     untouched — AI only proposes.
 
     Request body:
-        topic   string   what the problem should be about ("mark 3/4 on a number line")
+        topic            string  what the problem should be about ("mark 3/4 on a number line")
+        allow_variables  bool    optional (PV-5, default false) — the AI may make the
+                                 answer a per-student ``{{var}}`` expression; PV-1 then
+                                 proves it reachable for *every* sampled student.
 
     Response: 200 with
         {"widget_kind", "widget_config", "correct_answer", "model_used",
-         "ai_available", "repaired", "verdict_code"}
+         "ai_available", "repaired", "verdict_code", "variable_constraints"}
         — ``correct_answer`` is ``{"answer": <value>}`` in the grader's own shape,
-        guaranteed reachable on ``widget_config``.
+        guaranteed reachable on ``widget_config``; ``variable_constraints`` carries
+        the validated sampling ranges for a randomized answer (else ``{}``).
     """
 
     permission_classes = [IsAuthenticated]
@@ -1082,7 +1086,7 @@ class PracticeProblemViewSet(ViewSet):
         d = serializer.validated_data
 
         try:
-            result = generate_practice_problem(topic=d["topic"])
+            result = generate_practice_problem(topic=d["topic"], allow_variables=d["allow_variables"])
         except Exception:
             import logging
 
@@ -1101,8 +1105,11 @@ class PracticeProblemViewSet(ViewSet):
                 "ai_available": result["ai_available"],
                 "repaired": result["repaired"],
                 # PV-1's verdict code for the returned problem (e.g. "ok",
-                # "safe_default") — provenance for the UI/tests.
+                # "ok_variable", "safe_default") — provenance for the UI/tests.
                 "verdict_code": result["verdict_code"],
+                # PV-5: validated sampling ranges for a randomized answer ({} when
+                # the problem is static). ``.get`` keeps pre-PV-5 callers/mocks safe.
+                "variable_constraints": result.get("variable_constraints", {}),
             }
         )
 

@@ -68,7 +68,7 @@ Approval is idempotent — re-approving a materialized pack is a no-op keyed on
 |----|-----------|--------|
 | CP-1 | **Content-pack schema** (the keystone): versioned JSON schema for a pack of questions/subparts (incl. `widget_kind`/`widget_config`, reusing the vendored widget schemas + `validate_widget_config`) + provenance block (author, source, license). Pure validator `backend/openshiksha/apps/core/content_packs.py` + schema `…/apps/core/data/content_pack.schema.json` + tests (valid/invalid per field class). No DB writes yet. | ⬜ |
 | CP-2 | **`manage.py import_content_pack <file> [--dry-run]`**: validates via CP-1, stages each question as a **`ContentSubmission`** row (Question has **no** status field — see grounding note; don't overload `is_active`, which is soft-delete), never active; idempotent by pack hash; report output. Tests: dry-run, import, re-import no-dupe, invalid rejected. | ⬜ |
-| CP-3 | **Submission review model + API**: `ContentSubmission` (pack metadata, state machine pending→approved/rejected, reviewer, notes) with admin-only endpoints; approving materializes the pack's questions into the bank (`school=null` shared bank, `created_by`=reviewer, attribution from the provenance block); rejecting archives with a reason. Mirror the existing `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent (`models.py:1133`). Tests incl. permission walls. | ⬜ |
+| CP-3 | **Submission review model + API**: `ContentSubmission` (pack metadata, state machine pending→approved/rejected, reviewer, notes) with admin-only endpoints; approving materializes the pack's questions into the bank (`school=null` shared bank, `created_by`=reviewer, attribution from the provenance block); rejecting archives with a reason. Mirror the existing `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent (`models.py:1133`). Tests incl. permission walls. | 🟡 model landed (T-3); API/materialization still open |
 | CP-4 | **Review UI (admin)**: a "Submissions" queue page — pack summary, per-question preview (reusing the existing QuestionPreviewPanel/widget sandbox preview), Approve/Reject with note. The maintainer's one-click approval surface. | ⬜ |
 | CP-5 | **GitHub intake**: `contrib/packs/README.md` + example pack; CI job validating any `contrib/packs/*.json` on PRs (CP-1 validator) so external PRs self-check; on merge, maintainer runs/import lands them as pending (CP-2) for in-app approval (CP-4). | ⬜ |
 | CP-6 | **Widget proposal funnel**: issue form + `docs/widgets.md` section on the review bar (sandbox rules, schema, parity test, a11y); document that widget code ships only via normal code review (PRs), never via the content pipeline. | ⬜ |
@@ -98,11 +98,20 @@ point could unreviewed content reach a student.
       `backend/openshiksha/apps/core/data/content_pack.schema.json`). Reuse
       `validate_widget_config` (widgets.py:105) for widget-bearing subparts —
       note it raises DRF `ValidationError`; decide whether to wrap. No DB writes.
-- [ ] **T-3 (2026-07-06):** CP-3 `ContentSubmission` model only (no API/UI yet) —
+- [x] **T-3 (2026-07-06):** CP-3 `ContentSubmission` model only (no API/UI yet) —
       fields per the state machine above (`pack_hash`, `provenance` JSON,
       `state`, `reviewer` FK, `note`, timestamps); migration + model tests for
       the legal/illegal transitions. Mirror `TeacherWidgetVisibility` for the
       state `TextChoices`. Cheap, low-risk table that unblocks CP-2/CP-4.
+      **Done.** Added `ContentSubmissionState` TextChoices + `ContentSubmission`
+      model with a `transition_to()` guard enforcing the four-state machine
+      (pending→approved/rejected/superseded, rejected→pending reopen; approved &
+      superseded terminal), idempotent same-state re-approval, and
+      reviewer/note/`reviewed_at` recorded per transition. Migration
+      `0031_contentsubmission`; 15 model tests. **Discrepancy note:** CP-2's row
+      text still says "stages *each question* as a ContentSubmission row" — the
+      decided state machine (one row = one *pack*) wins, so the model holds the
+      whole pack `payload`; CP-2 should stage one row per pack, not per question.
 
 ## Progress ledger
 
@@ -110,3 +119,5 @@ point could unreviewed content reach a student.
 |------|-----------|----|----|
 | 2026-07-05 | Initiative opened (post-launch-video pivot). Tracks A+B scoped; T-1/T-2 queued. | — | Launch video shipped 2026-07-05 (`launch-video-final3`, local-only asset); routines repurposed from the launch track to this initiative. |
 | 2026-07-06 | Grounded CP-1/2/3 against code (real paths `backend/openshiksha/apps/core/…`; `validate_widget_config` raises DRF error; Question has no status field; `TeacherWidgetVisibility.PENDING_REVIEW` precedent). Decided CP-3 state machine (4 states). Queued T-3 (ContentSubmission model). | — | No external contributors waiting; execute has not yet started T-1/T-2. |
+| 2026-07-06 | **CP-1 shipped** (T-2): `content_pack.schema.json` (v1.0, provenance required) + pure `content_packs.py` validator (structural + per-widget) + `content_pack_hash` + 24 tests. DRF `ValidationError` wrapped into pack-native `ContentPackError`. | [#514](https://github.com/openshiksha/openshiksha/pull/514) | No DB writes; unblocks CP-2. |
+| 2026-07-06 | **CP-3 model shipped** (T-3): `ContentSubmission` + `ContentSubmissionState` + `transition_to()` state-machine guard (4 states, idempotent re-approval, reviewer/note/timestamp per transition); migration `0031`; 15 model tests. Model-only — API/materialization/UI still open under CP-3/CP-4. | #PENDING | One row = one pack (per decided state machine); flagged CP-2's "per question" wording as stale. |

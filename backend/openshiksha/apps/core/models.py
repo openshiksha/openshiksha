@@ -1291,3 +1291,156 @@ class BackupRun(models.Model):
 
     def __str__(self):
         return f"BackupRun({self.status} @ {self.created_at:%Y-%m-%dT%H:%M:%SZ})"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Community Contributions — content-pack review pipeline (CP-3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ContentSubmissionState(models.TextChoices):
+    """Lifecycle of one imported content pack awaiting maintainer review.
+
+    Mirrors the ``TeacherWidgetVisibility.PENDING_REVIEW`` moderation precedent:
+    external content is inert until a human approves it in-app. One
+    ``ContentSubmission`` row is one imported pack.
+
+    - ``PENDING`` — validated + imported, awaiting review. Nothing is live.
+    - ``APPROVED`` — the pack's questions have been materialized into the shared
+      bank (terminal; un-publishing deactivates the questions via ``is_active``
+      and files a fresh submission — never a reverse transition here).
+    - ``REJECTED`` — archived with a reviewer reason (may be re-opened).
+    - ``SUPERSEDED`` — a newer import of the same ``pack_hash`` replaced this row.
+    """
+
+    PENDING = "pending", "Pending review"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+    SUPERSEDED = "superseded", "Superseded"
+
+
+class ContentSubmission(models.Model):
+    """One imported content pack in the maintainer review queue (CP-3).
+
+    The **pending gate** for external content: an ``import_content_pack`` run
+    (CP-2) stages a validated pack here as ``PENDING`` and never touches the live
+    question bank. Approval (CP-3 API / CP-4 UI) is what materializes the pack's
+    questions into the shared bank with attribution — so unreviewed content can
+    never reach a student.
+
+    This increment is **model-only** (per T-3): the table, its state machine, and
+    the transition guard. The DRF endpoints, materialization, and review UI land
+    in CP-3-proper / CP-4 and ride on this schema without re-migrating it.
+
+    ``payload`` holds the whole CP-1-validated pack (so approval can materialize
+    its questions later); ``provenance`` is lifted out for cheap display in the
+    queue; ``pack_hash`` is the CP-1 canonical-JSON hash used to make import
+    idempotent and to key the ``SUPERSEDED`` transition. A single pack_hash may
+    appear on more than one row across a supersede, so it is indexed, not unique.
+    """
+
+    #: Legal state transitions. Approval/rejection are terminal for the row
+    #: except that a REJECTED submission may be re-opened to PENDING.
+    _LEGAL_TRANSITIONS: dict[str, set[str]] = {
+        ContentSubmissionState.PENDING: {
+            ContentSubmissionState.APPROVED,
+            ContentSubmissionState.REJECTED,
+            ContentSubmissionState.SUPERSEDED,
+        },
+        ContentSubmissionState.REJECTED: {ContentSubmissionState.PENDING},
+        ContentSubmissionState.APPROVED: set(),
+        ContentSubmissionState.SUPERSEDED: set(),
+    }
+
+    name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Human label for the pack (from the pack's optional `name`), shown in the review queue.",
+    )
+    pack_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        help_text="CP-1 canonical-JSON SHA-256 of the pack. Keys import idempotency and the superseded transition.",
+    )
+    provenance = models.JSONField(
+        default=dict,
+        help_text="The pack's provenance block (author, license, source, contact) — attribution for materialized questions.",
+    )
+    payload = models.JSONField(
+        default=dict,
+        help_text="The full CP-1-validated content pack, retained so approval can materialize its questions.",
+    )
+    state = models.CharField(
+        max_length=16,
+        choices=ContentSubmissionState.choices,
+        default=ContentSubmissionState.PENDING,
+        db_index=True,
+    )
+    reviewer = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="content_submissions_reviewed",
+        limit_choices_to={"role": UserRole.ADMIN},
+        help_text="The admin who last transitioned this submission (approve/reject/re-open).",
+    )
+    note = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reviewer note recorded on the last transition (e.g. the rejection reason).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the submission was last reviewed (set on any transition out of PENDING/into a terminal state).",
+    )
+
+    class Meta:
+        db_table = "content_submissions"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["state", "created_at"]),
+        ]
+
+    def __str__(self):
+        label = self.name or f"pack {self.pack_hash[:12]}"
+        return f"ContentSubmission({label}, {self.state})"
+
+    def can_transition_to(self, new_state: str) -> bool:
+        """Whether ``self.state → new_state`` is a legal move (self→self is a no-op)."""
+
+        if new_state == self.state:
+            return True
+        return new_state in self._LEGAL_TRANSITIONS.get(self.state, set())
+
+    def transition_to(self, new_state: str, *, reviewer=None, note: str = "", save: bool = True) -> "ContentSubmission":
+        """Move to ``new_state``, recording the reviewer, note, and timestamp.
+
+        Raises ``ValueError`` on an illegal transition (the state machine is the
+        deterministic gate; callers must never force an unpublish here). A
+        same-state call is an idempotent no-op that still refreshes the reviewer
+        metadata — so re-approving a pack keyed on ``pack_hash`` is safe.
+        Unknown ``new_state`` values are rejected.
+        """
+
+        if new_state not in ContentSubmissionState.values:
+            raise ValueError(f"Unknown submission state {new_state!r}.")
+        if not self.can_transition_to(new_state):
+            raise ValueError(f"Illegal transition {self.state!r} → {new_state!r}.")
+
+        self.state = new_state
+        if reviewer is not None:
+            self.reviewer = reviewer
+        if note:
+            self.note = note
+        if new_state != ContentSubmissionState.PENDING:
+            from django.utils import timezone
+
+            self.reviewed_at = timezone.now()
+        if save:
+            self.save()
+        return self

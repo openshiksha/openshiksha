@@ -66,7 +66,7 @@ Approval is idempotent — re-approving a materialized pack is a no-op keyed on
 
 | ID | Increment | Status |
 |----|-----------|--------|
-| CP-1 | **Content-pack schema** (the keystone): versioned JSON schema for a pack of questions/subparts (incl. `widget_kind`/`widget_config`, reusing the vendored widget schemas + `validate_widget_config`) + provenance block (author, source, license). Pure validator `backend/openshiksha/apps/core/content_packs.py` + schema `…/apps/core/data/content_pack.schema.json` + tests (valid/invalid per field class). No DB writes yet. | ⬜ |
+| CP-1 | **Content-pack schema** (the keystone): versioned JSON schema for a pack of questions/subparts (incl. `widget_kind`/`widget_config`, reusing the vendored widget schemas + `validate_widget_config`) + provenance block (author, source, license). Pure validator `backend/openshiksha/apps/core/content_packs.py` + schema `…/apps/core/data/content_pack.schema.json` + tests (valid/invalid per field class). No DB writes yet. | ✅ |
 | CP-2 | **`manage.py import_content_pack <file> [--dry-run]`**: validates via CP-1, stages each question as a **`ContentSubmission`** row (Question has **no** status field — see grounding note; don't overload `is_active`, which is soft-delete), never active; idempotent by pack hash; report output. Tests: dry-run, import, re-import no-dupe, invalid rejected. | ⬜ |
 | CP-3 | **Submission review model + API**: `ContentSubmission` (pack metadata, state machine pending→approved/rejected, reviewer, notes) with admin-only endpoints; approving materializes the pack's questions into the bank (`school=null` shared bank, `created_by`=reviewer, attribution from the provenance block); rejecting archives with a reason. Mirror the existing `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent (`models.py:1133`). Tests incl. permission walls. | 🟡 model landed (T-3); API/materialization still open |
 | CP-4 | **Review UI (admin)**: a "Submissions" queue page — pack summary, per-question preview (reusing the existing QuestionPreviewPanel/widget sandbox preview), Approve/Reject with note. The maintainer's one-click approval surface. | ⬜ |
@@ -93,7 +93,7 @@ point could unreviewed content reach a student.
 - [ ] **T-1 (2026-07-05):** OSS-1 cold-clone audit — follow README verbatim on a
       fresh clone; log every failure/missing step; fix the README (+ compose
       docs) in one PR; record time-to-running in the PR description.
-- [ ] **T-2 (2026-07-05):** CP-1 content-pack schema + pure validator + tests
+- [x] **T-2 (2026-07-05):** CP-1 content-pack schema + pure validator + tests
       (`backend/openshiksha/apps/core/content_packs.py`,
       `backend/openshiksha/apps/core/data/content_pack.schema.json`). Reuse
       `validate_widget_config` (widgets.py:105) for widget-bearing subparts —

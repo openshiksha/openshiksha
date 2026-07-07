@@ -1043,5 +1043,54 @@ python -m pytest openshiksha/apps/ai/tests/test_practice_problem.py \
 ```
 
 Following the Beat-4 (DTB-5) precedent, this backend slice ships its proof as
-the pytest suite; surfacing the toggle in the practice-problem panel (the
-on-screen randomize wow) is the natural **PV-5b** follow-up, mirroring DTB-5b.
+the pytest suite; **Beat 16 (PV-5b)** surfaces the toggle in the
+practice-problem panel — the on-screen randomize wow, mirroring DTB-5b.
+
+---
+
+## Beat 16 — "Each student gets a different value", on screen (PV-5b) · *the multiplier, on-screen*
+
+Beat 15 made the randomized practice problem *possible*; this beat makes it
+**visible**. The "Generate a practice problem" card
+([`PracticeProblemPanel`](../../frontend_modern/src/features/widgets/PracticeProblemPanel.tsx))
+gains an **"Each student gets a different value"** checkbox — the exact
+counterpart of Beat 5's describe-it toggle. Checking it sets `allow_variables`
+on the PV-2 call; the AI may then propose the `correct_answer` as a croupier
+`{{var}}` expression, and Beat-11's **reachable-for-all** sampling gates it
+server-side before anything renders.
+
+A verified randomized problem arrives wearing its provenance on screen: the
+`✨ AI-generated` badge, the `✓ Verified answerable` pill, a **`🎲 Randomized
+per student`** pill, the answer shown as the per-student expression (e.g.
+`{{a}}`), and the **validated sampling ranges** printed beside it
+(`{{a}}: 1 to 9 (whole numbers)`) with a line saying the engine sampled them
+all and confirmed every draw reachable. A static proposal (toggle off, or the
+AI chose a concrete value) shows no pill; the deterministic safe default is
+never randomized — the backend ships it static by construction, so a stub can
+never wear the 🎲 pill.
+
+**Why it's iron-clad:** the toggle only changes what the AI may *propose* —
+correctness stays with Beat-11's deterministic sampler, which verified every
+student's value before the response existed (principles 2, 3 & 5); the panel
+does zero client-side re-checking and renders the same trusted preview path
+(no parallel code); the tested deterministic fallback is unchanged — an
+unverifiable randomized proposal falls to the static safe problem with the
+neutral `Auto-problem` badge (principles 4 & 6); and the pill is driven by the
+server's validated `variable_constraints`, not by the checkbox — honest
+provenance even when the AI declines to randomize.
+
+**Verify it:**
+
+```bash
+cd frontend_modern
+# Toggle off → allow_variables:false on the call; toggle on → true; a verified
+# ok_variable response → 🎲 pill + expression answer + validated ranges; a
+# static real proposal and the safe default → no pill; hook passes
+# allow_variables through and returns the constraints verbatim.
+npx vitest run src/features/widgets/usePracticeProblem.test.ts \
+  src/features/widgets/PracticeProblemPanel.test.tsx
+```
+
+Following the Beat-5 (DTB-5b) precedent, this UI slice ships its proof as the
+Vitest suite; the reproducible propose-and-verify screenshot rides with Beat
+14's backend-free e2e (which pins the panel's render path in a real browser).

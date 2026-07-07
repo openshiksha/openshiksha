@@ -31,9 +31,30 @@ import { apiClient } from '@/api/client';
  * shape and is guaranteed markable — the grader itself is untouched (principle 2).
  */
 
+/**
+ * One per-student sampling range for a `{{var}}` token in a randomized
+ * `correct_answer` (PV-5). Mirrors the backend's validated constraint shape
+ * (`{min, max, integer[, decimals]}`). These are validated server-side and the
+ * expression is PV-1-verified reachable for every sampled student, so the UI
+ * can trust and display them verbatim.
+ */
+export interface PracticeVariableConstraint {
+  min: number;
+  max: number;
+  integer: boolean;
+  decimals?: number;
+}
+
 export interface PracticeProblemRequest {
   /** What the problem should be about ("mark 3/4 on a number line"). */
   topic: string;
+  /**
+   * PV-5b — opt in to per-student randomisation. When `true`, the AI may make
+   * `correct_answer` a croupier `{{var}}` expression; PV-1 then proves it
+   * reachable for *every* sampled student before the problem can return, and
+   * the response carries the validated `variable_constraints`.
+   */
+  allow_variables?: boolean;
 }
 
 export interface PracticeProblemResponse {
@@ -52,8 +73,14 @@ export interface PracticeProblemResponse {
   ai_available: boolean;
   /** True when a real LLM answer was deterministically snapped onto the grid. */
   repaired: boolean;
-  /** PV-1's verdict code for the returned problem (e.g. `'ok'`, `'safe_default'`). */
+  /** PV-1's verdict code for the returned problem (e.g. `'ok'`, `'ok_variable'`, `'safe_default'`). */
   verdict_code: string;
+  /**
+   * PV-5: validated sampling ranges for a randomized `{{var}}` answer,
+   * verified reachable for every sampled student. `{}` when the problem is
+   * static (flag off, the AI chose a concrete value, or the safe default).
+   */
+  variable_constraints: Record<string, PracticeVariableConstraint>;
 }
 
 const proposeProblem = async (

@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { AIBadge, Badge, Button, Input, LoadingSpinner } from '@/shared/ui';
 import { InteractiveWidget } from '@/shared/ui/InteractiveWidget';
-import { usePracticeProblem, type PracticeProblemResponse } from './usePracticeProblem';
+import {
+  usePracticeProblem,
+  type PracticeProblemResponse,
+  type PracticeVariableConstraint,
+} from './usePracticeProblem';
 
 /**
  * PV-3 — the on-screen **AI practice-problem generator** for the
@@ -28,12 +32,23 @@ import { usePracticeProblem, type PracticeProblemResponse } from './usePracticeP
  *   badge plus a friendly "AI unavailable" line. The fallback is never dressed
  *   as a real generation, and a snapped answer is flagged `Answer adjusted to
  *   the grid`.
+ * - **Per-student randomization, verified for all (PV-5b).** An "each student
+ *   gets a different value" toggle sets `allow_variables`; a randomized answer
+ *   only ever arrives after PV-1 sampled its ranges over synthetic students and
+ *   proved every draw reachable, and it wears a `🎲 Randomized per student`
+ *   pill with the validated ranges shown.
  */
 
 const PLACEHOLDER = 'e.g. mark 1/2 on a number line from 0 to 1';
 
 export function PracticeProblemPanel() {
   const [topic, setTopic] = useState('mark 1/2 on a number line from 0 to 1');
+  // PV-5b — the "each student gets a different value" toggle sets
+  // `allow_variables` on the PV-2 call. The AI may then propose the answer as
+  // a croupier {{var}} expression; PV-1's reachable-for-all sampling gates it
+  // server-side, so a randomized problem is verified for *every* student
+  // before it can render here.
+  const [allowVariables, setAllowVariables] = useState(false);
   const proposal = usePracticeProblem();
   const trimmed = topic.trim();
   const canAsk = trimmed.length > 0;
@@ -58,11 +73,29 @@ export function PracticeProblemPanel() {
           spellCheck={false}
           onChange={(event) => setTopic(event.target.value)}
         />
+        {/* PV-5b: opt in to per-student randomisation. The answer becomes a
+            {{var}} expression whose ranges the deterministic verifier samples
+            for every student; the grader stays deterministic throughout. */}
+        <label className="flex items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={allowVariables}
+            onChange={(event) => setAllowVariables(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-brand-600"
+          />
+          <span>
+            <span className="font-semibold text-ink-900">Each student gets a different value</span>
+            <span className="block text-ink-500">
+              The AI proposes a randomized answer — the engine verifies it&apos;s reachable for
+              every student before it ships.
+            </span>
+          </span>
+        </label>
         <div>
           <Button
             size="sm"
             disabled={!canAsk || proposal.isPending}
-            onClick={() => proposal.mutate({ topic: trimmed })}
+            onClick={() => proposal.mutate({ topic: trimmed, allow_variables: allowVariables })}
           >
             {proposal.isPending ? 'Generating…' : 'Generate & verify'}
           </Button>
@@ -98,8 +131,18 @@ function formatAnswer(answer: unknown): string {
   return JSON.stringify(answer);
 }
 
+function formatRange(name: string, range: PracticeVariableConstraint): string {
+  const kind = range.integer ? 'whole numbers' : 'decimals';
+  return `{{${name}}}: ${range.min} to ${range.max} (${kind})`;
+}
+
 function PracticeProblemResult({ result }: { result: PracticeProblemResponse }) {
   const answer = formatAnswer(result.correct_answer?.answer);
+  // PV-5b: constraints are non-empty only when PV-1 verified the randomized
+  // answer reachable for every sampled student (verdict `ok_variable`); the
+  // safe default and a concrete-value proposal both carry `{}`.
+  const constraints = result.variable_constraints ?? {};
+  const randomized = Object.keys(constraints).length > 0;
 
   return (
     <div className="space-y-3">
@@ -110,6 +153,11 @@ function PracticeProblemResult({ result }: { result: PracticeProblemResponse }) 
         <Badge tone="attention">✓ Verified answerable</Badge>
         {result.repaired && result.ai_available && (
           <Badge tone="neutral">Answer adjusted to the grid</Badge>
+        )}
+        {randomized && (
+          <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
+            🎲 Randomized per student
+          </span>
         )}
       </div>
 
@@ -128,9 +176,19 @@ function PracticeProblemResult({ result }: { result: PracticeProblemResponse }) 
           Answer: <span className="font-mono">{answer}</span>
         </p>
         <p className="mt-1 text-sm text-emerald-700">
-          The engine confirmed a student can actually reach this value on the widget above — so the
-          deterministic grader can mark it.
+          {randomized
+            ? 'Each student gets a different value drawn from the ranges below — the engine sampled them all and confirmed every one is reachable on the widget above, so the deterministic grader can mark each student.'
+            : 'The engine confirmed a student can actually reach this value on the widget above — so the deterministic grader can mark it.'}
         </p>
+        {randomized && (
+          <p className="mt-1 text-sm text-violet-700">
+            <span className="font-mono">
+              {Object.entries(constraints)
+                .map(([name, range]) => formatRange(name, range))
+                .join(' · ')}
+            </span>
+          </p>
+        )}
       </div>
 
       {!result.ai_available && (

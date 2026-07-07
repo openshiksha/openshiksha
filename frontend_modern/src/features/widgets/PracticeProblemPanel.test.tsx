@@ -7,7 +7,10 @@
  * branch — a real verified proposal (✨ AI-generated + the answer shown), a
  * snap-repaired proposal (the "Answer adjusted to the grid" flag), the
  * deterministic safe-default fallback (neutral Auto-problem + "AI unavailable"
- * line), plus pending/error/disabled states and the topic call shape.
+ * line), the PV-5b randomize toggle (`allow_variables` on the call; the
+ * `🎲 Randomized per student` pill + validated ranges only on a verified
+ * `ok_variable` response), plus pending/error/disabled states and the topic
+ * call shape.
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -55,15 +58,28 @@ const realProposal: PracticeProblemResponse = {
   ai_available: true,
   repaired: false,
   verdict_code: 'ok',
+  variable_constraints: {},
 };
 
 describe('PracticeProblemPanel', () => {
-  it('calls the endpoint with the trimmed topic on click', () => {
+  it('calls the endpoint with the trimmed topic on click (randomisation off by default)', () => {
     render(<PracticeProblemPanel />);
     const input = screen.getByLabelText(/topic/i);
     fireEvent.change(input, { target: { value: '  mark 3/4 on a number line  ' } });
     fireEvent.click(screen.getByRole('button', { name: /generate & verify/i }));
-    expect(proposalMock.mutate).toHaveBeenCalledWith({ topic: 'mark 3/4 on a number line' });
+    expect(proposalMock.mutate).toHaveBeenCalledWith({
+      topic: 'mark 3/4 on a number line',
+      allow_variables: false,
+    });
+  });
+
+  it('sets allow_variables when the randomize toggle is checked (PV-5b)', () => {
+    render(<PracticeProblemPanel />);
+    fireEvent.click(screen.getByLabelText(/each student gets a different value/i));
+    fireEvent.click(screen.getByRole('button', { name: /generate & verify/i }));
+    expect(proposalMock.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ allow_variables: true }),
+    );
   });
 
   it('disables the button for an empty topic', () => {
@@ -84,9 +100,33 @@ describe('PracticeProblemPanel', () => {
     expect(widget).toHaveAttribute('data-kind', 'number-line');
     // The answer is shown on screen.
     expect(screen.getByText('0.5')).toBeInTheDocument();
-    // No fallback line and no "adjusted" flag on the clean real path.
+    // No fallback line, no "adjusted" flag, and no randomized pill on the
+    // clean static real path.
     expect(screen.queryByText(/ai proposer is unavailable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/adjusted to the grid/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/randomized per student/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the 🎲 pill, the expression answer, and the validated ranges for a randomized proposal (PV-5b)', () => {
+    proposalMock.data = {
+      ...realProposal,
+      widget_config: { min: 0, max: 10, step: 1 },
+      correct_answer: { answer: '{{a}}' },
+      verdict_code: 'ok_variable',
+      variable_constraints: { a: { min: 1, max: 9, integer: true } },
+    };
+    render(<PracticeProblemPanel />);
+
+    expect(screen.getByText('✨ AI-generated')).toBeInTheDocument();
+    expect(screen.getByText(/verified answerable/i)).toBeInTheDocument();
+    expect(screen.getByText('🎲 Randomized per student')).toBeInTheDocument();
+    // The answer is shown as the per-student expression…
+    expect(screen.getByText('{{a}}')).toBeInTheDocument();
+    // …with its validated, reachable-for-all sampling range on screen.
+    expect(screen.getByText('{{a}}: 1 to 9 (whole numbers)')).toBeInTheDocument();
+    expect(
+      screen.getByText(/sampled them all and confirmed every one is reachable/i),
+    ).toBeInTheDocument();
   });
 
   it('flags a snap-repaired real proposal ("Answer adjusted to the grid")', () => {
@@ -117,8 +157,10 @@ describe('PracticeProblemPanel', () => {
     // Still verified — the safe default is PV-1-passed by construction.
     expect(screen.getByText(/verified answerable/i)).toBeInTheDocument();
     expect(screen.getByText(/ai proposer is unavailable/i)).toBeInTheDocument();
-    // A safe default is never labelled as a repaired real generation.
+    // A safe default is never labelled as a repaired real generation, and it
+    // is never randomized (the backend always ships it static).
     expect(screen.queryByText(/adjusted to the grid/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/randomized per student/i)).not.toBeInTheDocument();
   });
 
   it('shows a pending state while generating', () => {

@@ -95,6 +95,37 @@ describe('usePracticeProblem', () => {
     expect(result.current.data?.verdict_code).toBe('safe_default');
   });
 
+  it('passes allow_variables through and returns the randomized constraints (PV-5b)', async () => {
+    // The AI proposed a per-student {{a}} answer; PV-1's reachable-for-all
+    // sampling verified it server-side and the validated ranges ride back.
+    mockPost.mockResolvedValueOnce({
+      data: {
+        widget_kind: 'number-line',
+        widget_config: { min: 0, max: 10, step: 1 },
+        correct_answer: { answer: '{{a}}' },
+        model_used: 'claude-sonnet-4-6',
+        ai_available: true,
+        repaired: false,
+        verdict_code: 'ok_variable',
+        variable_constraints: { a: { min: 1, max: 9, integer: true } },
+      },
+    });
+
+    const { result } = renderHook(() => usePracticeProblem(), { wrapper });
+    result.current.mutate({ topic: 'mark a whole number', allow_variables: true });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockPost).toHaveBeenCalledWith('/ai/practice-problem/', {
+      topic: 'mark a whole number',
+      allow_variables: true,
+    });
+    expect(result.current.data?.correct_answer.answer).toBe('{{a}}');
+    expect(result.current.data?.verdict_code).toBe('ok_variable');
+    expect(result.current.data?.variable_constraints).toEqual({
+      a: { min: 1, max: 9, integer: true },
+    });
+  });
+
   it('surfaces a transport error', async () => {
     mockPost.mockRejectedValueOnce(new Error('network down'));
 

@@ -63,6 +63,24 @@ npm run build
 
 All of these must pass for a PR to merge. New behaviour should come with tests.
 
+## Ways to contribute content & widgets
+
+Beyond code fixes, there are two purpose-built contribution funnels — one for
+*data*, one for *code*:
+
+- **Question content → [content packs](contrib/packs/README.md).** A content
+  pack is a schema-validated JSON bundle of questions (optionally using
+  existing interactive widgets). CI validates your pack on the PR; after merge
+  a maintainer stages it and **approves it in-app** before anything reaches the
+  question bank — published with the attribution from your pack's provenance
+  block. No Python/TypeScript needed.
+- **New interactive widgets → normal code review.** Widgets are code and ship
+  **only** via pull-request review — never through the content pipeline. Start
+  with a [widget proposal issue](.github/ISSUE_TEMPLATE/widget_proposal.md) to
+  agree on scope, build with the [SDK guide](docs/widgets/anatomy.md), and
+  clear the [review bar](docs/widgets/review-bar.md) (sandbox rules, schema
+  parity, tests, accessibility).
+
 ## Reporting bugs & requesting features
 
 Open a GitHub issue with clear reproduction steps (for bugs) or the problem you're

@@ -5,6 +5,11 @@
 > Worked examples drawn from the two widgets shipping on `modernization`
 > today: [`_hello`](../../frontend_modern/src/widgets/_hello/index.ts)
 > and [`thermo-piston`](../../frontend_modern/src/widgets/thermo-piston/index.ts).
+>
+> Contributing a widget? Open a
+> [widget proposal issue](../../.github/ISSUE_TEMPLATE/widget_proposal.md)
+> first, and see [`review-bar.md`](./review-bar.md) for the checklist your PR
+> must clear (sandbox rules, schema parity, answer reporting, a11y, tests).
 
 A widget kind is **one folder under `frontend_modern/src/widgets/<kind>/`**
 plus **one line in `registry.ts`**. The compounding goal of the

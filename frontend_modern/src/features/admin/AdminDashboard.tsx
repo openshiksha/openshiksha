@@ -184,6 +184,7 @@ const ClassroomRow = ({ classroom }: { classroom: Classroom }) => {
 };
 
 export const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { data: summary, isLoading: summaryLoading } = useAdminSummary();
   const [includeInactive, setIncludeInactive] = useState(false);
   const { data: classrooms, isLoading: classroomsLoading } = useClassrooms(includeInactive);
@@ -196,9 +197,14 @@ export const AdminDashboard = () => {
         title={summary?.school.name ?? 'School Admin'}
         description="Manage classrooms, enrollment, and subject rooms."
         action={
-          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-            + New Classroom
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => navigate('/admin/submissions')}>
+              Content Submissions
+            </Button>
+            <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+              + New Classroom
+            </Button>
+          </div>
         }
       />
 

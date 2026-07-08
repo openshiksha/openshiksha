@@ -1,0 +1,48 @@
+# Content-pack intake gate (CP-5).
+#
+# Validates every contrib/packs/*.json against the canonical CP-1 schema on
+# pull requests that touch them, so an external contributor's pack self-checks
+# mechanically before a maintainer reviews the PR. Validation is read-only
+# (no DB, no staging) — merging a pack still publishes nothing: a maintainer
+# must import it (CP-2) and approve it in-app (CP-3/CP-4) before any question
+# reaches the shared bank.
+name: Content Packs
+
+on:
+    pull_request:
+        paths:
+            - 'contrib/packs/**'
+            - 'backend/openshiksha/apps/core/data/content_pack.schema.json'
+            - 'backend/openshiksha/apps/core/content_packs.py'
+            - '.github/workflows/content-packs.yaml'
+
+jobs:
+    validate:
+        name: Validate content packs
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repo
+              uses: actions/checkout@v7
+            - name: Setup Python Runtime
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.12'
+                cache: 'pip'
+                cache-dependency-path: 'backend/requirements.txt'
+            - name: Install Dependencies
+              run: pip install -r requirements.txt
+              working-directory: backend
+            - name: Validate contrib/packs/*.json against the CP-1 schema
+              working-directory: backend
+              env:
+                DJANGO_SETTINGS_MODULE: openshiksha.settings.test
+                SECRET_KEY: test-secret-key-not-for-production
+              run: |
+                shopt -s nullglob
+                packs=(../contrib/packs/*.json)
+                if [ ${#packs[@]} -eq 0 ]; then
+                  echo "No content packs found — nothing to validate."
+                  exit 0
+                fi
+                python manage.py validate_content_pack "${packs[@]}"

@@ -9,7 +9,13 @@
 > [`STATUS.md`](STATUS.md). The ai-features routine, in turn, works **only**
 > from this backlog — not the general roadmap.
 
-**Status:** 🟢 Active (promoted 2026-06-15) · **Owner:** `openshiksha-ai-features` routine
+**Status:** ✅ Closed (2026-07-07) · **Owner:** `openshiksha-ai-features` routine (paused)
+
+> **Closed 2026-07-07.** Phases 1–3 shipped in full (DTB-1..5b, GSV-1..4b,
+> PV-1..5b), DH-1's rehearsal pass ran clean, and the launch video was cut
+> 2026-07-04 — the North Star demo exists as footage. The `openshiksha-ai-features`
+> routine is **paused**; no routine maintains this backlog. If a v1 video re-cut
+> happens, re-enable the routine for a one-off DH-2 rehearsal pass first.
 
 ---
 
@@ -153,7 +159,7 @@ fixes flakes/drift, and regenerates the reproducible artifacts.
 | ID | Increment | Status |
 |----|-----------|--------|
 | DH-1 | **Full-demo rehearsal pass**: re-run every beat's verification (backend pytest, frontend vitest, the four real-browser e2es), fix any flake/drift found, regenerate all screenshots, and record per-beat rehearsal status in `docs/demo/golden-path.md`. | ✅ Done (2026-07-04) |
-| DH-2 | **Recurring rehearsal**: repeat DH-1 whenever the tree has moved under the demo (new commits touching widgets/AI endpoints since the last pass); a no-drift pass just refreshes the rehearsal-status date. | 🔁 Standing (last pass: 2026-07-07, no drift) |
+| DH-2 | **Recurring rehearsal**: repeat DH-1 whenever the tree has moved under the demo (new commits touching widgets/AI endpoints since the last pass); a no-drift pass just refreshes the rehearsal-status date. | ⏸️ Retired with the initiative (2026-07-07; final pass 2026-07-07, no drift, #516) — run once ad hoc before any v1 video re-cut |
 
 ## Out of scope (the "air" anti-patterns)
 

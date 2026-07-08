@@ -10,8 +10,17 @@
 > routines **MUST NOT** plan, select, or build any of its increments — even if
 > it is the only thing with open work. It is intentionally **omitted from the
 > priority table below** so it is never picked as the "top active initiative."
+> **(Closed 2026-07-07 — the fence still applies: nobody picks up its backlog.)**
 
-**Last updated:** 2026-07-01 (latest) — **🎬 BUILD LANES RETIRED — FOCUS PIVOTS
+**Last updated:** 2026-07-07 (latest) — **✅ AI-NATIVE INTERACTIVE LEARNING
+CLOSED; `ai-features` ROUTINE PAUSED.** All three phases (DTB-1..5b, GSV-1..4b,
+PV-1..5b) plus the DH-1 rehearsal pass shipped, and the launch video was cut
+2026-07-04 — the initiative's North Star demo exists as footage. The
+`openshiksha-ai-features` scheduled routine is disabled; DH-2 (recurring demo
+rehearsal) is retired and runs only ad hoc before any v1 video re-cut. No
+routine builds AI-Native work anymore. *(Prior update below.)*
+
+**Last updated:** 2026-07-01 — **🎬 BUILD LANES RETIRED — FOCUS PIVOTS
 TO THE LAUNCH TRACK.** The platform is feature-complete for a launch; the
 bottleneck is now audience/content/users, not code. The `openshiksha-plan` and
 `openshiksha-execute` routines no longer advance this board — they now run the

@@ -4,6 +4,7 @@ Core ViewSets for OpenShiksha API
 Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -54,6 +55,8 @@ from openshiksha.apps.core.models import (
     UserRole,
 )
 from openshiksha.apps.edge.models import StudentProficiency, StudentProficiencySnapshot, SubjectRoomQuestionMistake
+
+logger = logging.getLogger(__name__)
 
 
 class IsTeacher(permissions.BasePermission):
@@ -1351,8 +1354,18 @@ class ContentSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
                 submission.transition_to(target, reviewer=request.user, note=note)
                 if target == ContentSubmissionState.APPROVED and not already:
                     materialize_submission(submission, reviewer=request.user)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except ValueError:
+            logger.warning(
+                "Content submission transition conflict: submission_id=%s target=%s reviewer_id=%s",
+                getattr(submission, "id", None),
+                target,
+                getattr(request.user, "id", None),
+                exc_info=True,
+            )
+            return Response(
+                {"detail": "Unable to perform this transition."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         return Response(ContentSubmissionDetailSerializer(submission).data)
 

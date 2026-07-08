@@ -9,7 +9,7 @@ CBSE · Classes 7–10 · English & हिन्दी.
 
 [![CI/CD](https://github.com/openshiksha/openshiksha/workflows/CI/CD%20Pipeline/badge.svg?branch=qa)](https://github.com/openshiksha/openshiksha/actions)
 [![CodeQL](https://github.com/openshiksha/openshiksha/workflows/CodeQL/badge.svg)](https://github.com/openshiksha/openshiksha/actions)
-[![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-brightgreen)](LICENSE.md)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE.md)
 
 🌐 **[openshiksha.org](https://openshiksha.org)**
 
@@ -172,5 +172,13 @@ them with `pre-commit install`.
 
 ## License
 
-OpenShiksha is licensed under the **Mozilla Public License 2.0** (MPL-2.0) — see
-[`LICENSE.md`](LICENSE.md) for the full text.
+OpenShiksha is licensed under the **GNU Affero General Public License v3.0**
+(AGPL-3.0) — see [`LICENSE.md`](LICENSE.md) for the full text.
+
+The AGPL is a strong copyleft license. In particular, its network clause
+(section 13) means that if you run a modified version of OpenShiksha as a
+network service, you must make the complete corresponding source of your
+modified version available to its users. Content contributed through the
+[content-pack pipeline](contrib/packs/README.md) is licensed separately by each
+contributor via the pack's own `provenance.license` field (e.g. `CC-BY-4.0`)
+and is not covered by this code license.

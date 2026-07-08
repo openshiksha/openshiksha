@@ -53,6 +53,7 @@ const ParentInsightsPage = lazyNamed(() => import('./features/parent/ParentInsig
 const ParentInsightsLandingPage = lazyNamed(() => import('./features/parent/ParentInsightsLandingPage'), 'ParentInsightsLandingPage');
 const AdminDashboard = lazyNamed(() => import('./features/admin/AdminDashboard'), 'AdminDashboard');
 const ClassroomManagePage = lazyNamed(() => import('./features/admin/ClassroomManagePage'), 'ClassroomManagePage');
+const SubmissionsPage = lazyNamed(() => import('./features/admin/SubmissionsPage'), 'SubmissionsPage');
 
 function RouteFallback() {
   return (
@@ -360,6 +361,17 @@ function App() {
             <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
               <AppShell>
                 <ClassroomManagePage />
+              </AppShell>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/submissions"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+              <AppShell>
+                <SubmissionsPage />
               </AppShell>
             </ProtectedRoute>
           }

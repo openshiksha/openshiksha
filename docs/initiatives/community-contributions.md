@@ -80,7 +80,7 @@ is CP-1 v1.1 churn, out of scope here.)
 |----|-----------|--------|
 | CP-1 | **Content-pack schema** (the keystone): versioned JSON schema for a pack of questions/subparts (incl. `widget_kind`/`widget_config`, reusing the vendored widget schemas + `validate_widget_config`) + provenance block (author, source, license). Pure validator `backend/openshiksha/apps/core/content_packs.py` + schema `…/apps/core/data/content_pack.schema.json` + tests (valid/invalid per field class). No DB writes yet. | ✅ |
 | CP-2 | **`manage.py import_content_pack <file> [--dry-run]`**: validates via CP-1 (`validate_content_pack`), stages the **whole pack as one `ContentSubmission`** row (state machine says *one row = one pack*, holding the full `payload`; the model already exists — T-3), `state=PENDING`, never touching the live bank. **Idempotency (decided 2026-07-07):** compute `content_pack_hash`; if a row with that `pack_hash` already exists in `PENDING` or `APPROVED`, no-op and report "already staged/approved"; otherwise create a `PENDING` row (so a previously `REJECTED`/`SUPERSEDED` pack can be re-staged). Never auto-supersedes (see the state-machine note). `--dry-run` validates + reports without writing. Tests: dry-run, import, re-import no-dupe, invalid rejected, re-import of rejected re-stages. | ✅ |
-| CP-3 | **Submission review model + API**: `ContentSubmission` (pack metadata, state machine pending→approved/rejected, reviewer, notes) with admin-only endpoints; approving materializes the pack's questions into the bank (`school=null` shared bank, `created_by`=reviewer, attribution from the provenance block); rejecting archives with a reason. Mirror the existing `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent (`models.py:1133`). Tests incl. permission walls. | 🟡 model landed (T-3); API/materialization still open |
+| CP-3 | **Submission review model + API**: `ContentSubmission` (pack metadata, state machine pending→approved/rejected, reviewer, notes) with admin-only endpoints; approving materializes the pack's questions into the bank (`school=null` shared bank, `created_by`=reviewer, attribution from the provenance block); rejecting archives with a reason. Mirror the existing `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent (`models.py:1133`). Tests incl. permission walls. | ✅ |
 | CP-4 | **Review UI (admin)**: a "Submissions" queue page — pack summary, per-question preview (reusing the existing QuestionPreviewPanel/widget sandbox preview), Approve/Reject with note. The maintainer's one-click approval surface. | ⬜ |
 | CP-5 | **GitHub intake**: `contrib/packs/README.md` + example pack; CI job validating any `contrib/packs/*.json` on PRs (CP-1 validator) so external PRs self-check; on merge, maintainer runs/import lands them as pending (CP-2) for in-app approval (CP-4). | ⬜ |
 | CP-6 | **Widget proposal funnel**: issue form + `docs/widgets.md` section on the review bar (sandbox rules, schema, parity test, a11y); document that widget code ships only via normal code review (PRs), never via the content pipeline. | ⬜ |
@@ -130,7 +130,7 @@ point could unreviewed content reach a student.
       at `backend/openshiksha/apps/core/management/commands/import_content_pack.py`;
       tests in the core test suite (dry-run, import, re-import no-dupe, invalid
       rejected, rejected-re-stages). No new migration.
-- [ ] **T-5 (2026-07-07):** CP-3-proper — admin-only DRF endpoints over
+- [x] **T-5 (2026-07-07):** CP-3-proper — admin-only DRF endpoints over
       `ContentSubmission` (list/detail + approve/reject/reopen actions calling
       `transition_to()` with the acting admin as `reviewer`) **plus**
       materialization on approve: create shared-bank `Question` rows
@@ -140,6 +140,17 @@ point could unreviewed content reach a student.
       `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent. Tests incl.
       permission walls + "approved content is now in the bank / re-approve is a
       no-op." **Depends on T-4** landing first.
+      **Done.** `ContentSubmissionViewSet` (admin wall = `IsSchoolAdmin`) with
+      list/detail + `approve`/`reject`/`reopen` actions; `content_submissions.py`
+      `materialize_submission()` creates shared-bank questions and is idempotent
+      via a `content-pack:<pack_hash[:16]>` marker `QuestionTag`. Illegal
+      transitions → 409; reject requires a note. 13 API tests.
+      **Discrepancy noted:** `Question` has **no attribution column**, so
+      "attribution from provenance" is carried by (a) `created_by`=reviewer and
+      (b) the marker tag linking each question back to the `ContentSubmission`
+      row, which permanently retains the full `provenance` block. A first-class
+      attribution field on `Question` is a deliberate future migration (would
+      also let CP-4 surface author/license inline) — out of scope for T-5.
 
 ## Progress ledger
 

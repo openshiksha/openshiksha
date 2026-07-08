@@ -4,6 +4,7 @@ Core ViewSets for OpenShiksha API
 Covers User, SubjectRoom, Question, ProblemSet, Assignment, and Submission.
 """
 
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,8 @@ from openshiksha.apps.api.serializers import (
     AssignmentSerializer,
     ChapterSerializer,
     ClassRoomSerializer,
+    ContentSubmissionDetailSerializer,
+    ContentSubmissionSerializer,
     ProblemSetSerializer,
     ProblemSetWriteSerializer,
     QuestionMistakeSerializer,
@@ -35,10 +38,13 @@ from openshiksha.apps.api.serializers import (
     SubmissionSerializer,
     UserSerializer,
 )
+from openshiksha.apps.core.content_submissions import materialize_submission
 from openshiksha.apps.core.models import (
     Assignment,
     Chapter,
     ClassRoom,
+    ContentSubmission,
+    ContentSubmissionState,
     ProblemSet,
     Question,
     QuestionTag,
@@ -49,6 +55,8 @@ from openshiksha.apps.core.models import (
     UserRole,
 )
 from openshiksha.apps.edge.models import StudentProficiency, StudentProficiencySnapshot, SubjectRoomQuestionMistake
+
+logger = logging.getLogger(__name__)
 
 
 class IsTeacher(permissions.BasePermission):
@@ -1294,3 +1302,81 @@ class QuestionMistakeViewSet(viewsets.ReadOnlyModelViewSet):
         if subject_room_id:
             qs = qs.filter(subject_room_id=subject_room_id)
         return qs
+
+
+class ContentSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Admin-only review queue for imported content packs (CP-3).
+
+    GET  /api/content-submissions/                 -- list (filter with ?state=)
+    GET  /api/content-submissions/<id>/            -- detail (full pack payload)
+    POST /api/content-submissions/<id>/approve/    -- pending -> approved + materialize
+    POST /api/content-submissions/<id>/reject/     -- pending -> rejected (note required)
+    POST /api/content-submissions/<id>/reopen/     -- rejected -> pending
+
+    This is the maintainer's one-click approval surface: approving materializes
+    the pack's questions into the shared bank with attribution; nothing external
+    reaches students until an admin approves it here. The state machine
+    (``ContentSubmission.transition_to``) is the deterministic gate — illegal
+    moves are 409s, not silent no-ops.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsSchoolAdmin]
+
+    def get_queryset(self):
+        qs = ContentSubmission.objects.select_related("reviewer").order_by("-created_at")
+        state = self.request.query_params.get("state")
+        if state:
+            qs = qs.filter(state=state)
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return ContentSubmissionDetailSerializer
+        return ContentSubmissionSerializer
+
+    def _transition(self, request, target, *, require_note=False):
+        """Shared body for approve/reject/reopen: guard, transition, respond."""
+
+        submission = self.get_object()
+        note = (request.data or {}).get("note", "") or ""
+        if require_note and not note.strip():
+            return Response({"detail": "A note is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Same-state approve is an idempotent no-op (the pack is already
+        # materialized) — mirror the model's re-approval contract.
+        already = submission.state == target
+
+        from django.db import transaction
+
+        try:
+            with transaction.atomic():
+                submission.transition_to(target, reviewer=request.user, note=note)
+                if target == ContentSubmissionState.APPROVED and not already:
+                    materialize_submission(submission, reviewer=request.user)
+        except ValueError:
+            logger.warning(
+                "Content submission transition conflict: submission_id=%s target=%s reviewer_id=%s",
+                getattr(submission, "id", None),
+                target,
+                getattr(request.user, "id", None),
+                exc_info=True,
+            )
+            return Response(
+                {"detail": "Unable to perform this transition."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(ContentSubmissionDetailSerializer(submission).data)
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        return self._transition(request, ContentSubmissionState.APPROVED)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        return self._transition(request, ContentSubmissionState.REJECTED, require_note=True)
+
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        return self._transition(request, ContentSubmissionState.PENDING)

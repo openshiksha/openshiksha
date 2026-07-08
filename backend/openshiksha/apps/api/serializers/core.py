@@ -11,6 +11,7 @@ from openshiksha.apps.core.models import (
     Chapter,
     ClassRoom,
     ClassroomInviteCode,
+    ContentSubmission,
     ProblemSet,
     Question,
     QuestionSubpart,
@@ -1028,3 +1029,46 @@ class QuestionMistakeSerializer(serializers.ModelSerializer):
 
     def get_question_type(self, obj) -> str:
         return obj.question.question_type
+
+
+class ContentSubmissionSerializer(serializers.ModelSerializer):
+    """Read-only summary of a staged content pack for the review queue (CP-3).
+
+    Lightweight: the full pack ``payload`` is intentionally omitted from the list
+    view (see :class:`ContentSubmissionDetailSerializer` for the preview).
+    """
+
+    state_display = serializers.CharField(source="get_state_display", read_only=True)
+    reviewer_username = serializers.CharField(source="reviewer.username", read_only=True, default=None)
+    question_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContentSubmission
+        fields = [
+            "id",
+            "name",
+            "pack_hash",
+            "provenance",
+            "state",
+            "state_display",
+            "note",
+            "reviewer_username",
+            "question_count",
+            "created_at",
+            "updated_at",
+            "reviewed_at",
+        ]
+        read_only_fields = fields
+
+    def get_question_count(self, obj) -> int:
+        payload = obj.payload or {}
+        return len(payload.get("questions", []))
+
+
+class ContentSubmissionDetailSerializer(ContentSubmissionSerializer):
+    """Detail view — adds the full pack ``payload`` so the queue can preview the
+    actual questions/widgets before approval (CP-4 renders from this)."""
+
+    class Meta(ContentSubmissionSerializer.Meta):
+        fields = ContentSubmissionSerializer.Meta.fields + ["payload"]
+        read_only_fields = fields

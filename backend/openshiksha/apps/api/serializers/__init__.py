@@ -4,6 +4,8 @@ from .core import (
     ChapterSerializer,
     ClassroomInviteCodeSerializer,
     ClassRoomSerializer,
+    ContentSubmissionDetailSerializer,
+    ContentSubmissionSerializer,
     ProblemSetSerializer,
     ProblemSetWriteSerializer,
     QuestionMistakeSerializer,
@@ -44,4 +46,6 @@ __all__ = [
     "StudentProficiencySerializer",
     "StudentProficiencySnapshotSerializer",
     "QuestionMistakeSerializer",
+    "ContentSubmissionSerializer",
+    "ContentSubmissionDetailSerializer",
 ]

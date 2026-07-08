@@ -12,6 +12,7 @@ from openshiksha.apps.api.views.core import (
     AssignmentViewSet,
     ChapterViewSet,
     ClassRoomViewSet,
+    ContentSubmissionViewSet,
     ProblemSetViewSet,
     QuestionMistakeViewSet,
     QuestionTagViewSet,
@@ -39,6 +40,7 @@ router.register(r"assignments", AssignmentViewSet, basename="assignment")
 router.register(r"submissions", SubmissionViewSet, basename="submission")
 router.register(r"proficiency", StudentProficiencyViewSet, basename="proficiency")
 router.register(r"question-mistakes", QuestionMistakeViewSet, basename="question-mistake")
+router.register(r"content-submissions", ContentSubmissionViewSet, basename="content-submission")
 
 urlpatterns = [
     # Authentication endpoints

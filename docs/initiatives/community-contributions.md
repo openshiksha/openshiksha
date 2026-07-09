@@ -27,7 +27,7 @@ docs consolidation, good-first-issue seeding, widget SDK walkthrough.
 
 | ID | Increment | Status |
 |----|-----------|--------|
-| OSS-1 | **Cold-clone audit**: follow README on a clean checkout (compose up, seed, run tests); fix every lie/missing step found; record time-to-running. | ⬜ |
+| OSS-1 | **Cold-clone audit**: follow README on a clean checkout (compose up, seed, run tests); fix every lie/missing step found; record time-to-running. | ✅ |
 | OSS-2 | **Issue/PR templates + labels**: bug/feature/widget-proposal/content-pack issue forms; PR template with test checklist; seed `good first issue` labels on 5+ real, scoped issues. | ⬜ |
 | OSS-3 | **Widget SDK guide**: `docs/widgets.md` — `npm run widget:new` → schema → parity-guarded vendored copy → tests → registry PR, with one worked example. | ⬜ |
 | OSS-4 | **Architecture diagram + README screenshots** (from the demo stack; commit real PNGs, not promises). | ⬜ |
@@ -106,9 +106,32 @@ normal PR review throughout.
 
 ## Task queue (plan appends · execute works top-down)
 
-- [ ] **T-1 (2026-07-05):** OSS-1 cold-clone audit — follow README verbatim on a
+- [x] **T-1 (2026-07-05):** OSS-1 cold-clone audit — follow README verbatim on a
       fresh clone; log every failure/missing step; fix the README (+ compose
       docs) in one PR; record time-to-running in the PR description.
+      **Done.** Audited every Quickstart command/path against the checked-out
+      tree (docker installed; the fresh-clone state was reproduced by hiding the
+      gitignored env files). **Critical blocker found & fixed:** the compose
+      `frontend` service had a required `env_file: ./frontend_modern/.env`, but
+      that file is **gitignored** and the Quickstart never creates it — so a cold
+      `docker compose up` aborts with *"env file …/frontend_modern/.env not
+      found"* (exit 1, reproduced). Fixed at the source by marking that env_file
+      `required: false` (the service's `environment:` block already supplies the
+      two VITE_* vars dev needs); `docker compose config` now succeeds cold.
+      **Two "lies" corrected in the README:** (1) Quickstart claimed
+      `docker compose up` starts only "Backend + Postgres + Redis + Celery" and
+      told you to run the frontend in a separate `npm run dev` terminal — but
+      compose **also** runs a `frontend` service at :5173, so the two collide on
+      the port; rewrote it as one full-stack `docker compose up` with the host
+      `npm run dev` demoted to an optional faster-HMR path (bring up all *but*
+      frontend). (2) "a Google AI key is optional" pointed at a field absent from
+      `backend/.env.example`; added a commented, blank AI block
+      (`ANTHROPIC_API_KEY`/`GOOGLE_AI_API_KEY`/`OLLAMA_BASE_URL`) matching the
+      real `base.py` cascade so the note is now truthful.
+      **Time-to-running:** not wall-clock-measured — this was a static
+      truthfulness audit against the tree (a full image build wasn't run in the
+      scheduled context); the fix removes the one hard `up`-time crash, so the
+      documented path is now followable end-to-end.
 - [x] **T-2 (2026-07-05):** CP-1 content-pack schema + pure validator + tests
       (`backend/openshiksha/apps/core/content_packs.py`,
       `backend/openshiksha/apps/core/data/content_pack.schema.json`). Reuse
@@ -169,4 +192,5 @@ normal PR review throughout.
 | 2026-07-07 | **CP-6 shipped** (user-directed session) — **Track B backlog complete, DoD met**. The widget-code funnel: `.github/ISSUE_TEMPLATE/widget_proposal.md` (labels `widget-proposal`; asks what-it-teaches, interaction sketch, answer-producing vs explanatory + gradeability of reported values, config fields, sandbox fit, a11y plan, build-offer) + `docs/widgets/review-bar.md` — the reviewer's checklist grounded in the real rules: sandbox constraints (no network/imports/closures/eval, deterministic, AI never in-sandbox), both schema copies + the `TestWidgetSchemaParity` guard + `KNOWN_WIDGET_KINDS`, answer-reporting rules (no report at mount, grader-markable precision — the ¾ bug class, widget reports / grader decides), keyboard + ARIA a11y, Vitest/pytest expectations incl. the anti-drift pattern for inlined engines. CONTRIBUTING gains a "Ways to contribute content & widgets" section routing **data → content packs, code → PR review** (the CP-6 fence, now stated everywhere a contributor lands: CONTRIBUTING, the pack README, the review bar, the issue form itself). Docs-only — no code paths changed. | (this session) | The doc-scoped `docs/widgets.md` in the backlog didn't exist — the SDK docs live in `docs/widgets/` (anatomy + build-your-first-widget), so the review bar landed beside them as `review-bar.md` rather than inventing a new top-level file. Note the initiative's remaining open work is now **Track A only** (OSS-1..5). |
 | 2026-07-07 | **CP-5 shipped** (user-directed session): the GitHub intake funnel. New DB-free `manage.py validate_content_pack <files…>` (per-file ✓/✗ with the CP-1 validator's location-scoped errors verbatim, echoes question count + `pack_hash` prefix so a merged PR is traceable to its later submission row, non-zero exit on any failure) — the seam CP-1's docstring reserved for CI. `contrib/packs/README.md` (author → PR → CI self-check → merge → `import_content_pack` → in-app approval, format essentials, local-validation one-liner, data-not-code ground rules) + `contrib/packs/example-fractions-pack.json` (MCQ + number-line widget subpart). New `content-packs.yaml` workflow validates `contrib/packs/*.json` on PRs touching packs/schema/validator. 9 backend tests, incl. a guard that **every shipped `contrib/packs/*.json` must validate** so the documented example can never rot. | (this session) | Validation stays read-only by design: merging a pack PR still publishes nothing — CP-2 staging + CP-4 approval remain the human gates, so CI green ≠ content live. Splitting a DB-free `validate_content_pack` command out of `import_content_pack --dry-run` (which queries `ContentSubmission` for idempotency) keeps the CI job migration-free. |
 | 2026-07-07 | **CP-4 shipped** (user-directed session, not a routine run): admin "Content Submissions" page at `/admin/submissions` (`SubmissionsPage` + `useContentSubmissions` hooks, ADMIN-walled route, linked from AdminDashboard). Queue filtered by state (pending default); detail shows the provenance block (author/license/source — what approval publishes with), per-question preview via a pure `packQuestionToPreview` mapper into the **existing `QuestionPreviewPanel`** (zero parallel preview code; defaults mirror the importer's mcq/difficulty-2), and widget-bearing subparts render in the **real `InteractiveWidget` sandbox**. Approve/Reject with note (reject blocks locally without one; the backend requires it too), Reopen for rejected; all legality stays server-side — a 409 from `transition_to()` is surfaced verbatim. 24 new frontend tests (hooks: URL shapes/pagination-unwrap/enabled-gate/409; page: filter default+switch, provenance+preview+sandbox render, approve/reject/reopen flows, note-required, 409 surfaced, approved read-only; mapper: mapping + importer defaults). | (this session) | The preview trusts the payload with no client-side re-validation — CP-1 validated it at import, mirroring how DTB-3 trusted DTB-1/2's contract. Widget preview reuses the same sandboxed `InteractiveWidget` students see, so a reviewer approves exactly what will render. |
+| 2026-07-09 | **OSS-1 shipped** (T-1): cold-clone audit. Fixed a hard `docker compose up` crash on fresh clones — the `frontend` service required the gitignored `frontend_modern/.env` (Quickstart never created it); marked that env_file `required: false` (the `environment:` block already supplies the needed VITE_* vars), verified `docker compose config` now passes cold. README Quickstart corrected: compose runs the **full stack incl. frontend at :5173** (was falsely "Backend + Postgres + Redis + Celery" with a colliding separate `npm run dev`); host `npm run dev` demoted to an optional faster-HMR path. `backend/.env.example` gained a commented, blank AI block so the "AI key optional" note stops pointing at a missing field. Docs/config only — no code paths, no tests. | [#523](https://github.com/openshiksha/openshiksha/pull/523) | Track A now OSS-2..5 open. Time-to-running was audited statically (no full image build in the scheduled run); the fix removes the only `up`-time blocker so the path is followable end-to-end. |
 | 2026-07-07 | **CP-3 shipped** (T-5): admin-only `ContentSubmissionViewSet` (list/detail + approve/reject/reopen driving `transition_to`) + `content_submissions.py` `materialize_submission()` — approve creates shared-bank `Question` rows (`school=None`, `created_by`=reviewer), idempotent on `pack_hash` via a `content-pack:<hash>` marker tag. Illegal transitions → 409; reject requires a note. 13 API tests (permission walls + materialize + idempotent re-approve). Stacked on #517. | [#518](https://github.com/openshiksha/openshiksha/pull/518) | **Discrepancy:** `Question` has no attribution column → attribution carried by `created_by` + the marker tag → `ContentSubmission.provenance`; first-class attribution field deferred to a future migration. CP-4 (review UI) is the next Track-B step. |

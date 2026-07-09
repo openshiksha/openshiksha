@@ -92,24 +92,39 @@ legacy/           Retired Python 2.7 / Django 1.11 monolith — archived, not bu
 
 ## Quickstart (local)
 
-Requires Docker + Docker Compose, and Node 20 for the frontend dev server.
+Requires Docker + Docker Compose. (Node 20+ is only needed if you want to run
+the frontend dev server on the host instead of in Docker — see below.)
 
 ```bash
 git clone https://github.com/openshiksha/openshiksha.git
 cd openshiksha
-cp backend/.env.example backend/.env          # fill in values (a Google AI key is optional)
+cp backend/.env.example backend/.env          # required; AI keys are optional (see the file's comments)
 
-# Backend + Postgres + Redis + Celery
+# Bring up the whole stack — Postgres, Redis, the Django backend, Celery
+# worker + beat, and the React (Vite) frontend at http://localhost:5173
 docker compose up
-
-# Frontend dev server (separate terminal)
-cd frontend_modern && npm install && npm run dev
 ```
 
-Then seed demo content:
+Then seed demo content and open the app:
 
 ```bash
 docker compose exec backend python manage.py seed_demo_data
+```
+
+Visit **http://localhost:5173** and log in with the demo accounts above
+(`student_demo` / `teacher_demo` / `parent_demo` / `admin_demo`, password
+`demo1234`).
+
+### Running the frontend on the host (optional, faster HMR)
+
+The compose `frontend` service already serves the SPA at :5173. If you'd rather
+run Vite directly on your machine for snappier hot-reload, bring up everything
+*except* the frontend (both bind port 5173) and start it yourself:
+
+```bash
+cp frontend_modern/.env.example frontend_modern/.env
+docker compose up backend celery celery-beat        # postgres + redis start as dependencies
+cd frontend_modern && npm install && npm run dev
 ```
 
 Full details — including the Cabinet question import — are in

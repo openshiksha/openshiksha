@@ -124,8 +124,13 @@ services:
       - /app/node_modules  # Anonymous volume for node_modules
     ports:
       - "5173:5173"
+    # Optional: the `environment:` block below already supplies the two vars the
+    # dev server needs, so a cold clone can `docker compose up` without first
+    # creating frontend_modern/.env (which is gitignored). Copy the example only
+    # if you want to override the other VITE_* defaults.
     env_file:
-      - ./frontend_modern/.env
+      - path: ./frontend_modern/.env
+        required: false
     environment:
       - VITE_API_BASE_URL=http://localhost:8000/api/v1
       - VITE_WS_URL=ws://localhost:8000/ws

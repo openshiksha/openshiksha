@@ -28,10 +28,29 @@ docs consolidation, good-first-issue seeding, widget SDK walkthrough.
 | ID | Increment | Status |
 |----|-----------|--------|
 | OSS-1 | **Cold-clone audit**: follow README on a clean checkout (compose up, seed, run tests); fix every lie/missing step found; record time-to-running. | ✅ |
-| OSS-2 | **Issue/PR templates + labels**: bug/feature/widget-proposal/content-pack issue forms; PR template with test checklist; seed `good first issue` labels on 5+ real, scoped issues. | ⬜ |
+| OSS-2 | **Issue/PR templates + labels + first issues**. *(Grounded 2026-07-09: bug/feature/widget-proposal templates + PR-template-with-checklist already exist; real gaps below.)* (a) create the `widget-proposal` + `content-pack` labels the templates already reference (missing → GitHub drops them silently); (b) add a **content-pack proposal** issue form (propose/request content — submission stays the PR funnel); (c) seed `good first issue` on 5+ real, scoped issues. | 🔶 |
 | OSS-3 | **Widget SDK guide**: `docs/widgets.md` — `npm run widget:new` → schema → parity-guarded vendored copy → tests → registry PR, with one worked example. | ⬜ |
 | OSS-4 | **Architecture diagram + README screenshots** (from the demo stack; commit real PNGs, not promises). | ⬜ |
 | OSS-5 | **Community docs**: CONTRIBUTING refresh pointing at both funnels (code/widgets vs content packs); link from README + landing page. | ⬜ |
+
+> **Grounding (verified 2026-07-09 against `.github/`):** issue templates are
+> legacy **markdown** (`bug_report.md`, `feature_request.md`,
+> `widget_proposal.md`) with `blank_issues_enabled: false` + a security
+> contact link; `pull_request_template.md` already carries the Type + How-tested
+> + checklist (so OSS-2's "PR template with test checklist" is **already met**).
+> Repo labels include `good first issue`, but **not** `widget-proposal` /
+> `content-pack` — the widget template's `labels: widget-proposal` currently
+> resolves to nothing (GitHub applies only labels that exist), so those issues
+> land unlabeled. No open issue is tagged `good first issue` yet.
+>
+> **Content-pack issue form (decided 2026-07-09):** a `content-pack` issue form
+> is a **proposal/coordination** surface (like `widget_proposal`), *not* a
+> submission channel — packs are still authored as JSON and submitted via the
+> `contrib/packs/` PR funnel (CP-5). The form asks: topic + grade band, rough
+> question count, whether any widget *kind* is needed (link the widget funnel if
+> a new kind is), a license/provenance heads-up, and "offering to author it?".
+> This keeps one honest rule everywhere: **content is data via PR, code via
+> review, issues are only for proposing.**
 
 ## Track B — Content pipeline: contribute → validate → approve → publish
 
@@ -106,78 +125,30 @@ normal PR review throughout.
 
 ## Task queue (plan appends · execute works top-down)
 
-- [x] **T-1 (2026-07-05):** OSS-1 cold-clone audit — follow README verbatim on a
-      fresh clone; log every failure/missing step; fix the README (+ compose
-      docs) in one PR; record time-to-running in the PR description.
-      **Done.** Audited every Quickstart command/path against the checked-out
-      tree (docker installed; the fresh-clone state was reproduced by hiding the
-      gitignored env files). **Critical blocker found & fixed:** the compose
-      `frontend` service had a required `env_file: ./frontend_modern/.env`, but
-      that file is **gitignored** and the Quickstart never creates it — so a cold
-      `docker compose up` aborts with *"env file …/frontend_modern/.env not
-      found"* (exit 1, reproduced). Fixed at the source by marking that env_file
-      `required: false` (the service's `environment:` block already supplies the
-      two VITE_* vars dev needs); `docker compose config` now succeeds cold.
-      **Two "lies" corrected in the README:** (1) Quickstart claimed
-      `docker compose up` starts only "Backend + Postgres + Redis + Celery" and
-      told you to run the frontend in a separate `npm run dev` terminal — but
-      compose **also** runs a `frontend` service at :5173, so the two collide on
-      the port; rewrote it as one full-stack `docker compose up` with the host
-      `npm run dev` demoted to an optional faster-HMR path (bring up all *but*
-      frontend). (2) "a Google AI key is optional" pointed at a field absent from
-      `backend/.env.example`; added a commented, blank AI block
-      (`ANTHROPIC_API_KEY`/`GOOGLE_AI_API_KEY`/`OLLAMA_BASE_URL`) matching the
-      real `base.py` cascade so the note is now truthful.
-      **Time-to-running:** not wall-clock-measured — this was a static
-      truthfulness audit against the tree (a full image build wasn't run in the
-      scheduled context); the fix removes the one hard `up`-time crash, so the
-      documented path is now followable end-to-end.
-- [x] **T-2 (2026-07-05):** CP-1 content-pack schema + pure validator + tests
-      (`backend/openshiksha/apps/core/content_packs.py`,
-      `backend/openshiksha/apps/core/data/content_pack.schema.json`). Reuse
-      `validate_widget_config` (widgets.py:105) for widget-bearing subparts —
-      note it raises DRF `ValidationError`; decide whether to wrap. No DB writes.
-- [x] **T-3 (2026-07-06):** CP-3 `ContentSubmission` model only (no API/UI yet) —
-      fields per the state machine above (`pack_hash`, `provenance` JSON,
-      `state`, `reviewer` FK, `note`, timestamps); migration + model tests for
-      the legal/illegal transitions. Mirror `TeacherWidgetVisibility` for the
-      state `TextChoices`. Cheap, low-risk table that unblocks CP-2/CP-4.
-      **Done.** Added `ContentSubmissionState` TextChoices + `ContentSubmission`
-      model with a `transition_to()` guard enforcing the four-state machine
-      (pending→approved/rejected/superseded, rejected→pending reopen; approved &
-      superseded terminal), idempotent same-state re-approval, and
-      reviewer/note/`reviewed_at` recorded per transition. Migration
-      `0031_contentsubmission`; 15 model tests.
-- [x] **T-4 (2026-07-07):** CP-2 `manage.py import_content_pack <file>
-      [--dry-run]` — the first writer into `ContentSubmission`. Validate with
-      `validate_content_pack` (raise/report `ContentPackError` cleanly); stage the
-      **whole pack as one PENDING row** (`name`, `pack_hash=content_pack_hash(pack)`,
-      `provenance`, `payload`); idempotency keyed on `pack_hash` (skip if a
-      PENDING/APPROVED row exists, else create). Never touches Question. Command
-      at `backend/openshiksha/apps/core/management/commands/import_content_pack.py`;
-      tests in the core test suite (dry-run, import, re-import no-dupe, invalid
-      rejected, rejected-re-stages). No new migration.
-- [x] **T-5 (2026-07-07):** CP-3-proper — admin-only DRF endpoints over
-      `ContentSubmission` (list/detail + approve/reject/reopen actions calling
-      `transition_to()` with the acting admin as `reviewer`) **plus**
-      materialization on approve: create shared-bank `Question` rows
-      (`school=null`, `created_by`=reviewer, attribution from `provenance`) from
-      `payload`, idempotent on re-approve (keyed on `pack_hash`). Reuse the
-      existing admin role wall (`UserRole.ADMIN`); mirror the
-      `TeacherWidgetVisibility.PENDING_REVIEW` moderation precedent. Tests incl.
-      permission walls + "approved content is now in the bank / re-approve is a
-      no-op." **Depends on T-4** landing first.
-      **Done.** `ContentSubmissionViewSet` (admin wall = `IsSchoolAdmin`) with
-      list/detail + `approve`/`reject`/`reopen` actions; `content_submissions.py`
-      `materialize_submission()` creates shared-bank questions and is idempotent
-      via a `content-pack:<pack_hash[:16]>` marker `QuestionTag`. Illegal
-      transitions → 409; reject requires a note. 13 API tests.
-      **Discrepancy noted:** `Question` has **no attribution column**, so
-      "attribution from provenance" is carried by (a) `created_by`=reviewer and
-      (b) the marker tag linking each question back to the `ContentSubmission`
-      row, which permanently retains the full `provenance` block. A first-class
-      attribution field on `Question` is a deliberate future migration (would
-      also let CP-4 surface author/license inline) — out of scope for T-5.
+- [x] **T-1..T-5 (2026-07-05 → 07-07):** OSS-1 cold-clone audit + the whole
+      Track-B build (CP-1 schema/validator, CP-3 model, CP-2 importer, CP-3 API +
+      materialization). **All shipped — full detail in the Progress ledger.**
+- [ ] **T-6 (2026-07-09):** OSS-2 templates + labels. (a) Create two repo labels
+      the existing templates already name so they stop resolving to nothing:
+      `gh label create widget-proposal -c C5DEF5 -d "Proposal for a new widget kind"`
+      and `gh label create content-pack -c 0E8A16 -d "Content-pack proposal / contribution"`
+      (`widget_proposal.md` already carries `labels: widget-proposal`, so it will
+      start applying once the label exists — verify). (b) Add
+      `.github/ISSUE_TEMPLATE/content_pack.md` — a **proposal** form
+      (`title: "[Content]: "`, `labels: content-pack`) per the decision above:
+      topic + grade band, rough #questions, whether a new widget *kind* is needed
+      (link `widget_proposal`), license/provenance heads-up, "offering to author?"
+      checkbox — with a top comment that **submission is the `contrib/packs/` PR
+      funnel, not this issue**. Verify: `gh label list` shows both; a test issue
+      from each template lands with the right label. Docs/config only, no tests.
+- [ ] **T-7 (2026-07-09):** OSS-2 seed 5+ `good first issue`s. Source them from
+      real, scoped, low-blast-radius gaps found while reading the tree (not
+      invented) — e.g. a missing test, a small a11y label, a doc typo, a lint
+      nit, a tiny copy fix. Each issue: clear title, a "why", the exact file(s),
+      and acceptance criteria a newcomer can self-verify; apply `good first
+      issue` (+ area label). File with `gh issue create`. Deliverable = the 5+
+      issue URLs listed in the ledger. **Do not** file busywork or anything that
+      needs deep context.
 
 ## Progress ledger
 
@@ -194,3 +165,4 @@ normal PR review throughout.
 | 2026-07-07 | **CP-4 shipped** (user-directed session, not a routine run): admin "Content Submissions" page at `/admin/submissions` (`SubmissionsPage` + `useContentSubmissions` hooks, ADMIN-walled route, linked from AdminDashboard). Queue filtered by state (pending default); detail shows the provenance block (author/license/source — what approval publishes with), per-question preview via a pure `packQuestionToPreview` mapper into the **existing `QuestionPreviewPanel`** (zero parallel preview code; defaults mirror the importer's mcq/difficulty-2), and widget-bearing subparts render in the **real `InteractiveWidget` sandbox**. Approve/Reject with note (reject blocks locally without one; the backend requires it too), Reopen for rejected; all legality stays server-side — a 409 from `transition_to()` is surfaced verbatim. 24 new frontend tests (hooks: URL shapes/pagination-unwrap/enabled-gate/409; page: filter default+switch, provenance+preview+sandbox render, approve/reject/reopen flows, note-required, 409 surfaced, approved read-only; mapper: mapping + importer defaults). | (this session) | The preview trusts the payload with no client-side re-validation — CP-1 validated it at import, mirroring how DTB-3 trusted DTB-1/2's contract. Widget preview reuses the same sandboxed `InteractiveWidget` students see, so a reviewer approves exactly what will render. |
 | 2026-07-09 | **OSS-1 shipped** (T-1): cold-clone audit. Fixed a hard `docker compose up` crash on fresh clones — the `frontend` service required the gitignored `frontend_modern/.env` (Quickstart never created it); marked that env_file `required: false` (the `environment:` block already supplies the needed VITE_* vars), verified `docker compose config` now passes cold. README Quickstart corrected: compose runs the **full stack incl. frontend at :5173** (was falsely "Backend + Postgres + Redis + Celery" with a colliding separate `npm run dev`); host `npm run dev` demoted to an optional faster-HMR path. `backend/.env.example` gained a commented, blank AI block so the "AI key optional" note stops pointing at a missing field. Docs/config only — no code paths, no tests. | [#523](https://github.com/openshiksha/openshiksha/pull/523) | Track A now OSS-2..5 open. Time-to-running was audited statically (no full image build in the scheduled run); the fix removes the only `up`-time blocker so the path is followable end-to-end. |
 | 2026-07-07 | **CP-3 shipped** (T-5): admin-only `ContentSubmissionViewSet` (list/detail + approve/reject/reopen driving `transition_to`) + `content_submissions.py` `materialize_submission()` — approve creates shared-bank `Question` rows (`school=None`, `created_by`=reviewer), idempotent on `pack_hash` via a `content-pack:<hash>` marker tag. Illegal transitions → 409; reject requires a note. 13 API tests (permission walls + materialize + idempotent re-approve). Stacked on #517. | [#518](https://github.com/openshiksha/openshiksha/pull/518) | **Discrepancy:** `Question` has no attribution column → attribution carried by `created_by` + the marker tag → `ContentSubmission.provenance`; first-class attribution field deferred to a future migration. CP-4 (review UI) is the next Track-B step. |
+| 2026-07-09 | **Track B complete → Track A engaged.** Grounded OSS-2 against `.github/`: bug/feature/widget-proposal templates + the PR-template-with-checklist already exist (that OSS-2 clause is **met**); real gaps are the missing `widget-proposal`/`content-pack` labels (the widget template names one that doesn't exist, so it applies nothing) and zero seeded `good first issue`s. **Decided** the `content-pack` issue form is a *proposal* surface, not a submission channel (submission stays the `contrib/packs/` PR funnel). Marked OSS-2 🔶; collapsed the T-1..T-5 done-detail into the ledger; queued **T-6** (labels + content-pack proposal template) and **T-7** (seed 5+ good-first-issues). | — | No external contributors waiting (2 open issues, both maintainer enhancements). Queue: T-6, T-7 open. |

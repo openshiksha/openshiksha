@@ -36,7 +36,7 @@ export const Logo = ({
     <span className={clsx('inline-flex items-center gap-2.5', className)}>
       <img
         src="/brand/logo-orange.png"
-        alt="OpenShiksha"
+        alt={variant === 'full' ? '' : 'OpenShiksha'}
         width={56}
         height={56}
         draggable={false}

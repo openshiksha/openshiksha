@@ -86,6 +86,7 @@ export const en = {
     'A dedicated parent dashboard with weekly AI summaries keeps families engaged.',
   'home.feature6': 'Works beautifully on low-cost mobiles and tablets, in English and Hindi.',
   'home.footerSchools': 'For schools',
+  'home.footerGithub': 'GitHub',
 
   // ── Registration pages ───────────────────────────────────────────────
   'register.title': 'Create your account',

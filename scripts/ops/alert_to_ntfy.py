@@ -14,7 +14,7 @@ targets it lives at ``docs/ops/alertmanager/alertmanager.yml``.
 
 Run::
 
-    ALERT_NTFY_URL="https://ntfy.sh/openshiksha-shara-alerts" \\
+    ALERT_NTFY_URL="https://ntfy.sh/<your-alerts-topic>" \\
         python3 scripts/ops/alert_to_ntfy.py            # listens on :9098
 
 The payload→message mapping is factored into the pure ``format_alert`` /

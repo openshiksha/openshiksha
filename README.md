@@ -2,12 +2,12 @@
 
 # OpenShiksha
 
-**Free, adaptive learning and educational analytics for K–12 Maths & Science.**
+**Open-source adaptive learning and educational analytics for K–12 Maths & Science.**
 
 Built for students, and for the teachers, parents, and schools who guide them.
 CBSE · Classes 7–10 · English & हिन्दी.
 
-[![CI/CD](https://github.com/openshiksha/openshiksha/workflows/CI/CD%20Pipeline/badge.svg?branch=qa)](https://github.com/openshiksha/openshiksha/actions)
+[![CI/CD](https://github.com/openshiksha/openshiksha/actions/workflows/ci-cd.yaml/badge.svg?branch=qa)](https://github.com/openshiksha/openshiksha/actions/workflows/ci-cd.yaml)
 [![CodeQL](https://github.com/openshiksha/openshiksha/workflows/CodeQL/badge.svg)](https://github.com/openshiksha/openshiksha/actions)
 [![License: AGPL v3+](https://img.shields.io/badge/license-AGPL%20v3%2B-blue)](LICENSE.md)
 
@@ -186,6 +186,17 @@ Contributions welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
 branch model, commit/PR conventions, and how to run the test suite locally.
 Pre-commit hooks (`black`, `isort`, `flake8`, …) run on every commit — install
 them with `pre-commit install`.
+
+There are two purpose-built contribution funnels beyond code fixes:
+
+- **Question content → [content packs](contrib/packs/README.md).** Author
+  questions as schema-validated JSON; CI checks your pack on the PR, and a
+  maintainer **approves it in-app** before it reaches the question bank (with
+  attribution from your pack's provenance block). No Python/TypeScript needed.
+- **New interactive widgets → [the widgets SDK](docs/widgets/README.md).**
+  Widgets are code and ship via normal PR review. Start with a
+  [widget proposal](.github/ISSUE_TEMPLATE/widget_proposal.md), build with the
+  SDK guide, and clear the [review bar](docs/widgets/review-bar.md).
 
 ## License
 

@@ -88,6 +88,7 @@ export const hi: LocaleDict = {
     'साप्ताहिक AI सारांश वाला अभिभावक डैशबोर्ड परिवारों को जोड़े रखता है।',
   'home.feature6': 'कम कीमत के मोबाइल और टैबलेट पर भी बढ़िया चलता है — English और हिंदी में।',
   'home.footerSchools': 'स्कूलों के लिए',
+  'home.footerGithub': 'GitHub',
 
   // ── Registration pages ───────────────────────────────────────────────
   'register.title': 'अपना खाता बनाएँ',

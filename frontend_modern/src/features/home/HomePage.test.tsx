@@ -24,6 +24,13 @@ describe('HomePage', () => {
     expect(screen.getByText('Start free as a student')).toBeDefined();
   });
 
+  it('links to the open-source repo from the footer', () => {
+    renderHome();
+    const gh = screen.getByRole('link', { name: 'GitHub' });
+    expect(gh).toHaveAttribute('href', 'https://github.com/openshiksha/openshiksha');
+    expect(gh).toHaveAttribute('target', '_blank');
+  });
+
   it('renders entirely in Hindi when the locale is hi', async () => {
     renderHome('hi');
     // Hindi dictionary loads via dynamic import — wait for the swap.

@@ -203,6 +203,14 @@ export const HomePage = () => {
           <div className="flex items-center gap-6 text-sm text-ink-500">
             <Link to="/login" className="hover:text-ink-800">{t('home.login')}</Link>
             <Link to="/enquire" className="hover:text-ink-800">{t('home.footerSchools')}</Link>
+            <a
+              href="https://github.com/openshiksha/openshiksha"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-ink-800"
+            >
+              {t('home.footerGithub')}
+            </a>
           </div>
           <p className="text-xs text-ink-400">© {new Date().getFullYear()} Social Seva Initiatives</p>
         </div>

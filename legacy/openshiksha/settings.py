@@ -68,12 +68,14 @@ elif ENVIRON == OpenShikshaEnv.QA:
     DB_PORT = os.getenv('OPENSHIKSHA_DB_PORT')
 
 elif ENVIRON == OpenShikshaEnv.LOCAL:
-    SECRET_KEY = '!x5@#nf^s53jwqx)l%na@=*!(1x+=jr496_yq!%ekh@u0pp1+n'
+    # Literals scrubbed for open-source release — supply via env like the other
+    # branches (this retired monolith is archived and never run in CI/prod).
+    SECRET_KEY = os.getenv('OPENSHIKSHA_SECRET_KEY', 'local-dev-only-insecure-secret-key')
     EMAIL_HOST_USER = MAILGUN_SANDBOX_USER
     DEFAULT_FROM_EMAIL = MAILGUN_SANDBOX_FROM_EMAIL
     EMAIL_HOST_PASSWORD = os.getenv('OPENSHIKSHA_EMAIL_HOST_PASSWORD')
 
-    DB_PASSWORD = 'Soc1alsev@'
+    DB_PASSWORD = os.getenv('OPENSHIKSHA_DB_PASSWORD', '')
     DB_HOST = ''
     DB_PORT = ''
 

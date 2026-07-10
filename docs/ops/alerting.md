@@ -62,7 +62,7 @@ Prometheus (rules)  ──fires──▶  Alertmanager  ──webhook──▶  
 - **`scripts/ops/alert_to_ntfy.py`** — dependency-light stdlib bridge (no new pip
   dep). Run it as a sidecar / one-off Deployment next to Alertmanager:
   ```bash
-  ALERT_NTFY_URL="https://ntfy.sh/openshiksha-shara-alerts" \
+  ALERT_NTFY_URL="https://ntfy.sh/<your-alerts-topic>" \
       python3 scripts/ops/alert_to_ntfy.py        # listens on :9098
   ```
 - **severity → ntfy:** critical ⇒ high priority + 🚨; warning ⇒ default + ⚠️;

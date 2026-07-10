@@ -79,7 +79,7 @@ The stack reads three keys from the existing `openshiksha-secrets` Secret
 kubectl -n openshiksha-prod patch secret openshiksha-secrets --type merge -p '{
   "stringData": {
     "METRICS_TOKEN": "<random-token>",
-    "ALERT_NTFY_URL": "https://ntfy.sh/openshiksha-shara-alerts",
+    "ALERT_NTFY_URL": "https://ntfy.sh/<your-alerts-topic>",
     "GRAFANA_ADMIN_PASSWORD": "<strong-password>"
   }
 }'

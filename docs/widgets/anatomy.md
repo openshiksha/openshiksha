@@ -2,10 +2,14 @@
 
 > This is the **canonical contributor reference** for the Tier-3 SDK of
 > the [Interactive Widgets Framework](../initiatives/interactive-widgets-framework.md).
-> Worked examples drawn from the two widgets shipping on `modernization`
-> today: [`_hello`](../../frontend_modern/src/widgets/_hello/index.ts)
-> and [`thermo-piston`](../../frontend_modern/src/widgets/thermo-piston/index.ts).
+> The two examples used throughout are the simplest widget shipping on `qa`
+> today, [`_hello`](../../frontend_modern/src/widgets/_hello/index.ts), and a
+> real explanatory one,
+> [`thermo-piston`](../../frontend_modern/src/widgets/thermo-piston/index.ts);
+> the [SDK guide index](./README.md) lists the full catalogue of kinds.
 >
+> New here? Start at the [SDK guide index](./README.md) and the
+> [build-your-first-widget walkthrough](./build-your-first-widget.md).
 > Contributing a widget? Open a
 > [widget proposal issue](../../.github/ISSUE_TEMPLATE/widget_proposal.md)
 > first, and see [`review-bar.md`](./review-bar.md) for the checklist your PR

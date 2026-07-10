@@ -175,6 +175,8 @@ Deployment specifics (k3s, kustomize overlays, secrets, TLS, rollback) are in
 - [Local development](docs/dev/local-development.md) — full setup, seeding, cabinet import
 - [Deployment](docs/deploy/README.md) — k3s deploy, overlays, TLS, rollback
 - [Git strategy](docs/dev/git-strategy.md) — branch model and conventions
+- [Interactive widgets SDK](docs/widgets/README.md) — build a new widget kind (scaffold → schema → review bar)
+- [Content packs](contrib/packs/README.md) — contribute questions as schema-validated JSON
 - [Initiatives](docs/initiatives/README.md) — long-horizon roadmap
 - [Transactional emails](docs/emails.md) — branded email system
 

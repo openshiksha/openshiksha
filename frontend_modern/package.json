@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "build:analyze": "tsc && vite build --mode analyze",
     "check:budget": "node scripts/check-bundle-budget.mjs",
+    "check:audit": "node scripts/check-npm-audit.mjs",
     "preview": "vite preview",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --fix",

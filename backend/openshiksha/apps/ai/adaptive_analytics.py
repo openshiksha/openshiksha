@@ -12,8 +12,9 @@ All functions return plain dicts that Celery tasks persist to the database.
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from openshiksha.apps.core.models import SubjectRoom, User
@@ -94,7 +95,10 @@ def compute_mastery_for_student(student: "User", subject_room: "SubjectRoom") ->
         )
     )
 
-    chapter_data: dict[int, dict] = {
+    # Row type is a TypedDict under django-stubs >= 6.x, which is not assignable
+    # to a bare `dict` value type. The rows are only ever read from, so annotate
+    # the value as a read-only Mapping — compatible with both stub generations.
+    chapter_data: dict[int, Mapping[str, Any]] = {
         row["assignment__problem_set__chapter_id"]: row
         for row in submissions_qs
         if row["assignment__problem_set__chapter_id"] is not None

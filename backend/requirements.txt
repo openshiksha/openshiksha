@@ -49,8 +49,8 @@ httpx==0.28.1
 requests==2.34.2
 
 # AI / LLM
-anthropic==0.120.0
-google-genai==2.14.0
+anthropic==0.120.2
+google-genai==2.15.0
 
 # Utilities
 python-dotenv==1.2.2

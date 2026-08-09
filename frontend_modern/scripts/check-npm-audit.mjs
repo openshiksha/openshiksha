@@ -27,25 +27,6 @@ export const BLOCKING_SEVERITIES = new Set(['high', 'critical']);
 
 export const ALLOWLIST = [
   {
-    id: 'GHSA-3jxr-9vmj-r5cp',
-    package: 'brace-expansion',
-    reason:
-      'DoS via exponential-time brace expansion. Reachable only through two dev-only ' +
-      'transitive chains (eslint-plugin-jsx-a11y -> minimatch@3, and ' +
-      'vite-plugin-pwa -> workbox-build -> jake -> filelist -> minimatch@5). Never ships ' +
-      'to users, and CI input is the repo itself, not attacker-controlled. The patched ' +
-      'brace-expansion 5.0.8 exports a named `expand` instead of a callable default, so ' +
-      'an override breaks both minimatch callers; npm\'s only suggested fix is a major ' +
-      'downgrade of eslint-plugin-jsx-a11y and vite-plugin-pwa.',
-    review: 'Remove once minimatch/filelist ship releases pulling a patched brace-expansion.',
-  },
-  {
-    id: 'GHSA-mh99-v99m-4gvg',
-    package: 'brace-expansion',
-    reason: 'Same package, same two dev-only chains, same blocked remediation as GHSA-3jxr-9vmj-r5cp.',
-    review: 'Remove together with GHSA-3jxr-9vmj-r5cp.',
-  },
-  {
     id: 'GHSA-qwww-vcr4-c8h2',
     package: 'react-router',
     reason:

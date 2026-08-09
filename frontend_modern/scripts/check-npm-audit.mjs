@@ -25,20 +25,9 @@ import { execFileSync } from 'node:child_process';
 /** Severities that fail the build, mirroring `--audit-level=high`. */
 export const BLOCKING_SEVERITIES = new Set(['high', 'critical']);
 
-export const ALLOWLIST = [
-  {
-    id: 'GHSA-qwww-vcr4-c8h2',
-    package: 'react-router',
-    reason:
-      'CSRF bypass in react-router RSC mode. This app is a plain SPA — it uses only ' +
-      'BrowserRouter/MemoryRouter, Routes, Route, Link, Navigate, useNavigate, useParams, ' +
-      'useSearchParams and useLocation. RSC mode, framework mode and server actions are not ' +
-      'used, so the vulnerable path does not exist here. The fix landed in react-router 8.3.0, ' +
-      'but react-router-dom has no v8 line, so adopting it means migrating every import off ' +
-      'react-router-dom AND taking a major — too large to ride along with a dependency bump.',
-    review: 'Remove when the react-router v8 migration lands.',
-  },
-];
+// Empty is the goal state: every advisory currently has a real upgrade path, so
+// nothing needs accepting. Keep it that way — prefer fixing over adding here.
+export const ALLOWLIST = [];
 
 /**
  * Flatten `npm audit --json` into the distinct advisories behind it.

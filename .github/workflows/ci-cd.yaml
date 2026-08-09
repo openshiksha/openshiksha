@@ -429,7 +429,7 @@ jobs:
         # when bumping Playwright). Refresh protocol for intentional design
         # changes: docs/changes/2026-06-22-visual-regression-activated.md.
         container:
-            image: mcr.microsoft.com/playwright:v1.61.0-noble
+            image: mcr.microsoft.com/playwright:v1.62.1-noble
         defaults:
             run:
                 working-directory: frontend_modern

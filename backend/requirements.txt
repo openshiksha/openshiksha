@@ -2,7 +2,7 @@
 # Capped below 6.1: django-celery-beat 2.9.0 (latest) declares `Django<6.1,>=2.2`,
 # so taking 6.1 makes the install unresolvable. Lift together with the
 # django-celery-beat release that widens that pin.
-Django==6.1
+Django==6.0.8
 djangorestframework==3.18.0
 django-cors-headers==4.9.0
 django-filter==26.1

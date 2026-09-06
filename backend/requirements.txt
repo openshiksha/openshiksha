@@ -2,13 +2,13 @@
 # Capped below 6.1: django-celery-beat 2.9.0 (latest) declares `Django<6.1,>=2.2`,
 # so taking 6.1 makes the install unresolvable. Lift together with the
 # django-celery-beat release that widens that pin.
-Django==6.0.8
+Django==6.1.1
 djangorestframework==3.18.0
 django-cors-headers==4.9.0
 django-filter==26.1
 
 # Database - Using psycopg (modern version, better Windows support)
-psycopg[binary]==3.3.4
+psycopg[binary]==3.3.5
 dj-database-url==3.1.2
 
 # Authentication
@@ -21,7 +21,7 @@ django-celery-beat==2.9.0
 django-celery-results==2.6.0
 
 # Web Push notifications (VAPID) — mobile-native due-date reminders
-pywebpush==2.4.0
+pywebpush==2.5.0
 
 # WebSockets (Real-time features)
 channels==4.3.2
@@ -35,7 +35,7 @@ whitenoise==6.12.0
 # Error tracking (OBS-3) — only active in production when SENTRY_DSN is set
 # (apps/core/observability.init_sentry). The [django] extra pulls in the Django
 # integration; Celery/Redis integrations ship in the base SDK.
-sentry-sdk[django]==2.68.0
+sentry-sdk[django]==2.68.1
 
 # Metrics exposition (OBS-6) — Prometheus client. The /metrics endpoint is
 # strictly env-gated (METRICS_ENABLED); the SDK is only imported when scraped, so
@@ -43,7 +43,7 @@ sentry-sdk[django]==2.68.0
 prometheus-client==0.26.0
 
 # Validation & Serialization
-pydantic==2.13.4
+pydantic==2.13.5
 pydantic-settings==2.15.0
 jsonschema==4.26.0  # per-kind widget_config validation (DTB-1); also a drf-spectacular dep
 
@@ -53,7 +53,7 @@ requests==2.34.2
 
 # AI / LLM
 anthropic==0.125.0
-google-genai==2.19.0
+google-genai==2.22.0
 
 # Utilities
 python-dotenv==1.2.3
@@ -62,14 +62,14 @@ Pillow==12.3.0
 # Development
 django-debug-toolbar==7.1.1
 django-extensions==4.1
-ipython==9.16.1
+ipython==9.17.1
 
 # Testing
 pytest==9.1.1
 pytest-django==4.14.0
 pytest-cov==7.1.0
 factory-boy==3.3.3
-faker==40.36.0
+faker==40.38.0
 
 # Code Quality
 black==26.5.1

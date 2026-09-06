@@ -1,7 +1,9 @@
 # Django Core (6.0.x — requires Python >= 3.12)
 # Capped below 6.1: django-celery-beat 2.9.0 (latest) declares `Django<6.1,>=2.2`,
 # so taking 6.1 makes the install unresolvable. Lift together with the
-# django-celery-beat release that widens that pin.
+# django-celery-beat release that widens that pin — and with the matching
+# `ignore` entry in .github/dependabot.yml, which keeps Dependabot from
+# re-proposing 6.1 and taking the whole grouped backend PR red.
 Django==6.0.8
 djangorestframework==3.18.0
 django-cors-headers==4.9.0

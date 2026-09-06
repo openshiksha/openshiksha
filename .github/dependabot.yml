@@ -22,6 +22,18 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # django-celery-beat 2.9.0 (still the latest release) declares
+    # `Django<6.1,>=2.2`, so any Django 6.1 bump makes
+    # `pip install -r requirements.txt` unresolvable — and because routine bumps
+    # are grouped, one unresolvable pin takes the whole weekly backend PR red
+    # (that is what happened to #566: mypy, tests and pip-audit all died on
+    # `ResolutionImpossible` rather than on anything they were meant to check).
+    # The matching cap is documented at the top of backend/requirements.txt;
+    # drop this entry together with the django-celery-beat release that widens
+    # the pin. 6.0.x security releases are unaffected and still come through.
+    ignore:
+      - dependency-name: "Django"
+        versions: [">=6.1"]
 
   # Frontend npm dependencies
   - package-ecosystem: "npm"

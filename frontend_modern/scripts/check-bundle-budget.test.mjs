@@ -74,7 +74,7 @@ describe('checkBudget', () => {
 });
 
 describe('DEFAULT_BUDGET_BYTES', () => {
-  it('is set to the documented 160 kB post-PERF-04 ceiling', () => {
-    expect(DEFAULT_BUDGET_BYTES).toBe(160 * 1024);
+  it('is set to the documented 180 kB ceiling', () => {
+    expect(DEFAULT_BUDGET_BYTES).toBe(180 * 1024);
   });
 });

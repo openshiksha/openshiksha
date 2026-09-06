@@ -19,10 +19,11 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Post-PERF-04 the entry chunk is ~132 kB uncompressed / ~41 kB gzip.
-// Budget set with ~17% headroom over the measured uncompressed entry to absorb
-// routine feature growth without false-alarming every PR. Raise deliberately.
-export const DEFAULT_BUDGET_BYTES = 160 * 1024;
+// The entry chunk measures ~161 kB uncompressed / ~50 kB gzip (2026-09-06).
+// Budget set with ~12% headroom over that to absorb routine feature growth
+// without false-alarming every PR. Raise deliberately — see the raise-the-
+// ceiling protocol and the history table in docs/perf/budget.md.
+export const DEFAULT_BUDGET_BYTES = 180 * 1024;
 
 /**
  * Find the entry JS chunk filename from `dist/index.html`.

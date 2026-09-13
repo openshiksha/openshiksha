@@ -5,7 +5,7 @@
 # `ignore` entry in .github/dependabot.yml, which keeps Dependabot from
 # re-proposing 6.1 and taking the whole grouped backend PR red.
 Django==6.0.8
-djangorestframework==3.18.0
+djangorestframework==3.18.1
 django-cors-headers==4.9.0
 django-filter==26.1
 
@@ -37,7 +37,7 @@ whitenoise==6.12.0
 # Error tracking (OBS-3) — only active in production when SENTRY_DSN is set
 # (apps/core/observability.init_sentry). The [django] extra pulls in the Django
 # integration; Celery/Redis integrations ship in the base SDK.
-sentry-sdk[django]==2.68.1
+sentry-sdk[django]==2.69.1
 
 # Metrics exposition (OBS-6) — Prometheus client. The /metrics endpoint is
 # strictly env-gated (METRICS_ENABLED); the SDK is only imported when scraped, so
@@ -54,7 +54,7 @@ httpx==0.28.1
 requests==2.34.2
 
 # AI / LLM
-anthropic==1.3.0
+anthropic==1.4.0
 google-genai==2.22.0
 
 # Utilities

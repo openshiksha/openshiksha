@@ -26,7 +26,21 @@ export function initErrorReporting(): void {
         dsn: dsn(),
         environment: import.meta.env.VITE_ENV || import.meta.env.MODE,
         tracesSampleRate: 0,
-        sendDefaultPii: false,
+        // Sentry 11 removed `sendDefaultPii` and replaced it with `dataCollection`,
+        // whose sub-options each default to **true**. Omitting this block would
+        // therefore silently invert the old `sendDefaultPii: false` posture and
+        // start shipping user info, cookies, headers and query params. These are
+        // the categories reachable from a browser SDK, turned off explicitly so a
+        // future default change cannot opt us back in. The remaining
+        // `dataCollection` keys (httpBodies, graphQL, genAI, databaseQueryData,
+        // queues) describe server-side instrumentation this SDK never performs.
+        dataCollection: {
+          userInfo: false,
+          cookies: false,
+          httpHeaders: false,
+          urlQueryParams: false,
+          stackFrameVariables: false,
+        },
       });
     })
     .catch(() => {

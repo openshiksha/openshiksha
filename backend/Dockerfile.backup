@@ -19,10 +19,26 @@ FROM postgres:18-alpine
 RUN apk add --no-cache bash ca-certificates curl
 
 # Pinned mc release for reproducible builds (a moving "latest" would make the
-# image non-deterministic). Verify the binary runs before baking it in.
-ARG MC_VERSION=RELEASE.2025-04-08T15-39-49Z
-RUN curl -fsSL "https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MC_VERSION}" \
+# image non-deterministic).
+#
+# Fetched from GitHub releases, NOT dl.min.io: MinIO withdrew that distribution
+# path, and both the pinned archive URL and the unpinned
+# `.../client/mc/release/linux-amd64/mc` now return HTTP 410 Gone. That broke
+# this build (`curl: (22) ... error: 410`), which failed the `backup` matrix leg
+# and so skipped BOTH deploy jobs — every qa push from 2026-09-06 onward stopped
+# reaching the cluster. A version bump alone could not fix it; the source had to
+# change. RELEASE.2025-08-13T08-35-41Z is the last release MinIO published.
+#
+# MC_SHA256 is the digest from that release's published `.sha256sum` asset,
+# hardcoded rather than fetched so the build fails closed if the artifact ever
+# changes underneath the tag. Verified before the binary is made executable or
+# run. `mc.linux-amd64` is a statically linked ELF, so it needs no glibc here.
+ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
+ARG MC_SHA256=01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891
+RUN curl -fsSL \
+        "https://github.com/minio/mc/releases/download/${MC_VERSION}/mc.linux-amd64.${MC_VERSION}" \
         -o /usr/local/bin/mc \
+    && echo "${MC_SHA256}  /usr/local/bin/mc" | sha256sum -c - \
     && chmod +x /usr/local/bin/mc \
     && mc --version
 

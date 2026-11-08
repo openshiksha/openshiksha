@@ -29,7 +29,11 @@ export const LanguageSwitcher = ({ className = '' }: { className?: string }) => 
           lang={meta.htmlLang}
           onClick={() => setLocale(meta.code)}
           aria-pressed={locale === meta.code}
-          aria-label={t('common.languageSwitchTo', { language: meta.nativeName })}
+          // WCAG 2.5.3 (Label in Name): the accessible name must contain the visible
+          // text, so a speech-input user can say "click EN". Lead with the visible
+          // label and keep the localized description after it (axe-core 4.14
+          // enforces this as `label-content-name-mismatch`).
+          aria-label={`${meta.label}, ${t('common.languageSwitchTo', { language: meta.nativeName })}`}
           className={segment(locale === meta.code)}
         >
           {meta.label}

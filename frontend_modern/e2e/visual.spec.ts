@@ -20,6 +20,15 @@ import { test, expect } from '@playwright/test';
 // layout regressions.
 const DIFF_TOLERANCE = { maxDiffPixelRatio: 0.02 };
 
+// Entrance animations (`animate-fade-up` on the auth card, 0.6s) race the
+// screenshot. `toBeVisible()` passes at opacity 0, and if the card re-renders
+// after Playwright has fast-forwarded the page's animations, its animation
+// starts over and gets captured mid-fade (seen on /login mobile: faded and
+// ~7px low, a different frame on each retry). Switching motion off removes
+// the race outright. Every keyframe here ends at the element's resting style
+// (opacity 1, no transform), so the result is the same frame the baselines hold.
+const NO_MOTION = '*, *::before, *::after { animation: none !important; transition: none !important; }';
+
 const DESKTOP = { width: 1280, height: 800 };
 const MOBILE = { width: 375, height: 720 };
 
@@ -61,6 +70,7 @@ test.describe('visual regression — V2 public surfaces @visual', () => {
       await page.setViewportSize(DESKTOP);
       await page.goto(surface.path);
       await expect(page.locator(surface.ready).first()).toBeVisible();
+      await page.addStyleTag({ content: NO_MOTION });
       // Let webfonts settle so character widths don't shift the layout.
       await page.evaluate(() => document.fonts.ready);
       await expect(page).toHaveScreenshot(`${surface.slug}-desktop.png`, DIFF_TOLERANCE);
@@ -70,6 +80,7 @@ test.describe('visual regression — V2 public surfaces @visual', () => {
       await page.setViewportSize(MOBILE);
       await page.goto(surface.path);
       await expect(page.locator(surface.ready).first()).toBeVisible();
+      await page.addStyleTag({ content: NO_MOTION });
       await page.evaluate(() => document.fonts.ready);
       await expect(page).toHaveScreenshot(`${surface.slug}-mobile.png`, DIFF_TOLERANCE);
     });

@@ -181,7 +181,7 @@ export default defineConfig(async ({ mode }) => ({
           if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) {
             return 'vendor-query';
           }
-          if (/[\\/]node_modules[\\/](katex|react-katex)[\\/]/.test(id)) {
+          if (/[\\/]node_modules[\\/]katex[\\/]/.test(id)) {
             return 'vendor-katex';
           }
           if (/[\\/]node_modules[\\/]dompurify[\\/]/.test(id)) {

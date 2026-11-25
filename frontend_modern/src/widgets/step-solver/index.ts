@@ -536,7 +536,7 @@ export const render = (ctx: WidgetContext): void => {
     ctx.reportValue(answer);
   }
 
-  function addRow(): void {
+  function addRow(focus = false): void {
     if (lines.length - 1 >= maxLines) return;
     const idx = lines.length; // this row's lines index
     lines.push('');
@@ -594,7 +594,11 @@ export const render = (ctx: WidgetContext): void => {
       commitStep(idx);
     });
 
-    input.focus();
+    // Only on a student action (the + Add step click). Focusing at mount runs
+    // with no user activation, which browsers block in this sandboxed iframe
+    // (`focus-without-user-activation`), and it would pull keystrokes away
+    // from wherever the student is typing on the host page.
+    if (focus) input.focus();
   }
 
   const addBtn = document.createElement('button');
@@ -608,7 +612,7 @@ export const render = (ctx: WidgetContext): void => {
     addBtn.disabled = lines.length - 1 >= maxLines || lastIsEmpty;
   }
   addBtn.addEventListener('click', () => {
-    addRow();
+    addRow(true);
     updateAddButton();
   });
 
@@ -617,7 +621,7 @@ export const render = (ctx: WidgetContext): void => {
   hint.textContent = 'Rewrite the line above, one step per line. ✓ means it still matches.';
   root.appendChild(hint);
 
-  // Start with one empty step ready to type. No reportValue at mount — the
+  // Start with one empty step ready to type (unfocused; see addRow). No reportValue at mount — the
   // answer stays empty until the student actually writes a step (like number-line).
   addRow();
   updateAddButton();
